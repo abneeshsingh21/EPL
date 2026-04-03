@@ -218,6 +218,7 @@ Say greet("Abneesh")
                 // 2. Install required Pyodide packages
                 await pyodide.loadPackage("micropip");
                 await pyodide.loadPackage("sqlite3");
+                await pyodide.loadPackage("ssl");
                 const micropip = pyodide.pyimport("micropip");
                 
                 printToTerminal("> Installing EPL compiler backend from PyPI...", "system");
