@@ -215,8 +215,9 @@ Say greet("Abneesh")
                 // 1. Load Pyodide (Python WASM environment)
                 pyodide = await loadPyodide();
                 
-                // 2. Install 'micropip' to install PyPI packages
+                // 2. Install required Pyodide packages
                 await pyodide.loadPackage("micropip");
+                await pyodide.loadPackage("sqlite3");
                 const micropip = pyodide.pyimport("micropip");
                 
                 printToTerminal("> Installing EPL compiler backend from PyPI...", "system");
