@@ -1,0 +1,75 @@
+Note "EPL Standard Library: net — Networking"
+Note "TCP/UDP sockets, HTTP client/server, WebSocket, DNS"
+
+Note "=== TCP Client ==="
+Function tcp_open takes host and port
+    Return net_tcp_connect(host, port)
+End
+
+Function tcp_write takes conn and data
+    Return net_tcp_send(conn, data)
+End
+
+Function tcp_read takes conn
+    Return net_tcp_receive(conn)
+End
+
+Function tcp_read_line takes conn
+    Return net_tcp_receive_line(conn)
+End
+
+Function tcp_disconnect takes conn
+    Return net_tcp_close(conn)
+End
+
+Note "=== UDP ==="
+Function udp_open takes nothing
+    Return net_udp_socket()
+End
+
+Function udp_bind_port takes sock and port
+    Return net_udp_bind(sock, port)
+End
+
+Function udp_send takes sock and host and port and data
+    Return net_udp_send_to(sock, host, port, data)
+End
+
+Function udp_recv takes sock
+    Return net_udp_receive_from(sock)
+End
+
+Note "=== HTTP ==="
+Function fetch takes url
+    Return http_get(url)
+End
+
+Function post_json takes url and data
+    Return http_post(url, data)
+End
+
+Note "=== HTTP Server ==="
+Function create_server takes port
+    Return net_http_server(port)
+End
+
+Function add_route takes server and method and path and handler
+    Return net_http_server_route(server, method, path, handler)
+End
+
+Function start_server takes server
+    Return net_http_server_start(server)
+End
+
+Function stop_server takes server
+    Return net_http_server_stop(server)
+End
+
+Note "=== DNS ==="
+Function lookup takes host
+    Return dns_lookup(host)
+End
+
+Function port_open takes host and port
+    Return is_port_open(host, port)
+End

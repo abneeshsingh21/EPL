@@ -1,0 +1,104 @@
+Note: EPL Standard Library — Testing Module
+Note: Import "testing" to use enhanced test utilities.
+
+Note: ─── Test State ──────────────────────────────────────
+Create _test_passed equal to 0
+Create _test_failed equal to 0
+Create _test_errors equal to []
+
+Note: ─── Test Functions ──────────────────────────────────
+
+Define Function test Takes name, test_fn
+    Try
+        Call test_fn
+        Set _test_passed to _test_passed + 1
+        Print "  PASS: " + name
+    Catch error
+        Set _test_failed to _test_failed + 1
+        Add name + ": " + to_text(error) to _test_errors
+        Print "  FAIL: " + name + " -> " + to_text(error)
+    End
+End
+
+Define Function expect_equal Takes actual, expected, message
+    If actual != expected Then
+        Throw "Expected " + to_text(expected) + " but got " + to_text(actual) + ". " + message
+    End
+End
+
+Define Function expect_true Takes value, message
+    If value != True Then
+        Throw "Expected True but got " + to_text(value) + ". " + message
+    End
+End
+
+Define Function expect_false Takes value, message
+    If value != False Then
+        Throw "Expected False but got " + to_text(value) + ". " + message
+    End
+End
+
+Define Function expect_nothing Takes value, message
+    If value != Nothing Then
+        Throw "Expected Nothing but got " + to_text(value) + ". " + message
+    End
+End
+
+Define Function expect_error Takes test_fn, message
+    Try
+        Call test_fn
+        Throw "Expected an error but none was thrown. " + message
+    Catch error
+        Note: Error thrown as expected — pass
+    End
+End
+
+Define Function expect_contains Takes haystack, needle, message
+    If Not haystack.contains(needle) Then
+        Throw "Expected to contain " + to_text(needle) + ". " + message
+    End
+End
+
+Define Function expect_length Takes collection, expected_len, message
+    Create actual_len equal to length(collection)
+    If actual_len != expected_len Then
+        Throw "Expected length " + to_text(expected_len) + " but got " + to_text(actual_len) + ". " + message
+    End
+End
+
+Define Function expect_type Takes value, expected_type, message
+    Create actual_type equal to type_of(value)
+    If actual_type != expected_type Then
+        Throw "Expected type " + expected_type + " but got " + actual_type + ". " + message
+    End
+End
+
+Define Function expect_greater Takes actual, threshold, message
+    If actual <= threshold Then
+        Throw "Expected " + to_text(actual) + " > " + to_text(threshold) + ". " + message
+    End
+End
+
+Define Function expect_less Takes actual, threshold, message
+    If actual >= threshold Then
+        Throw "Expected " + to_text(actual) + " < " + to_text(threshold) + ". " + message
+    End
+End
+
+Note: ─── Test Summary ────────────────────────────────────
+
+Define Function test_summary
+    Print ""
+    Print "=== Test Results ==="
+    Print "  Tests: " + to_text(_test_passed) + " passed, " + to_text(_test_failed) + " failed"
+    If _test_failed == 0 Then
+        Print "  All tests passed!"
+    Otherwise
+        Print "  FAILURES:"
+        For Each err In _test_errors
+            Print "    - " + err
+        End
+    End
+    Print "===================="
+    Return _test_failed == 0
+End

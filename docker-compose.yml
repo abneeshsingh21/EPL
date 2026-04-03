@@ -1,0 +1,39 @@
+# EPL Docker Compose — Example configurations
+# Usage: docker-compose up web
+
+version: "3.9"
+
+services:
+  # Run an EPL program
+  run:
+    build: .
+    command: ["run", "/code/app.epl"]
+    volumes:
+      - ./:/code
+
+  # Start EPL REPL
+  repl:
+    build: .
+    command: ["repl"]
+    stdin_open: true
+    tty: true
+
+  # Serve an EPL web app
+  web:
+    build: .
+    command: ["serve", "/code/examples/portfolio.epl"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/code
+    restart: unless-stopped
+
+  # Run the TODO API
+  api:
+    build: .
+    command: ["run", "/code/examples/apps/rest_api_jwt.epl"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./:/code
+    restart: unless-stopped

@@ -1,0 +1,73 @@
+Note: ─── Enums & Match/When in EPL ───
+
+Note: Define an enum for colors
+Enum Color as RED, GREEN, BLUE
+
+Note: Access enum values (returns index: 0, 1, 2)
+Print Color.RED
+Print Color.GREEN
+Print Color.BLUE
+
+Note: Store an enum value in a variable
+favorite = Color.BLUE
+Print favorite
+
+Note: ─── Match/When with Enums ───
+status = Color.GREEN
+
+Match status
+  When 0
+    Print "Red light — Stop!"
+  When 1
+    Print "Green light — Go!"
+  When 2
+    Print "Blue sky — Relax!"
+End
+
+Note: ─── Match/When with Strings ───
+day = "Monday"
+
+Match day
+  When "Monday"
+    Print "Start of the week"
+  When "Friday"
+    Print "Almost weekend!"
+  When "Saturday"
+    Print "Weekend!"
+  Default
+    Print "Just another day"
+End
+
+Note: ─── Match/When with Numbers ───
+score = 85
+
+Match score
+  When 100
+    Print "Perfect!"
+  When 90
+    Print "Excellent"
+  When 85
+    Print "Great job"
+  Default
+    Print "Keep trying"
+End
+
+Note: ─── Enum for Days ───
+Enum Day as MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+
+Print Day.MONDAY
+Print Day.FRIDAY
+Print Day.SUNDAY
+
+Note: ─── Enum for Status Codes ───
+Enum Status as OK, ERROR, PENDING, TIMEOUT
+
+current = Status.PENDING
+
+If current == Status.PENDING then
+  Print "Still waiting..."
+End
+
+If current == Status.OK then
+  Print "All good!"
+End

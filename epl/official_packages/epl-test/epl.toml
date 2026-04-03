@@ -1,0 +1,9 @@
+[project]
+name = "epl-test"
+version = "7.0.0"
+description = "Supported EPL testing facade package"
+author = "EPL Team"
+entry = "src/main.epl"
+
+[scripts]
+example = "epl run examples/basic.epl"

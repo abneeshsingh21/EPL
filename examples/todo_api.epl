@@ -1,0 +1,37 @@
+Note: EPL Todo REST API
+Note: A complete REST API with database backend
+Note: Run with: python main.py examples/todo_api.epl
+
+Note: Setup database
+db = real_db_connect("todo.db")
+real_db_execute(db, "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, completed INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+
+Note: Create API app
+app = web_api_create("Todo API")
+
+Note: Helper - get all todos
+Define Function get_todos
+    rows = real_db_query(db, "SELECT * FROM todos ORDER BY id DESC")
+    Return rows
+End
+
+Note: Helper - create a todo
+Define Function create_todo
+    data = web_request_data()
+    title = data.title
+    Return Map with message = "Todo created" and title = title
+End
+
+Note: Register routes
+web_get(app, "/api/todos", get_todos)
+web_post(app, "/api/todos", create_todo)
+
+Note: Enable CORS for frontend access
+web_set_cors(app, "*")
+
+Note: Start server
+Print "Todo API ready! Endpoints:"
+Print "  GET  /api/todos   - List all todos"
+Print "  POST /api/todos   - Create a todo"
+Print ""
+web_start(app, 5000, "127.0.0.1")

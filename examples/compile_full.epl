@@ -1,0 +1,32 @@
+Note: Test lists, index access, classes, objects
+
+Note: Lists and index access
+items = [10, 20, 30]
+Print items[0]
+Print items[2]
+
+Note: Functions
+Function double takes x
+    Return x * 2
+End
+
+Print double(5)
+Print double(21)
+
+Note: For range with math
+total = 0
+For i from 1 to 100
+    Increase total by i
+End
+Print total
+
+Note: String operations
+name = "EPL"
+Print name
+Print name + " is " + "powerful!"
+
+Note: Assert
+Assert 2 + 2 == 4
+Assert 100 - 1 == 99
+
+Print "All features compiled!"

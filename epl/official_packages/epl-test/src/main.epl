@@ -1,0 +1,60 @@
+Comment "Supported EPL testing facade package"
+
+Create _test_passed equal to 0
+Create _test_failed equal to 0
+Create _test_errors equal to []
+
+Define Function test Takes name, test_fn
+    Try
+        Call test_fn
+        Set _test_passed to _test_passed + 1
+        Print "  PASS: " + name
+    Catch error
+        Set _test_failed to _test_failed + 1
+        Add name + ": " + to_text(error) to _test_errors
+        Print "  FAIL: " + name + " -> " + to_text(error)
+    End
+End
+
+Define Function expect_equal Takes actual, expected, message
+    If actual != expected Then
+        Throw "Expected " + to_text(expected) + " but got " + to_text(actual) + ". " + message
+    End
+End
+
+Define Function expect_true Takes value, message
+    If value != True Then
+        Throw "Expected True but got " + to_text(value) + ". " + message
+    End
+End
+
+Define Function expect_false Takes value, message
+    If value != False Then
+        Throw "Expected False but got " + to_text(value) + ". " + message
+    End
+End
+
+Define Function expect_error Takes test_fn, message
+    Try
+        Call test_fn
+        Throw "Expected an error but none was thrown. " + message
+    Catch error
+        Note: Error thrown as expected
+    End
+End
+
+Define Function test_summary
+    Print ""
+    Print "=== Test Results ==="
+    Print "  Tests: " + to_text(_test_passed) + " passed, " + to_text(_test_failed) + " failed"
+    If _test_failed == 0 Then
+        Print "  All tests passed!"
+    Otherwise
+        Print "  FAILURES:"
+        For Each err In _test_errors
+            Print "    - " + err
+        End
+    End
+    Print "===================="
+    Return _test_failed == 0
+End

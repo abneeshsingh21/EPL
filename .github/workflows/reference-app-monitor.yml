@@ -1,0 +1,27 @@
+name: Reference App Monitor
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run deployed reference app monitoring
+        env:
+          EPL_REFERENCE_BACKEND_URL: ${{ secrets.EPL_REFERENCE_BACKEND_URL }}
+          EPL_REFERENCE_FULLSTACK_URL: ${{ secrets.EPL_REFERENCE_FULLSTACK_URL }}
+        run: |
+          python scripts/monitor_reference_apps.py \
+            --backend-url "${EPL_REFERENCE_BACKEND_URL}" \
+            --fullstack-url "${EPL_REFERENCE_FULLSTACK_URL}" \
+            --json

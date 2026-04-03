@@ -1,0 +1,25 @@
+NoteBlock
+  EPL Self-Hosted Collection Tests
+  Tests lists and dictionary operations
+End
+
+numbers = [10, 20, 30, 40, 50]
+Assert length(numbers) == 5
+Assert numbers[0] == 10
+Assert numbers[4] == 50
+
+mixed = [1, "two", true, 4.5]
+Assert length(mixed) == 4
+Assert mixed[1] == "two"
+
+empty_list = []
+Assert length(empty_list) == 0
+
+nested = [[1, 2], [3, 4]]
+Assert length(nested) == 2
+
+single = [42]
+Assert length(single) == 1
+Assert single[0] == 42
+
+Say "All 8 collection tests passed!"

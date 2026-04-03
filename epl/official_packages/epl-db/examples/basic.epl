@@ -1,0 +1,7 @@
+Import "epl-db"
+
+Create conn equal to open("official-demo.db")
+Call create_table(conn, "items", {"name": "text"})
+Call insert(conn, "items", {"name": "demo"})
+Print query(conn, "select * from items")
+Call close(conn)

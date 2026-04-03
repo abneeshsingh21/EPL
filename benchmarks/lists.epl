@@ -1,0 +1,9 @@
+Create items equal to [].
+For i from 1 to 500
+    Add i to items
+End For
+Create total equal to 0.
+For each item in items
+    Set total to total + item.
+End for
+Print total.

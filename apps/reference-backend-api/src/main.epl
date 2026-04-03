@@ -1,0 +1,29 @@
+Note: Reference EPL backend API application.
+Note: The test suite serves this WebApp and exercises the HTTP routes directly.
+
+db = db_open(":memory:")
+db_create_table(db, "todos", Map with id = "INTEGER" and title = "TEXT" and completed = "INTEGER")
+db_execute(db, "INSERT INTO todos (id, title, completed) VALUES (1, 'Ship EPL', 0)")
+db_execute(db, "INSERT INTO todos (id, title, completed) VALUES (2, 'Write release notes', 1)")
+
+Create WebApp called backendApi
+
+Define Function health
+    Return Map with status = "ok" and service = "reference-backend-api"
+End
+
+Define Function list_todos
+    Return db_query(db, "SELECT id, title, completed FROM todos ORDER BY id")
+End
+
+Define Function create_todo
+    Return Map with accepted = true and message = "create handled by reference app"
+End
+
+Route "/api/health" responds with
+    Send json health()
+End
+
+Route "/api/todos" responds with
+    Send json list_todos()
+End

@@ -1,0 +1,15 @@
+Note: File I/O
+
+Note: Write to a file
+Write "Hello from EPL!" to file "output.txt"
+Print "Wrote to output.txt"
+
+Note: Append to the file
+Append "This is line 2" to file "output.txt"
+Append "This is line 3" to file "output.txt"
+Print "Appended 2 lines"
+
+Note: Read the file
+content = Read file "output.txt"
+Print "File contents:"
+Print content

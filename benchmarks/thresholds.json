@@ -1,0 +1,20 @@
+{
+  "tolerance_percent": 20,
+  "benchmarks": {
+    "fibonacci.epl": {
+      "max_best_seconds": 0.25
+    },
+    "strings.epl": {
+      "max_best_seconds": 0.25
+    },
+    "lists.epl": {
+      "max_best_seconds": 0.15
+    },
+    "recursion.epl": {
+      "max_best_seconds": 0.05
+    },
+    "oop.epl": {
+      "max_best_seconds": 0.75
+    }
+  }
+}

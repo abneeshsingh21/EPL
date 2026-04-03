@@ -1,0 +1,71 @@
+Note: EPL Standard Library — IO Module
+Note: Import "io" to use file and console I/O utilities.
+
+Note: ─── File Helpers ────────────────────────────────────
+
+Define Function read_whole_file Takes path
+    Return file_read(path)
+End
+
+Define Function write_whole_file Takes path, content
+    file_write(path, content)
+End
+
+Define Function append_to_file Takes path, content
+    file_append(path, content)
+End
+
+Define Function file_lines Takes path
+    Create content equal to file_read(path)
+    Return content.split("\n")
+End
+
+Define Function write_lines Takes path, lines
+    Create content equal to lines.join("\n")
+    file_write(path, content)
+End
+
+Note: ─── Path Helpers ────────────────────────────────────
+
+Define Function get_file_name Takes path
+    Create parts equal to path.split("/")
+    If length(parts) == 0 Then
+        Return path
+    End
+    Return parts[length(parts) - 1]
+End
+
+Define Function get_extension Takes path
+    Create name equal to get_file_name(path)
+    Create parts equal to name.split(".")
+    If length(parts) < 2 Then
+        Return ""
+    End
+    Return parts[length(parts) - 1]
+End
+
+Define Function get_stem Takes path
+    Create name equal to get_file_name(path)
+    Create parts equal to name.split(".")
+    If length(parts) < 2 Then
+        Return name
+    End
+    Return parts[0]
+End
+
+Note: ─── Console Helpers ─────────────────────────────────
+
+Define Function print_line Takes msg
+    Print msg
+End
+
+Define Function print_lines Takes items
+    For Each item In items
+        Print item
+    End
+End
+
+Note: Note: For user input, use the Input statement directly:
+Note:   Input name With Prompt "Enter your name: "
+Note:   Input age With Prompt "Enter your age: "
+Note: Input is a statement in EPL and cannot be wrapped in a function.

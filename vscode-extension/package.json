@@ -1,0 +1,132 @@
+{
+  "name": "epl-lang",
+  "displayName": "EPL — English Programming Language",
+  "description": "Syntax highlighting, real-time diagnostics, auto-completions, hover docs and run/check commands for EPL (.epl files)",
+  "version": "1.0.0",
+  "publisher": "epl-lang",
+  "license": "MIT",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#0f172a",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/epl-lang/epl"
+  },
+  "homepage": "https://github.com/epl-lang/epl#readme",
+  "bugs": {
+    "url": "https://github.com/epl-lang/epl/issues"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "keywords": [
+    "epl",
+    "english",
+    "programming language",
+    "beginner",
+    "natural language",
+    "english programming",
+    "learn to code"
+  ],
+  "activationEvents": [
+    "onLanguage:epl"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "epl",
+        "aliases": [
+          "EPL",
+          "English Programming Language",
+          "epl"
+        ],
+        "extensions": [
+          ".epl"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "epl",
+        "scopeName": "source.epl",
+        "path": "./syntaxes/epl.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "epl.run",
+        "title": "EPL: Run Current File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "epl.check",
+        "title": "EPL: Type Check Current File",
+        "icon": "$(check)"
+      },
+      {
+        "command": "epl.format",
+        "title": "EPL: Format Current File",
+        "icon": "$(edit)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "epl.run",
+          "when": "editorLangId == epl",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "epl.run",
+        "key": "ctrl+shift+r",
+        "when": "editorLangId == epl"
+      },
+      {
+        "command": "epl.check",
+        "key": "ctrl+shift+k",
+        "when": "editorLangId == epl"
+      }
+    ],
+    "configuration": {
+      "title": "EPL",
+      "properties": {
+        "epl.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the EPL Language Server for real-time diagnostics and completions"
+        },
+        "epl.lsp.path": {
+          "type": "string",
+          "default": "epl",
+          "description": "Path to the epl CLI binary (default: 'epl', assumes it's on PATH via pip install eplang)"
+        },
+        "epl.strictMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable strict type checking (same as epl check --strict)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "echo ready",
+    "package": "npx @vscode/vsce package --no-dependencies",
+    "publish": "npx @vscode/vsce publish --no-dependencies"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.32.0",
+    "vscode-languageclient": "^9.0.1"
+  }
+}

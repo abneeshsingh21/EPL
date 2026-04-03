@@ -1,0 +1,39 @@
+Note: Reference EPL fullstack web application.
+Note: It combines a server-rendered page, login-style API, and SQLite-backed data.
+
+db = db_open(":memory:")
+db_create_table(db, "notes", Map with id = "INTEGER" and title = "TEXT")
+db_execute(db, "INSERT INTO notes (id, title) VALUES (1, 'Design reference app')")
+db_execute(db, "INSERT INTO notes (id, title) VALUES (2, 'Wire CI smoke tests')")
+
+Create WebApp called fullstackApp
+
+Define Function home_page
+    Return "home"
+End
+
+Define Function login_page
+    Return Map with user = "alice" and token = "reference-session"
+End
+
+Define Function notes_api
+    Return Map with user = "alice" and notes = db_query(db, "SELECT id, title FROM notes ORDER BY id")
+End
+
+Route "/" shows
+    Page "EPL Reference Fullstack"
+        Heading "EPL Reference Fullstack"
+        Text "Server-rendered page"
+        Text "Use /api/login and /api/notes for app data."
+        Link "Login API" to "/api/login"
+        Link "Notes API" to "/api/notes"
+    End
+End
+
+Route "/api/login" responds with
+    Send json login_page()
+End
+
+Route "/api/notes" responds with
+    Send json notes_api()
+End

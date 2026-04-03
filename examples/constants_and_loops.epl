@@ -1,0 +1,77 @@
+Note: ─── Constants, Augmented Assignment & Step Loops ───
+
+Note: ─── Constants ───
+Constant PI = 3.14159
+Constant MAX_SIZE = 100
+Constant GREETING = "Hello, EPL!"
+
+Print PI
+Print MAX_SIZE
+Print GREETING
+
+Note: Constants cannot be reassigned (would throw an error)
+Note: Set PI to 3.0  <-- This would fail!
+
+Note: ─── Augmented Assignment ───
+x = 10
+Print x
+
+x += 5
+Print x
+
+x -= 3
+Print x
+
+x *= 2
+Print x
+
+x /= 4
+Print x
+
+x %= 3
+Print x
+
+Note: ─── Augmented with Strings ───
+message = "Hello"
+message += " World"
+Print message
+
+Note: ─── Augmented with Lists ───
+items = [1, 2]
+items.add(3)
+Print items
+
+Note: ─── For Loop with Step ───
+Print "Count by 2:"
+For i from 0 to 10 step 2
+  Print i
+End
+
+Print "Count by 3:"
+For i from 0 to 15 step 3
+  Print i
+End
+
+Note: ─── Countdown (Negative Step) ───
+Print "Countdown:"
+For i from 10 to 1 step -1
+  Print i
+End
+Print "Liftoff!"
+
+Note: ─── Break & Continue ───
+Print "Skip multiples of 3:"
+For i from 1 to 10
+  If i % 3 == 0 then
+    Continue
+  End
+  Print i
+End
+
+Print "Stop at 5:"
+For i from 1 to 10
+  If i > 5 then
+    Break
+  End
+  Print i
+End

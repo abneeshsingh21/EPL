@@ -1,0 +1,46 @@
+name: Good First Issue
+description: Easy task suitable for first-time contributors.
+title: "[Good First Issue]: "
+labels: ["good first issue", "help wanted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        👋 Welcome! This template is for maintainers creating tasks for new contributors.
+
+  - type: textarea
+    id: task
+    attributes:
+      label: "Task description"
+      description: "What needs to be done? Be very specific."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Context / background"
+      description: "Any helpful links or files to look at."
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to implement"
+      description: "A numbered list of what the contributor should do."
+      placeholder: |
+        1. Open epl/stdlib.py
+        2. Find the string builtins section
+        3. Add a `title_case(s)` function
+        4. Add a test in tests/test_epl.py
+        5. Submit a PR
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: "Estimated difficulty"
+      options:
+        - "⭐ Trivial (< 30 min)"
+        - "⭐⭐ Easy (< 2 hours)"
+        - "⭐⭐⭐ Medium (< 1 day)"
+    validations:
+      required: true

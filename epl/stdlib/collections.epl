@@ -1,0 +1,189 @@
+Note: EPL Standard Library — Collections Module
+Note: Import "collections" to use these functions.
+
+Note: ─── List Operations ─────────────────────────────────
+
+Define Function flatten Takes nested_list
+    Create result equal to []
+    For Each item In nested_list
+        If type_of(item) == "list" Then
+            Create sub equal to flatten(item)
+            For Each sub_item In sub
+                Add sub_item to result
+            End
+        Otherwise
+            Add item to result
+        End
+    End
+    Return result
+End
+
+Define Function chunk Takes items, size
+    Create result equal to []
+    Create current equal to []
+    Create count equal to 0
+    For Each item In items
+        Add item to current
+        Increase count by 1
+        If count >= size Then
+            Add current to result
+            Set current to []
+            Set count to 0
+        End
+    End
+    If length(current) > 0 Then
+        Add current to result
+    End
+    Return result
+End
+
+Define Function unique Takes items
+    Create seen equal to []
+    Create result equal to []
+    For Each item In items
+        If Not seen.contains(item) Then
+            Add item to seen
+            Add item to result
+        End
+    End
+    Return result
+End
+
+Define Function count_items Takes items, target
+    Create count equal to 0
+    For Each item In items
+        If item == target Then
+            Increase count by 1
+        End
+    End
+    Return count
+End
+
+Define Function zip_two Takes list_a, list_b
+    Create result equal to []
+    Create sz equal to min(length(list_a), length(list_b))
+    For i from 0 to sz - 1
+        Add [list_a[i], list_b[i]] to result
+    End
+    Return result
+End
+
+Define Function take Takes items, n
+    Create result equal to []
+    Create count equal to 0
+    For Each item In items
+        If count >= n Then
+            Return result
+        End
+        Add item to result
+        Increase count by 1
+    End
+    Return result
+End
+
+Define Function drop Takes items, n
+    Create result equal to []
+    Create index equal to 0
+    For Each item In items
+        If index >= n Then
+            Add item to result
+        End
+        Increase index by 1
+    End
+    Return result
+End
+
+Define Function find_index Takes items, target
+    Create index equal to 0
+    For Each item In items
+        If item == target Then
+            Return index
+        End
+        Increase index by 1
+    End
+    Return -1
+End
+
+Define Function every Takes items, predicate
+    For Each item In items
+        If Not Call predicate With item Then
+            Return False
+        End
+    End
+    Return True
+End
+
+Define Function some Takes items, predicate
+    For Each item In items
+        If Call predicate With item Then
+            Return True
+        End
+    End
+    Return False
+End
+
+Note: ─── Map/Dict Operations ─────────────────────────────
+
+Define Function dict_keys Takes dictionary
+    Return keys(dictionary)
+End
+
+Define Function dict_values Takes dictionary
+    Return values(dictionary)
+End
+
+Define Function dict_merge Takes dict_a, dict_b
+    Return dict_a.merge(dict_b)
+End
+
+Note: ─── Stack (LIFO) ───────────────────────────────────
+
+Define Function stack_new
+    Return []
+End
+
+Define Function stack_push Takes stack, item
+    Add item to stack
+    Return stack
+End
+
+Define Function stack_pop Takes stack
+    If length(stack) == 0 Then
+        Return Nothing
+    End
+    Return stack.pop()
+End
+
+Define Function stack_peek Takes stack
+    If length(stack) == 0 Then
+        Return Nothing
+    End
+    Return stack[length(stack) - 1]
+End
+
+Note: ─── Queue (FIFO) ───────────────────────────────────
+
+Define Function queue_new
+    Return []
+End
+
+Define Function queue_enqueue Takes queue, item
+    Add item to queue
+    Return queue
+End
+
+Define Function queue_dequeue Takes queue
+    If length(queue) == 0 Then
+        Return Nothing
+    End
+    Create first_item equal to queue[0]
+    queue.remove(queue[0])
+    Return first_item
+End
+
+Define Function queue_peek Takes queue
+    If length(queue) == 0 Then
+        Return Nothing
+    End
+    Return queue[0]
+End

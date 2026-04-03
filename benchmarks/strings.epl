@@ -1,0 +1,6 @@
+Create msg equal to "Hello World"
+Create result equal to ""
+For i from 1 to 1000
+    Set result to result + msg
+End For
+Print length(result).

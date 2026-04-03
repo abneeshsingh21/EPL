@@ -1,0 +1,41 @@
+Comment "EPL API Helpers Module — pagination, validation, standard responses"
+
+Comment "── Pagination ──"
+
+Function paginate with items, page, per_page
+    Return Call api_paginate with [items, page, per_page]
+End Function
+
+Comment "── Validation ──"
+
+Function validate with data, schema
+    Return Call api_validate with [data, schema]
+End Function
+
+Comment "── Standard Responses ──"
+
+Function error_response with message, status
+    Return Call api_error with [message, status]
+End Function
+
+Function success_response with data, message
+    Return Call api_success with [data, message]
+End Function
+
+Function custom_response with data, status, headers
+    Return Call api_response with [data, status, headers]
+End Function
+
+Comment "── Utilities ──"
+
+Function parse_query with query_string
+    Return Call api_parse_query with [query_string]
+End Function
+
+Function set_version with app_id, version
+    Return Call api_version with [app_id, version]
+End Function
+
+Function link_header with url, page, per_page, total
+    Return Call api_link_header with [url, page, per_page, total]
+End Function

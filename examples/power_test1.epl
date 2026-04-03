@@ -1,0 +1,87 @@
+Note: ═══════════════════════════════════
+Note: EPL Power Test 1: Algorithms
+Note: ═══════════════════════════════════
+
+Note: Fibonacci sequence
+Function fibonacci takes n
+    If n < 2 then
+        Return n
+    End
+    Return fibonacci(n - 1) + fibonacci(n - 2)
+End
+
+Print "Fibonacci:"
+For i from 0 to 10
+    Print fibonacci(i)
+End
+
+Note: ─────────────────────────────────
+
+Note: Prime number checker
+Function isPrime takes n
+    If n < 2 then
+        Return 0
+    End
+    i = 2
+    While i * i < n + 1
+        If n % i == 0 then
+            Return 0
+        End
+        i = i + 1
+    End
+    Return 1
+End
+
+Print "Primes up to 50:"
+For num from 2 to 50
+    If isPrime(num) == 1 then
+        Print num
+    End
+End
+
+Note: ─────────────────────────────────
+
+Note: Power function (x^n)
+Function power takes base, exp
+    If exp == 0 then
+        Return 1
+    End
+    Return base * power(base, exp - 1)
+End
+
+Print "Powers of 2:"
+For i from 0 to 10
+    Print power(2, i)
+End
+
+Note: ─────────────────────────────────
+
+Note: GCD (Euclidean algorithm)
+Function gcd takes a, b
+    If b == 0 then
+        Return a
+    End
+    Return gcd(b, a % b)
+End
+
+Print "GCD(48, 18) = "
+Print gcd(48, 18)
+Print "GCD(100, 75) = "
+Print gcd(100, 75)
+
+Note: ─────────────────────────────────
+
+Note: Factorial with accumulator
+Function factorial takes n
+    If n < 2 then
+        Return 1
+    End
+    Return n * factorial(n - 1)
+End
+
+Print "Factorials:"
+For i from 1 to 12
+    Print factorial(i)
+End
+
+Print "done"

@@ -1,0 +1,90 @@
+{
+  "name": "EPL Standard Library",
+  "version": "5.4.0",
+  "modules": {
+    "math": {
+      "description": "Full math library — trig, hyperbolic, logarithms, statistics, combinatorics, constants",
+      "file": "math.epl"
+    },
+    "string": {
+      "description": "String manipulation utilities (capitalize, slug, pad, truncate, etc.)",
+      "file": "string.epl"
+    },
+    "collections": {
+      "description": "Data structures — LinkedList, PriorityQueue, Deque, OrderedMap, Set, Stack, Queue",
+      "file": "collections.epl"
+    },
+    "functional": {
+      "description": "Functional programming tools (map_list, filter_list, reduce_list, compose, pipe, etc.)",
+      "file": "functional.epl"
+    },
+    "datetime": {
+      "description": "Date/time — parsing, formatting, timezones, epoch conversion, ranges",
+      "file": "datetime.epl"
+    },
+    "crypto": {
+      "description": "Cryptography — hashing, HMAC, AES encryption, PBKDF2, secure random, UUID",
+      "file": "crypto.epl"
+    },
+    "http": {
+      "description": "HTTP client helpers (http_fetch, http_send, parse_json, encode_url, etc.)",
+      "file": "http.epl"
+    },
+    "io": {
+      "description": "File I/O — read/write text & binary, walk directories, glob patterns, metadata",
+      "file": "io.epl"
+    },
+    "testing": {
+      "description": "Test framework — assertions, BDD grouping, hooks, benchmarks, skip/timeout",
+      "file": "testing.epl"
+    },
+    "net": {
+      "description": "Networking — TCP/UDP sockets, HTTP client/server, WebSocket, DNS",
+      "file": "net.epl"
+    },
+    "json": {
+      "description": "JSON — parse, stringify, pretty-print, validation, merge, dot-path queries",
+      "file": "json.epl"
+    },
+    "sql": {
+      "description": "SQLite driver — CRUD, transactions, schema info, backup, parameterized queries",
+      "file": "sql.epl"
+    },
+    "os": {
+      "description": "OS operations — env vars, processes, system info, signals",
+      "file": "os.epl"
+    },
+    "regex": {
+      "description": "Regular expressions — match, find, replace, split, compile, groups",
+      "file": "regex.epl"
+    },
+    "encoding": {
+      "description": "Encoding — Base64, Base32, URL, HTML entities, hex, binary",
+      "file": "encoding.epl"
+    },
+    "auth": {
+      "description": "Auth & JWT — password hashing, JWT tokens, API keys, Bearer/Basic auth",
+      "file": "auth.epl"
+    },
+    "websocket": {
+      "description": "WebSocket server — create, start/stop, rooms, broadcast, event handlers",
+      "file": "websocket.epl"
+    },
+    "template": {
+      "description": "Template engine — variables, loops, conditionals, filters, includes, inheritance",
+      "file": "template.epl"
+    },
+    "html": {
+      "description": "HTML builder — elements, tables, forms, lists, links, images, full pages, escaping",
+      "file": "html.epl"
+    },
+    "api": {
+      "description": "API helpers — pagination, validation, standard responses, versioning, Link headers",
+      "file": "api.epl"
+    },
+    "web": {
+      "description": "Web framework — Flask-powered routing, middleware, sessions, cookies, test client, uploads",
+      "file": "web.epl"
+    }
+  }
+}

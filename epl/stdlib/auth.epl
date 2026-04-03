@@ -1,0 +1,53 @@
+Comment "EPL Auth & JWT Module — password hashing, JWT tokens, API keys"
+
+Comment "── Password Hashing (PBKDF2-SHA256, 100k iterations) ──"
+
+Function hash_password with password
+    Return Call auth_hash_password with [password]
+End Function
+
+Function verify_password with password, hash
+    Return Call auth_verify_password with [password, hash]
+End Function
+
+Comment "── JWT Tokens (HS256) ──"
+
+Function jwt_create with payload, secret
+    Return Call auth_jwt_create with [payload, secret]
+End Function
+
+Function jwt_create_with_expiry with payload, secret, expiry_seconds
+    Return Call auth_jwt_create with [payload, secret, expiry_seconds]
+End Function
+
+Function jwt_verify with token, secret
+    Return Call auth_jwt_verify with [token, secret]
+End Function
+
+Function jwt_decode with token
+    Return Call auth_jwt_decode with [token]
+End Function
+
+Comment "── Tokens & API Keys ──"
+
+Function generate_token with length
+    Return Call auth_generate_token with [length]
+End Function
+
+Function api_key_create with prefix
+    Return Call auth_api_key_create with [prefix]
+End Function
+
+Function api_key_verify with key, stored_hash
+    Return Call auth_api_key_verify with [key, stored_hash]
+End Function
+
+Comment "── Request Auth Helpers ──"
+
+Function bearer_token
+    Return Call auth_bearer_token with []
+End Function
+
+Function basic_decode with encoded
+    Return Call auth_basic_decode with [encoded]
+End Function

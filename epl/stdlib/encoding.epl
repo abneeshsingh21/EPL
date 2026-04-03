@@ -1,0 +1,49 @@
+Note "EPL Standard Library: encoding — Base64, URL, HTML, Hex"
+
+Function to_base64 takes text
+    Return base64_encode(text)
+End
+
+Function from_base64 takes text
+    Return base64_decode(text)
+End
+
+Function to_base64_url takes text
+    Return base64_url_encode(text)
+End
+
+Function from_base64_url takes text
+    Return base64_url_decode(text)
+End
+
+Function to_base32 takes text
+    Return base32_encode(text)
+End
+
+Function from_base32 takes text
+    Return base32_decode(text)
+End
+
+Function to_hex takes text
+    Return hex_encode(text)
+End
+
+Function from_hex takes text
+    Return hex_decode(text)
+End
+
+Function to_url takes text
+    Return url_encode(text)
+End
+
+Function from_url takes text
+    Return url_decode(text)
+End
+
+Function to_html takes text
+    Return html_encode(text)
+End
+
+Function from_html takes text
+    Return html_decode(text)
+End

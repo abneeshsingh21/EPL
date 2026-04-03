@@ -1,0 +1,50 @@
+# Include essential project files
+include README.md
+include LICENSE
+include CONTRIBUTING.md
+include CHANGELOG.md
+include pyproject.toml
+
+# Include EPL source files
+recursive-include epl *.py *.epl *.json *.c *.md
+
+# Include stdlib modules
+recursive-include epl/stdlib *.epl *.json
+
+# Include official packages
+recursive-include epl/official_packages *.toml *.md *.epl
+
+# Include templates (but NOT the heavy Android gradle wrapper binaries)
+recursive-include epl/templates *.epl *.md *.xml *.gradle *.properties *.kt
+include epl/templates/android/gradlew
+include epl/templates/android/gradlew.bat
+recursive-include epl/templates/android/gradle *.jar *.properties
+
+# Include examples
+recursive-include examples *.epl *.md
+
+# Exclude compiled Python caches
+global-exclude __pycache__
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+
+# Exclude PyInstaller/frozen build artifacts (dist/epl/_internal contains PyTorch etc.)
+prune dist
+prune build
+prune .git
+prune .github
+prune docs
+prune tests
+prune vscode-extension
+prune epl/_internal
+
+# Exclude large model/binary files
+global-exclude *.exe
+global-exclude *.dll
+global-exclude *.so
+global-exclude *.dylib
+global-exclude *.whl
+global-exclude *.zip
+global-exclude *.tar.gz
+global-exclude Modelfile

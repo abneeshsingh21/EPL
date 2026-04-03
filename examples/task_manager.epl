@@ -1,0 +1,127 @@
+Note: EPL CLI Task Manager
+Note: A command-line productivity tool
+Note: Run with: python main.py examples/task_manager.epl
+
+Note: Database setup
+db = real_db_connect("tasks.db")
+real_db_execute(db, "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, priority TEXT DEFAULT 'medium', status TEXT DEFAULT 'todo', created TEXT DEFAULT CURRENT_TIMESTAMP)")
+
+Note: Display banner
+Define Function show_banner
+    Print ""
+    Print "=================================="
+    Print "   EPL Task Manager v1.0"
+    Print "=================================="
+    Print ""
+End
+
+Note: List all tasks
+Define Function list_tasks
+    tasks = real_db_query(db, "SELECT * FROM tasks ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, id")
+    If length(tasks) == 0 Then
+        Print "  No tasks yet! Add one with add_task()"
+        Return Nothing
+    End
+    Print ""
+    Print "  ID  | Priority | Status | Task"
+    Print "  ----|----------|--------|---------------------------"
+    For Each task In tasks
+        status_icon = "[ ]"
+        If task.status == "done" Then
+            Set status_icon to "[x]"
+        End
+        If task.status == "doing" Then
+            Set status_icon to "[~]"
+        End
+        Print "  " + to_text(task.id) + "   | " + task.priority + "     | " + status_icon + "    | " + task.title
+    End
+    Print ""
+End
+
+Note: Add a new task
+Define Function add_task Takes title, priority
+    real_db_execute(db, "INSERT INTO tasks (title, priority) VALUES (?, ?)", [title, priority])
+    Print "  Added: " + title + " [" + priority + "]"
+End
+
+Note: Complete a task
+Define Function complete_task Takes task_id
+    real_db_execute(db, "UPDATE tasks SET status = 'done' WHERE id = ?", [task_id])
+    Print "  Task " + to_text(task_id) + " marked as done!"
+End
+
+Note: Start working on a task
+Define Function start_task Takes task_id
+    real_db_execute(db, "UPDATE tasks SET status = 'doing' WHERE id = ?", [task_id])
+    Print "  Task " + to_text(task_id) + " marked as in-progress!"
+End
+
+Note: Delete a task
+Define Function delete_task Takes task_id
+    real_db_execute(db, "DELETE FROM tasks WHERE id = ?", [task_id])
+    Print "  Task " + to_text(task_id) + " deleted!"
+End
+
+Note: Show statistics
+Define Function show_stats
+    total = real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks")
+    done = real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE status = 'done'")
+    doing = real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE status = 'doing'")
+    todo = real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE status = 'todo'")
+    high = real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE priority = 'high'")
+
+    Print ""
+    Print "  === Task Statistics ==="
+    Print "  Total:         " + to_text(total.count)
+    Print "  Todo:          " + to_text(todo.count)
+    Print "  In Progress:   " + to_text(doing.count)
+    Print "  Completed:     " + to_text(done.count)
+    Print "  High Priority: " + to_text(high.count)
+    Print ""
+End
+
+Note: Show help
+Define Function show_help
+    Print ""
+    Print "  Available functions:"
+    Print "    add_task(title, priority) - Add a task"
+    Print "    start_task(id)            - Mark as in-progress"
+    Print "    complete_task(id)         - Mark as completed"
+    Print "    delete_task(id)           - Delete a task"
+    Print "    list_tasks()              - Show all tasks"
+    Print "    show_stats()              - Show statistics"
+    Print ""
+End
+
+Note: Main program
+show_banner()
+show_help()
+
+Note: Add sample tasks for demo
+existing = real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks")
+If existing.count == 0 Then
+    add_task("Learn EPL programming", "high")
+    add_task("Build a web application", "medium")
+    add_task("Write documentation", "low")
+    add_task("Set up CI/CD pipeline", "medium")
+    add_task("Review pull requests", "high")
+    Print ""
+    Print "  (Added sample tasks for demo)"
+End
+
+Print ""
+list_tasks()
+
+Note: Mark one task as in-progress and one as done
+start_task(1)
+complete_task(3)
+
+Print ""
+Print "After updates:"
+list_tasks()
+show_stats()
+
+Note: Cleanup demo database
+real_db_close(db)
+file_delete("tasks.db")
+Print "Demo complete! (Database cleaned up)"

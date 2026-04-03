@@ -1,0 +1,84 @@
+Note: ═══════════════════════════════════
+Note: EPL Power Test 2: Data Structures
+Note: ═══════════════════════════════════
+
+Note: List operations
+scores = [95, 87, 92, 78, 100, 88, 76, 91]
+
+Note: Find maximum in a list
+Function findMax takes items and size
+    max = items[0]
+    i = 1
+    While i < size
+        If items[i] > max then
+            max = items[i]
+        End
+        i = i + 1
+    End
+    Return max
+End
+
+Note: Find minimum in a list
+Function findMin takes items and size
+    min = items[0]
+    i = 1
+    While i < size
+        If items[i] < min then
+            min = items[i]
+        End
+        i = i + 1
+    End
+    Return min
+End
+
+Note: Sum all elements
+Function sumAll takes items and size
+    total = 0
+    i = 0
+    While i < size
+        Increase total by items[i]
+        i = i + 1
+    End
+    Return total
+End
+
+Print "Scores:"
+Print scores
+
+Print "Max score:"
+Print findMax(scores, 8)
+
+Print "Min score:"
+Print findMin(scores, 8)
+
+Print "Total:"
+Print sumAll(scores, 8)
+
+Note: ─────────────────────────────────
+
+Note: Nested loops - multiplication table
+Print "Multiplication Table (1-5):"
+For i from 1 to 5
+    For j from 1 to 5
+        Print i * j
+    End
+End
+
+Note: ─────────────────────────────────
+
+Note: String building
+result = "EPL"
+result = result + " can"
+result = result + " do"
+result = result + " anything!"
+Print result
+
+Note: Countdown with while
+count = 10
+While count > 0
+    Print count
+    count = count - 1
+End
+Print "Liftoff!"
+
+Print "All data structure tests passed!"

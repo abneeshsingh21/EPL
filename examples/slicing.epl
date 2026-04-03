@@ -1,0 +1,57 @@
+Note: ─── Slicing & Indexing in EPL ───
+
+Note: Basic list
+numbers = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+Note: ─── Index Access (0-based) ───
+Print numbers[0]
+Print numbers[4]
+Print numbers[9]
+
+Note: ─── Basic Slicing [start:end] ───
+Print numbers[1:4]
+Print numbers[0:3]
+Print numbers[5:8]
+
+Note: ─── Slice from Start ───
+Print numbers[:3]
+Print numbers[:5]
+
+Note: ─── Slice to End ───
+Print numbers[7:]
+Print numbers[3:]
+
+Note: ─── Slice with Step [start:end:step] ───
+Print numbers[0:10:2]
+Print numbers[1:10:3]
+Print numbers[::2]
+
+Note: ─── Reverse with Slice ───
+Print numbers[::-1]
+
+Note: ─── String Slicing ───
+word = "Hello, World!"
+Print word[0:5]
+Print word[7:12]
+Print word[:5]
+Print word[7:]
+Print word[::-1]
+
+Note: ─── Index Assignment ───
+colors = ["red", "green", "blue"]
+Print colors
+colors[1] = "yellow"
+Print colors
+
+Note: ─── Practical: Extract Sublists ───
+scores = [95, 87, 73, 91, 68, 82, 79, 96]
+top_half = scores[:4]
+bottom_half = scores[4:]
+Print top_half
+Print bottom_half
+
+Note: ─── Every other element ───
+evens = scores[::2]
+odds = scores[1::2]
+Print evens
+Print odds

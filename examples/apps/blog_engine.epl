@@ -1,0 +1,137 @@
+Note: ═══════════════════════════════════════════════════════
+Note: EPL Markdown Blog Engine
+Note: A blog that reads .md files and serves them as web pages
+Note: Run: epl run examples/apps/blog_engine.epl
+Note: Open: http://localhost:3000
+Note: ═══════════════════════════════════════════════════════
+
+Create WebApp called blogApp
+
+Note: ─── Blog Configuration ──────────────────────────────
+Set BLOG_TITLE To "EPL Dev Blog"
+Set BLOG_TAGLINE To "Thoughts on programming in plain English"
+Set POSTS_DIR To "posts"
+
+Note: ─── Sample Blog Posts (created on first run) ────────
+
+Define Function setup_blog
+    If Not file_exists(POSTS_DIR) Then
+        create_directory(POSTS_DIR)
+    End
+
+    If Not file_exists(POSTS_DIR + "/hello-world.md") Then
+        Set content To "# Hello World from EPL!\n\n"
+        Set content To content + "Welcome to the EPL Blog Engine. This blog is built entirely in EPL —\n"
+        Set content To content + "the English Programming Language.\n\n"
+        Set content To content + "## What is EPL?\n\n"
+        Set content To content + "EPL is a programming language where code reads like plain English.\n"
+        Set content To content + "Instead of `print('Hello')`, you write `Say 'Hello'`.\n\n"
+        Set content To content + "## Features\n\n"
+        Set content To content + "- Simple English syntax\n"
+        Set content To content + "- LLVM compiler for native executables\n"
+        Set content To content + "- Built-in web framework\n"
+        Set content To content + "- 725+ standard library functions\n"
+        write_file(POSTS_DIR + "/hello-world.md", content)
+    End
+
+    If Not file_exists(POSTS_DIR + "/building-apis.md") Then
+        Set content To "# Building REST APIs in Plain English\n\n"
+        Set content To content + "One of EPL's strengths is how natural it feels to build web APIs.\n\n"
+        Set content To content + "## A Simple API\n\n"
+        Set content To content + "```\n"
+        Set content To content + "Set app To web_api_create('My API')\n"
+        Set content To content + "web_get(app, '/hello', say_hello)\n"
+        Set content To content + "web_start(app, 5000)\n"
+        Set content To content + "```\n\n"
+        Set content To content + "That is all you need! No boilerplate, no imports, no configuration files.\n"
+        write_file(POSTS_DIR + "/building-apis.md", content)
+    End
+
+    If Not file_exists(POSTS_DIR + "/why-english.md") Then
+        Set content To "# Why Code Should Read Like English\n\n"
+        Set content To content + "Most programming languages optimize for machines. EPL optimizes for humans.\n\n"
+        Set content To content + "## The Problem\n\n"
+        Set content To content + "```python\n"
+        Set content To content + "for i in range(len(items)):\n"
+        Set content To content + "    if items[i]['active']:\n"
+        Set content To content + "        print(f'{items[i][\"name\"]} is active')\n"
+        Set content To content + "```\n\n"
+        Set content To content + "## The EPL Way\n\n"
+        Set content To content + "```\n"
+        Set content To content + "For Each item In items\n"
+        Set content To content + "    If item.active Is Equal To true Then\n"
+        Set content To content + "        Say item.name + ' is active'\n"
+        Set content To content + "    End\n"
+        Set content To content + "End\n"
+        Set content To content + "```\n\n"
+        Set content To content + "Which one would you rather read?\n"
+        write_file(POSTS_DIR + "/why-english.md", content)
+    End
+End
+
+Note: ─── Load Posts from Filesystem ──────────────────────
+
+Define Function load_posts
+    Set posts To []
+    Set files To list_directory(POSTS_DIR)
+    For Each file In files
+        If ends_with(file, ".md") Then
+            Set content To read_file(POSTS_DIR + "/" + file)
+            Set lines To split(content, "\n")
+            Set title To replace(lines[0], "# ", "")
+            Set slug To replace(file, ".md", "")
+            Set preview To ""
+            If length(lines) Is Greater Than 2 Then
+                Set preview To lines[2]
+            End
+            append(posts, Map with title = title and slug = slug and preview = preview and file = file)
+        End
+    End
+    Return posts
+End
+
+Note: ─── Home Page — Post Listing ────────────────────────
+
+Route "/" shows
+    Page BLOG_TITLE
+        Heading BLOG_TITLE
+        SubHeading BLOG_TAGLINE
+        Text "A blog engine built entirely in EPL"
+        SubHeading "Latest Posts"
+        Text "Visit /post/hello-world, /post/building-apis, or /post/why-english"
+        Link "Hello World from EPL" to "/post/hello-world"
+        Link "Building REST APIs" to "/post/building-apis"
+        Link "Why Code Should Read Like English" to "/post/why-english"
+    End
+End
+
+Note: ─── API — List Posts as JSON ────────────────────────
+
+Route "/api/posts" responds with
+    Set posts To load_posts()
+    Send json Map with blog = BLOG_TITLE and posts = posts and count = length(posts)
+End
+
+Note: ─── About Page ──────────────────────────────────────
+
+Route "/about" shows
+    Page "About — " + BLOG_TITLE
+        Heading "About This Blog"
+        Text "This blog engine is built entirely in EPL (English Programming Language)."
+        Text "It reads Markdown files from a 'posts' directory and serves them as web pages."
+        SubHeading "How It Works"
+        List ["Markdown files stored in /posts directory", "EPL reads files on each request", "Content served with EPL web framework", "JSON API available at /api/posts"]
+        Link "Back to Home" to "/"
+    End
+End
+
+Note: ─── Initialize and Start ────────────────────────────
+
+setup_blog()
+Say "═══════════════════════════════════════════"
+Say "  " + BLOG_TITLE
+Say "  " + BLOG_TAGLINE
+Say "  Posts directory: " + POSTS_DIR
+Say "  Open: http://localhost:3000"
+Say "═══════════════════════════════════════════"
+Start blogApp on port 3000

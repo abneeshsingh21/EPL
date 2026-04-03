@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+*.so
+*.dylib
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# EPL compiled cache
+*.eplc
+__epl_cache__/
+
+# PyInstaller frozen builds
+epl/_internal/
+
+# Logs
+*.log
+*.log.*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# VS Code extension build output
+vscode-extension/node_modules/
+vscode-extension/*.vsix
+
+# Secrets — NEVER commit these
+.pypirc
+*.pem
+*.key
+*.env
+.env.*
+secrets.toml
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large model files
+epl/models/
+*.gguf
+*.bin
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# AI workspace config (not part of EPL source)
+.agent/
+.gemini/
+
+# AI config with API keys - never commit
+epl/.ai_config.json

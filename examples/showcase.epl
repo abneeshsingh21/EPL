@@ -1,0 +1,189 @@
+Note: ==============================
+Note: EPL v4.0 Feature Showcase
+Note: ==============================
+
+Note: --- Variables and Types ---
+Create name equal to "EPL"
+Create version equal to 4.0
+Create is_production equal to true
+Create features equal to ["compiler", "vm", "packages", "kotlin"]
+
+Say "Welcome to " + name + " v" + version
+Say "Production ready: " + is_production
+Say "Features: " + features
+
+Note: --- Constants ---
+Constant MAX_ITEMS = 100
+Say "Max items: " + MAX_ITEMS
+
+Note: --- Math Operations ---
+Create num1 equal to 15
+Create num2 equal to 4
+Say "15 + 4 = " + (num1 + num2)
+Say "15 * 4 = " + (num1 * num2)
+Say "15 / 4 = " + (num1 / num2)
+Say "15 % 4 = " + (num1 % 4)
+Say "2 ** 10 = " + (2 ** 10)
+
+Note: --- String Operations ---
+Create greeting equal to "Hello, World!"
+Say "Upper: " + greeting.uppercase()
+Say "Length: " + length(greeting)
+Say "Contains 'World': " + greeting.contains("World")
+Say "Replace: " + greeting.replace("World", "EPL")
+
+Note: --- Lists and Functional Programming ---
+Create numbers equal to [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Create evens equal to numbers.filter(lambda x -> x % 2 == 0)
+Say "Even numbers: " + evens
+
+Create squared equal to numbers.map(lambda x -> x * x)
+Say "Squared: " + squared
+
+Create total equal to numbers.reduce(lambda a, b -> a + b)
+Say "Sum: " + total
+
+Note: --- Maps ---
+Create person equal to Map with name = "Alice" and age = 30 and role = "Developer"
+Say "Name: " + person.name
+Say "Keys: " + keys(person)
+
+Note: --- Control Flow ---
+Create score equal to 85
+
+If score >= 90 Then
+    Say "Grade: A"
+Otherwise If score >= 80 Then
+    Say "Grade: B"
+Otherwise If score >= 70 Then
+    Say "Grade: C"
+Otherwise
+    Say "Grade: F"
+End
+
+Note: --- Match/Pattern Matching ---
+Create day equal to "Monday"
+
+Match day
+    When "Monday"
+        Say "Start of the week"
+    When "Friday"
+        Say "Almost weekend!"
+    When "Saturday"
+        Say "Weekend!"
+    When "Sunday"
+        Say "Weekend!"
+    Default
+        Say "Regular day"
+End
+
+Note: --- Ternary ---
+Create status equal to "adult" If score >= 18 Otherwise "minor"
+Say "Status: " + status
+
+Note: --- Loops ---
+Repeat 3 times
+    Say "EPL!"
+End
+
+Create fruits equal to ["apple", "banana", "cherry"]
+For each fruit in fruits
+    Say "Fruit: " + fruit
+End
+
+For i from 1 to 5
+    Say "Count: " + i
+End
+
+Note: --- Functions ---
+Function fibonacci takes n
+    If n <= 1 Then
+        Return n
+    End
+    Return fibonacci(n - 1) + fibonacci(n - 2)
+End
+
+Say "Fibonacci(10) = " + fibonacci(10)
+
+Note: --- Lambda and Higher-Order ---
+Function apply takes fn, value
+    Return fn(value)
+End
+
+Create result equal to apply(lambda x -> x * x + 1, 5)
+Say "apply(x -> x*x+1, 5) = " + result
+
+Note: --- Classes and Inheritance ---
+Class Shape
+    name = "Shape"
+
+    Function describe
+        Say "I am a " + name
+    End
+End
+
+Class Circle extends Shape
+    radius = 0
+
+    Function area
+        Return 3.14159 * radius * radius
+    End
+End
+
+Create c equal to new Circle
+c.name = "Circle"
+c.radius = 5
+c.describe()
+Say "Area: " + c.area()
+
+Note: --- Enums ---
+Enum Color as RED, GREEN, BLUE
+
+Create favorite equal to Color.BLUE
+Say "Favorite color: " + favorite
+
+Note: --- Error Handling ---
+Function safe_divide takes x, y
+    If y == 0 Then
+        Throw "Cannot divide by zero!"
+    End
+    Return x / y
+End
+
+Try
+    Create bad equal to safe_divide(10, 0)
+Catch error
+    Say "Caught: " + error
+End
+
+Create good equal to safe_divide(10, 2)
+Say "10 / 2 = " + good
+
+Note: --- Built-in Functions ---
+Say "abs(-42) = " + absolute(-42)
+Say "max(3,7,2) = " + max(3, 7, 2)
+Say "min(3,7,2) = " + min(3, 7, 2)
+Say "round(3.7) = " + round(3.7)
+Say "sqrt(144) = " + sqrt(144)
+Say "type(42) = " + type_of(42)
+Say "type('hi') = " + type_of("hi")
+
+Note: --- JSON ---
+Create data equal to Map with x = 1 and y = 2
+Create json_str equal to json_stringify(data)
+Say "JSON: " + json_str
+
+Create parsed equal to json_parse(json_str)
+Say "Parsed x: " + parsed.x
+
+Note: --- Augmented Assignment ---
+Create counter equal to 0
+counter += 10
+counter -= 3
+counter *= 2
+Say "Counter: " + counter
+
+Note: ==============================
+Say "All features demonstrated!"
+Say "547+ tests passing across 7 suites"

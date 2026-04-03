@@ -1,0 +1,46 @@
+{
+  "comments": {
+    "lineComment": "//",
+    "blockComment": ["/*", "*/"]
+  },
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "autoClosingPairs": [
+    { "open": "{", "close": "}" },
+    { "open": "[", "close": "]" },
+    { "open": "(", "close": ")" },
+    { "open": "\"", "close": "\"", "notIn": ["string"] },
+    { "open": "'", "close": "'", "notIn": ["string"] }
+  ],
+  "surroundingPairs": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"],
+    ["\"", "\""],
+    ["'", "'"]
+  ],
+  "folding": {
+    "markers": {
+      "start": "^\\s*(If|For|While|Repeat|Function|Class|Try|Match|Async)\\b",
+      "end": "^\\s*(End|EndIf|EndFor|EndWhile|EndRepeat|EndFunction|EndClass|EndTry|EndMatch)\\b"
+    }
+  },
+  "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(If|Else|ElseIf|For|ForEach|While|Repeat|Function|Method|Class|Try|Catch|Finally|Match|When|Async|Route|Get|Post|Put|Delete)\\b",
+    "decreaseIndentPattern": "^\\s*(End|EndIf|EndFor|EndWhile|EndRepeat|EndFunction|EndClass|EndTry|EndMatch|Else|ElseIf|Catch|Finally)\\b"
+  },
+  "onEnterRules": [
+    {
+      "beforeText": "^\\s*(If|For|ForEach|While|Repeat|Function|Method|Class|Try|Match|Async|Route|Get|Post|Put|Delete)\\b.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "^\\s*(End|EndIf|EndFor|EndWhile|EndRepeat|EndFunction|EndClass|EndTry|EndMatch)\\b.*$",
+      "action": { "indent": "outdent" }
+    }
+  ]
+}

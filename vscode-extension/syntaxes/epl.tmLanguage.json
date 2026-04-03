@@ -1,0 +1,137 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "EPL",
+  "scopeName": "source.epl",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords-control" },
+    { "include": "#keywords-declaration" },
+    { "include": "#keywords-operator" },
+    { "include": "#keywords-builtin" },
+    { "include": "#keywords-type" },
+    { "include": "#keywords-constant" },
+    { "include": "#function-call" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.epl",
+          "match": "^\\s*Note:.*$"
+        },
+        {
+          "name": "comment.line.hash.epl",
+          "match": "#.*$"
+        },
+        {
+          "name": "comment.line.double-slash.epl",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.epl",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.epl",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.epl",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.epl",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.epl",
+          "match": "\\b\\d+\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.epl",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "keywords-control": {
+      "patterns": [
+        {
+          "name": "keyword.control.epl",
+          "match": "\\b(If|Then|Else|Otherwise|End|While|For|Each|In|Repeat|Times|Try|Catch|Finally|Throw|Match|When|Default|Return|Break|Continue|Await|Async|Yield)\\b"
+        }
+      ]
+    },
+    "keywords-declaration": {
+      "patterns": [
+        {
+          "name": "keyword.other.declaration.epl",
+          "match": "\\b(Set|To|Create|Define|Function|Class|Extends|Implements|Module|Import|From|Use|Route|Constant|Enum|Interface)\\b"
+        },
+        {
+          "name": "storage.type.function.epl",
+          "match": "\\b(takes|returns|with|as)\\b"
+        }
+      ]
+    },
+    "keywords-operator": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.epl",
+          "match": "\\b(Is Equal To|Is Not Equal To|Is Greater Than|Is Less Than|Is Greater Than Or Equal To|Is Less Than Or Equal To|Not Equal To)\\b"
+        },
+        {
+          "name": "keyword.operator.logical.epl",
+          "match": "\\b(And|Or|Not)\\b"
+        }
+      ]
+    },
+    "keywords-builtin": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.epl",
+          "match": "\\b(Say|Print|Display|Ask|Read|Write|Append|Remove|Length|Sort|Reverse|Contains|Replace|Split|Join|Trim|Map|List|Store|Fetch|Delete|Send|Redirect|Start|Page|Heading|SubHeading|Text|Button|Link|Form|Input|Show)\\b"
+        }
+      ]
+    },
+    "keywords-type": {
+      "patterns": [
+        {
+          "name": "support.type.epl",
+          "match": "\\b(integer|decimal|text|boolean|list|map|nothing|any)\\b"
+        }
+      ]
+    },
+    "keywords-constant": {
+      "patterns": [
+        {
+          "name": "constant.language.epl",
+          "match": "\\b(true|false|nothing|null)\\b"
+        }
+      ]
+    },
+    "function-call": {
+      "patterns": [
+        {
+          "name": "entity.name.function.epl",
+          "match": "\\b([a-z_][a-z0-9_]*)\\s*\\("
+        }
+      ]
+    }
+  }
+}

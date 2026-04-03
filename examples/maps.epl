@@ -1,0 +1,65 @@
+Note: ─── Maps (Dictionaries) in EPL ───
+
+Note: ─── Create a Map ───
+person = Map with name = "Alice" and age = 30 and city = "London"
+Print person.name
+Print person.age
+Print person.city
+
+Note: ─── Set Values ───
+person.email = "alice@example.com"
+Print person.email
+
+Note: ─── Update Values ───
+person.age = 31
+Print person.age
+
+Note: ─── Map Methods ───
+Print person.keys()
+Print person.length
+Print person.has("name")
+Print person.has("phone")
+
+Note: ─── Get with Default ───
+Print person.get("city")
+Print person.get("phone", "N/A")
+
+Note: ─── Iterate Over a Map ───
+scores = Map with math = 95 and science = 87 and english = 91
+
+For each key in scores
+  Print key
+End
+
+Note: ─── Map Entries ───
+Print scores.entries()
+
+Note: ─── Delete and Clear ───
+colors = Map with r = "red" and g = "green" and b = "blue"
+Print colors.length
+colors.clear()
+Print length(colors)
+
+Note: ─── Map Copy ───
+original = Map with x = 1 and y = 2
+copy = original.copy()
+Print copy.has("x")
+
+Note: ─── Map Merge ───
+defaults = Map with theme = "light" and lang = "en"
+custom = Map with theme = "dark"
+merged = defaults.merge(custom)
+Print merged.theme
+Print merged.lang
+
+Note: ─── Set with .set() method ───
+settings = Map with debug = false
+settings.set("verbose", true)
+Print settings.has("verbose")
+
+Note: ─── Practical: Score Tracker ───
+tracker = Map with wins = 0 and losses = 0
+tracker.wins = 5
+tracker.losses = 2
+Print tracker.wins
+Print tracker.losses

@@ -1,0 +1,57 @@
+Comment "EPL WebSocket Server Module — create, start/stop, rooms, broadcast"
+
+Comment "── Server Lifecycle ──"
+
+Function create_ws_server with port
+    Return Call ws_server_create with [port]
+End Function
+
+Function start_ws_server with server_id
+    Return Call ws_server_start with [server_id]
+End Function
+
+Function stop_ws_server with server_id
+    Return Call ws_server_stop with [server_id]
+End Function
+
+Comment "── Event Handlers ──"
+
+Function on_ws_connect with server_id, handler
+    Return Call ws_on_connect with [server_id, handler]
+End Function
+
+Function on_ws_message with server_id, handler
+    Return Call ws_on_message with [server_id, handler]
+End Function
+
+Function on_ws_disconnect with server_id, handler
+    Return Call ws_on_disconnect with [server_id, handler]
+End Function
+
+Comment "── Messaging ──"
+
+Function ws_broadcast_all with server_id, message
+    Return Call ws_broadcast with [server_id, message]
+End Function
+
+Function ws_send_to_client with server_id, client_id, message
+    Return Call ws_send_to with [server_id, client_id, message]
+End Function
+
+Function ws_get_clients with server_id
+    Return Call ws_clients with [server_id]
+End Function
+
+Comment "── Rooms ──"
+
+Function ws_join_room with server_id, client_id, room
+    Return Call ws_room_join with [server_id, client_id, room]
+End Function
+
+Function ws_leave_room with server_id, client_id, room
+    Return Call ws_room_leave with [server_id, client_id, room]
+End Function
+
+Function ws_broadcast_room with server_id, room, message
+    Return Call ws_room_broadcast with [server_id, room, message]
+End Function

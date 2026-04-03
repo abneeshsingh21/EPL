@@ -1,0 +1,109 @@
+Note: ═══════════════════════════════════════════════
+Note: DevPortfolio - A Full Web App Built in EPL
+Note: ═══════════════════════════════════════════════
+
+Create WebApp called DevPortfolio
+
+Note: ─── Home Page ──────────────────────────────
+
+Route "/" shows
+    Page "DevPortfolio - Home"
+        Heading "Hi, I am a Developer 👨‍💻"
+        SubHeading "Full-Stack Developer | Open Source Builder | Tech Enthusiast"
+        Text "I build beautiful, fast, and powerful applications using modern technologies. Welcome to my portfolio built entirely in EPL — the Simple English Programming Language."
+        Button "View Projects"
+        Link "About Me" to "/about"
+        Link "My Skills" to "/skills"
+        Link "Projects" to "/projects"
+        Link "Contact" to "/contact"
+    End
+End
+
+Note: ─── About Page ─────────────────────────────
+
+Route "/about" shows
+    Page "About Me - DevPortfolio"
+        Heading "About Me"
+        Text "I am a passionate developer who loves building things that make a difference. With expertise in web development, mobile apps, and systems programming, I turn ideas into reality."
+        SubHeading "My Journey"
+        Text "Started coding at age 15, built my first website at 16, and have been shipping products ever since. I believe in clean code, great user experiences, and continuous learning."
+        SubHeading "Education"
+        Text "Bachelor of Technology in Computer Science"
+        Text "Specialized in Artificial Intelligence and Machine Learning"
+        SubHeading "What I Do"
+        List ["Full-stack web development", "Mobile app development", "System design and architecture", "Open source contributions", "Technical writing and mentoring"]
+        Link "Back to Home" to "/"
+    End
+End
+
+Note: ─── Skills Page ────────────────────────────
+
+Route "/skills" shows
+    Page "Skills - DevPortfolio"
+        Heading "Technical Skills"
+        SubHeading "Programming Languages"
+        List ["Python — Expert", "JavaScript — Expert", "TypeScript — Advanced", "Java — Advanced", "C++ — Intermediate", "EPL — Creator!"]
+        SubHeading "Web Technologies"
+        List ["React.js and Next.js", "Node.js and Express", "HTML5 and CSS3", "REST APIs and GraphQL", "PostgreSQL and MongoDB"]
+        SubHeading "Tools and Platforms"
+        List ["Git and GitHub", "Docker and Kubernetes", "AWS and Google Cloud", "Linux and Terminal", "VS Code and IntelliJ"]
+        SubHeading "Soft Skills"
+        List ["Problem Solving", "Team Leadership", "Technical Communication", "Agile Methodology", "Code Review"]
+        Link "View Projects" to "/projects"
+        Link "Back to Home" to "/"
+    End
+End
+
+Note: ─── Projects Page ──────────────────────────
+
+Route "/projects" shows
+    Page "Projects - DevPortfolio"
+        Heading "My Projects"
+        Text "Here are some of the projects I have built:"
+        SubHeading "1. EPL Programming Language"
+        Text "A complete programming language with simple English syntax. Features include variables, functions, classes, OOP, file IO, LLVM compiler, and this web framework you are viewing right now!"
+        SubHeading "2. AI Chat Assistant"
+        Text "An intelligent chatbot powered by machine learning. Supports voice commands, natural language understanding, and multi-platform deployment."
+        SubHeading "3. E-Commerce Platform"
+        Text "A full-stack e-commerce solution with user authentication, product catalog, shopping cart, payment integration, and admin dashboard."
+        SubHeading "4. Task Manager App"
+        Text "A productivity application with project management, team collaboration, real-time notifications, and analytics dashboard."
+        SubHeading "5. Weather Dashboard"
+        Text "A beautiful weather app that shows current conditions, forecasts, weather maps, and severe weather alerts for any location worldwide."
+        Link "Contact Me" to "/contact"
+        Link "Back to Home" to "/"
+    End
+End
+
+Note: ─── Contact Page ───────────────────────────
+
+Route "/contact" shows
+    Page "Contact - DevPortfolio"
+        Heading "Get in Touch"
+        Text "I am always open to new opportunities, collaborations, and interesting conversations. Feel free to reach out!"
+        SubHeading "Contact Information"
+        List ["Email: developer@example.com", "GitHub: github.com/developer", "LinkedIn: linkedin.com/in/developer", "Twitter: @developer"]
+        SubHeading "Send a Message"
+        Form action "/api/contact"
+            Input "name" placeholder "Your Name"
+            Input "email" placeholder "Your Email"
+            Input "message" placeholder "Your Message"
+            Button "Send Message"
+        End
+        Link "Back to Home" to "/"
+    End
+End
+
+Note: ─── API Endpoints ──────────────────────────
+
+Route "/api/info" responds with
+    Send json Map with name = "DevPortfolio" and version = "1.0" and framework = "EPL v0.5" and author = "Developer"
+End
+
+Route "/api/skills" responds with
+    Send json Map with languages = "Python, JavaScript, Java, C++" and frameworks = "React, Node.js, Next.js" and tools = "Git, Docker, AWS"
+End
+
+Note: ─── Start the Server ───────────────────────
+
+Start DevPortfolio on port 3000

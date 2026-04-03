@@ -1,0 +1,30 @@
+Note: Built-in Functions
+
+Note: Type conversion
+x = to_integer("42")
+Print "Converted to integer: " + x
+
+y = to_text(3.14)
+Print "Converted to text: " + y
+
+Note: Math functions
+Print "Absolute of -10: " + absolute(-10)
+Print "Round 3.7: " + round(3.7)
+Print "Max of 5 and 9: " + max(5, 9)
+Print "Min of 5 and 9: " + min(5, 9)
+
+Note: Random number
+r = random(1, 100)
+Print "Random (1-100): " + r
+
+Note: Length
+Print "Length of 'Hello': " + length("Hello")
+
+names = ["Alice", "Bob", "Charlie"]
+Print "Number of names: " + length(names)
+
+Note: Type checking
+Print "Type of 42: " + type_of(42)
+Print "Type of 'Hello': " + type_of("Hello")
+Print "Type of true: " + type_of(true)
+Print "Type of [1,2,3]: " + type_of([1, 2, 3])

@@ -1,0 +1,282 @@
+{
+  "name": "EPL",
+  "scopeName": "source.epl",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#keywords" },
+    { "include": "#control" },
+    { "include": "#storage" },
+    { "include": "#builtin-functions" },
+    { "include": "#operators" },
+    { "include": "#constants" },
+    { "include": "#types" },
+    { "include": "#variables" },
+    { "include": "#function-call" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.epl",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block.epl",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.epl",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.epl",
+              "match": "\\\\."
+            },
+            {
+              "name": "meta.embedded.expression.epl",
+              "begin": "\\{",
+              "end": "\\}",
+              "patterns": [
+                { "include": "#numbers" },
+                { "include": "#builtin-functions" },
+                { "include": "#variables" }
+              ],
+              "beginCaptures": {
+                "0": { "name": "punctuation.definition.interpolation.begin.epl" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.interpolation.end.epl" }
+              }
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.epl",
+          "begin": "'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.epl",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.epl",
+          "match": "\\b0[xX][0-9a-fA-F]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.epl",
+          "match": "\\b\\d+\\.\\d+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.epl",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.flow.epl",
+          "match": "\\b(If|Then|Else|ElseIf|EndIf|End|Otherwise)\\b"
+        },
+        {
+          "name": "keyword.control.loop.epl",
+          "match": "\\b(For|ForEach|In|To|Step|While|Repeat|Times|EndFor|EndWhile|EndRepeat|Break|Continue)\\b"
+        },
+        {
+          "name": "keyword.control.exception.epl",
+          "match": "\\b(Try|Catch|Finally|EndTry|Throw)\\b"
+        },
+        {
+          "name": "keyword.control.match.epl",
+          "match": "\\b(Match|When|Default|EndMatch)\\b"
+        },
+        {
+          "name": "keyword.control.async.epl",
+          "match": "\\b(Async|Await)\\b"
+        },
+        {
+          "name": "keyword.other.import.epl",
+          "match": "\\b(Import|From|As|Export)\\b"
+        },
+        {
+          "name": "keyword.control.return.epl",
+          "match": "\\b(Return|Yield)\\b"
+        },
+        {
+          "name": "keyword.other.english.epl",
+          "match": "\\b(Remember|Say|Ask|Create|named|equal to|Increase|Decrease|Add|Sort|Reverse|Remove)\\b"
+        },
+        {
+          "name": "keyword.operator.english.epl",
+          "match": "\\b(is greater than|is less than|is equal to|is not equal to|is between|is not)\\b"
+        },
+        {
+          "name": "keyword.other.web.epl",
+          "match": "\\b(Route|Store|Fetch|Send|Redirect|Render|Template|Middleware|Session|Login|Logout|WebSocket)\\b"
+        }
+      ]
+    },
+    "control": {
+      "patterns": [
+        {
+          "name": "keyword.operator.logical.epl",
+          "match": "\\b(And|Or|Not)\\b"
+        },
+        {
+          "name": "keyword.operator.comparison.epl",
+          "match": "\\b(Is|IsNot|GreaterThan|LessThan|GreaterOrEqual|LessOrEqual|Equals|NotEquals)\\b"
+        }
+      ]
+    },
+    "storage": {
+      "patterns": [
+        {
+          "name": "storage.type.variable.epl",
+          "match": "\\b(Set|Let|Const|Var)\\b"
+        },
+        {
+          "name": "storage.type.function.epl",
+          "match": "\\b(Function|EndFunction|Method|Lambda)\\b"
+        },
+        {
+          "name": "storage.type.class.epl",
+          "match": "\\b(Class|EndClass|Extends|Super|New|Constructor)\\b"
+        },
+        {
+          "name": "storage.type.enum.epl",
+          "match": "\\b(Enum|EndEnum)\\b"
+        },
+        {
+          "name": "storage.type.interface.epl",
+          "match": "\\b(Interface|Implements)\\b"
+        }
+      ]
+    },
+    "builtin-functions": {
+      "patterns": [
+        {
+          "name": "support.function.io.epl",
+          "match": "\\b(Display|Print|Input|Read|Write|Say|Ask)\\b"
+        },
+        {
+          "name": "support.function.math.epl",
+          "match": "\\b(absolute|round|floor|ceil|sqrt|power|max|min|log|sin|cos|tan|random|random_int|pi|euler|sign|clamp|lerp|sum)\\b"
+        },
+        {
+          "name": "support.function.string.epl",
+          "match": "\\b(length|uppercase|lowercase|to_text|to_integer|to_decimal|type_of|char_code|from_char_code|format|trim|split|join|replace|contains|starts_with|ends_with|substring|index_of|reverse)\\b"
+        },
+        {
+          "name": "support.function.collection.epl",
+          "match": "\\b(range|sorted|reversed|zip_lists|map|filter|reduce|append|remove|insert|pop|push|keys|values|has_key|merge)\\b"
+        },
+        {
+          "name": "support.function.assert.epl",
+          "match": "\\b(Assert|AssertEqual|AssertNotEqual|AssertTrue|AssertFalse)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.epl",
+          "match": "\\b(True|False)\\b"
+        },
+        {
+          "name": "constant.language.null.epl",
+          "match": "\\b(None|Null|Nothing)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.epl",
+          "match": "\\b(Integer|Decimal|String|Boolean|List|Map|Object|Any|Void)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.epl",
+          "match": "(=|\\+=|-=|\\*=|/=)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.epl",
+          "match": "(\\+|-|\\*|/|%|\\^|\\*\\*)"
+        },
+        {
+          "name": "keyword.operator.comparison.symbol.epl",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.dot.epl",
+          "match": "\\."
+        },
+        {
+          "name": "keyword.operator.arrow.epl",
+          "match": "(->|=>)"
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "name": "variable.other.epl",
+          "match": "\\b[a-z_][a-zA-Z0-9_]*\\b"
+        },
+        {
+          "name": "entity.name.type.epl",
+          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    },
+    "function-call": {
+      "patterns": [
+        {
+          "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+          "captures": {
+            "1": { "name": "entity.name.function.epl" }
+          }
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.comma.epl",
+          "match": ","
+        },
+        {
+          "name": "punctuation.bracket.round.epl",
+          "match": "[()]"
+        },
+        {
+          "name": "punctuation.bracket.square.epl",
+          "match": "[\\[\\]]"
+        },
+        {
+          "name": "punctuation.bracket.curly.epl",
+          "match": "[{}]"
+        }
+      ]
+    }
+  }
+}

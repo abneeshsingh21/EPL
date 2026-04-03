@@ -1,0 +1,19 @@
+Note: ─── Math Utilities (imported by imports.epl) ───
+
+Constant PI = 3.14159
+
+Function add takes a and b
+  Return a + b
+End
+
+Function multiply takes a and b
+  Return a * b
+End
+
+Function square takes n
+  Return n raised to 2
+End
+
+Function cube takes n
+  Return n raised to 3
+End

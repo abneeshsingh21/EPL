@@ -1,0 +1,8 @@
+Function factorial takes n
+    If n is less than 2 then
+        Return 1
+    End
+    Return n * factorial(n - 1)
+End
+
+Print factorial(15).

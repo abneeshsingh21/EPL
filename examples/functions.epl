@@ -1,0 +1,47 @@
+Note: Functions
+
+Note: Simple function
+Function sayHello
+    Print "Hello from a function!"
+End
+
+Call sayHello
+
+Note: Function with parameters
+Function greet takes name
+    Print "Hello, " + name + "! Welcome to EPL"
+End
+
+Call greet with "Abneesh"
+Call greet with "World"
+
+Note: Function with return value
+Function add takes a and b
+    Return a + b
+End
+
+result = call add with 5 and 10
+Print "5 + 10 = " + result
+
+Note: Recursive function (factorial)
+Function factorial takes n
+    If n <= 1 then
+        Return 1
+    End
+    Return n * (call factorial with n - 1)
+End
+
+fact5 = call factorial with 5
+Print "Factorial of 5 = " + fact5
+
+Note: Function with loop
+Function countTo takes limit
+    current = 1
+    While current <= limit
+        Print current
+        Increase current by 1
+    End
+End
+
+Print "Counting to 3:"
+Call countTo with 3

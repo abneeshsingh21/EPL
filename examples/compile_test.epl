@@ -1,0 +1,14 @@
+Note: Simple test for compiler
+x = 10
+y = 20
+Print x + y
+
+For i from 1 to 5
+    Print i
+End
+
+If x > 5 then
+    Print "big"
+Otherwise
+    Print "small"
+End

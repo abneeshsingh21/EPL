@@ -1,0 +1,31 @@
+Note: Conditional Logic
+
+age = 20
+
+If age > 18 then
+    Print "You are an adult"
+Otherwise
+    Print "You are a minor"
+End
+
+Note: Nested conditions
+score = 85
+
+If score >= 90 then
+    Print "Grade: A - Excellent!"
+Otherwise
+    If score >= 80 then
+        Print "Grade: B - Good job!"
+    Otherwise
+        Print "Grade: C - Keep trying"
+    End
+End
+
+Note: Boolean conditions
+isLoggedIn = true
+
+If isLoggedIn then
+    Print "Welcome back!"
+Otherwise
+    Print "Please log in"
+End

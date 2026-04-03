@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eplang"
+dynamic = ["version"]
+description = "EPL - English Programming Language: write code in plain English. Build apps, web servers, and more."
+readme = "README.md"
+license = {text = "MIT"}
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.9"
+authors = [{name = "Abneesh Singh", email = "singhabneesh250@gmail.com"}]
+keywords = ["programming-language", "english", "interpreter", "compiler", "transpiler"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Interpreters",
+]
+
+[project.optional-dependencies]
+llvm = ["llvmlite>=0.41.0"]
+ai = ["openai>=1.0.0"]
+server = ["waitress>=2.1.0"]
+redis = ["redis>=5.0.0"]
+dev = ["pytest>=7.0", "coverage>=7.0", "build>=1.0.0"]
+
+[project.scripts]
+epl = "epl.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/epl-lang/epl"
+Documentation = "https://github.com/epl-lang/epl/tree/main/docs"
+Repository = "https://github.com/epl-lang/epl"
+
+[tool.setuptools.dynamic]
+version = {attr = "epl.__version__"}
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+include = ["epl*"]
+exclude = ["epl._internal*", "dist*", "build*", "tests*"]
+
+[tool.setuptools.package-data]
+epl = [
+    "registry.json",
+    "runtime.c",
+    "models/Modelfile",
+    "official_packages/*/*.toml",
+    "official_packages/*/*.md",
+    "official_packages/*/src/*.epl",
+    "official_packages/*/examples/*.epl",
+    "stdlib/*.epl",
+    "stdlib/registry.json",
+    "templates/android/gradlew",
+    "templates/android/gradlew.bat",
+    "templates/android/gradle/wrapper/*.jar",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.coverage.run]
+source = ["epl"]
+omit = ["tests/*", "examples/*"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true

@@ -1,0 +1,121 @@
+Note: EPL Standard Library — String Module
+Note: Import "string" to use these functions and constants.
+
+Note: ─── Constants ───────────────────────────────────────
+Constant ALPHABET = "abcdefghijklmnopqrstuvwxyz"
+Constant DIGITS = "0123456789"
+Constant WHITESPACE = " "
+
+Note: ─── String Operations ───────────────────────────────
+
+Define Function repeat_string Takes s, count
+    Create result equal to ""
+    For i from 1 to count
+        Set result to result + s
+    End
+    Return result
+End
+
+Define Function pad_left Takes s, width, fill_char
+    Create padded equal to s
+    While length(padded) < width
+        Set padded to fill_char + padded
+    End
+    Return padded
+End
+
+Define Function pad_right Takes s, width, fill_char
+    Create padded equal to s
+    While length(padded) < width
+        Set padded to padded + fill_char
+    End
+    Return padded
+End
+
+Define Function center Takes s, width, fill_char
+    Create remaining equal to width - length(s)
+    If remaining <= 0 Then
+        Return s
+    End
+    Create left_pad equal to remaining / 2
+    Create right_pad equal to remaining - left_pad
+    Return repeat_string(fill_char, left_pad) + s + repeat_string(fill_char, right_pad)
+End
+
+Define Function capitalize Takes s
+    If length(s) == 0 Then
+        Return ""
+    End
+    Return uppercase(s.substring(0, 1)) + lowercase(s.substring(1, length(s)))
+End
+
+Define Function title_case Takes s
+    Create words equal to s.split(" ")
+    Create result equal to []
+    For Each word In words
+        Add capitalize(word) to result
+    End
+    Return result.join(" ")
+End
+
+Define Function word_count Takes s
+    Create trimmed equal to s.trim()
+    Create words equal to trimmed.split(" ")
+    Create count equal to 0
+    For Each word In words
+        Create w equal to word.trim()
+        If length(w) > 0 Then
+            Increase count by 1
+        End
+    End
+    Return count
+End
+
+Define Function truncate Takes s, max_length, suffix
+    If length(s) <= max_length Then
+        Return s
+    End
+    Return s.substring(0, max_length - length(suffix)) + suffix
+End
+
+Define Function is_empty Takes s
+    Create trimmed equal to s.trim()
+    Return length(trimmed) == 0
+End
+
+Define Function is_numeric Takes s
+    If length(s) == 0 Then
+        Return False
+    End
+    Return s.is_number()
+End
+
+Define Function is_alpha Takes s
+    If length(s) == 0 Then
+        Return False
+    End
+    For Each char In s
+        If Not ALPHABET.contains(lowercase(char)) Then
+            Return False
+        End
+    End
+    Return True
+End
+
+Define Function count_occurrences Takes s, search
+    Return s.count(search)
+End
+
+Define Function reverse_string Takes s
+    Return s.reverse()
+End
+
+Define Function remove_whitespace Takes s
+    Return s.replace(" ", "")
+End
+
+Define Function slug Takes s
+    Create result equal to lowercase(s.trim())
+    Set result to result.replace(" ", "-")
+    Return result
+End

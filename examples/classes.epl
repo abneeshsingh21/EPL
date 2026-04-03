@@ -1,0 +1,48 @@
+Note: Classes and Objects
+
+Note: Define a simple class
+Class Animal
+    name = "Unknown"
+    sound = "..."
+
+    Function speak
+        Print name + " says " + sound
+    End
+End
+
+Note: Create instances
+dog = new Animal
+dog.name = "Rex"
+dog.sound = "Woof!"
+
+cat = new Animal
+cat.name = "Whiskers"
+cat.sound = "Meow!"
+
+Note: Use methods
+dog.speak()
+cat.speak()
+
+Note: Access properties
+Print "Dog's name: " + dog.name
+Print "Cat's sound: " + cat.sound
+
+Note: A class with a method that takes parameters
+Class Calculator
+    result = 0
+
+    Function add takes a and b
+        Return a + b
+    End
+
+    Function multiply takes a and b
+        Return a * b
+    End
+End
+
+calc = new Calculator
+sum = calc.add(10, 20)
+Print "10 + 20 = " + sum
+
+product = calc.multiply(6, 7)
+Print "6 * 7 = " + product

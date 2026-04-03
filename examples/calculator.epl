@@ -1,0 +1,108 @@
+Note: EPL Desktop Calculator
+Note: A GUI calculator application built with EPL
+Note: Run with: python main.py examples/calculator.epl
+
+Note: Create main window
+win = gui_window("EPL Calculator", 320, 480)
+
+Note: Display field
+display = gui_input(win, "0", 30)
+
+Note: Current calculation state
+current_value = "0"
+operator = ""
+previous_value = ""
+new_input = true
+
+Note: Update display
+Define Function update_display Takes text
+    gui_set_value(display, text)
+    Set current_value to text
+End
+
+Note: Handle number button press
+Define Function press_number Takes num
+    If new_input == true Then
+        update_display(num)
+        Set new_input to false
+    Otherwise
+        If current_value == "0" Then
+            update_display(num)
+        Otherwise
+            update_display(current_value + num)
+        End
+    End
+End
+
+Note: Handle operator press
+Define Function press_operator Takes op
+    Set previous_value to current_value
+    Set operator to op
+    Set new_input to true
+End
+
+Note: Calculate result
+Define Function calculate
+    If operator == "" Then
+        Return Nothing
+    End
+    a = to_decimal(previous_value)
+    b = to_decimal(current_value)
+    result = 0
+    If operator == "+" Then
+        Set result to a + b
+    End
+    If operator == "-" Then
+        Set result to a - b
+    End
+    If operator == "*" Then
+        Set result to a * b
+    End
+    If operator == "/" Then
+        If b == 0 Then
+            gui_messagebox("Error", "Cannot divide by zero!", "error")
+            Return Nothing
+        End
+        Set result to a / b
+    End
+    update_display(to_text(result))
+    Set operator to ""
+    Set new_input to true
+End
+
+Note: Clear calculator
+Define Function clear_calc
+    update_display("0")
+    Set operator to ""
+    Set previous_value to ""
+    Set new_input to true
+End
+
+Note: Create button rows
+row1 = gui_frame(win)
+gui_button(row1, "7", lambda -> press_number("7"))
+gui_button(row1, "8", lambda -> press_number("8"))
+gui_button(row1, "9", lambda -> press_number("9"))
+gui_button(row1, "/", lambda -> press_operator("/"))
+
+row2 = gui_frame(win)
+gui_button(row2, "4", lambda -> press_number("4"))
+gui_button(row2, "5", lambda -> press_number("5"))
+gui_button(row2, "6", lambda -> press_number("6"))
+gui_button(row2, "*", lambda -> press_operator("*"))
+
+row3 = gui_frame(win)
+gui_button(row3, "1", lambda -> press_number("1"))
+gui_button(row3, "2", lambda -> press_number("2"))
+gui_button(row3, "3", lambda -> press_number("3"))
+gui_button(row3, "-", lambda -> press_operator("-"))
+
+row4 = gui_frame(win)
+gui_button(row4, "C", lambda -> clear_calc())
+gui_button(row4, "0", lambda -> press_number("0"))
+gui_button(row4, "=", lambda -> calculate())
+gui_button(row4, "+", lambda -> press_operator("+"))
+
+Note: Start the GUI
+Print "EPL Calculator is running..."
+gui_run()

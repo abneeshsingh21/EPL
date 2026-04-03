@@ -1,0 +1,118 @@
+Note: ─────────────────────────────────────────────────
+Note: EPL v0.7 - English Simplicity Showcase
+Note: "Code that reads like plain English"
+Note: ─────────────────────────────────────────────────
+
+Note: === Say instead of Print ===
+Say "Hello! Welcome to EPL."
+Say "EPL reads like English sentences."
+
+Note: === Remember instead of Create ===
+Remember name as "Alice"
+Remember age as 25
+Remember score as 95.5
+Say "Name: " + name
+Say "Age: " + age
+
+Note: === yes / no instead of true / false ===
+Remember isStudent as yes
+Remember graduated as no
+Say "Is student: " + isStudent
+Say "Graduated: " + graduated
+
+Note: === English math with 'raised to' and 'mod' ===
+Remember base as 2
+Remember result as base raised to 8
+Say "2 raised to 8 = " + result
+Say "3 raised to 3 = " + (3 raised to 3)
+Say "10 mod 3 = " + (10 mod 3)
+
+Note: === English comparisons ===
+Remember temperature as 72
+
+Note: "is between" - natural range check
+If temperature is between 60 and 80 then
+    Say "The weather is pleasant!"
+End
+
+Note: "equals" instead of ==
+If name equals "Alice" then
+    Say "Hello Alice!"
+End
+
+Note: "not equals" instead of !=
+If name not equals "Bob" then
+    Say "You are not Bob."
+End
+
+Note: "is at least" instead of >=
+If age is at least 18 then
+    Say "You are an adult."
+End
+
+Note: "is at most" instead of <=
+If score is at most 100 then
+    Say "Valid score."
+End
+
+Note: === Grade calculator using "is between" ===
+Remember grade as 85
+If grade is between 90 and 100 then
+    Say "Grade: A"
+Otherwise If grade is between 80 and 89 then
+    Say "Grade: B"
+Otherwise If grade is between 70 and 79 then
+    Say "Grade: C"
+Otherwise
+    Say "Grade: needs improvement"
+End
+
+Note: === Multiply / Divide (English *=, /=) ===
+Remember price as 100.0
+Multiply price by 2
+Say "After doubling: " + price
+
+Divide price by 4
+Say "Quarter price: " + price
+
+Note: === English list operations ===
+Remember fruits as ["apple", "banana"]
+Say "Starting: " + fruits
+
+Add "cherry" to fruits
+Add "date" to fruits
+Sort fruits
+Say "Sorted: " + fruits
+
+Reverse fruits
+Say "Reversed: " + fruits
+
+Note: === "given ... return" instead of "lambda -> " ===
+Remember double as given x return x * 2
+Say "Double 5 = " + (call double with 5)
+
+Remember add as given x, y return x + y
+Say "3 + 4 = " + (call add with 3 and 4)
+
+Note: === Combining Everything ===
+Remember numbers as [5, 3, 8, 1, 9, 2, 7]
+
+Note: "given" works with filter and map too
+Remember evens as numbers.filter(given x return x mod 2 equals 0)
+Say "Even numbers: " + evens
+
+Remember squares as numbers.map(given x return x raised to 2)
+Say "Squares: " + squares
+
+Remember total as numbers.reduce(given acc, x return acc + x, 0)
+Say "Sum: " + total
+
+Sort numbers
+Say "Sorted: " + numbers
+
+Note: === English + Ternary ===
+Remember hour as 14
+Remember greeting as "Good " + ("afternoon" if hour > 12 otherwise "morning")
+Say greeting
+
+Say "Done! EPL is simple AND powerful."

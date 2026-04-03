@@ -1,0 +1,19 @@
+Note: Variables and Data Types
+
+name = "Abneesh"
+age = 20
+salary = 50000.50
+isStudent = true
+
+Print "Name: " + name
+Print "Age: " + age
+Print "Salary: " + salary
+Print "Is Student: " + isStudent
+
+Note: You can also use Create for explicit types
+Create integer named score equal to 95
+Print "Score: " + score
+
+Note: Reassignment
+Set age to 21
+Print "Updated age: " + age

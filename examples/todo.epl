@@ -1,0 +1,44 @@
+Note: ═══════════════════════════════════
+Note: EPL To-Do App — Full-Stack Example
+Note: Run: python main.py examples/todo.epl
+Note: Open: http://localhost:3000
+Note: ═══════════════════════════════════
+
+Create WebApp called todoApp
+
+Note: === Home Page — shows tasks + add form ===
+Route "/" shows
+    Store form "task" in "tasks"
+    Page "EPL To-Do App"
+        Heading "EPL To-Do List"
+        SubHeading "A full-stack app built in plain English"
+        Form action "/"
+            Input "task" placeholder "What needs to be done?"
+        End
+        Text "$count{tasks} task(s) in your list"
+        Show items from "tasks" delete "/delete"
+    End
+End
+
+Note: === Delete Task Route ===
+Route "/delete" shows
+    Delete from "tasks" at 0
+    Redirect to "/"
+End
+
+Note: === API — return tasks as JSON ===
+Route "/api/tasks" responds with
+    Fetch "tasks"
+End
+
+Note: === About Page ===
+Route "/about" shows
+    Page "About"
+        Heading "About EPL To-Do"
+        Text "This is a full-stack web app written entirely in EPL."
+        Text "It uses Store/Fetch/Delete for data, and Route for pages."
+        Link "Back to To-Do List" to "/"
+    End
+End
+
+Start todoApp on port 3000

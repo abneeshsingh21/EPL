@@ -1,0 +1,22 @@
+NoteBlock
+  EPL Self-Hosted String Tests
+  Tests string operations and manipulation
+End
+
+greeting = "Hello"
+Assert length(greeting) == 5
+
+full = "Hello World"
+Assert length(full) == 11
+
+empty = ""
+Assert length(empty) == 0
+
+a = "foo"
+b = "bar"
+Assert a != b
+
+num_str = "42"
+Assert length(num_str) == 2
+
+Say "All 5 string tests passed!"

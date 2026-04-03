@@ -1,0 +1,9 @@
+Note: Reference EPL Android application source.
+
+Display "Reference Android App"
+Display "Track habits"
+
+tasks = ["Read docs", "Open Android Studio", "Run emulator"]
+For Each task In tasks
+    Display task
+End

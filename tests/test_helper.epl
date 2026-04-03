@@ -1,0 +1,3 @@
+Function square takes x
+    Return x * x
+End

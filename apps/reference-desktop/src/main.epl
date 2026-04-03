@@ -1,0 +1,9 @@
+Note: Reference EPL desktop application source.
+
+Display "Reference Desktop App"
+Display "Tasks for today"
+
+tasks = ["Review PRs", "Update docs", "Ship release"]
+For Each task In tasks
+    Display task
+End

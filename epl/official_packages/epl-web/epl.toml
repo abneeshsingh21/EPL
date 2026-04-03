@@ -1,0 +1,9 @@
+[project]
+name = "epl-web"
+version = "7.0.0"
+description = "Supported EPL web facade package"
+author = "EPL Team"
+entry = "src/main.epl"
+
+[scripts]
+example = "epl run examples/basic.epl"

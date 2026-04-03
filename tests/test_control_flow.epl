@@ -1,0 +1,44 @@
+NoteBlock
+  EPL Self-Hosted Control Flow Tests
+  Tests if/else, loops, and branching
+End
+
+result = 0
+If 10 > 5 then
+    result = 1
+End
+Assert result == 1
+
+result2 = 0
+If 3 > 10 then
+    result2 = 1
+Otherwise
+    result2 = 2
+End
+Assert result2 == 2
+
+sum = 0
+For i from 1 to 10
+    Increase sum by i
+End
+Assert sum == 55
+
+count = 0
+Repeat 5 times
+    Increase count by 1
+End
+Assert count == 5
+
+counter = 10
+While counter > 0
+    Decrease counter by 2
+End
+Assert counter == 0
+
+factorial = 1
+For n from 1 to 6
+    Set factorial to factorial * n
+End
+Assert factorial == 720
+
+Say "All 6 control flow tests passed!"

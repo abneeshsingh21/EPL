@@ -1,0 +1,83 @@
+Note: ─── Advanced String Operations in EPL ───
+
+Note: ─── Basic String Methods ───
+msg = "  Hello, World!  "
+Print msg.trim()
+Print msg.uppercase
+Print msg.lowercase
+
+Note: ─── Search & Find ───
+sentence = "The quick brown fox jumps over the lazy dog"
+Print sentence.contains("fox")
+Print sentence.contains("cat")
+Print sentence.find("fox")
+Print sentence.index_of("lazy")
+
+Note: ─── Replace ───
+Print sentence.replace("fox", "cat")
+Print "aabbcc".replace("bb", "XX")
+
+Note: ─── Split & Join ───
+csv = "apple,banana,cherry,date"
+fruits = csv.split(",")
+Print fruits
+Print fruits.join(" | ")
+
+Note: ─── Starts/Ends With ───
+filename = "photo.jpg"
+Print filename.starts_with("photo")
+Print filename.ends_with(".jpg")
+Print filename.ends_with(".png")
+
+Note: ─── Substring ───
+word = "programming"
+Print word.substring(0, 7)
+Print word.substring(3, 7)
+
+Note: ─── String Length ───
+Print length("Hello")
+mystr = "EPL"
+Print mystr.length
+
+Note: ─── Count Occurrences ───
+Print "mississippi".count("ss")
+Print "hello world".count("l")
+
+Note: ─── Repeat ───
+Print "ha".repeat(3)
+Print "-".repeat(20)
+
+Note: ─── Reverse ───
+Print reversed("Hello")
+Print "racecar".reverse()
+
+Note: ─── Padding ───
+Print "42".pad_left(5, "0")
+Print "Hi".pad_right(10, ".")
+
+Note: ─── Character Access ───
+name = "EPL"
+Print name.char_at(0)
+Print name.char_at(1)
+Print name.char_at(2)
+
+Note: ─── To List ───
+Print "abc".to_list()
+
+Note: ─── Type Checks ───
+Print "123".is_number()
+Print "abc".is_alpha()
+Print "".is_empty()
+
+Note: ─── Template Strings ───
+name = "World"
+age = 25
+Print "Hello, $name! You are $age years old."
+
+Note: ─── String Format ───
+Print "Hi {} and {}".format("Alice", "Bob")
+
+Note: ─── Practical: Slug Generator ───
+title = "Hello World This Is EPL"
+slug = title.lowercase.replace(" ", "-")
+Print slug

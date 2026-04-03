@@ -1,0 +1,34 @@
+Note: ═══════════════════════════════════
+Note: EPL Web App Example
+Note: ═══════════════════════════════════
+
+Create WebApp called myApp
+
+Route "/" shows
+    Page "Welcome to EPL"
+        Heading "Hello from EPL! 🚀"
+        SubHeading "The Simple English Programming Language"
+        Text "EPL makes programming as easy as writing English."
+        Text "Build websites, apps, and software with simple commands."
+        Button "Click Me"
+        Link "About Page" to "/about"
+        Link "API Demo" to "/api/info"
+    End
+End
+
+Route "/about" shows
+    Page "About EPL"
+        Heading "About EPL"
+        Text "EPL is a programming language designed to be as simple as English."
+        Text "Created for everyone — from students to professionals."
+        SubHeading "Features"
+        List ["Simple English syntax", "Web framework built-in", "LLVM compiler for speed", "Classes and OOP support", "Python library bridge"]
+        Link "Back to Home" to "/"
+    End
+End
+
+Route "/api/info" responds with
+    Send json Map with name = "EPL" and version = "0.5" and features = "web framework"
+End
+
+Start myApp on port 3000

@@ -1,0 +1,84 @@
+Note: EPL v0.3 — Complete Features Demo
+
+Note: === Index Access ===
+scores = [95, 87, 72, 91, 68]
+Print "First score: " + scores[0]
+Print "Last score: " + scores[4]
+scores[2] = 100
+Print "Updated scores: $scores"
+
+Note: === For Range Loop ===
+total = 0
+For i from 1 to 10
+    Increase total by i
+End
+Print "Sum of 1 to 10: $total"
+
+Note: === Otherwise If ===
+score = 85
+If score > 90 then
+    Print "Grade: A"
+Otherwise if score > 80 then
+    Print "Grade: B"
+Otherwise if score > 70 then
+    Print "Grade: C"
+Otherwise
+    Print "Grade: F"
+End
+
+Note: === Constants ===
+Constant PI = 3.14159
+Constant APP_NAME = "EPL Calculator"
+Print "$APP_NAME uses PI = $PI"
+
+Note: === Python Bridge ===
+Use python "math"
+Print "Square root of 144: " + math.sqrt(144)
+Print "PI from Python: " + math.pi
+
+Note: === Assert ===
+Assert 1 + 1 == 2
+Assert length("hello") == 5
+Assert PI > 3
+Print "All assertions passed"
+
+Note: === NoteBlock (multi-line comment) ===
+NoteBlock
+    This entire block is ignored
+    by the EPL interpreter
+    useful for documentation
+End
+
+Note: === Import System ===
+Note: You can import code from other EPL files:
+Note: Import "math_utils.epl"
+
+Note: === Try/Catch with Templates ===
+Try
+    result = 10 / 0
+Catch error
+    Print "Caught: $error"
+End
+
+Note: === Match with otherwise-if style ===
+day = "Saturday"
+Match day
+    When "Monday"
+        Print "Work day"
+    When "Saturday"
+        Print "Weekend!"
+    Default
+        Print "Regular day"
+End
+
+Note: === Map + For Each ===
+student = Map with name = "Abneesh" and grade = "A" and score = 95
+For each key in student
+    Print key
+End
+Print "Student: " + student.name + " got " + student.grade
+
+Note: === Exit ===
+Print "Done! EPL v0.3 is complete"
+Exit
+Print "This line will never run"

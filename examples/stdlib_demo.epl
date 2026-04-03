@@ -1,0 +1,72 @@
+Note: EPL Standard Library Demo (using builtin functions)
+Note: This demo uses EPL's built-in stdlib functions directly.
+Note: For the Import-based native modules, see native_stdlib_demo.epl
+
+Print "=== EPL Built-in Functions Demo ==="
+Print ""
+
+Note: --- DateTime ---
+Create ts equal to timestamp()
+Print "Current timestamp: " + to_text(floor(ts))
+Create today_date equal to today()
+Print "Today: " + today_date
+
+Print ""
+Note: --- Crypto ---
+Create hash_val equal to hash_sha256("Hello EPL!")
+Print "SHA256: " + hash_val
+Create encoded equal to base64_encode("Secret message")
+Print "Base64 encoded: " + encoded
+Create decoded equal to base64_decode(encoded)
+Print "Base64 decoded: " + decoded
+Create id equal to uuid4()
+Print "UUID: " + id
+
+Print ""
+Note: --- Regex ---
+Create sample equal to "The price is 42.50 and 18.75"
+Create matches equal to regex_find_all("[0-9]+\\.[0-9]+", sample)
+Print "Found prices: " + to_text(matches)
+Create valid equal to regex_test("^[a-z]+@[a-z]+\\.[a-z]+$", "user@example.com")
+Print "Email valid: " + to_text(valid)
+
+Print ""
+Note: --- Math ---
+Print "Pi: " + to_text(pi())
+Print "Euler: " + to_text(euler())
+Print "factorial(10): " + to_text(factorial(10))
+Print "gcd(48, 18): " + to_text(gcd(48, 18))
+Print "sqrt(144): " + to_text(sqrt(144))
+Print "power(2, 10): " + to_text(power(2, 10))
+
+Print ""
+Note: --- Collections ---
+Create names equal to ["Alice", "Bob", "Charlie"]
+Create scores equal to [95, 87, 92]
+Create lookup equal to dict_from_lists(names, scores)
+Print "Dict: " + to_text(lookup)
+Print "Keys: " + to_text(keys(lookup))
+Print "Values: " + to_text(values(lookup))
+
+Print ""
+Note: --- URL Encoding ---
+Create url equal to url_encode("hello world & more")
+Print "Encoded: " + url
+Create orig equal to url_decode(url)
+Print "Decoded: " + orig
+
+Print ""
+Note: --- String ---
+Print "Length of 'EPL': " + to_text(length("EPL"))
+Print "Uppercase: " + uppercase("hello world")
+Print "Lowercase: " + lowercase("HELLO WORLD")
+
+Print ""
+Note: --- JSON ---
+Create json_str equal to json_stringify(lookup)
+Print "JSON: " + json_str
+Create parsed equal to json_parse(json_str)
+Print "Parsed back: " + to_text(parsed)
+
+Print ""
+Print "=== Demo Complete ==="

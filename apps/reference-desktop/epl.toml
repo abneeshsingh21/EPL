@@ -1,0 +1,9 @@
+[project]
+name = "reference-desktop"
+version = "1.0.0"
+description = "Reference EPL desktop application source"
+author = "EPL Team"
+entry = "src/main.epl"
+
+[scripts]
+build = "epl desktop src/main.epl"

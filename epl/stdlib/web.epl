@@ -1,0 +1,139 @@
+Comment "EPL Web Framework Module — routing, middleware, sessions, cookies, test client"
+
+Comment "── App Lifecycle ──"
+
+Function create_app with name
+    Return Call web_create with [name]
+End Function
+
+Function start_app with app_id, port
+    Return Call web_start with [app_id, port]
+End Function
+
+Function stop_app with app_id
+    Return Call web_stop with [app_id]
+End Function
+
+Comment "── Routing ──"
+
+Function get_route with app_id, path, handler
+    Return Call web_get with [app_id, path, handler]
+End Function
+
+Function post_route with app_id, path, handler
+    Return Call web_post with [app_id, path, handler]
+End Function
+
+Function put_route with app_id, path, handler
+    Return Call web_put with [app_id, path, handler]
+End Function
+
+Function delete_route with app_id, path, handler
+    Return Call web_delete with [app_id, path, handler]
+End Function
+
+Comment "── Middleware & CORS ──"
+
+Function add_middleware with app_id, handler
+    Return Call web_middleware with [app_id, handler]
+End Function
+
+Function set_cors with app_id, origin
+    Return Call web_set_cors with [app_id, origin]
+End Function
+
+Comment "── Request Helpers ──"
+
+Function request_data
+    Return Call web_request_data with []
+End Function
+
+Function request_args
+    Return Call web_request_args with []
+End Function
+
+Function request_method
+    Return Call web_request_method with []
+End Function
+
+Function request_path
+    Return Call web_request_path with []
+End Function
+
+Function request_header with name
+    Return Call web_request_header with [name]
+End Function
+
+Function request_param with name
+    Return Call web_request_param with [name]
+End Function
+
+Comment "── Responses ──"
+
+Function json_response with data, status
+    Return Call web_json with [data, status]
+End Function
+
+Function html_response with content, status
+    Return Call web_html with [content, status]
+End Function
+
+Function redirect_to with url
+    Return Call web_redirect with [url]
+End Function
+
+Function send_file with path
+    Return Call web_send_file with [path]
+End Function
+
+Function response with body, status, headers
+    Return Call web_response with [body, status, headers]
+End Function
+
+Comment "── Sessions ──"
+
+Function session_get with key
+    Return Call web_session_get with [key]
+End Function
+
+Function session_set with key, value
+    Return Call web_session_set with [key, value]
+End Function
+
+Function session_clear
+    Return Call web_session_clear with []
+End Function
+
+Comment "── Cookies ──"
+
+Function cookie_get with name
+    Return Call web_cookie_get with [name]
+End Function
+
+Function cookie_set with name, value, max_age
+    Return Call web_cookie_set with [name, value, max_age]
+End Function
+
+Comment "── Test Client ──"
+
+Function test_client with app_id
+    Return Call web_test_client with [app_id]
+End Function
+
+Function test_get with client_id, path
+    Return Call web_test_get with [client_id, path]
+End Function
+
+Function test_post with client_id, path, data
+    Return Call web_test_post with [client_id, path, data]
+End Function
+
+Comment "── Uploads ──"
+
+Function configure_uploads with app_id, folder
+    Return Call web_upload_config with [app_id, folder]
+End Function
+
+Function get_uploaded_files
+    Return Call web_request_files with []
+End Function

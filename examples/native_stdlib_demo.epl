@@ -1,0 +1,166 @@
+Note: EPL Native Standard Library Demo
+Note: Showcases all 9 native EPL stdlib modules via Import "name"
+
+Note: ═══════════════════════════════════════════════════
+Note:  Math Module
+Note: ═══════════════════════════════════════════════════
+Import "math"
+
+Print "═══════════════════════════════════════════"
+Print "  EPL v4.2 — Standard Library Showcase"
+Print "═══════════════════════════════════════════"
+Print ""
+Print "── Math ──"
+Print "  PI = " + to_text(PI)
+Print "  E  = " + to_text(E)
+Print "  factorial(8)     = " + to_text(factorial(8))
+Print "  fibonacci(10)    = " + to_text(fibonacci(10))
+Print "  is_prime(97)     = " + to_text(is_prime(97))
+Print "  gcd(48, 18)      = " + to_text(gcd(48, 18))
+Print "  lcm(4, 6)        = " + to_text(lcm(4, 6))
+Print "  average([85,92,78,95]) = " + to_text(average([85, 92, 78, 95]))
+Print "  median([1,3,5,7,9])   = " + to_text(median([1, 3, 5, 7, 9]))
+Print "  clamp(15, 0, 10) = " + to_text(clamp(15, 0, 10))
+
+Note: ═══════════════════════════════════════════════════
+Note:  String Module
+Note: ═══════════════════════════════════════════════════
+Import "string"
+
+Print ""
+Print "── String ──"
+Print "  capitalize('hello')   = " + capitalize("hello")
+Print "  title_case('hello world') = " + title_case("hello world")
+Print "  slug('Hello World!') = " + slug("Hello World!")
+Print "  repeat_string('ab', 4) = " + repeat_string("ab", 4)
+Print "  pad_left('42', 6, '0') = " + pad_left("42", 6, "0")
+Print "  is_numeric('3.14')    = " + to_text(is_numeric("3.14"))
+Print "  is_alpha('Hello')     = " + to_text(is_alpha("Hello"))
+Print "  word_count('The quick brown fox') = " + to_text(word_count("The quick brown fox"))
+Print "  reverse_string('hello') = " + reverse_string("hello")
+
+Note: ═══════════════════════════════════════════════════
+Note:  Collections Module
+Note: ═══════════════════════════════════════════════════
+Import "collections"
+
+Print ""
+Print "── Collections ──"
+Create data equal to [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]
+Print "  unique([3,1,4,1,5,9,2,6,5,3,5]) = " + to_text(unique(data))
+Print "  chunk([1,2,3,4,5], 2) = " + to_text(chunk([1, 2, 3, 4, 5], 2))
+Print "  flatten([[1,[2]],[3]]) = " + to_text(flatten([[1, [2]], [3]]))
+Print "  zip_two([1,2,3], ['a','b','c']) = " + to_text(zip_two([1, 2, 3], ["a", "b", "c"]))
+Print "  take([10,20,30,40,50], 3) = " + to_text(take([10, 20, 30, 40, 50], 3))
+Print "  drop([10,20,30,40,50], 2) = " + to_text(drop([10, 20, 30, 40, 50], 2))
+
+Note: Stack demo
+Create stack equal to stack_new()
+Set stack to stack_push(stack, "first")
+Set stack to stack_push(stack, "second")
+Set stack to stack_push(stack, "third")
+Print "  Stack peek: " + stack_peek(stack)
+Create popped equal to stack_pop(stack)
+Print "  Stack pop: " + to_text(popped)
+
+Note: Queue demo
+Create queue equal to queue_new()
+Set queue to queue_enqueue(queue, "alpha")
+Set queue to queue_enqueue(queue, "beta")
+Set queue to queue_enqueue(queue, "gamma")
+Create front equal to queue_dequeue(queue)
+Print "  Queue dequeue: " + to_text(front)
+Print "  Queue peek: " + queue_peek(queue)
+
+Note: ═══════════════════════════════════════════════════
+Note:  Functional Module
+Note: ═══════════════════════════════════════════════════
+Import "functional"
+
+Print ""
+Print "── Functional ──"
+Create numbers equal to [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Create doubled equal to map_list(numbers, lambda x -> x * 2)
+Print "  map x*2:  " + to_text(doubled)
+
+Create evens equal to filter_list(numbers, lambda x -> x % 2 == 0)
+Print "  filter even: " + to_text(evens)
+
+Create total equal to reduce_list(numbers, lambda acc, x -> acc + x, 0)
+Print "  reduce sum:  " + to_text(total)
+
+Create composed equal to compose(lambda x -> x * 2, lambda x -> x + 1)
+Print "  compose (x+1 then x*2)(4) = " + to_text(Call composed With 4)
+
+Create piped equal to pipe(5, [lambda x -> x * 2, lambda x -> x + 3, lambda x -> x * x])
+Print "  pipe 5 -> *2 -> +3 -> ^2 = " + to_text(piped)
+
+Note: ═══════════════════════════════════════════════════
+Note:  Datetime Module
+Note: ═══════════════════════════════════════════════════
+Import "datetime"
+
+Print ""
+Print "── Datetime ──"
+Print "  current_time: " + to_text(floor(current_time()))
+Print "  format_duration(7384): " + format_duration(7384)
+Print "  1 hour = " + to_text(HOUR) + " seconds"
+Print "  1 week = " + to_text(WEEK) + " seconds"
+
+Note: ═══════════════════════════════════════════════════
+Note:  Crypto Module
+Note: ═══════════════════════════════════════════════════
+Import "crypto"
+
+Print ""
+Print "── Crypto ──"
+Print "  md5('hello'):    " + md5("hello")
+Print "  sha256('hello'): " + sha256("hello")
+Print "  base64 roundtrip: " + from_base64(to_base64("EPL rocks!"))
+Print "  hex roundtrip:    " + from_hex(to_hex("EPL"))
+Print "  random_string(12): " + random_string(12)
+Print "  uuid: " + generate_uuid()
+
+Note: ═══════════════════════════════════════════════════
+Note:  HTTP Module (functions only — no live requests)
+Note: ═══════════════════════════════════════════════════
+Import "http"
+
+Print ""
+Print "── HTTP ──"
+Print "  encode_url('hello world') = " + encode_url("hello world")
+Print "  decode_url('hello%20world') = " + decode_url("hello%20world")
+Print "  is_success(200)  = " + to_text(is_success(200))
+Print "  is_redirect(301) = " + to_text(is_redirect(301))
+Print "  is_client_error(404) = " + to_text(is_client_error(404))
+
+Note: ═══════════════════════════════════════════════════
+Note:  IO Module (console helpers — no file I/O in demo)
+Note: ═══════════════════════════════════════════════════
+Import "io"
+
+Print ""
+Print "── IO ──"
+Print "  get_file_name('/home/user/docs/report.pdf') = " + get_file_name("/home/user/docs/report.pdf")
+Print "  get_extension('photo.jpg') = " + get_extension("photo.jpg")
+Print "  get_stem('archive.tar.gz') = " + get_stem("archive.tar.gz")
+
+Note: ═══════════════════════════════════════════════════
+Note:  Testing Module
+Note: ═══════════════════════════════════════════════════
+Import "testing"
+
+Print ""
+Print "── Testing ──"
+test("basic arithmetic", lambda -> expect_equal(2 + 2, 4, "2+2 should be 4"))
+test("string length", lambda -> expect_equal(length("hello"), 5, "length of hello"))
+test("boolean check", lambda -> expect_true(1 > 0, "1 > 0 is true"))
+test("contains check", lambda -> expect_contains([1, 2, 3], 2, "list has 2"))
+test("type check", lambda -> expect_type("hello", "text", "hello is text"))
+test_summary()
+
+Print ""
+Print "═══════════════════════════════════════════"
+Print "  All 9 stdlib modules working!"
+Print "═══════════════════════════════════════════"

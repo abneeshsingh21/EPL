@@ -1,0 +1,74 @@
+Note: ─── Lambdas & Functional Programming in EPL ───
+
+Note: ─── Basic Lambda ───
+double = lambda x -> x * 2
+Print double(5)
+
+Note: ─── Lambda with Multiple Parameters ───
+add = lambda a, b -> a + b
+Print add(3, 4)
+
+Note: ─── Lambda with No Parameters ───
+greet = lambda -> "Hello, EPL!"
+Print greet()
+
+Note: ─── English-Style with 'given' ───
+triple = Given x -> x * 3
+Print triple(10)
+
+square = Given n -> n raised to 2
+Print square(6)
+
+Note: ─── Using Lambdas with .map() ───
+numbers = [1, 2, 3, 4, 5]
+doubled = numbers.map(lambda x -> x * 2)
+Print doubled
+
+squared = numbers.map(lambda x -> x * x)
+Print squared
+
+Note: ─── Using Lambdas with .filter() ───
+evens = numbers.filter(lambda x -> x % 2 == 0)
+Print evens
+
+big = [10, 25, 3, 47, 8, 99].filter(lambda x -> x > 20)
+Print big
+
+Note: ─── Using Lambdas with .reduce() ───
+total = numbers.reduce(lambda a, b -> a + b)
+Print total
+
+product = [1, 2, 3, 4].reduce(lambda a, b -> a * b)
+Print product
+
+Note: ─── Chaining Functional Operations ───
+data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Note: Get sum of squares of even numbers
+result = data.filter(lambda x -> x % 2 == 0).map(lambda x -> x * x).reduce(lambda a, b -> a + b)
+Print result
+
+Note: ─── Higher-Order Functions ───
+Function apply takes fn and value
+  Return fn(value)
+End
+
+Print apply(lambda x -> x + 100, 42)
+
+Note: ─── Ternary Expressions ───
+age = 20
+status = "adult" if age >= 18 otherwise "minor"
+Print status
+
+x = 10
+label = "positive" if x > 0 otherwise "non-positive"
+Print label
+
+Note: ─── Ternary in Print ───
+score = 85
+Print "Pass" if score >= 70 otherwise "Fail"
+
+Note: ─── Lambda with Ternary ───
+abs_val = lambda x -> x if x >= 0 otherwise (0 - x)
+Print abs_val(-7)
+Print abs_val(3)

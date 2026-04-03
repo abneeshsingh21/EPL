@@ -1,0 +1,238 @@
+{
+  "Display": {
+    "prefix": "display",
+    "body": "Display ${1:expression}",
+    "description": "Print to console"
+  },
+  "Set Variable": {
+    "prefix": "set",
+    "body": "Set ${1:name} = ${2:value}",
+    "description": "Declare a variable"
+  },
+  "If Then": {
+    "prefix": "if",
+    "body": [
+      "If ${1:condition} Then",
+      "\t${2:// body}",
+      "EndIf"
+    ],
+    "description": "If-Then block"
+  },
+  "If Else": {
+    "prefix": "ifelse",
+    "body": [
+      "If ${1:condition} Then",
+      "\t${2:// then body}",
+      "Else",
+      "\t${3:// else body}",
+      "EndIf"
+    ],
+    "description": "If-Else block"
+  },
+  "For Loop": {
+    "prefix": "for",
+    "body": [
+      "For ${1:i} = ${2:1} To ${3:10}",
+      "\t${4:// body}",
+      "EndFor"
+    ],
+    "description": "For loop"
+  },
+  "ForEach Loop": {
+    "prefix": "foreach",
+    "body": [
+      "ForEach ${1:item} In ${2:list}",
+      "\t${3:// body}",
+      "EndFor"
+    ],
+    "description": "ForEach loop"
+  },
+  "While Loop": {
+    "prefix": "while",
+    "body": [
+      "While ${1:condition}",
+      "\t${2:// body}",
+      "EndWhile"
+    ],
+    "description": "While loop"
+  },
+  "Repeat Times": {
+    "prefix": "repeat",
+    "body": [
+      "Repeat ${1:5} Times",
+      "\t${2:// body}",
+      "EndRepeat"
+    ],
+    "description": "Repeat N times"
+  },
+  "Function": {
+    "prefix": "func",
+    "body": [
+      "Function ${1:name}(${2:params})",
+      "\t${3:// body}",
+      "\tReturn ${4:result}",
+      "EndFunction"
+    ],
+    "description": "Function definition"
+  },
+  "Class": {
+    "prefix": "class",
+    "body": [
+      "Class ${1:Name}",
+      "\tConstructor(${2:params})",
+      "\t\t${3:// init}",
+      "\tEnd",
+      "",
+      "\tMethod ${4:name}(${5:params})",
+      "\t\t${6:// body}",
+      "\tEnd",
+      "EndClass"
+    ],
+    "description": "Class definition"
+  },
+  "Try Catch": {
+    "prefix": "try",
+    "body": [
+      "Try",
+      "\t${1:// risky code}",
+      "Catch ${2:error}",
+      "\tDisplay \"Error: {${2:error}}\"",
+      "EndTry"
+    ],
+    "description": "Try-Catch block"
+  },
+  "Match When": {
+    "prefix": "match",
+    "body": [
+      "Match ${1:value}",
+      "\tWhen ${2:pattern1}",
+      "\t\t${3:// action}",
+      "\tWhen ${4:pattern2}",
+      "\t\t${5:// action}",
+      "\tDefault",
+      "\t\t${6:// default action}",
+      "EndMatch"
+    ],
+    "description": "Match-When pattern matching"
+  },
+  "Async Function": {
+    "prefix": "async",
+    "body": [
+      "Async Function ${1:name}(${2:params})",
+      "\t${3:// async body}",
+      "\tReturn ${4:result}",
+      "EndFunction"
+    ],
+    "description": "Async function"
+  },
+  "Web Route GET": {
+    "prefix": "get",
+    "body": [
+      "Get \"${1:/path}\"",
+      "\t${2:// handler}",
+      "End"
+    ],
+    "description": "HTTP GET route"
+  },
+  "Web Route POST": {
+    "prefix": "post",
+    "body": [
+      "Post \"${1:/path}\"",
+      "\t${2:// handler}",
+      "End"
+    ],
+    "description": "HTTP POST route"
+  },
+  "Import": {
+    "prefix": "import",
+    "body": "Import ${1:module}",
+    "description": "Import a module"
+  },
+  "Lambda": {
+    "prefix": "lambda",
+    "body": "Lambda (${1:params}) -> ${2:expression}",
+    "description": "Lambda expression"
+  },
+  "Enum": {
+    "prefix": "enum",
+    "body": [
+      "Enum ${1:Name}",
+      "\t${2:VALUE1}",
+      "\t${3:VALUE2}",
+      "\t${4:VALUE3}",
+      "EndEnum"
+    ],
+    "description": "Enum definition"
+  },
+  "GUI Button": {
+    "prefix": "button",
+    "body": "Button \"${1:text}\" id=\"${2:btn}\" onClick=${3:handler}",
+    "description": "GUI Button widget"
+  },
+  "GUI Label": {
+    "prefix": "label",
+    "body": "Label \"${1:text}\" id=\"${2:lbl}\"",
+    "description": "GUI Label widget"
+  },
+  "GUI Input": {
+    "prefix": "input",
+    "body": "Input id=\"${1:inp}\" placeholder=\"${2:Enter text...}\"",
+    "description": "GUI Input widget"
+  },
+  "Assert Equal": {
+    "prefix": "assert",
+    "body": "AssertEqual(${1:actual}, ${2:expected})",
+    "description": "Assert two values are equal"
+  },
+  "Constant": {
+    "prefix": "const",
+    "body": "Constant ${1:NAME} = ${2:value}",
+    "description": "Constant declaration"
+  },
+  "Map": {
+    "prefix": "map",
+    "body": "Map with ${1:key1} = ${2:val1} and ${3:key2} = ${4:val2}",
+    "description": "Create a Map (dictionary)"
+  },
+  "Interface": {
+    "prefix": "interface",
+    "body": [
+      "Interface ${1:Name}",
+      "\tMethod ${2:name}(${3:params})",
+      "End"
+    ],
+    "description": "Interface definition"
+  },
+  "Module": {
+    "prefix": "module",
+    "body": [
+      "Module ${1:Name}",
+      "\t${2:// exports}",
+      "End"
+    ],
+    "description": "Module definition"
+  },
+  "Web App": {
+    "prefix": "webapp",
+    "body": [
+      "Import Web",
+      "",
+      "Route Get \"/\"",
+      "\tSend \"${1:Hello World}\"",
+      "End",
+      "",
+      "Start Server on port ${2:3000}"
+    ],
+    "description": "Basic web application"
+  },
+  "Test Function": {
+    "prefix": "test",
+    "body": [
+      "Function Test${1:Name}",
+      "\t${2:// arrange}",
+      "\tAssertEqual(${3:actual}, ${4:expected})",
+      "End"
+    ],
+    "description": "Test function"
+  }
+}

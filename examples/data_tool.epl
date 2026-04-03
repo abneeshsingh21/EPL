@@ -1,0 +1,124 @@
+Note: EPL Data Dashboard
+Note: Analyze CSV data and display results
+Note: Run with: python main.py examples/data_tool.epl
+
+Note: Create sample data
+sample_data = "Name,Age,City,Salary"
+sample_data = sample_data + "\nAlice,30,New York,75000"
+sample_data = sample_data + "\nBob,25,San Francisco,85000"
+sample_data = sample_data + "\nCharlie,35,Chicago,65000"
+sample_data = sample_data + "\nDiana,28,New York,90000"
+sample_data = sample_data + "\nEve,32,San Francisco,70000"
+sample_data = sample_data + "\nFrank,27,Chicago,80000"
+sample_data = sample_data + "\nGrace,31,New York,95000"
+sample_data = sample_data + "\nHenry,29,San Francisco,72000"
+
+Note: Write sample CSV
+file_write("sample_data.csv", sample_data)
+Print "Created sample_data.csv"
+Print ""
+
+Note: Read and parse CSV
+data = csv_read("sample_data.csv")
+Print "=== EPL Data Dashboard ==="
+Print "Loaded " + to_text(length(data)) + " records"
+Print ""
+
+Note: Show all records
+Print "--- All Records ---"
+For Each row In data
+    Print "  $row"
+End
+
+Note: Calculate statistics
+Print ""
+Print "--- Statistics ---"
+
+salaries = []
+ages = []
+city_ny = 0
+city_sf = 0
+city_ch = 0
+
+For Each row In data
+    salary = to_integer(row.Salary)
+    age = to_integer(row.Age)
+    Add salary to salaries
+    Add age to ages
+
+    If row.City == "New York" Then
+        Increase city_ny by 1
+    End
+    If row.City == "San Francisco" Then
+        Increase city_sf by 1
+    End
+    If row.City == "Chicago" Then
+        Increase city_ch by 1
+    End
+End
+
+Note: Salary stats
+total_salary = 0
+min_salary = salaries[0]
+max_salary = salaries[0]
+
+For Each s In salaries
+    total_salary = total_salary + s
+    If s < min_salary Then
+        Set min_salary to s
+    End
+    If s > max_salary Then
+        Set max_salary to s
+    End
+End
+
+avg_salary = total_salary / length(salaries)
+
+Print "Salary Analysis:"
+Print "  Average: $" + to_text(avg_salary)
+Print "  Minimum: $" + to_text(min_salary)
+Print "  Maximum: $" + to_text(max_salary)
+Print "  Total:   $" + to_text(total_salary)
+
+Note: Age stats
+total_age = 0
+For Each a In ages
+    total_age = total_age + a
+End
+avg_age = total_age / length(ages)
+
+Print ""
+Print "Age Analysis:"
+Print "  Average Age: " + to_text(avg_age)
+
+Note: City distribution
+Print ""
+Print "City Distribution:"
+Print "  New York:      " + to_text(city_ny) + " employees"
+Print "  San Francisco: " + to_text(city_sf) + " employees"
+Print "  Chicago:       " + to_text(city_ch) + " employees"
+
+Note: Top earners
+Print ""
+Print "--- Top Earners (85k+) ---"
+For Each row In data
+    salary = to_integer(row.Salary)
+    If salary >= 85000 Then
+        Print "  " + row.Name + " - $" + row.Salary + " (" + row.City + ")"
+    End
+End
+
+Note: Export summary
+summary = "EPL Data Dashboard Report\n"
+summary = summary + "========================\n"
+summary = summary + "Records: " + to_text(length(data)) + "\n"
+summary = summary + "Avg Salary: $" + to_text(avg_salary) + "\n"
+summary = summary + "Avg Age: " + to_text(avg_age) + "\n"
+file_write("dashboard_report.txt", summary)
+Print ""
+Print "Report saved to dashboard_report.txt"
+
+Note: Cleanup
+file_delete("sample_data.csv")
+file_delete("dashboard_report.txt")
+Print "Done!"

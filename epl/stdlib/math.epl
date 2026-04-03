@@ -1,0 +1,168 @@
+Note: EPL Standard Library — Math Module
+Note: Import "math" to use these functions and constants.
+
+Note: ─── Constants ───────────────────────────────────────
+Constant PI = 3.141592653589793
+Constant E = 2.718281828459045
+Constant TAU = 6.283185307179586
+Constant GOLDEN_RATIO = 1.618033988749895
+
+Note: ─── Basic Arithmetic ────────────────────────────────
+
+Define Function square Takes n
+    Return n * n
+End
+
+Define Function cube Takes n
+    Return n * n * n
+End
+
+Define Function clamp Takes value, low, high
+    If value < low Then
+        Return low
+    End
+    If value > high Then
+        Return high
+    End
+    Return value
+End
+
+Define Function lerp Takes start_val, end_val, t
+    Return start_val + (end_val - start_val) * t
+End
+
+Define Function sign Takes n
+    If n > 0 Then
+        Return 1
+    End
+    If n < 0 Then
+        Return -1
+    End
+    Return 0
+End
+
+Define Function is_even Takes n
+    Return n % 2 == 0
+End
+
+Define Function is_odd Takes n
+    Return n % 2 != 0
+End
+
+Note: ─── Trigonometry Helpers ────────────────────────────
+
+Define Function degrees_to_radians Takes deg
+    Return deg * PI / 180
+End
+
+Define Function radians_to_degrees Takes rad
+    Return rad * 180 / PI
+End
+
+Note: ─── Number Theory ───────────────────────────────────
+
+Define Function factorial Takes n
+    If n <= 1 Then
+        Return 1
+    End
+    Create result equal to 1
+    For i from 2 to n
+        Set result to result * i
+    End
+    Return result
+End
+
+Define Function fibonacci Takes n
+    If n <= 0 Then
+        Return 0
+    End
+    If n == 1 Then
+        Return 1
+    End
+    Create prev equal to 0
+    Create curr equal to 1
+    For i from 2 to n
+        Create temp equal to curr
+        Set curr to prev + curr
+        Set prev to temp
+    End
+    Return curr
+End
+
+Define Function is_prime Takes n
+    If n < 2 Then
+        Return False
+    End
+    If n < 4 Then
+        Return True
+    End
+    If n % 2 == 0 Then
+        Return False
+    End
+    Create i equal to 3
+    While i * i <= n
+        If n % i == 0 Then
+            Return False
+        End
+        Increase i by 2
+    End
+    Return True
+End
+
+Define Function gcd Takes x, y
+    While y != 0
+        Create temp equal to y
+        Set y to x % y
+        Set x to temp
+    End
+    Return absolute(x)
+End
+
+Define Function lcm Takes x, y
+    If x == 0 Or y == 0 Then
+        Return 0
+    End
+    Return absolute(x * y) / gcd(x, y)
+End
+
+Note: ─── Statistics ──────────────────────────────────────
+
+Define Function average Takes numbers
+    If length(numbers) == 0 Then
+        Return 0
+    End
+    Return sum(numbers) / length(numbers)
+End
+
+Define Function median Takes numbers
+    Create sorted_nums equal to sorted(numbers)
+    Create n equal to length(sorted_nums)
+    If n == 0 Then
+        Return 0
+    End
+    If n % 2 == 1 Then
+        Return sorted_nums[floor(n / 2)]
+    End
+    Create mid equal to floor(n / 2)
+    Return (sorted_nums[mid - 1] + sorted_nums[mid]) / 2
+End
+
+Define Function min_of Takes numbers
+    Create result equal to numbers[0]
+    For Each item In numbers
+        If item < result Then
+            Set result to item
+        End
+    End
+    Return result
+End
+
+Define Function max_of Takes numbers
+    Create result equal to numbers[0]
+    For Each item In numbers
+        If item > result Then
+            Set result to item
+        End
+    End
+    Return result
+End

@@ -1,0 +1,98 @@
+Note: ─── Math & Builtins Showcase in EPL ───
+
+Note: ─── Square Root ───
+Print sqrt(16)
+Print sqrt(144)
+Print sqrt(2)
+
+Note: ─── Power ───
+Print power(2, 10)
+Print power(3, 3)
+Print 2 ** 8
+
+Note: ─── Floor & Ceil ───
+Print floor(3.7)
+Print floor(3.2)
+Print ceil(3.2)
+Print ceil(3.7)
+
+Note: ─── Absolute Value ───
+Print absolute(-42)
+Print absolute(7)
+
+Note: ─── Round ───
+Print round(3.5)
+Print round(3.4)
+
+Note: ─── Max & Min ───
+Print max(10, 20)
+Print min(10, 20)
+
+Note: ─── Range ───
+Print range(5)
+Print range(2, 6)
+Print range(0, 10, 3)
+
+Note: ─── Sum ───
+Print sum([1, 2, 3, 4, 5])
+
+Note: ─── Sorted ───
+Print sorted([5, 3, 1, 4, 2])
+Print sorted(["banana", "apple", "cherry"])
+
+Note: ─── Reversed ───
+Print reversed([1, 2, 3])
+Print reversed("Hello")
+
+Note: ─── Length ───
+Print length("Hello")
+Print length([1, 2, 3])
+
+Note: ─── Type Checking ───
+Print type_of(42)
+Print type_of(3.14)
+Print type_of("hello")
+Print type_of(true)
+Print type_of([1, 2])
+Print type_of(nothing)
+
+Note: ─── Type Predicates ───
+Print is_integer(42)
+Print is_decimal(3.14)
+Print is_text("hi")
+Print is_boolean(true)
+Print is_list([1])
+Print is_nothing(nothing)
+Print is_number(42)
+Print is_number(3.14)
+
+Note: ─── Conversions ───
+Print to_integer("42")
+Print to_decimal("3.14")
+Print to_text(42)
+
+Note: ─── Character Operations ───
+Print char_code("A")
+Print from_char_code(65)
+
+Note: ─── JSON ───
+data = json_parse("[1, 2, 3]")
+Print data
+m = Map with name = "EPL"
+json_out = json_stringify(m)
+Print json_out
+
+Note: ─── English-style Math ───
+x = 5 raised to 3
+Print x
+
+y = 17 mod 5
+Print y
+
+Print 10 is between 5 and 15
+Print 3 is between 5 and 15
+
+Note: ─── Floor Division ───
+Print 7 // 2
+Print 17 // 5
+Print -7 // 2

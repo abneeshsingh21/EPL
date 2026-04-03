@@ -1,0 +1,9 @@
+[project]
+name = "reference-android"
+version = "1.0.0"
+description = "Reference EPL Android application source"
+author = "EPL Team"
+entry = "src/main.epl"
+
+[scripts]
+build = "epl android src/main.epl"

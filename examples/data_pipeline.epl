@@ -1,0 +1,88 @@
+Note: EPL Data Processing Pipeline
+Note: Demonstrates functional programming with real-world data
+
+Import "math"
+Import "string"
+Import "collections"
+Import "functional"
+
+Print "=============================="
+Print "  Student Grade Analyzer"
+Print "=============================="
+Print ""
+
+Note: --- Student Data ---
+Create students equal to ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace"]
+Create grades equal to [92, 67, 85, 45, 78, 91, 55]
+
+Note: --- Basic Stats ---
+Print "Students: " + to_text(length(students))
+Print "Average:  " + to_text(average(grades))
+Print "Median:   " + to_text(median(grades))
+Print "Highest:  " + to_text(max_of(grades))
+Print "Lowest:   " + to_text(min_of(grades))
+
+Note: --- Grade Classification ---
+Print ""
+Print "--- Grade Report ---"
+Create idx equal to 0
+While idx < length(students)
+    Create name equal to students[idx]
+    Create grade equal to grades[idx]
+    Create letter equal to "F"
+    If grade >= 90 Then
+        Set letter to "A"
+    Otherwise If grade >= 80 Then
+        Set letter to "B"
+    Otherwise If grade >= 70 Then
+        Set letter to "C"
+    Otherwise If grade >= 60 Then
+        Set letter to "D"
+    End
+    Create padded equal to pad_right(name, 10, " ")
+    Print "  " + padded + to_text(grade) + "  (" + letter + ")"
+    Increase idx by 1
+End
+
+Note: --- Passing vs Failing ---
+Create passing equal to filter_list(grades, lambda g -> g >= 60)
+Create failing equal to filter_list(grades, lambda g -> g < 60)
+Print ""
+Print "Passing: " + to_text(length(passing)) + " students"
+Print "Failing: " + to_text(length(failing)) + " students"
+Print "Pass rate: " + to_text(round(length(passing) * 100 / length(students))) + "%"
+
+Note: --- Top Performers ---
+Create sorted_grades equal to sorted(grades)
+Create top_3 equal to take(sorted_grades, 3)
+Print ""
+Print "Bottom 3 scores: " + to_text(top_3)
+
+Note: --- Data Pipeline ---
+Print ""
+Print "--- Pipeline: grades -> curve +5 -> filter >=70 -> count ---"
+Create curved equal to map_list(grades, lambda g -> g + 5)
+Print "After curve (+5): " + to_text(curved)
+Create curved_passing equal to filter_list(curved, lambda g -> g >= 70)
+Print "Passing after curve: " + to_text(length(curved_passing)) + " students"
+
+Note: --- Reduce for weighted average ---
+Create weighted_sum equal to reduce_list(grades, lambda acc, g -> acc + g, 0)
+Print ""
+Print "Total points: " + to_text(weighted_sum)
+Print "Class average: " + to_text(round(weighted_sum / length(grades)))
+
+Note: --- Unique grades check ---
+Create unique_grades equal to unique(grades)
+Print "Unique scores: " + to_text(length(unique_grades)) + " out of " + to_text(length(grades))
+
+Note: --- Every / Some checks ---
+Create all_passing equal to every(grades, lambda g -> g >= 60)
+Print "All passing? " + to_text(all_passing)
+Create any_excellent equal to some(grades, lambda g -> g >= 90)
+Print "Any excellent (>=90)? " + to_text(any_excellent)
+
+Print ""
+Print "=============================="
+Print "  Analysis Complete"
+Print "=============================="

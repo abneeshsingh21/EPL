@@ -1,0 +1,66 @@
+Note "EPL Standard Library: sql — SQLite Database Driver"
+Note "CRUD, transactions, schema, backup"
+
+Function open takes path
+    Return db_open(path)
+End
+
+Function close takes conn
+    Return db_close(conn)
+End
+
+Function execute takes conn and sql
+    Return db_execute(conn, sql)
+End
+
+Function query takes conn and sql
+    Return db_query(conn, sql)
+End
+
+Function query_one takes conn and sql
+    Return db_query_one(conn, sql)
+End
+
+Function insert takes conn and table and record
+    Return db_insert(conn, table, record)
+End
+
+Function update takes conn and table and data and where
+    Return db_update(conn, table, data, where)
+End
+
+Function delete takes conn and table and where
+    Return db_delete(conn, table, where)
+End
+
+Function count takes conn and table
+    Return db_count(conn, table)
+End
+
+Function tables takes conn
+    Return db_tables(conn)
+End
+
+Function table_info takes conn and table
+    Return db_table_info(conn, table)
+End
+
+Function create_table takes conn and table and schema
+    Return db_create_table(conn, table, schema)
+End
+
+Function begin takes conn
+    Return db_begin(conn)
+End
+
+Function commit takes conn
+    Return db_commit(conn)
+End
+
+Function rollback takes conn
+    Return db_rollback(conn)
+End
+
+Function backup takes conn and dest_path
+    Return db_backup(conn, dest_path)
+End

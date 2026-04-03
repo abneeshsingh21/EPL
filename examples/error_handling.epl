@@ -1,0 +1,100 @@
+Note: ─── Error Handling in EPL ───
+
+Note: ─── Basic Try/Catch ───
+Try
+  Print "Attempting something..."
+  x = 10 / 0
+  Print "This won't run"
+Catch e
+  Print "Caught an error!"
+  Print e
+End
+
+Note: ─── Try/Catch with safe operation ───
+Try
+  result = 42
+  Print result
+Catch e
+  Print "Error occurred"
+End
+Print "Continues after try/catch"
+
+Note: ─── Throw Custom Errors ───
+Try
+  Throw "Something went wrong!"
+Catch e
+  Print e
+End
+
+Note: ─── Throw with Conditions ───
+Function divide takes a and b
+  If b == 0 then
+    Throw "Cannot divide by zero!"
+  End
+  Return a / b
+End
+
+Try
+  Print divide(10, 2)
+  Print divide(10, 0)
+Catch e
+  Print e
+End
+
+Note: ─── Nested Try/Catch ───
+Try
+  Print "Outer try"
+  Try
+    Throw "Inner error"
+  Catch e
+    Print "Inner catch: " + e
+  End
+  Print "After inner try/catch"
+Catch e
+  Print "Outer catch (shouldn't reach here)"
+End
+
+Note: ─── Error in Functions ───
+Function safe_sqrt takes n
+  If n < 0 then
+    Throw "Cannot take square root of negative number"
+  End
+  Return sqrt(n)
+End
+
+Try
+  Print safe_sqrt(16)
+  Print safe_sqrt(-4)
+Catch e
+  Print e
+End
+
+Note: ─── Assert (Debug Helper) ───
+x = 42
+Assert x == 42
+
+Note: Assert failure would throw an error
+Try
+  Assert 1 == 2
+Catch e
+  Print "Assertion failed as expected"
+End
+
+Note: ─── Practical: Safe List Access ───
+Function safe_get takes items and index
+  If index < 0 then
+    Throw "Index cannot be negative"
+  End
+  If index >= length(items) then
+    Throw "Index out of bounds"
+  End
+  Return items[index]
+End
+
+data = [10, 20, 30]
+Try
+  Print safe_get(data, 1)
+  Print safe_get(data, 5)
+Catch e
+  Print e
+End

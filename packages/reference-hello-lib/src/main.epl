@@ -1,0 +1,13 @@
+Note: Reference EPL library package.
+
+Define Function greet Takes name
+    Return "Hello, " + name + "!"
+End
+
+Define Function repeat_text Takes text, count
+    result = ""
+    Repeat count times
+        Set result to result + text
+    End
+    Return result
+End

@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPL — Production-Grade Roadmap</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --accent: #f59e0b;
+    --danger: #ef4444;
+    --success: #10b981;
+    --warning: #f97316;
+    --info: #3b82f6;
+    --bg: #ffffff;
+    --text: #1e293b;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --surface: #f8fafc;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.6;
+    font-size: 11pt;
+  }
+
+  @media print {
+    body { font-size: 10pt; }
+    .page-break { page-break-before: always; }
+    .no-print { display: none; }
+    .cover-page { height: 100vh; }
+    @page { margin: 1.5cm 2cm; size: A4; }
+    .phase-card { break-inside: avoid; }
+    table { break-inside: avoid; }
+  }
+
+  /* ═══ Cover Page ═══ */
+  .cover-page {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #1e3a5f 100%);
+    color: white;
+    padding: 3rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover-page::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 60%);
+  }
+
+  .cover-logo {
+    font-size: 5rem;
+    font-weight: 900;
+    letter-spacing: -2px;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+    position: relative;
+  }
+
+  .cover-subtitle {
+    font-size: 1.4rem;
+    font-weight: 300;
+    color: #94a3b8;
+    margin-bottom: 3rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .cover-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+
+  .cover-desc {
+    font-size: 1.1rem;
+    color: #cbd5e1;
+    max-width: 600px;
+    margin-bottom: 3rem;
+  }
+
+  .cover-meta {
+    position: absolute;
+    bottom: 3rem;
+    color: #475569;
+    font-size: 0.85rem;
+  }
+
+  .cover-badge {
+    display: inline-block;
+    padding: 0.4rem 1.2rem;
+    border: 1px solid rgba(96,165,250,0.4);
+    border-radius: 50px;
+    color: #60a5fa;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 2rem;
+  }
+
+  /* ═══ Content Pages ═══ */
+  .content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary);
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid var(--primary);
+  }
+
+  h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 2rem 0 0.8rem;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 1.5rem 0 0.5rem;
+  }
+
+  p { margin: 0.5rem 0; }
+
+  /* ═══ Executive Summary ═══ */
+  .exec-summary {
+    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin: 1.5rem 0;
+  }
+
+  .exec-summary h2 {
+    color: var(--primary);
+    margin-top: 0;
+  }
+
+  /* ═══ Phase Cards ═══ */
+  .phase-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .phase-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+  }
+
+  .phase-card.critical::before { background: var(--danger); }
+  .phase-card.phase1::before { background: #6366f1; }
+  .phase-card.phase2::before { background: #8b5cf6; }
+  .phase-card.phase3::before { background: #06b6d4; }
+  .phase-card.phase4::before { background: #10b981; }
+  .phase-card.phase5::before { background: #f59e0b; }
+  .phase-card.phase6::before { background: #ec4899; }
+
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+  }
+
+  .phase-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: white;
+  }
+
+  .phase1 .phase-number { background: #6366f1; }
+  .phase2 .phase-number { background: #8b5cf6; }
+  .phase3 .phase-number { background: #06b6d4; }
+  .phase4 .phase-number { background: #10b981; }
+  .phase5 .phase-number { background: #f59e0b; }
+  .phase6 .phase-number { background: #ec4899; }
+
+  .phase-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+
+  .phase-timeline {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    background: var(--surface);
+    padding: 0.2rem 0.8rem;
+    border-radius: 50px;
+  }
+
+  /* ═══ Tables ═══ */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--surface);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  /* ═══ Status Badges ═══ */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .badge-red { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+  .badge-green { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .badge-yellow { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+  .badge-blue { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+  .badge-purple { background: #faf5ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+
+  /* ═══ Alert Boxes ═══ */
+  .alert {
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  .alert-danger {
+    background: #fef2f2;
+    border-left: 4px solid #ef4444;
+    color: #991b1b;
+  }
+
+  .alert-success {
+    background: #f0fdf4;
+    border-left: 4px solid #10b981;
+    color: #065f46;
+  }
+
+  .alert-info {
+    background: #eff6ff;
+    border-left: 4px solid #3b82f6;
+    color: #1e40af;
+  }
+
+  .alert-warning {
+    background: #fffbeb;
+    border-left: 4px solid #f59e0b;
+    color: #92400e;
+  }
+
+  .alert strong { display: block; margin-bottom: 0.3rem; }
+
+  /* ═══ Code ═══ */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #f1f5f9;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 1rem 1.2rem;
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    overflow-x: auto;
+    margin: 0.8rem 0;
+    line-height: 1.5;
+  }
+
+  pre .comment { color: #64748b; }
+  pre .keyword { color: #60a5fa; }
+  pre .string { color: #34d399; }
+
+  /* ═══ Timeline ═══ */
+  .timeline {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .timeline-item {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .timeline-item .number {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  .timeline-item .label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ═══ Comparison ═══ */
+  .comparison-box {
+    background: #0f172a;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    color: #e2e8f0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 2;
+  }
+
+  .comparison-box .lang {
+    color: #64748b;
+    display: inline-block;
+    width: 130px;
+  }
+
+  .comparison-box .code-highlight { color: #60a5fa; }
+
+  /* ═══ Checklist ═══ */
+  .checklist {
+    list-style: none;
+    padding: 0;
+  }
+
+  .checklist li {
+    padding: 0.4rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .checklist li::before {
+    content: '☐';
+    position: absolute;
+    left: 0;
+    color: var(--text-secondary);
+  }
+
+  /* ═══ Metrics Grid ═══ */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+
+  .metric-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .metric-card .metric-period {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+
+  .metric-card .metric-target {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+  }
+
+  .metric-card .metric-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  /* ═══ Footer ═══ */
+  .page-footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+  }
+
+  /* ═══ Print Button ═══ */
+  .print-btn {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(37,99,235,0.3);
+    z-index: 100;
+    transition: all 0.2s;
+  }
+
+  .print-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(37,99,235,0.4);
+  }
+
+  /* ═══ TOC ═══ */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin: 1.5rem 0;
+  }
+
+  .toc h2 { margin-top: 0; }
+
+  .toc ol {
+    padding-left: 1.5rem;
+  }
+
+  .toc li {
+    padding: 0.3rem 0;
+    color: var(--primary);
+    font-weight: 500;
+  }
+
+  .toc li span {
+    color: var(--text-secondary);
+    font-weight: 400;
+    font-size: 0.85rem;
+  }
+
+  /* Section divider */
+  .section-divider {
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), transparent);
+    border: none;
+    margin: 2.5rem 0;
+  }
+
+  /* ═══ USP highlight ═══ */
+  .usp-box {
+    background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    text-align: center;
+  }
+
+  .usp-box .usp-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.8rem;
+  }
+
+  .usp-box .usp-text {
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: #93c5fd;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- COVER PAGE                                      -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="cover-page">
+  <div class="cover-badge">CONFIDENTIAL — STRATEGIC DOCUMENT</div>
+  <div class="cover-logo">EPL</div>
+  <div class="cover-subtitle">English Programming Language</div>
+  <div class="cover-title">Production-Grade Roadmap<br>&amp; Growth Strategy</div>
+  <div class="cover-desc">
+    A comprehensive plan to transform EPL from a personal project into a 
+    production-grade programming language with real users, community, 
+    and ecosystem — competing with Python, JavaScript, and Go.
+  </div>
+  <div class="cover-meta">
+    Version 1.0 &nbsp;|&nbsp; March 2026 &nbsp;|&nbsp; EPL v7.0.0
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS                               -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="content page-break">
+
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <ol>
+      <li>Executive Summary</li>
+      <li>Current State &amp; Gap Analysis</li>
+      <li>EPL's Unique Value Proposition</li>
+      <li>Phase 1 — Make EPL Discoverable <span>(Week 1–2)</span></li>
+      <li>Phase 2 — Get First 100 Users <span>(Month 1–2)</span></li>
+      <li>Phase 3 — Build Real-World Proof <span>(Month 2–4)</span></li>
+      <li>Phase 4 — Build Community <span>(Month 3–6)</span></li>
+      <li>Phase 5 — Education Market <span>(Month 6–12)</span></li>
+      <li>Phase 6 — Enterprise Readiness <span>(Year 1–2)</span></li>
+      <li>Critical Security Fixes</li>
+      <li>Technical Debt Tracker</li>
+      <li>Success Metrics &amp; KPIs</li>
+      <li>Marketing Assets Checklist</li>
+      <li>Reference: How Other Languages Grew</li>
+      <li>Immediate Action Items</li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 1. EXECUTIVE SUMMARY                       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h1>1. Executive Summary</h1>
+
+  <div class="exec-summary">
+    <h2>The Vision</h2>
+    <p>EPL (English Programming Language) aims to become the world's most accessible programming language — where code reads like plain English. With a complete infrastructure already built (lexer, parser, interpreter, LLVM compiler, VM, type system, LSP, package manager), EPL's challenge is no longer <em>technical</em> — it's about <strong>ecosystem, community, and real-world adoption</strong>.</p>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="number">6</div>
+      <div class="label">Phases</div>
+    </div>
+    <div class="timeline-item">
+      <div class="number">24</div>
+      <div class="label">Months</div>
+    </div>
+    <div class="timeline-item">
+      <div class="number">5K+</div>
+      <div class="label">Target Stars</div>
+    </div>
+  </div>
+
+  <div class="usp-box">
+    <div class="usp-title">EPL's Killer Value Proposition</div>
+    <div class="usp-text">"In EPL, you write <code style="background:rgba(255,255,255,0.15);color:#93c5fd">Say "Hello"</code> instead of <code style="background:rgba(255,255,255,0.15);color:#94a3b8">print("Hello")</code>"</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 2. CURRENT STATE                            -->
+  <!-- ═══════════════════════════════════════════ -->
+  <hr class="section-divider">
+  <h1>2. Current State &amp; Gap Analysis</h1>
+
+  <h2>2.1 What EPL Has (Technical Assets)</h2>
+  <table>
+    <tr><th>Component</th><th>Status</th><th>Lines of Code</th></tr>
+    <tr><td>Lexer / Parser</td><td><span class="badge badge-green">✅ Complete</span></td><td>~1,300</td></tr>
+    <tr><td>Tree-walking Interpreter</td><td><span class="badge badge-green">✅ Complete</span></td><td>~2,500</td></tr>
+    <tr><td>LLVM Compiler Backend</td><td><span class="badge badge-yellow">🟡 Partial</span></td><td>~800</td></tr>
+    <tr><td>VM Bytecode Engine</td><td><span class="badge badge-yellow">🟡 Partial</span></td><td>~700</td></tr>
+    <tr><td>Type Checker v2.0</td><td><span class="badge badge-green">✅ Complete</span></td><td>~670</td></tr>
+    <tr><td>Type System (Generics, Unions)</td><td><span class="badge badge-green">✅ Complete</span></td><td>~870</td></tr>
+    <tr><td>LSP Server (IDE support)</td><td><span class="badge badge-green">✅ Complete</span></td><td>~990</td></tr>
+    <tr><td>Package Manager</td><td><span class="badge badge-green">✅ Complete</span></td><td>~4,750</td></tr>
+    <tr><td>Standard Library</td><td><span class="badge badge-green">✅ Complete</span></td><td>300+ builtins</td></tr>
+    <tr><td>Web Server (WSGI/ASGI)</td><td><span class="badge badge-green">✅ Complete</span></td><td>~1,200</td></tr>
+    <tr><td>CLI (50+ commands)</td><td><span class="badge badge-green">✅ Complete</span></td><td>~1,000</td></tr>
+    <tr><td>AST Node Definitions</td><td><span class="badge badge-green">✅ Complete</span></td><td>~844</td></tr>
+    <tr><td>Transpilers (JS, Kotlin, Python)</td><td><span class="badge badge-yellow">🟡 Basic</span></td><td>Scaffolding</td></tr>
+  </table>
+
+  <h2>2.2 What EPL Lacks (Critical Gaps)</h2>
+  <table>
+    <tr><th>Gap</th><th>Impact</th><th>Priority</th></tr>
+    <tr><td>0 community users</td><td>No feedback or battle-testing</td><td><span class="badge badge-red">Critical</span></td></tr>
+    <tr><td>0 community packages</td><td>No ecosystem</td><td><span class="badge badge-red">Critical</span></td></tr>
+    <tr><td>Not on PyPI</td><td>Can't install with <code>pip</code></td><td><span class="badge badge-red">Critical</span></td></tr>
+    <tr><td>No website/playground</td><td>Not discoverable</td><td><span class="badge badge-red">Critical</span></td></tr>
+    <tr><td>3 security vulnerabilities</td><td>Unsafe for production</td><td><span class="badge badge-red">Critical</span></td></tr>
+    <tr><td>No documentation site</td><td>Can't learn the language</td><td><span class="badge badge-yellow">High</span></td></tr>
+    <tr><td>No VS Code extension</td><td>IDE support exists but not packaged</td><td><span class="badge badge-yellow">High</span></td></tr>
+    <tr><td>No real Android/iOS apps built</td><td>"Build anything" claim unproven</td><td><span class="badge badge-blue">Medium</span></td></tr>
+  </table>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- 3. VALUE PROPOSITION                        -->
+  <!-- ═══════════════════════════════════════════ -->
+  <hr class="section-divider">
+  <h1>3. EPL's Unique Value Proposition</h1>
+
+  <h2>3.1 The Comparison That Sells Itself</h2>
+
+  <div class="comparison-box">
+    <span class="lang">C++:</span> <span style="color:#f87171">std::cout &lt;&lt; "Hello!" &lt;&lt; std::endl;</span><br>
+    <span class="lang">Java:</span> <span style="color:#fb923c">System.out.println("Hello!");</span><br>
+    <span class="lang">JavaScript:</span> <span style="color:#fbbf24">console.log("Hello!");</span><br>
+    <span class="lang">Python:</span> <span style="color:#a3e635">print("Hello!")</span><br>
+    <span class="lang code-highlight">EPL:</span> <span class="code-highlight" style="font-weight:600">Say "Hello!"</span>
+  </div>
+
+  <h2>3.2 Target Audience Segments</h2>
+  <table>
+    <tr><th>Segment</th><th>Pain Point</th><th>EPL's Solution</th></tr>
+    <tr><td><strong>Absolute beginners</strong></td><td>Scared of syntax symbols</td><td>Code in English words</td></tr>
+    <tr><td><strong>Kids (10-16)</strong></td><td>Too young for Python syntax</td><td>Reads like a story</td></tr>
+    <tr><td><strong>Non-tech professionals</strong></td><td>Want to automate tasks, not learn CS</td><td>Natural language commands</td></tr>
+    <tr><td><strong>CS educators</strong></td><td>Students drop out due to syntax</td><td>Focus on logic, not syntax</td></tr>
+    <tr><td><strong>Coding bootcamps</strong></td><td>Need simpler first language</td><td>Easiest onramp to programming</td></tr>
+  </table>
+
+  <h2>3.3 EPL's Competitive Advantage</h2>
+  <div class="alert alert-info">
+    <strong>💡 No other programming language has the "code in English" hook.</strong>
+    Rust's pitch requires understanding memory safety. Go's requires understanding concurrency. 
+    EPL's pitch is understandable by a 10-year-old: <em>"Write code in plain English."</em>
+    This gives EPL a fundamentally higher viral coefficient.
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- PHASE 1                                         -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="content page-break">
+  <h1>4. Phase 1 — Make EPL Discoverable</h1>
+
+  <div class="phase-card phase1">
+    <div class="phase-header">
+      <div class="phase-number">1</div>
+      <div class="phase-title">Distribution &amp; Packaging</div>
+      <div class="phase-timeline">Week 1–2</div>
+    </div>
+
+    <h3>4.1 Publish to PyPI</h3>
+    <p>The most critical single step. Users must be able to install in <strong>one command</strong>:</p>
+    <pre>pip install epl-lang</pre>
+    <p>Create <code>pyproject.toml</code> with proper metadata, keywords, and classifiers. Register the <code>epl</code> console script entry point.</p>
+
+    <h3>4.2 GitHub Repository Polish</h3>
+    <table>
+      <tr><th>File</th><th>Purpose</th><th>Status</th></tr>
+      <tr><td><code>README.md</code></td><td>Hook + install + examples (most important file)</td><td>☐ Rewrite</td></tr>
+      <tr><td><code>CONTRIBUTING.md</code></td><td>How to contribute</td><td>☐ Create</td></tr>
+      <tr><td><code>LICENSE</code></td><td>MIT License (maximizes adoption)</td><td>☐ Add</td></tr>
+      <tr><td><code>CHANGELOG.md</code></td><td>Version history</td><td>☐ Create</td></tr>
+      <tr><td><code>.github/workflows/ci.yml</code></td><td>CI that proves tests pass</td><td>☐ Create</td></tr>
+      <tr><td><code>.github/ISSUE_TEMPLATE/</code></td><td>Bug + feature request templates</td><td>☐ Create</td></tr>
+    </table>
+
+    <h3>4.3 README Must-Haves</h3>
+    <ul>
+      <li>Python/JS/EPL syntax comparison table (the hook)</li>
+      <li>One-line install command</li>
+      <li>3 example programs</li>
+      <li>"What can EPL build?" section</li>
+      <li>Link to documentation &amp; playground</li>
+    </ul>
+
+    <h3>4.4 Landing Page</h3>
+    <p>Create <code>epl-lang.github.io</code> or <code>epl-lang.org</code> with:</p>
+    <ul>
+      <li>Hero section with install command</li>
+      <li>Live playground (already exists: <code>epl playground</code>)</li>
+      <li>Documentation portal</li>
+      <li>Community links</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- PHASE 2                                     -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h1>5. Phase 2 — Get First 100 Users</h1>
+
+  <div class="phase-card phase2">
+    <div class="phase-header">
+      <div class="phase-number">2</div>
+      <div class="phase-title">Launch &amp; Initial Traction</div>
+      <div class="phase-timeline">Month 1–2</div>
+    </div>
+
+    <h3>5.1 Launch Channels</h3>
+    <table>
+      <tr><th>Channel</th><th>Post Title</th><th>Expected Impact</th></tr>
+      <tr><td><strong>Hacker News</strong></td><td>"Show HN: EPL — Code that reads like English"</td><td>50–200 stars</td></tr>
+      <tr><td><strong>r/ProgrammingLanguages</strong></td><td>"I built a language where 'Say Hello' prints Hello"</td><td>20–50 stars</td></tr>
+      <tr><td><strong>r/learnprogramming</strong></td><td>"A language for people who find Python too cryptic"</td><td>30–100 stars</td></tr>
+      <tr><td><strong>r/Python</strong></td><td>"English-syntax language compiling to Python &amp; LLVM"</td><td>20–50 stars</td></tr>
+      <tr><td><strong>Twitter/X</strong></td><td>30-sec video: "Hello World in 10 languages vs EPL"</td><td>Viral potential</td></tr>
+      <tr><td><strong>YouTube</strong></td><td>"Build a web server in plain English (5 min)"</td><td>Long-tail views</td></tr>
+      <tr><td><strong>Dev.to</strong></td><td>"Why I Built a Language That Reads Like English"</td><td>10–30 follows</td></tr>
+      <tr><td><strong>Product Hunt</strong></td><td>Launch with playground link</td><td>50–100 upvotes</td></tr>
+    </table>
+
+    <h3>5.2 Content Calendar (First 6 Weeks)</h3>
+    <table>
+      <tr><th>Week</th><th>Content</th><th>Channel</th></tr>
+      <tr><td>1</td><td>"Show HN" post with playground</td><td>Hacker News</td></tr>
+      <tr><td>2</td><td>"EPL vs Python for beginners" video</td><td>YouTube + Twitter</td></tr>
+      <tr><td>3</td><td>"Build a REST API in plain English" tutorial</td><td>Dev.to + Reddit</td></tr>
+      <tr><td>4</td><td>"Teaching a non-programmer to code in 10 minutes"</td><td>Twitter thread</td></tr>
+      <tr><td>5</td><td>"EPL's type system: catching bugs in English code"</td><td>r/ProgrammingLanguages</td></tr>
+      <tr><td>6</td><td>"1 month, 100 stars: Lessons from building a language"</td><td>Indie Hackers</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- PHASES 3-4                                      -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="content page-break">
+
+  <h1>6. Phase 3 — Build Real-World Proof</h1>
+
+  <div class="phase-card phase3">
+    <div class="phase-header">
+      <div class="phase-number">3</div>
+      <div class="phase-title">Showcase Applications</div>
+      <div class="phase-timeline">Month 2–4</div>
+    </div>
+
+    <h3>6.1 Build 5 Real Apps in EPL</h3>
+    <table>
+      <tr><th>#</th><th>App</th><th>What It Proves</th><th>Complexity</th></tr>
+      <tr><td>1</td><td><strong>EPL website</strong> (built with EPL's own web server)</td><td>Dog-fooding</td><td>Medium</td></tr>
+      <tr><td>2</td><td><strong>TODO app</strong> with SQLite persistence</td><td>CRUD + database</td><td>Easy</td></tr>
+      <tr><td>3</td><td><strong>REST API</strong> with user auth &amp; JWT</td><td>Backend + security</td><td>Medium</td></tr>
+      <tr><td>4</td><td><strong>Discord bot</strong></td><td>Fun + viral potential</td><td>Easy</td></tr>
+      <tr><td>5</td><td><strong>Markdown blog engine</strong></td><td>File I/O + templates + web</td><td>Medium</td></tr>
+    </table>
+
+    <p>Each app should include: full source code, step-by-step tutorial, and a live demo deployed on Render/Railway.</p>
+
+    <h3>6.2 Benchmarks (Be Honest)</h3>
+    <p>Create a public benchmarks page. Honesty builds trust — don't hide weaknesses.</p>
+    <pre><span class="comment"># Example benchmark results</span>
+Fibonacci(35):
+  Python:          2.8 seconds
+  EPL Interpreter: 3.2 seconds
+  EPL VM:          1.1 seconds
+  EPL LLVM:        0.05 seconds
+
+HTTP req/sec (JSON API):
+  Flask:     1,200 req/s
+  EPL serve: 1,100 req/s
+  Express:   8,500 req/s</pre>
+  </div>
+
+  <h1>7. Phase 4 — Build Community</h1>
+
+  <div class="phase-card phase4">
+    <div class="phase-header">
+      <div class="phase-number">4</div>
+      <div class="phase-title">Community &amp; Contributors</div>
+      <div class="phase-timeline">Month 3–6</div>
+    </div>
+
+    <h3>7.1 Discord Server Structure</h3>
+    <table>
+      <tr><th>Channel</th><th>Purpose</th></tr>
+      <tr><td>#announcements</td><td>Version releases, milestones</td></tr>
+      <tr><td>#general</td><td>Chat about EPL</td></tr>
+      <tr><td>#help</td><td>Q&amp;A for users</td></tr>
+      <tr><td>#showcase</td><td>Projects built with EPL</td></tr>
+      <tr><td>#contribute</td><td>For contributors</td></tr>
+      <tr><td>#beginners</td><td>Safe space for new programmers</td></tr>
+    </table>
+
+    <h3>7.2 Good First Issues (Keep 20+ Open Always)</h3>
+    <p>Ready-to-create issues to attract contributors:</p>
+    <ol>
+      <li>"Add <code>abs()</code> builtin function"</li>
+      <li>"Improve error message for missing <code>End</code> keyword"</li>
+      <li>"Add example: Temperature converter"</li>
+      <li>"Document all string methods in stdlib-reference.md"</li>
+      <li>"Create syntax highlighting for VS Code"</li>
+      <li>"Write tutorial: Variables and Types"</li>
+      <li>"Add <code>shuffle()</code> to list builtins"</li>
+      <li>"Create <code>.editorconfig</code> file"</li>
+      <li>"Translate getting-started to Hindi"</li>
+      <li>"Add Fizzbuzz example"</li>
+    </ol>
+
+    <h3>7.3 Contributor Recognition</h3>
+    <ul>
+      <li><code>CONTRIBUTORS.md</code> listing all contributors</li>
+      <li>GitHub releases thanking new contributors by name</li>
+      <li>Discord role: "EPL Contributor"</li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- PHASES 5-6                                      -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="content page-break">
+
+  <h1>8. Phase 5 — Education Market</h1>
+
+  <div class="phase-card phase5">
+    <div class="phase-header">
+      <div class="phase-number">5</div>
+      <div class="phase-title">EPL for Education</div>
+      <div class="phase-timeline">Month 6–12</div>
+    </div>
+
+    <div class="alert alert-success">
+      <strong>🎯 This is EPL's Killer Market</strong>
+      EPL's English syntax removes the #1 barrier for beginners: cryptic syntax. 
+      Schools, bootcamps, and kids' coding programs are natural adopters.
+    </div>
+
+    <h3>8.1 Free Curriculum: "Learn Programming with EPL"</h3>
+    <table>
+      <tr><th>Lesson</th><th>Topic</th><th>EPL Concept</th></tr>
+      <tr><td>1</td><td>Your First Program</td><td><code>Say "Hello!"</code></td></tr>
+      <tr><td>2</td><td>Variables</td><td><code>Set name To "EPL"</code></td></tr>
+      <tr><td>3</td><td>Math</td><td><code>Set result To 5 + 3</code></td></tr>
+      <tr><td>4</td><td>User Input</td><td><code>Ask "What is your name?"</code></td></tr>
+      <tr><td>5</td><td>Conditions</td><td><code>If score &gt; 90 Then...</code></td></tr>
+      <tr><td>6</td><td>Loops</td><td><code>Repeat 10 times</code></td></tr>
+      <tr><td>7</td><td>Lists</td><td><code>Set fruits To ["apple"]</code></td></tr>
+      <tr><td>8</td><td>Functions</td><td><code>Define function greet</code></td></tr>
+      <tr><td>9</td><td>Files</td><td><code>Read file "data.txt"</code></td></tr>
+      <tr><td>10</td><td>Web Server</td><td><code>epl serve app.epl</code></td></tr>
+    </table>
+
+    <h3>8.2 Outreach Strategy</h3>
+    <ul>
+      <li>Email 50 CS professors with curriculum PDF</li>
+      <li>Post on r/CSEducation and r/teachingprogramming</li>
+      <li>Submit to Code.org as a supported language</li>
+      <li>Partner with 1–2 coding bootcamps</li>
+      <li>Create "EPL for Kids" visual block editor</li>
+    </ul>
+  </div>
+
+  <h1>9. Phase 6 — Enterprise Readiness</h1>
+
+  <div class="phase-card phase6">
+    <div class="phase-header">
+      <div class="phase-number">6</div>
+      <div class="phase-title">Production Infrastructure</div>
+      <div class="phase-timeline">Year 1–2</div>
+    </div>
+
+    <h3>9.1 Technical Requirements</h3>
+    <table>
+      <tr><th>Requirement</th><th>Current State</th><th>Target</th></tr>
+      <tr><td>Security audit</td><td>3 critical gaps</td><td>All fixed + external audit</td></tr>
+      <tr><td>Performance</td><td>Python-speed interpreter</td><td>JIT or mature LLVM backend</td></tr>
+      <tr><td>Debugging</td><td>Basic breakpoints</td><td>Step-through debugger</td></tr>
+      <tr><td>Package registry</td><td>GitHub-based</td><td>Hosted registry (npm-style)</td></tr>
+      <tr><td>VS Code extension</td><td>LSP exists</td><td>Published on marketplace</td></tr>
+      <tr><td>Docker image</td><td>None</td><td><code>docker run epl-lang</code></td></tr>
+      <tr><td>CI/CD</td><td>Basic</td><td>GitHub Actions + Docker images</td></tr>
+    </table>
+
+    <h3>9.2 VS Code Extension (High Impact)</h3>
+    <p>Publish <code>epl-vscode</code> with: syntax highlighting, diagnostics, completions, hover docs, go-to-definition, format-on-save, and run/debug from editor.</p>
+    <p><strong>Impact</strong>: Most developers discover languages through IDE extensions.</p>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- SECURITY & TECH DEBT                            -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="content page-break">
+
+  <h1>10. Critical Security Fixes</h1>
+
+  <div class="alert alert-danger">
+    <strong>⚠️ DO NOT publish EPL publicly until these are fixed.</strong>
+    Gap #1 is a Remote Code Execution vulnerability — any <code>.eplc</code> file could be weaponized.
+  </div>
+
+  <table>
+    <tr><th>#</th><th>Vulnerability</th><th>File</th><th>Fix</th><th>Time</th></tr>
+    <tr>
+      <td><span class="badge badge-red">1</span></td>
+      <td><strong>Pickle RCE</strong> — <code>.eplc</code> files can execute arbitrary code</td>
+      <td><code>bytecode_cache.py:74</code></td>
+      <td>Replace <code>pickle.loads()</code> with <code>json</code> or <code>marshal</code></td>
+      <td>30 min</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-red">2</span></td>
+      <td><strong>No recursion limit</strong> — infinite recursion crashes process</td>
+      <td><code>interpreter.py</code></td>
+      <td>Add <code>sys.setrecursionlimit()</code> + stack depth check</td>
+      <td>15 min</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-red">3</span></td>
+      <td><strong>FFI sandbox missing</strong> — can load ANY shared library</td>
+      <td><code>ffi.py</code></td>
+      <td>Add allowlist + <code>safe_mode</code> gating</td>
+      <td>1 hour</td>
+    </tr>
+  </table>
+
+  <h1>11. Technical Debt Tracker</h1>
+
+  <table>
+    <tr><th>#</th><th>Issue</th><th>File</th><th>Priority</th></tr>
+    <tr><td>1</td><td>VM silently falls back to interpreter</td><td><code>main.py</code></td><td><span class="badge badge-yellow">High</span></td></tr>
+    <tr><td>2</td><td><code>_source_lines</code> is global mutable state</td><td><code>errors.py</code></td><td><span class="badge badge-yellow">High</span></td></tr>
+    <tr><td>3</td><td>Environment scope chain has no depth limit</td><td><code>environment.py</code></td><td><span class="badge badge-blue">Medium</span></td></tr>
+    <tr><td>4</td><td>Duplicate EPLChannel/EPLTimer classes</td><td><code>async_io.py</code> vs <code>concurrency.py</code></td><td><span class="badge badge-blue">Medium</span></td></tr>
+    <tr><td>5</td><td>No graceful shutdown for event loop</td><td><code>async_io.py</code></td><td><span class="badge badge-blue">Medium</span></td></tr>
+    <tr><td>6</td><td>RWLock has writer starvation</td><td><code>concurrency.py</code></td><td><span class="badge badge-purple">Low</span></td></tr>
+    <tr><td>7</td><td>REPL duplicate history setup</td><td><code>main.py</code></td><td><span class="badge badge-purple">Low</span></td></tr>
+    <tr><td>8</td><td><code>AssertionError</code> typo</td><td><code>errors.py</code></td><td><span class="badge badge-purple">Low</span></td></tr>
+  </table>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SUCCESS METRICS                             -->
+  <!-- ═══════════════════════════════════════════ -->
+  <h1>12. Success Metrics &amp; KPIs</h1>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-period">Month 1</div>
+      <div class="metric-target">50 ⭐</div>
+      <div class="metric-desc">GitHub stars + PyPI published + 10 Discord members</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-period">Month 3</div>
+      <div class="metric-target">200 ⭐</div>
+      <div class="metric-desc">5 showcase apps + 3 PRs merged + VS Code extension</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-period">Month 6</div>
+      <div class="metric-target">500 ⭐</div>
+      <div class="metric-desc">100 Discord members + 10 packages + 1 school pilot</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-period">Year 1</div>
+      <div class="metric-target">1,000 ⭐</div>
+      <div class="metric-desc">500 Discord + 50 packages + 1 production deployment</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-period">Year 2</div>
+      <div class="metric-target">5,000 ⭐</div>
+      <div class="metric-desc">2,000 Discord + 100 packages + 5 schools + conference talk</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-period">Ultimate Goal</div>
+      <div class="metric-target">10K+ ⭐</div>
+      <div class="metric-desc">Featured in language surveys + wide education adoption</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- MARKETING & REFERENCE                           -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="content page-break">
+
+  <h1>13. Marketing Assets Checklist</h1>
+
+  <ul class="checklist">
+    <li>EPL logo (simple, memorable, professional)</li>
+    <li>Color palette &amp; brand guide</li>
+    <li>Social media banner images</li>
+    <li>30-second comparison demo video</li>
+    <li>5-minute tutorial video</li>
+    <li>Conference presentation slides</li>
+    <li>One-page "What is EPL?" PDF handout</li>
+    <li>Sticker/swag designs for conferences</li>
+    <li>Screenshots of IDE with EPL syntax highlighting</li>
+    <li>GIF animations of EPL playground in action</li>
+  </ul>
+
+  <h1>14. Reference: How Other Languages Grew</h1>
+
+  <table>
+    <tr><th>Language</th><th>Created</th><th>Time to 1K Users</th><th>Growth Driver</th></tr>
+    <tr><td><strong>Rust</strong></td><td>2010</td><td>~3 years</td><td>Mozilla backing + "memory safety" message</td></tr>
+    <tr><td><strong>Go</strong></td><td>2009</td><td>~2 years</td><td>Google backing + simplicity for cloud</td></tr>
+    <tr><td><strong>Zig</strong></td><td>2015</td><td>~4 years</td><td>Solo dev + HN posts + Foundation</td></tr>
+    <tr><td><strong>Nim</strong></td><td>2008</td><td>~5 years</td><td>Patience + packaging + documentation</td></tr>
+    <tr><td><strong>Elixir</strong></td><td>2011</td><td>~3 years</td><td>Ruby community + Phoenix framework</td></tr>
+  </table>
+
+  <div class="alert alert-info">
+    <strong>EPL's Advantage Over All of These</strong>
+    None of these languages had the "code in English" hook. EPL's value proposition 
+    is understandable by a 10-year-old. This gives EPL a fundamentally higher 
+    potential viral coefficient than languages requiring technical appreciation.
+  </div>
+
+  <h1>15. Immediate Action Items (This Week)</h1>
+
+  <div class="phase-card critical">
+    <h3>Priority 1: Security (Before ANY Public Release)</h3>
+    <ul class="checklist">
+      <li>Fix Pickle RCE in <code>bytecode_cache.py</code> — replace with <code>json</code>/<code>marshal</code></li>
+      <li>Add recursion depth limit to <code>interpreter.py</code></li>
+      <li>Add FFI sandbox with allowlist to <code>ffi.py</code></li>
+    </ul>
+
+    <h3>Priority 2: Distribution</h3>
+    <ul class="checklist">
+      <li>Create <code>pyproject.toml</code> for PyPI packaging</li>
+      <li>Run <code>python -m build</code> and test <code>pip install</code> locally</li>
+      <li>Publish to PyPI: <code>twine upload dist/*</code></li>
+    </ul>
+
+    <h3>Priority 3: Visibility</h3>
+    <ul class="checklist">
+      <li>Rewrite README with the Python/JS/EPL comparison hook</li>
+      <li>Create GitHub issues (20+ good-first-issues)</li>
+      <li>Post on Hacker News "Show HN"</li>
+      <li>Create Discord server</li>
+    </ul>
+  </div>
+
+  <div class="page-footer">
+    <strong>EPL — English Programming Language</strong><br>
+    Production-Grade Roadmap v1.0 &nbsp;|&nbsp; March 2026<br>
+    <em>"Write code in plain English. Build anything."</em>
+  </div>
+
+</div>
+
+<!-- Print Button -->
+<button class="print-btn no-print" onclick="window.print()">
+  📄 Save as PDF
+</button>
+
+</body>
+</html>

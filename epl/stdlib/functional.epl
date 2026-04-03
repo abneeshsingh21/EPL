@@ -1,0 +1,86 @@
+Note: EPL Standard Library — Functional Module
+Note: Import "functional" to use functional programming utilities.
+
+Note: ─── Higher-Order Functions ──────────────────────────
+
+Define Function apply Takes fn, arg
+    Return Call fn With arg
+End
+
+Define Function compose Takes f, g
+    Return lambda x -> Call f With (Call g With x)
+End
+
+Define Function pipe Takes value, functions
+    Create result equal to value
+    For Each fn In functions
+        Set result to Call fn With result
+    End
+    Return result
+End
+
+Note: ─── List Transformations ────────────────────────────
+
+Define Function map_list Takes items, transform
+    Create result equal to []
+    For Each item In items
+        Add (Call transform With item) to result
+    End
+    Return result
+End
+
+Define Function filter_list Takes items, predicate
+    Create result equal to []
+    For Each item In items
+        If Call predicate With item Then
+            Add item to result
+        End
+    End
+    Return result
+End
+
+Define Function reduce_list Takes items, accumulator, initial
+    Create result equal to initial
+    For Each item In items
+        Set result to Call accumulator With result, item
+    End
+    Return result
+End
+
+Define Function for_each Takes items, action
+    For Each item In items
+        Call action With item
+    End
+End
+
+Define Function flat_map Takes items, transform
+    Create result equal to []
+    For Each item In items
+        Create mapped equal to Call transform With item
+        If type_of(mapped) == "list" Then
+            For Each sub_item In mapped
+                Add sub_item to result
+            End
+        Otherwise
+            Add mapped to result
+        End
+    End
+    Return result
+End
+
+Note: ─── Predicates ──────────────────────────────────────
+
+Define Function negate Takes predicate
+    Return lambda x -> Not (Call predicate With x)
+End
+
+Define Function always Takes value
+    Return lambda x -> value
+End
+
+Define Function identity Takes x
+    Return x
+End
+
+Note: Note: memoize requires multi-statement closures which EPL does not yet support.
+Note: Use lambda closures for single-expression cases.

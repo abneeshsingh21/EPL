@@ -1,0 +1,47 @@
+Note: EPL Standard Library — Crypto Module
+Note: Import "crypto" to use hashing and encoding functions.
+
+Note: ─── Hashing ─────────────────────────────────────────
+
+Define Function md5 Takes val
+    Return hash_md5(val)
+End
+
+Define Function sha256 Takes val
+    Return hash_sha256(val)
+End
+
+Note: ─── Encoding ────────────────────────────────────────
+
+Define Function to_base64 Takes val
+    Return base64_encode(val)
+End
+
+Define Function from_base64 Takes val
+    Return base64_decode(val)
+End
+
+Define Function to_hex Takes val
+    Return hex_encode(val)
+End
+
+Define Function from_hex Takes val
+    Return hex_decode(val)
+End
+
+Note: ─── Random ──────────────────────────────────────────
+
+Define Function random_string Takes n
+    Constant CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    Create result equal to ""
+    For i from 1 to n
+        Create idx equal to floor(random(0, length(CHARS) - 1))
+        Set result to result + CHARS.substring(idx, idx + 1)
+    End
+    Return result
+End
+
+Define Function generate_uuid
+    Note: Generate a simple UUID-like string
+    Return uuid4()
+End

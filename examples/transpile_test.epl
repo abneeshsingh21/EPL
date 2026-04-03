@@ -1,0 +1,20 @@
+Note: Transpiler test
+
+x = 10
+name = "Alice"
+Print "Hello " + name
+
+Function sum takes a and b
+    Return a + b
+End
+
+result = call sum with 3 and 4
+Print "Sum: " + result
+
+For i from 1 to 5
+    Print i
+End
+
+If x > 5 then
+    Print "x is big"
+End

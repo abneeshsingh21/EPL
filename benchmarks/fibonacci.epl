@@ -1,0 +1,16 @@
+Create result equal to 0.
+For i from 1 to 30
+    If i is less than 2 then
+        Set result to i.
+    Otherwise
+        Create prev equal to 0.
+        Create curr equal to 1.
+        For j from 2 to i
+            Create tmp equal to curr.
+            Set curr to prev + curr.
+            Set prev to tmp.
+        End For
+        Set result to curr.
+    End if
+End For
+Print result.

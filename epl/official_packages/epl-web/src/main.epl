@@ -1,0 +1,87 @@
+Comment "Supported EPL Web facade package"
+
+Comment "App lifecycle"
+
+Function create_app with name
+    Return Call web_create with [name]
+End Function
+
+Function start_app with app_id, port
+    Return Call web_start with [app_id, port]
+End Function
+
+Function stop_app with app_id
+    Return Call web_stop with [app_id]
+End Function
+
+Comment "Routing"
+
+Function get_route with app_id, path, handler
+    Return Call web_get with [app_id, path, handler]
+End Function
+
+Function post_route with app_id, path, handler
+    Return Call web_post with [app_id, path, handler]
+End Function
+
+Function put_route with app_id, path, handler
+    Return Call web_put with [app_id, path, handler]
+End Function
+
+Function delete_route with app_id, path, handler
+    Return Call web_delete with [app_id, path, handler]
+End Function
+
+Comment "Request helpers"
+
+Function request_data
+    Return Call web_request_data with []
+End Function
+
+Function request_args
+    Return Call web_request_args with []
+End Function
+
+Function request_method
+    Return Call web_request_method with []
+End Function
+
+Function request_path
+    Return Call web_request_path with []
+End Function
+
+Function request_header with name
+    Return Call web_request_header with [name]
+End Function
+
+Comment "Responses"
+
+Function json_response with data, status
+    Return Call web_json with [data, status]
+End Function
+
+Function html_response with content, status
+    Return Call web_html with [content, status]
+End Function
+
+Function redirect_to with url
+    Return Call web_redirect with [url]
+End Function
+
+Function response with body, status, headers
+    Return Call web_response with [body, status, headers]
+End Function
+
+Comment "Sessions"
+
+Function session_get with key
+    Return Call web_session_get with [key]
+End Function
+
+Function session_set with key, value
+    Return Call web_session_set with [key, value]
+End Function
+
+Function session_clear
+    Return Call web_session_clear with []
+End Function

@@ -1,0 +1,237 @@
+name: EPL CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.9', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest coverage build
+
+      - name: Run regression tests
+        run: python tests/run_tests.py
+
+      - name: Run v4 tests
+        run: python tests/test_epl.py
+
+      - name: Run VM tests
+        run: python -m pytest tests/test_vm.py -q
+
+      - name: Run compiler tests
+        run: python tests/test_compiler.py
+
+      - name: Run stability tests
+        run: python tests/test_stability.py
+
+      - name: Run package manager tests
+        run: python tests/test_package_manager.py
+
+      - name: Run JS transpiler tests
+        run: python tests/test_js_transpiler.py
+
+      - name: Run Kotlin tests
+        run: python -m pytest tests/test_kotlin.py -q
+
+      - name: Run CLI production tests
+        run: python -m pytest tests/test_cli_production.py -q
+
+      - name: Run legacy harness smoke tests
+        run: python -m pytest tests/test_legacy_harness_smoke.py -q
+
+      - name: Run reference app smoke tests
+        run: python -m pytest tests/test_reference_apps.py -q
+
+      - name: Run benchmark baseline smoke tests
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        run: python -m pytest tests/test_benchmark_baselines.py -q
+
+      - name: Run benchmark threshold guard
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        run: python scripts/check_benchmark_thresholds.py --json
+
+      - name: Install Linux release smoke prerequisites
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Run release packaging tests
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        env:
+          EPL_RUN_RELEASE_TESTS: "1"
+        run: python -m pytest tests/test_release_packaging.py -q
+
+      - name: Export benchmark baseline artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        run: python -m epl bench --json --runs=1 > benchmark-results.json
+
+      - name: Upload benchmark baseline artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-baseline
+          path: benchmark-results.json
+
+      - name: Run package UX tests
+        run: python tests/test_package_ux.py
+
+      - name: Run structured pytest suite
+        run: python -m pytest -q
+
+      - name: Run comprehensive tests
+        run: python tests/test_comprehensive.py
+
+      - name: Run framework tests
+        run: python tests/test_framework.py
+
+      - name: Verify version consistency
+        run: python -c "import subprocess, sys; from epl import __version__; main_out = subprocess.check_output([sys.executable, 'main.py', '--version'], text=True).strip(); module_out = subprocess.check_output([sys.executable, '-m', 'epl', '--version'], text=True).strip(); assert __version__ in main_out, (main_out, __version__); assert __version__ in module_out, (module_out, __version__)"
+
+      - name: Verify pytest collection
+        run: python -m pytest --collect-only -q
+
+      - name: Test CLI help
+        run: python main.py --help
+
+      - name: Test CLI version
+        run: python main.py --version
+
+      - name: Test python -m epl
+        run: python -m epl --version
+
+  android-reference-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run reference apps with Android build validation
+        env:
+          EPL_RUN_ANDROID_BUILD_TESTS: "1"
+        run: python -m pytest tests/test_reference_apps.py -q
+
+  desktop-reference-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run reference apps with desktop build validation
+        env:
+          EPL_RUN_DESKTOP_BUILD_TESTS: "1"
+        run: python -m pytest tests/test_reference_apps.py -q
+
+  docker-reference-deploy:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest build
+
+      - name: Run reference apps with Docker deploy validation
+        env:
+          EPL_RUN_DOCKER_DEPLOY_TESTS: "1"
+        run: python -m pytest tests/test_reference_apps.py -q
+
+  release-smoke:
+    runs-on: ${{ matrix.os }}
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.11']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install release build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Install Linux LLVM smoke prerequisites
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Build wheel
+        run: python -m build --wheel --outdir dist
+
+      - name: Run clean-room wheel smoke
+        run: python scripts/ci_release_smoke.py dist
+
+      - name: Run Linux native build smoke from installed wheel
+        if: matrix.os == 'ubuntu-latest'
+        run: python scripts/ci_release_smoke.py dist --llvm-smoke

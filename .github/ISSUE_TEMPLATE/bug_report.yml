@@ -1,0 +1,66 @@
+name: Bug Report
+description: Found a bug in EPL? Tell us what happened.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill in as much detail as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "What happened?"
+      description: "A clear description of the bug."
+      placeholder: "When I write '...', EPL does '...' instead of '...'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: code
+    attributes:
+      label: "EPL code to reproduce"
+      description: "Paste the smallest EPL program that reproduces the bug."
+      render: "text"
+      placeholder: |
+        Set x To 10
+        Say x + y   # error here
+
+  - type: textarea
+    id: error
+    attributes:
+      label: "Error output"
+      description: "Paste the full error message from EPL."
+      render: "shell"
+
+  - type: input
+    id: version
+    attributes:
+      label: "EPL version"
+      description: "Run `epl version` to get the version."
+      placeholder: "e.g. 7.0.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: "Operating System"
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: "Which engine were you using?"
+      options:
+        - Interpreter (default)
+        - VM (--vm flag)
+        - LLVM compiler (--compile flag)
+        - Not sure

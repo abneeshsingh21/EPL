@@ -1,0 +1,29 @@
+Comment "EPL Template Engine Module — variables, loops, conditionals, filters"
+
+Comment "── Template Management ──"
+
+Function create_template with name, content
+    Return Call template_create with [name, content]
+End Function
+
+Function render_template with name, context
+    Return Call template_render with [name, context]
+End Function
+
+Function render_string with template_str, context
+    Return Call template_render_string with [template_str, context]
+End Function
+
+Function load_template with path
+    Return Call template_from_file with [path]
+End Function
+
+Function has_template with name
+    Return Call template_exists with [name]
+End Function
+
+Comment "── Custom Filters ──"
+
+Function add_filter with name, handler
+    Return Call template_add_filter with [name, handler]
+End Function

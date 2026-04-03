@@ -1,0 +1,70 @@
+Note "EPL Standard Library: os — Operating System"
+Note "Environment variables, processes, system info"
+
+Function get_env takes name
+    Return env_get(name)
+End
+
+Function set_env takes name and value
+    Return env_set(name, value)
+End
+
+Function has_env takes name
+    Return env_has(name)
+End
+
+Function all_env takes nothing
+    Return env_all()
+End
+
+Function delete_env takes name
+    Return env_delete(name)
+End
+
+Function run takes command
+    Return exec_output(command)
+End
+
+Function run_async takes command
+    Return exec_async(command)
+End
+
+Function kill takes pid
+    Return kill_process(pid)
+End
+
+Function get_platform takes nothing
+    Return platform()
+End
+
+Function get_arch takes nothing
+    Return arch()
+End
+
+Function get_hostname takes nothing
+    Return hostname()
+End
+
+Function get_cpu_count takes nothing
+    Return cpu_count()
+End
+
+Function get_pid takes nothing
+    Return pid()
+End
+
+Function get_cwd takes nothing
+    Return cwd()
+End
+
+Function home takes nothing
+    Return user_home()
+End
+
+Function username takes nothing
+    Return user_name()
+End
+
+Function admin takes nothing
+    Return is_admin()
+End

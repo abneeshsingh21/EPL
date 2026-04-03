@@ -1,0 +1,62 @@
+Note: EPL Standard Library — HTTP Module
+Note: Import "http" to use HTTP client functions.
+
+Note: ─── HTTP Verbs ──────────────────────────────────────
+
+Define Function http_fetch Takes url
+    Return http_get(url)
+End
+
+Define Function http_send Takes url, data
+    Return http_post(url, data)
+End
+
+Define Function http_update Takes url, data
+    Return http_put(url, data)
+End
+
+Define Function http_remove Takes url
+    Return http_delete(url)
+End
+
+Note: ─── JSON Helpers ────────────────────────────────────
+
+Define Function parse_json Takes raw
+    Return json_parse(raw)
+End
+
+Define Function to_json Takes value
+    Return json_stringify(value)
+End
+
+Define Function pretty_json Takes value
+    Return json_pretty(value)
+End
+
+Note: ─── URL Helpers ─────────────────────────────────────
+
+Define Function encode_url Takes raw
+    Return url_encode(raw)
+End
+
+Define Function decode_url Takes raw
+    Return url_decode(raw)
+End
+
+Note: ─── Response Helpers ────────────────────────────────
+
+Define Function is_success Takes status_code
+    Return status_code >= 200 And status_code < 300
+End
+
+Define Function is_redirect Takes status_code
+    Return status_code >= 300 And status_code < 400
+End
+
+Define Function is_client_error Takes status_code
+    Return status_code >= 400 And status_code < 500
+End
+
+Define Function is_server_error Takes status_code
+    Return status_code >= 500 And status_code < 600
+End

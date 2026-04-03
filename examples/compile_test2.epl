@@ -1,0 +1,33 @@
+Note: Complex compiler test with functions, strings, while, break
+
+Function factorial takes n
+    If n < 2 then
+        Return 1
+    End
+    Return n * factorial(n - 1)
+End
+
+Print factorial(5)
+Print factorial(10)
+
+Print "Hello, EPL!"
+Print "Compiled " + "and " + "fast!"
+
+x = 0
+While x < 5
+    Print x
+    x = x + 1
+End
+
+Constant MAX = 100
+Print MAX
+
+Assert 2 + 2 == 4
+
+For i from 1 to 3
+    Print i * i
+End
+
+Print "done"
+Exit
+Print "never"

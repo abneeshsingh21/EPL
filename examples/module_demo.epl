@@ -1,0 +1,48 @@
+Note: EPL Module System Demo
+Note: Shows Import, Import-as, and module access syntax
+
+Note: --- Basic Import (symbols go into global scope) ---
+Import "math"
+Print "=== Module System Demo ==="
+Print ""
+Print "1) Basic import: Import 'math'"
+Print "   factorial(5) = " + to_text(factorial(5))
+Print "   PI = " + to_text(PI)
+
+Note: --- Aliased Import with :: access ---
+Import "string" as Str
+Print ""
+Print "2) Aliased import: Import 'string' as Str"
+Print "   Str::capitalize('hello') = " + Str::capitalize("hello")
+Print "   Str::slug('Hello World') = " + Str::slug("Hello World")
+Print "   Str::ALPHABET = " + Str::ALPHABET
+
+Note: --- Aliased Import with . access ---
+Import "collections" as Col
+Print ""
+Print "3) Dot access: Import 'collections' as Col"
+Print "   Col.unique([1,2,2,3]) = " + to_text(Col.unique([1, 2, 2, 3]))
+Print "   Col.flatten([[1],[2,3]]) = " + to_text(Col.flatten([[1], [2, 3]]))
+
+Note: --- Multiple aliases ---
+Import "crypto" as Crypto
+Import "datetime" as DT
+
+Print ""
+Print "4) Multiple aliases:"
+Print "   Crypto.md5('test') = " + Crypto.md5("test")
+Print "   Crypto.generate_uuid() = " + Crypto.generate_uuid()
+Print "   DT::HOUR = " + to_text(DT::HOUR) + " seconds"
+Print "   DT.format_duration(3661) = " + DT.format_duration(3661)
+
+Note: --- Both syntaxes on same module ---
+Import "functional" as FP
+Print ""
+Print "5) Both :: and . work on same alias:"
+Create doubled equal to FP::map_list([1, 2, 3], lambda x -> x * 2)
+Print "   FP::map_list([1,2,3], x*2) = " + to_text(doubled)
+Create total equal to FP.reduce_list([1, 2, 3, 4, 5], lambda acc, x -> acc + x, 0)
+Print "   FP.reduce_list([1..5], sum) = " + to_text(total)
+
+Print ""
+Print "=== All module access patterns work! ==="

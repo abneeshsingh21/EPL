@@ -1,0 +1,56 @@
+Display "=== EPL Regex Processing Demo ===".
+Display "".
+
+Display "--- Email Validation ---".
+Function validate_email takes email
+    Create pattern equal to "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$".
+    Return regex_test(pattern, email).
+End Function.
+
+Create emails equal to ["user@example.com", "bad-email", "test@test.co.uk", "@missing.com", "hello@world.org"].
+For each email in emails
+    Create valid equal to validate_email(email).
+    Display "${email}: ${valid}".
+End.
+
+Display "".
+Display "--- Extract Data ---".
+Create log_line equal to "[2024-01-15 14:30:22] ERROR: Connection timeout after 30s".
+Create date_match equal to regex_find_all("\\d{4}-\\d{2}-\\d{2}", log_line).
+Display "Date found: ".
+Display date_match.
+Create time_match equal to regex_find_all("\\d{2}:\\d{2}:\\d{2}", log_line).
+Display "Time found: ".
+Display time_match.
+
+Display "".
+Display "--- Text Cleanup ---".
+Create messy equal to "  Hello    World!   Too   many    spaces  ".
+Create cleaned equal to regex_replace("\\s+", " ", messy).
+Display "Cleaned: $cleaned".
+
+Display "".
+Display "--- Parse CSV Line ---".
+Create csv_line equal to "Alice,30,Engineer,New York".
+Create fields equal to regex_split(",", csv_line).
+Display "Fields: ".
+Display fields.
+
+Display "".
+Display "--- Word Counter ---".
+Create txt equal to "The quick brown fox jumps over the lazy dog. The dog barked at the fox.".
+Create words equal to regex_split("\\s+", txt).
+Display "Word count: ${length(words)}".
+
+Display "".
+Display "--- URL Parser ---".
+Create address equal to "https://example.com:8080/path/to/page?key=value&foo=bar".
+Create protocol_match equal to regex_find_all("^([a-z]+)://", address).
+Display "Protocol: ".
+Display protocol_match.
+Create domain_match equal to regex_find_all("://([^:/]+)", address).
+Display "Domain: ".
+Display domain_match.
+
+Display "".
+Display "=== Regex Demo Complete ===".

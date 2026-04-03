@@ -1,0 +1,53 @@
+EPL — English Programming Language
+Copyright Notice and Attribution
+================================================================================
+
+    Copyright (c) 2024–2026 Abneesh Singh <singhabneesh250@gmail.com>
+    All Rights Reserved.
+
+    Created and maintained by:
+        Abneesh Singh
+        Email : singhabneesh250@gmail.com
+        GitHub: https://github.com/epl-lang/epl
+        PyPI  : https://pypi.org/project/eplang/
+
+================================================================================
+TRADEMARK NOTICE
+================================================================================
+
+"EPL", "English Programming Language", and the EPL logo are trademarks of
+Abneesh Singh. Unauthorised use of these marks — including in derivative
+products, tools, documentation, or promotional material — is prohibited without
+express written permission.
+
+================================================================================
+ATTRIBUTION REQUIREMENT
+================================================================================
+
+Any public-facing product or derivative work that is built upon EPL must
+display the following notice in a location visible to end users:
+
+    "Powered by EPL — English Programming Language
+     Created by Abneesh Singh <singhabneesh250@gmail.com>"
+
+This requirement applies to: web applications, desktop software, published
+papers, educational courses, YouTube videos, and any other medium that makes
+use of EPL as a dependency, runtime, or inspiration.
+
+================================================================================
+THIRD-PARTY NOTICES
+================================================================================
+
+This software uses the following third-party libraries under their respective
+licenses. Full license texts are available in the corresponding packages:
+
+  • Python Standard Library    — Python Software Foundation License
+  • setuptools                 — MIT License
+  • llvmlite (optional)        — BSD-2-Clause License
+  • openai (optional)          — MIT License
+  • waitress (optional)        — ZPL 2.1
+
+================================================================================
+
+For licensing enquiries, commercial use, or attribution waivers, contact:
+    singhabneesh250@gmail.com

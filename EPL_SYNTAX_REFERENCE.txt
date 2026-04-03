@@ -1,0 +1,1742 @@
+================================================================================
+   EPL (English Programming Language) — Complete Syntax Reference
+   Collected from 271 tests + all example files
+================================================================================
+
+
+================================================================================
+1. COMMENTS
+================================================================================
+
+--- Single-line comment ---
+EPL:     Note: This is a comment
+Output:  (nothing — ignored by interpreter)
+
+--- Multi-line comment block ---
+EPL:
+    NoteBlock
+        This entire block is ignored
+        by the EPL interpreter
+        useful for documentation
+    End
+Output:  (nothing — ignored by interpreter)
+
+
+================================================================================
+2. PRINT / SAY
+================================================================================
+
+--- Print (standard) ---
+EPL:     Print "Hello, World!"
+Output:  Hello, World!
+
+EPL:     Print 42
+Output:  42
+
+EPL:     Print 3.14
+Output:  3.14
+
+EPL:     Print true
+Output:  true
+
+EPL:     Print nothing
+Output:  nothing
+
+--- Say (English alias for Print) ---
+EPL:     Say "Hello World"
+Output:  Hello World
+
+EPL:     x = 10
+         Say x
+Output:  10
+
+--- Print with period (backward-compatible old syntax) ---
+EPL:     Print "Hello".
+Output:  Hello
+
+
+================================================================================
+3. VARIABLE DECLARATION & ASSIGNMENT
+================================================================================
+
+--- Shorthand assignment (preferred) ---
+EPL:     x = 42
+         Print x
+Output:  42
+
+EPL:     msg = "Hello"
+         Print msg
+Output:  Hello
+
+EPL:     pi = 3.14
+         Print pi
+Output:  3.14
+
+EPL:     flag = true
+         Print flag
+Output:  true
+
+--- Create (explicit, typed) ---
+EPL:     Create integer named x equal to 42
+         Print x
+Output:  42
+
+EPL:     Create name equal to "EPL"
+         Print name
+Output:  EPL
+
+--- Set (reassignment) ---
+EPL:     x = 1
+         Set x to 2
+         Print x
+Output:  2
+
+--- Remember (English alias for Create) ---
+EPL:     Remember age as 25
+         Print age
+Output:  25
+
+EPL:     Remember name as "Alice"
+         Say name
+Output:  Alice
+
+EPL:     Remember items as [1, 2, 3]
+         Say items
+Output:  [1, 2, 3]
+
+--- yes / no (English aliases for true / false) ---
+EPL:     x = yes
+         Print x
+Output:  true
+
+EPL:     x = no
+         Print x
+Output:  false
+
+EPL:     active = yes
+         If active equals yes then
+           Print "on"
+         End
+Output:  on
+
+
+================================================================================
+4. DATA TYPES
+================================================================================
+
+integer    42, -5, 0
+decimal    3.14, 0.5, -2.7
+text       "Hello", "EPL"
+boolean    true, false  (also: yes, no)
+list       [1, 2, 3], ["a", "b"]
+map        Map with key = value and key2 = value2
+nothing    nothing  (null equivalent)
+
+
+================================================================================
+5. ARITHMETIC OPERATORS
+================================================================================
+
+EPL:     Print 5 + 3
+Output:  8
+
+EPL:     Print 10 - 4
+Output:  6
+
+EPL:     Print 6 * 7
+Output:  42
+
+EPL:     Print 10 / 2
+Output:  5
+
+EPL:     Print 7 / 2
+Output:  3.5
+
+EPL:     Print 10 % 3
+Output:  1
+
+EPL:     Print (2 + 3) * 4
+Output:  20
+
+EPL:     Print 2 + 3 * 4
+Output:  14
+
+EPL:     Print -5
+Output:  -5
+
+--- Power operator ** ---
+EPL:     Print 2 ** 3
+Output:  8
+
+EPL:     Print 9 ** 0.5
+Output:  3.0
+
+EPL:     Print 2 ** 3 ** 2
+Output:  512
+(right-associative: 2 ** (3 ** 2) = 2 ** 9 = 512)
+
+--- Floor division // ---
+EPL:     Print 7 // 2
+Output:  3
+
+EPL:     Print -7 // 2
+Output:  -4
+
+EPL:     Print 7.5 // 2
+Output:  3.0
+
+--- English math: raised to (alias for **) ---
+EPL:     x = 2 raised to 3
+         Print x
+Output:  8
+
+EPL:     Print 3 raised to 2
+Output:  9
+
+--- English math: mod (alias for %) ---
+EPL:     Print 10 mod 3
+Output:  1
+
+EPL:     x = 17
+         Print x mod 5
+Output:  2
+
+--- String concatenation with + ---
+EPL:     Print "Hello" + " " + "World"
+Output:  Hello World
+
+EPL:     Print "Age: " + 20
+Output:  Age: 20
+
+
+================================================================================
+6. AUGMENTED ASSIGNMENT
+================================================================================
+
+EPL:     x = 10
+         x += 5
+         Print x
+Output:  15
+
+EPL:     x = 10
+         x -= 3
+         Print x
+Output:  7
+
+EPL:     x = 4
+         x *= 3
+         Print x
+Output:  12
+
+EPL:     x = 20
+         x /= 4
+         Print x
+Output:  5
+
+EPL:     x = 10
+         x %= 3
+         Print x
+Output:  1
+
+--- With strings ---
+EPL:     x = "Hello"
+         x += " World"
+         Print x
+Output:  Hello World
+
+--- With lists ---
+EPL:     x = [1, 2]
+         x += 3
+         Print x
+Output:  [1, 2, 3]
+
+--- Increase / Decrease ---
+EPL:     x = 5
+         Increase x by 3
+         Print x
+         Decrease x by 2
+         Print x
+Output:  8
+         6
+
+--- Multiply X by Y (English *=) ---
+EPL:     x = 5
+         Multiply x by 3
+         Print x
+Output:  15
+
+--- Divide X by Y (English /=) ---
+EPL:     x = 20.0
+         Divide x by 4
+         Print x
+Output:  5.0
+
+
+================================================================================
+7. COMPARISONS
+================================================================================
+
+--- Symbolic ---
+>    greater than
+<    less than
+==   equal to
+!=   not equal to
+>=   greater than or equal
+<=   less than or equal
+
+EPL:     If 10 > 5 then
+             Print "yes"
+         End
+Output:  yes
+
+EPL:     If 5 == 5 then
+             Print "yes"
+         End
+Output:  yes
+
+EPL:     If 5 != 3 then
+             Print "yes"
+         End
+Output:  yes
+
+--- English-style comparisons ---
+
+EPL:     x = 10
+         If x is greater than 5 then
+             Print "yes"
+         End
+Output:  yes
+
+EPL:     x = 3
+         If x is less than 8 then
+             Print "yes"
+         End
+Output:  yes
+
+EPL:     x = 5
+         If x is equal to 5 then
+             Print "yes"
+         End
+Output:  yes
+
+--- equals (alias for ==) ---
+EPL:     x = 5
+         If x equals 5 then
+           Print "yes"
+         End
+Output:  yes
+
+--- not equals / does not equal (alias for !=) ---
+EPL:     x = 3
+         If x not equals 5 then
+           Print "yes"
+         End
+Output:  yes
+
+EPL:     x = 10
+         If x does not equal 5 then
+           Print "yes"
+         End
+Output:  yes
+
+--- at least (alias for >=) ---
+EPL:     age = 18
+         If age at least 18 then
+           Print "adult"
+         End
+Output:  adult
+
+EPL:     score = 90
+         If score is at least 90 then
+           Print "A"
+         End
+Output:  A
+
+--- at most (alias for <=) ---
+EPL:     tries = 2
+         If tries at most 3 then
+           Print "ok"
+         End
+Output:  ok
+
+EPL:     x = 3
+         If x is at most 5 then
+           Print "ok"
+         End
+Output:  ok
+
+--- is between (inclusive range check) ---
+EPL:     x = 5
+         If x is between 1 and 10 then
+           Print "yes"
+         End
+Output:  yes
+
+EPL:     x = 15
+         If x is between 1 and 10 then
+           Print "yes"
+         Otherwise
+           Print "no"
+         End
+Output:  no
+
+(Edge values are included: 1 is between 1 and 10 → true)
+
+
+================================================================================
+8. CONTROL FLOW: IF / OTHERWISE / OTHERWISE IF
+================================================================================
+
+--- Basic If ---
+EPL:     If true then
+             Print "yes"
+         End
+Output:  yes
+
+--- If / Otherwise ---
+EPL:     If false then
+             Print "yes"
+         Otherwise
+             Print "no"
+         End
+Output:  no
+
+--- Otherwise if (else-if chain) ---
+EPL:     x = 85
+         If x > 90 then
+             Print "A"
+         Otherwise if x > 80 then
+             Print "B"
+         Otherwise
+             Print "C"
+         End
+Output:  B
+
+--- Nested If ---
+EPL:     x = 85
+         If x > 90 then
+             Print "A"
+         Otherwise
+             If x > 80 then
+                 Print "B"
+             Otherwise
+                 Print "C"
+             End
+         End
+Output:  B
+
+--- Boolean condition ---
+EPL:     isLoggedIn = true
+         If isLoggedIn then
+             Print "Welcome back!"
+         Otherwise
+             Print "Please log in"
+         End
+Output:  Welcome back!
+
+--- Old syntax (backward compatible) ---
+EPL:     If true then
+             Print "yes".
+         End if.
+Output:  yes
+
+
+================================================================================
+9. MATCH / WHEN (Switch-Case)
+================================================================================
+
+--- Match with strings ---
+EPL:     x = "B"
+         Match x
+             When "A"
+                 Print "one"
+             When "B"
+                 Print "two"
+             When "C"
+                 Print "three"
+         End
+Output:  two
+
+--- Match with Default ---
+EPL:     x = "Z"
+         Match x
+             When "A"
+                 Print "one"
+             Default
+                 Print "other"
+         End
+Output:  other
+
+--- Match with integers ---
+EPL:     x = 2
+         Match x
+             When 1
+                 Print "one"
+             When 2
+                 Print "two"
+         End
+Output:  two
+
+--- Match with no hit (no output) ---
+EPL:     x = 99
+         Match x
+             When 1
+                 Print "one"
+         End
+Output:  (nothing)
+
+
+================================================================================
+10. LOOPS
+================================================================================
+
+--- Repeat N times ---
+EPL:     Repeat 3 times
+             Print "hi"
+         End
+Output:  hi
+         hi
+         hi
+
+--- While loop ---
+EPL:     i = 0
+         While i < 3
+             Print i
+             Increase i by 1
+         End
+Output:  0
+         1
+         2
+
+--- For each (iterate over list) ---
+EPL:     items = [1, 2, 3]
+         For each item in items
+             Print item
+         End
+Output:  1
+         2
+         3
+
+--- For range (inclusive) ---
+EPL:     For i from 1 to 5
+             Print i
+         End
+Output:  1
+         2
+         3
+         4
+         5
+
+--- For range with step ---
+EPL:     For i from 0 to 10 step 2
+             Print i
+         End
+Output:  0
+         2
+         4
+         6
+         8
+         10
+
+--- For range with negative step (countdown) ---
+EPL:     For i from 5 to 1 step -1
+             Print i
+         End
+Output:  5
+         4
+         3
+         2
+         1
+
+--- Break ---
+EPL:     i = 0
+         While i < 10
+             If i == 3 then
+                 Break
+             End
+             Print i
+             Increase i by 1
+         End
+Output:  0
+         1
+         2
+
+EPL:     i = 0
+         Repeat 10 times
+             If i == 2 then
+                 Break
+             End
+             Print i
+             Increase i by 1
+         End
+Output:  0
+         1
+
+--- Continue ---
+EPL:     i = 0
+         While i < 5
+             Increase i by 1
+             If i == 3 then
+                 Continue
+             End
+             Print i
+         End
+Output:  1
+         2
+         4
+         5
+
+
+================================================================================
+11. FUNCTIONS
+================================================================================
+
+--- Simple function (no parameters) ---
+EPL:     Function hello
+             Print "Hi!"
+         End
+         Call hello
+Output:  Hi!
+
+--- Function with parameter ---
+EPL:     Function greet takes name
+             Print "Hello, " + name + "!"
+         End
+         Call greet with "EPL"
+Output:  Hello, EPL!
+
+--- Function with return value ---
+EPL:     Function add takes a and b
+             Return a + b
+         End
+         result = call add with 3 and 4
+         Print result
+Output:  7
+
+--- Recursive function ---
+EPL:     Function fact takes n
+             If n <= 1 then
+                 Return 1
+             End
+             Return n * (call fact with n - 1)
+         End
+         Print call fact with 5
+Output:  120
+
+--- Parentheses call syntax (alternative) ---
+EPL:     Function add takes a and b
+             Return a + b
+         End
+         Print add(3, 4)
+Output:  7
+
+--- "Define a function named" syntax (verbose) ---
+EPL:     Define a function named apply that takes fn, value
+             Return fn(value)
+         End
+         double = lambda x -> x * 2
+         Print apply(double, 5)
+Output:  10
+
+--- Higher-Order Functions ---
+EPL:     Function apply takes fn and value
+           Return fn(value)
+         End
+         Print apply(lambda x -> x + 100, 42)
+Output:  142
+
+
+================================================================================
+12. LAMBDA EXPRESSIONS
+================================================================================
+
+--- Basic lambda ---
+EPL:     double = lambda x -> x * 2
+         Print double(5)
+Output:  10
+
+--- Lambda with multiple parameters ---
+EPL:     add = lambda x, y -> x + y
+         Print add(3, 4)
+Output:  7
+
+--- Lambda with no parameters ---
+EPL:     greet = lambda -> "Hello"
+         Print greet()
+Output:  Hello
+
+--- Lambda with ternary ---
+EPL:     abs_val = lambda x -> x if x >= 0 otherwise (0 - x)
+         Print abs_val(-7)
+         Print abs_val(3)
+Output:  7
+         3
+
+--- "given ... return" (English-style lambda) ---
+EPL:     double = given x return x * 2
+         Print call double with 5
+Output:  10
+
+EPL:     add = given x, y return x + y
+         Print call add with 3 and 4
+Output:  7
+
+EPL:     greet = given return "Hello"
+         Print call greet
+Output:  Hello
+
+--- "given" with arrow syntax ---
+EPL:     triple = given x -> x * 3
+         Print call triple with 4
+Output:  12
+
+
+================================================================================
+13. TERNARY EXPRESSION
+================================================================================
+
+EPL:     x = 10
+         result = "big" if x > 5 otherwise "small"
+         Print result
+Output:  big
+
+EPL:     x = 2
+         result = "big" if x > 5 otherwise "small"
+         Print result
+Output:  small
+
+EPL:     Print 1 if true otherwise 0
+Output:  1
+
+EPL:     score = 85
+         Print "Pass" if score >= 70 otherwise "Fail"
+Output:  Pass
+
+
+================================================================================
+14. STRING TEMPLATES
+================================================================================
+
+Use $variableName inside double-quoted strings.
+
+EPL:     name = "World"
+         Print "Hello, $name"
+Output:  Hello, World
+
+EPL:     name = "EPL"
+         ver = 3
+         Print "$name version $ver"
+Output:  EPL version 3
+
+EPL:     x = 42
+         Print "Answer: $x"
+Output:  Answer: 42
+
+EPL:     scores = [95, 87, 72]
+         Print "Updated scores: $scores"
+Output:  Updated scores: [95, 87, 72]
+
+
+================================================================================
+15. STRING METHODS (Dot Notation)
+================================================================================
+
+--- .uppercase ---
+EPL:     name = "hello"
+         Print name.uppercase
+Output:  HELLO
+
+--- .lowercase ---
+EPL:     name = "HELLO"
+         Print name.lowercase
+Output:  hello
+
+--- .length ---
+EPL:     name = "Hello"
+         Print name.length
+Output:  5
+
+--- .trim / .trim() ---
+EPL:     name = "  hi  "
+         Print name.trim
+Output:  hi
+
+--- .contains(str) ---
+EPL:     name = "Hello World"
+         Print name.contains("World")
+Output:  true
+
+--- .replace(old, new) ---
+EPL:     name = "Hello World"
+         Print name.replace("World", "EPL")
+Output:  Hello EPL
+
+--- .starts_with(str) ---
+EPL:     name = "Hello"
+         Print name.starts_with("He")
+Output:  true
+
+--- .ends_with(str) ---
+EPL:     name = "Hello"
+         Print name.ends_with("lo")
+Output:  true
+
+--- .split(delimiter) ---
+EPL:     s = "a-b-c"
+         Print s.split("-")
+Output:  [a, b, c]
+
+--- .substring(start, end) ---
+EPL:     s = "Hello"
+         Print s.substring(0, 3)
+Output:  Hel
+
+--- .find(str) ---
+EPL:     Print "Hello World".find("World")
+Output:  6
+
+--- .index_of(str) ---
+EPL:     Print "abcabc".index_of("bc")
+Output:  1
+
+--- .count(str) ---
+EPL:     Print "abcabc".count("a")
+Output:  2
+
+--- .repeat(n) ---
+EPL:     x = "ha"
+         Print x.repeat(3)
+Output:  hahaha
+
+--- .reverse() ---
+EPL:     Print "Hello".reverse()
+Output:  olleH
+
+--- .pad_left(width, char) ---
+EPL:     Print "42".pad_left(5, "0")
+Output:  00042
+
+--- .pad_right(width, char) ---
+EPL:     Print "Hi".pad_right(5, ".")
+Output:  Hi...
+
+--- .is_number() ---
+EPL:     Print "123".is_number()
+Output:  true
+
+--- .is_alpha() ---
+EPL:     Print "Hello".is_alpha()
+Output:  true
+
+--- .is_empty() ---
+EPL:     Print "".is_empty()
+Output:  true
+
+--- .char_at(index) ---
+EPL:     Print "Hello".char_at(0)
+Output:  H
+
+--- .to_list() ---
+EPL:     Print "abc".to_list()
+Output:  [a, b, c]
+
+--- .format(args...) ---
+EPL:     Print "Hello {} and {}".format("A", "B")
+Output:  Hello A and B
+
+--- Method chaining ---
+EPL:     title = "Hello World This Is EPL"
+         slug = title.lowercase.replace(" ", "-")
+         Print slug
+Output:  hello-world-this-is-epl
+
+
+================================================================================
+16. LIST METHODS (Dot Notation)
+================================================================================
+
+--- .add(item) ---
+EPL:     x = [1,2]
+         x.add(3)
+         Print x
+Output:  [1, 2, 3]
+
+--- .remove(item) ---
+EPL:     x = [1,2,3]
+         x.remove(2)
+         Print x
+Output:  [1, 3]
+
+--- .contains(item) ---
+EPL:     x = [1,2,3]
+         Print x.contains(2)
+Output:  true
+
+--- .sort() ---
+EPL:     x = [3,1,2]
+         x.sort()
+         Print x
+Output:  [1, 2, 3]
+
+--- .reverse() ---
+EPL:     x = [1,2,3]
+         x.reverse()
+         Print x
+Output:  [3, 2, 1]
+
+--- .join(delimiter) ---
+EPL:     x = ["a","b","c"]
+         Print x.join(", ")
+Output:  a, b, c
+
+--- .length ---
+EPL:     x = [1,2,3]
+         Print x.length
+Output:  3
+
+--- .map(lambda) ---
+EPL:     nums = [1, 2, 3]
+         result = nums.map(lambda x -> x * 2)
+         Print result
+Output:  [2, 4, 6]
+
+--- .filter(lambda) ---
+EPL:     nums = [1, 2, 3, 4, 5]
+         result = nums.filter(lambda x -> x > 3)
+         Print result
+Output:  [4, 5]
+
+--- .reduce(lambda, initial) ---
+EPL:     nums = [1, 2, 3, 4]
+         result = nums.reduce(lambda a, b -> a + b, 0)
+         Print result
+Output:  10
+
+--- .find(lambda) ---
+EPL:     nums = [1, 2, 3, 4]
+         result = nums.find(lambda x -> x > 2)
+         Print result
+Output:  3
+
+--- .index_of(item) ---
+EPL:     Print [10, 20, 30].index_of(20)
+Output:  1
+
+--- .count(item) ---
+EPL:     Print [1, 2, 1, 3, 1].count(1)
+Output:  3
+
+--- .flatten() ---
+EPL:     Print [[1, 2], [3, 4], [5]].flatten()
+Output:  [1, 2, 3, 4, 5]
+
+--- .unique() ---
+EPL:     Print [1, 2, 2, 3, 3, 3].unique()
+Output:  [1, 2, 3]
+
+--- .every(lambda) ---
+EPL:     Print [2, 4, 6].every(lambda x -> x % 2 == 0)
+Output:  true
+
+--- .some(lambda) ---
+EPL:     Print [1, 2, 3].some(lambda x -> x > 2)
+Output:  true
+
+--- .sum() ---
+EPL:     Print [1, 2, 3].sum()
+Output:  6
+
+--- .min() / .max() ---
+EPL:     Print [3, 1, 2].min()
+         Print [3, 1, 2].max()
+Output:  1
+         3
+
+--- .first() / .last() ---
+EPL:     Print [10, 20, 30].first()
+         Print [10, 20, 30].last()
+Output:  10
+         30
+
+--- .insert(index, item) ---
+EPL:     nums = [1, 3]
+         nums.insert(1, 2)
+         Print nums
+Output:  [1, 2, 3]
+
+--- .copy() ---
+EPL:     a = [1, 2, 3]
+         b = a.copy()
+         b.add(4)
+         Print a
+         Print b
+Output:  [1, 2, 3]
+         [1, 2, 3, 4]
+
+--- .slice(start, end) ---
+EPL:     Print [1, 2, 3, 4, 5].slice(1, 4)
+Output:  [2, 3, 4]
+
+--- Chaining functional operations ---
+EPL:     nums = [1, 2, 3, 4, 5, 6]
+         result = nums.filter(lambda x -> x % 2 == 0).map(lambda x -> x ** 2)
+         Print result
+Output:  [4, 16, 36]
+
+--- English-style list operations ---
+
+EPL:     items = [1, 2]
+         Add 3 to items
+         Print items
+Output:  [1, 2, 3]
+
+EPL:     nums = [3, 1, 2]
+         Sort nums
+         Print nums
+Output:  [1, 2, 3]
+
+EPL:     nums = [1, 2, 3]
+         Reverse nums
+         Print nums
+Output:  [3, 2, 1]
+
+--- English with "given" lambdas ---
+EPL:     Remember numbers as [5, 3, 8, 1, 9, 2, 7]
+         Remember evens as numbers.filter(given x return x mod 2 equals 0)
+         Say "Even numbers: " + evens
+Output:  Even numbers: [8, 2]
+
+EPL:     numbers = [5, 3, 8, 1, 9, 2, 7]
+         Remember squares as numbers.map(given x return x raised to 2)
+         Say "Squares: " + squares
+Output:  Squares: [25, 9, 64, 1, 81, 4, 49]
+
+
+================================================================================
+17. INDEX ACCESS & SLICING
+================================================================================
+
+--- Index read (0-based) ---
+EPL:     items = [10, 20, 30]
+         Print items[0]
+Output:  10
+
+EPL:     items = [10, 20, 30]
+         Print items[2]
+Output:  30
+
+--- Index with expression ---
+EPL:     items = [10, 20, 30]
+         i = 1
+         Print items[i]
+Output:  20
+
+--- Index write ---
+EPL:     items = [1, 2, 3]
+         items[1] = 99
+         Print items
+Output:  [1, 99, 3]
+
+--- String index ---
+EPL:     name = "Hello"
+         Print name[0]
+Output:  H
+
+--- Basic slice [start:end] ---
+EPL:     nums = [1, 2, 3, 4, 5]
+         Print nums[1:3]
+Output:  [2, 3]
+
+--- Slice from start [:end] ---
+EPL:     nums = [1, 2, 3, 4, 5]
+         Print nums[:3]
+Output:  [1, 2, 3]
+
+--- Slice to end [start:] ---
+EPL:     nums = [1, 2, 3, 4, 5]
+         Print nums[2:]
+Output:  [3, 4, 5]
+
+--- Slice with step [start:end:step] ---
+EPL:     nums = [1, 2, 3, 4, 5]
+         Print nums[0:5:2]
+Output:  [1, 3, 5]
+
+--- Reverse with slice [::-1] ---
+EPL:     numbers = [10, 20, 30, 40, 50]
+         Print numbers[::-1]
+Output:  [50, 40, 30, 20, 10]
+
+--- String slicing ---
+EPL:     s = "Hello"
+         Print s[1:4]
+Output:  ell
+
+
+================================================================================
+18. MAP (DICTIONARY) OPERATIONS
+================================================================================
+
+--- Create a Map ---
+EPL:     p = Map with name = "Abneesh" and age = 20
+         Print p.name
+Output:  Abneesh
+
+--- Set property (dot assignment) ---
+EPL:     p = Map with x = 1
+         p.x = 42
+         Print p.x
+Output:  42
+
+--- Access and arithmetic ---
+EPL:     p = Map with a = 10 and b = 20
+         Print p.a + p.b
+Output:  30
+
+--- .keys() ---
+EPL:     p = Map with x = 1 and y = 2
+         k = p.keys()
+         Print k
+Output:  [x, y]
+
+--- .has(key) ---
+EPL:     p = Map with name = "test"
+         Print p.has("name")
+Output:  true
+
+--- .length ---
+EPL:     p = Map with a = 1 and b = 2 and c = 3
+         Print p.length
+Output:  3
+
+--- .entries() ---
+EPL:     m = Map with x = 1 and y = 2
+         Print m.entries()
+Output:  [[x, 1], [y, 2]]
+
+--- .get(key) / .get(key, default) ---
+EPL:     m = Map with x = 1
+         Print m.get("x")
+         Print m.get("y", 0)
+Output:  1
+         0
+
+--- .set(key, value) ---
+EPL:     m = Map with x = 1
+         m.set("y", 2)
+         Print m.y
+Output:  2
+
+--- .clear() ---
+EPL:     m = Map with x = 1 and y = 2
+         m.clear()
+         Print length(m)
+Output:  0
+
+--- .copy() ---
+EPL:     m = Map with x = 1
+         m2 = m.copy()
+         m2.set("y", 2)
+         Print m.has("y")
+         Print m2.has("y")
+Output:  false
+         true
+
+--- .merge(otherMap) ---
+EPL:     a = Map with x = 1
+         b = Map with y = 2
+         c = a.merge(b)
+         Print c.x
+         Print c.y
+Output:  1
+         2
+
+--- For each over Map ---
+EPL:     p = Map with a = 1 and b = 2
+         For each key in p
+             Print key
+         End
+Output:  a
+         b
+
+
+================================================================================
+19. CLASSES & OOP
+================================================================================
+
+--- Basic class with property ---
+EPL:     Class Dog
+             name = "Rex"
+         End
+         d = new Dog
+         Print d.name
+Output:  Rex
+
+--- Set property on instance ---
+EPL:     Class Dog
+             name = ""
+         End
+         d = new Dog
+         d.name = "Buddy"
+         Print d.name
+Output:  Buddy
+
+--- Class with method ---
+EPL:     Class Calc
+             Function add takes a and b
+                 Return a + b
+             End
+         End
+         c = new Calc
+         Print c.add(3, 4)
+Output:  7
+
+--- Class with state-accessing method ---
+EPL:     Class Animal
+             name = ""
+             sound = ""
+             Function speak
+                 Print name + " says " + sound
+             End
+         End
+         a = new Animal
+         a.name = "Rex"
+         a.sound = "Woof"
+         a.speak()
+Output:  Rex says Woof
+
+--- Class Inheritance (extends) ---
+EPL:     Class Animal
+             name = ""
+             Function speak
+                 Print name + " makes a sound"
+             End
+         End
+         Class Dog extends Animal
+             Function speak
+                 Print name + " says Woof"
+             End
+         End
+         d = new Dog
+         d.name = "Rex"
+         d.speak()
+Output:  Rex says Woof
+
+--- Inherit parent method ---
+EPL:     Class Base
+             Function hello
+                 Print "Hello from Base"
+             End
+         End
+         Class Child extends Base
+         End
+         c = new Child
+         c.hello()
+Output:  Hello from Base
+
+--- Inherit parent property ---
+EPL:     Class Base
+             x = 10
+         End
+         Class Child extends Base
+             y = 20
+         End
+         c = new Child
+         Print c.x + c.y
+Output:  30
+
+
+================================================================================
+20. ENUMS
+================================================================================
+
+EPL:     Enum Color as Red, Green, Blue
+         Print Color.Red
+Output:  0
+
+EPL:     Enum Status as Open, Closed, Pending
+         Print Status.Pending
+Output:  2
+
+EPL:     Enum Day as MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY
+         Print Day.MONDAY
+         Print Day.FRIDAY
+         Print Day.SUNDAY
+Output:  0
+         4
+         6
+
+
+================================================================================
+21. TRY / CATCH / THROW
+================================================================================
+
+--- Basic Try/Catch ---
+EPL:     Try
+             Print 10 / 0
+         Catch e
+             Print "caught"
+         End
+Output:  caught
+
+--- Try with no error ---
+EPL:     Try
+             Print "ok"
+         Catch e
+             Print "error"
+         End
+Output:  ok
+
+--- Catch variable contains error message ---
+EPL:     Try
+             x = 10 / 0
+         Catch e
+             Print "Error: " + e
+         End
+Output:  Error: EPL Runtime Error on line 2: Cannot divide by zero
+
+--- Throw custom error ---
+EPL:     Try
+             Throw "oops"
+         Catch error
+             Print error
+         End
+Output:  EPL Runtime Error on line 2: oops
+
+--- Throw in a function ---
+EPL:     Function divide takes a and b
+           If b == 0 then
+             Throw "Cannot divide by zero!"
+           End
+           Return a / b
+         End
+         Try
+           Print divide(10, 2)
+           Print divide(10, 0)
+         Catch e
+           Print e
+         End
+Output:  5
+         EPL Runtime Error on line 3: Cannot divide by zero!
+
+--- Nested Try/Catch ---
+EPL:     Try
+           Print "Outer try"
+           Try
+             Throw "Inner error"
+           Catch e
+             Print "Inner catch: " + e
+           End
+           Print "After inner try/catch"
+         Catch e
+           Print "Outer catch"
+         End
+Output:  Outer try
+         Inner catch: EPL Runtime Error on line 4: Inner error
+         After inner try/catch
+
+
+================================================================================
+22. CONSTANTS
+================================================================================
+
+EPL:     Constant PI = 3.14
+         Print PI
+Output:  3.14
+
+EPL:     Constant PI = 3.14159
+         Constant APP_NAME = "EPL Calculator"
+         Print "$APP_NAME uses PI = $PI"
+Output:  EPL Calculator uses PI = 3.14159
+
+Reassigning a constant throws an error:
+EPL:     Constant X = 10
+         X = 20
+Output:  ERROR: constant (cannot reassign)
+
+
+================================================================================
+23. ASSERT
+================================================================================
+
+EPL:     Assert 1 + 1 == 2
+Output:  (nothing — passes silently)
+
+EPL:     Assert 1 == 2
+Output:  ERROR: assertion failed
+
+EPL:     Assert length("hello") == 5
+Output:  (nothing — passes silently)
+
+
+================================================================================
+24. FILE I/O
+================================================================================
+
+--- Write to file ---
+EPL:     Write "test123" to file "test_tmp.txt"
+         x = Read file "test_tmp.txt"
+         Print x
+Output:  test123
+
+--- Append to file ---
+EPL:     Write "Hello from EPL!" to file "output.txt"
+         Append "This is line 2" to file "output.txt"
+         content = Read file "output.txt"
+         Print content
+Output:  Hello from EPL!
+         This is line 2
+
+--- Read file ---
+EPL:     content = Read file "somefile.txt"
+         Print content
+Output:  (contents of the file)
+
+
+================================================================================
+25. IMPORTS
+================================================================================
+
+--- Import EPL file ---
+EPL:     Import "tests/test_helper.epl"
+         Print square(5)
+Output:  25
+
+--- Import with functions and constants ---
+EPL:     Import "examples/math_utils.epl"
+         Print add(3, 4)
+         Print multiply(5, 6)
+         Print PI
+Output:  7
+         30
+         3.14159
+
+--- Use Python module (Python bridge) ---
+EPL:     Use python "math"
+         Print math.sqrt(144)
+Output:  12.0
+
+EPL:     Use python "math"
+         Print math.pi
+Output:  3.141592653589793
+
+
+================================================================================
+26. BUILTIN FUNCTIONS
+================================================================================
+
+--- length(value) ---
+EPL:     Print length("Hello")
+Output:  5
+
+EPL:     Print length([1,2,3])
+Output:  3
+
+--- type_of(value) / typeof(value) ---
+EPL:     Print type_of(42)
+Output:  integer
+
+EPL:     Print typeof(42)
+Output:  integer
+
+--- to_integer(value) ---
+EPL:     Print to_integer("42")
+Output:  42
+
+--- to_text(value) ---
+EPL:     Print to_text(3.14)
+Output:  3.14
+
+--- to_decimal(value) ---
+EPL:     Print to_decimal("2.5")
+Output:  2.5
+
+--- absolute(value) ---
+EPL:     Print absolute(-10)
+Output:  10
+
+--- round(value) ---
+EPL:     Print round(3.7)
+Output:  4
+
+--- max(a, b) ---
+EPL:     Print max(5, 9)
+Output:  9
+
+--- min(a, b) ---
+EPL:     Print min(5, 9)
+Output:  5
+
+--- uppercase(value) ---
+EPL:     Print uppercase("hello")
+Output:  HELLO
+
+--- lowercase(value) ---
+EPL:     Print lowercase("HELLO")
+Output:  hello
+
+--- sqrt(value) ---
+EPL:     Print sqrt(16)
+Output:  4.0
+
+--- power(base, exp) ---
+EPL:     Print power(2, 10)
+Output:  1024
+
+--- floor(value) ---
+EPL:     Print floor(3.7)
+Output:  3
+
+--- ceil(value) ---
+EPL:     Print ceil(3.2)
+Output:  4
+
+--- range(end) / range(start, end) / range(start, end, step) ---
+EPL:     Print range(5)
+Output:  [0, 1, 2, 3, 4]
+
+EPL:     Print range(2, 5)
+Output:  [2, 3, 4]
+
+EPL:     Print range(0, 10, 3)
+Output:  [0, 3, 6, 9]
+
+--- sum(list) ---
+EPL:     Print sum([1, 2, 3, 4])
+Output:  10
+
+--- sorted(list) ---
+EPL:     Print sorted([3, 1, 2])
+Output:  [1, 2, 3]
+
+--- reversed(value) ---
+EPL:     Print reversed([1, 2, 3])
+Output:  [3, 2, 1]
+
+EPL:     Print reversed("abc")
+Output:  cba
+
+--- random(min, max) ---
+EPL:     r = random(1, 100)
+         Print r
+Output:  (random integer between 1 and 100)
+
+--- Type-checking predicates ---
+
+EPL:     Print is_integer(42)
+Output:  true
+
+EPL:     Print is_integer(3.14)
+Output:  false
+
+EPL:     Print is_decimal(3.14)
+Output:  true
+
+EPL:     Print is_text("hi")
+Output:  true
+
+EPL:     Print is_boolean(true)
+Output:  true
+
+EPL:     Print is_list([1, 2])
+Output:  true
+
+EPL:     Print is_nothing(nothing)
+Output:  true
+
+EPL:     Print is_number(42)
+Output:  true
+
+EPL:     Print is_number(3.14)
+Output:  true
+
+--- char_code(char) ---
+EPL:     Print char_code("A")
+Output:  65
+
+--- from_char_code(code) ---
+EPL:     Print from_char_code(65)
+Output:  A
+
+--- json_parse(string) ---
+EPL:     data = json_parse("{\"x\": 1}")
+         Print data.x
+Output:  1
+
+--- json_stringify(map) ---
+EPL:     m = Map with name = "EPL"
+         Print json_stringify(m)
+Output:  {"name": "EPL"}
+
+
+================================================================================
+27. EXIT
+================================================================================
+
+EPL:     Print "before"
+         Exit
+         Print "after"
+Output:  before
+(program terminates; "after" is never printed)
+
+
+================================================================================
+28. ERROR HANDLING (Runtime Errors)
+================================================================================
+
+--- Undefined variable ---
+EPL:     Print x
+Output:  ERROR: "x" has not been created
+
+--- Division by zero ---
+EPL:     Print 10 / 0
+Output:  ERROR: Cannot divide by zero
+
+--- Type mismatch on assignment ---
+EPL:     Create integer named x equal to 5
+         Set x to "hello"
+Output:  ERROR: cannot assign (type mismatch)
+
+
+================================================================================
+29. ENGLISH-STYLE SYNTAX SUMMARY
+================================================================================
+
+Feature              | English Syntax              | Standard Equivalent
+---------------------|-----------------------------|---------------------
+Print                | Say "hello"                 | Print "hello"
+Variable             | Remember x as 5             | x = 5
+Boolean true         | yes                         | true
+Boolean false        | no                          | false
+Power                | x raised to 3               | x ** 3
+Modulo               | x mod 3                     | x % 3
+Equal                | x equals 5                  | x == 5
+Not equal            | x not equals 5              | x != 5
+Not equal            | x does not equal 5          | x != 5
+Greater-or-equal     | x is at least 5             | x >= 5
+Less-or-equal        | x is at most 5              | x <= 5
+Range check          | x is between 1 and 10       | x >= 1 and x <= 10
+Greater than         | x is greater than 5         | x > 5
+Less than            | x is less than 5            | x < 5
+Equal to             | x is equal to 5             | x == 5
+Multiply-assign      | Multiply x by 3             | x *= 3
+Divide-assign        | Divide x by 3               | x /= 3
+Increase             | Increase x by 3             | x += 3
+Decrease             | Decrease x by 2             | x -= 2
+Add to list          | Add item to myList           | myList.add(item)
+Sort list            | Sort myList                  | myList.sort()
+Reverse list         | Reverse myList               | myList.reverse()
+Lambda               | given x return x * 2         | lambda x -> x * 2
+Lambda (arrow)       | given x -> x * 2             | lambda x -> x * 2
+
+
+================================================================================
+30. BACKWARD-COMPATIBLE OLD SYNTAX
+================================================================================
+
+Periods at end of statements are optional (v0.1 legacy):
+    Print "Hello".
+    End if.
+    Create integer named x equal to 5.
+
+These all still work alongside the modern period-free syntax.
+
+
+================================================================================
+31. COMPLETE PROGRAM EXAMPLES
+================================================================================
+
+--- Example 1: Factorial ---
+EPL:
+    Function factorial takes n
+        If n <= 1 then
+            Return 1
+        End
+        Return n * (call factorial with n - 1)
+    End
+    fact5 = call factorial with 5
+    Print "Factorial of 5 = " + fact5
+Output:
+    Factorial of 5 = 120
+
+--- Example 2: Grade Calculator (English style) ---
+EPL:
+    Remember grade as 85
+    If grade is between 90 and 100 then
+        Say "Grade: A"
+    Otherwise If grade is between 80 and 89 then
+        Say "Grade: B"
+    Otherwise If grade is between 70 and 79 then
+        Say "Grade: C"
+    Otherwise
+        Say "Grade: needs improvement"
+    End
+Output:
+    Grade: B
+
+--- Example 3: Functional Pipeline ---
+EPL:
+    data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    result = data.filter(lambda x -> x % 2 == 0).map(lambda x -> x * x).reduce(lambda a, b -> a + b)
+    Print result
+Output:
+    220
+
+--- Example 4: Class with Inheritance ---
+EPL:
+    Class Animal
+        name = ""
+        Function speak
+            Print name + " makes a sound"
+        End
+    End
+    Class Dog extends Animal
+        Function speak
+            Print name + " says Woof"
+        End
+    End
+    d = new Dog
+    d.name = "Rex"
+    d.speak()
+Output:
+    Rex says Woof
+
+--- Example 5: Error Handling with Custom Errors ---
+EPL:
+    Function safe_sqrt takes n
+      If n < 0 then
+        Throw "Cannot take square root of negative number"
+      End
+      Return sqrt(n)
+    End
+    Try
+      Print safe_sqrt(16)
+      Print safe_sqrt(-4)
+    Catch e
+      Print e
+    End
+Output:
+    4.0
+    EPL Runtime Error on line 3: Cannot take square root of negative number
+
+--- Example 6: English Combo ---
+EPL:
+    Remember scores as [5, 3, 8, 1]
+    Add 10 to scores
+    Sort scores
+    Say scores
+Output:
+    [1, 3, 5, 8, 10]
+
+--- Example 7: Map + JSON ---
+EPL:
+    student = Map with name = "Abneesh" and grade = "A" and score = 95
+    Print "Student: " + student.name + " got " + student.grade
+    Print json_stringify(student)
+Output:
+    Student: Abneesh got A
+    {"name": "Abneesh", "grade": "A", "score": 95}
+
+================================================================================
+END OF REFERENCE
+================================================================================

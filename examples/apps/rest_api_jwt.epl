@@ -1,0 +1,126 @@
+Note: ═══════════════════════════════════════════════════════
+Note: EPL REST API with JWT Authentication
+Note: A production-ready backend with user auth
+Note: Run: epl run examples/apps/rest_api_jwt.epl
+Note: ═══════════════════════════════════════════════════════
+
+Note: ─── Database Setup ─────────────────────────────────
+Set db To real_db_connect("users.db")
+real_db_execute(db, "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+real_db_execute(db, "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT NOT NULL, author_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
+
+Note: ─── Secret Key for JWT ──────────────────────────────
+Set SECRET_KEY To "epl-jwt-secret-change-in-production"
+
+Note: ─── Helper Functions ────────────────────────────────
+
+Define Function hash_password takes password
+    Note: Simple hash for demo — use bcrypt in production
+    Set hashed To sha256(password + "epl-salt-2026")
+    Return hashed
+End
+
+Define Function create_token takes user_id and username
+    Set payload To Map with sub = user_id and name = username and exp = timestamp() + 86400
+    Set token To base64_encode(to_json(payload))
+    Return token
+End
+
+Define Function verify_token takes token
+    Try
+        Set payload To from_json(base64_decode(token))
+        If payload.exp Is Less Than timestamp() Then
+            Return nothing
+        End
+        Return payload
+    Catch error
+        Return nothing
+    End
+End
+
+Note: ─── Create API App ──────────────────────────────────
+Set app To web_api_create("EPL Auth API")
+
+Note: ─── Register Endpoint ───────────────────────────────
+Define Function register_user
+    Set data To web_request_data()
+    Set username To data.username
+    Set password To data.password
+
+    If username Is Equal To nothing Or password Is Equal To nothing Then
+        Return Map with error = "Username and password required" and status = 400
+    End
+
+    Set pw_hash To hash_password(password)
+
+    Try
+        real_db_execute(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, pw_hash])
+        Set user To real_db_query_one(db, "SELECT id, username FROM users WHERE username = ?", [username])
+        Set token To create_token(user.id, user.username)
+        Return Map with message = "User registered" and token = token and user = user.username
+    Catch error
+        Return Map with error = "Username already exists" and status = 409
+    End
+End
+
+Note: ─── Login Endpoint ──────────────────────────────────
+Define Function login_user
+    Set data To web_request_data()
+    Set username To data.username
+    Set password To data.password
+
+    Set pw_hash To hash_password(password)
+    Set user To real_db_query_one(db, "SELECT id, username FROM users WHERE username = ? AND password_hash = ?", [username, pw_hash])
+
+    If user Is Equal To nothing Then
+        Return Map with error = "Invalid credentials" and status = 401
+    End
+
+    Set token To create_token(user.id, user.username)
+    Return Map with message = "Login successful" and token = token and user = user.username
+End
+
+Note: ─── Protected: Create Post ──────────────────────────
+Define Function create_post
+    Set token To web_request_header("Authorization")
+    Set payload To verify_token(token)
+
+    If payload Is Equal To nothing Then
+        Return Map with error = "Unauthorized — invalid or expired token" and status = 401
+    End
+
+    Set data To web_request_data()
+    real_db_execute(db, "INSERT INTO posts (title, body, author_id) VALUES (?, ?, ?)", [data.title, data.body, payload.sub])
+    Return Map with message = "Post created" and title = data.title and author = payload.name
+End
+
+Note: ─── Public: List Posts ──────────────────────────────
+Define Function list_posts
+    Set posts To real_db_query(db, "SELECT posts.*, users.username as author FROM posts JOIN users ON posts.author_id = users.id ORDER BY posts.id DESC")
+    Return Map with posts = posts and count = length(posts)
+End
+
+Note: ─── Health Check ────────────────────────────────────
+Define Function health_check
+    Return Map with status = "ok" and service = "EPL Auth API" and version = "1.0"
+End
+
+Note: ─── Register Routes ─────────────────────────────────
+web_get(app, "/api/health", health_check)
+web_post(app, "/api/register", register_user)
+web_post(app, "/api/login", login_user)
+web_get(app, "/api/posts", list_posts)
+web_post(app, "/api/posts", create_post)
+web_set_cors(app, "*")
+
+Note: ─── Start Server ────────────────────────────────────
+Say "═══════════════════════════════════════════"
+Say "  EPL Auth API v1.0"
+Say "  Endpoints:"
+Say "    POST /api/register  — Create account"
+Say "    POST /api/login     — Get JWT token"
+Say "    GET  /api/posts     — List all posts"
+Say "    POST /api/posts     — Create post (auth required)"
+Say "    GET  /api/health    — Health check"
+Say "═══════════════════════════════════════════"
+web_start(app, 5000, "127.0.0.1")

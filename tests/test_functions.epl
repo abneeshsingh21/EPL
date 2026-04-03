@@ -1,0 +1,42 @@
+NoteBlock
+  EPL Self-Hosted Function Tests
+  Tests function definitions and calls
+End
+
+Function add takes a, b
+    Return a + b
+End
+
+r1 = call add with 3, 4
+Assert r1 == 7
+
+r2 = call add with 0, 0
+Assert r2 == 0
+
+r3 = call add with -5, 10
+Assert r3 == 5
+
+Function square takes n
+    Return n * n
+End
+
+s1 = call square with 5
+Assert s1 == 25
+
+s2 = call square with 0
+Assert s2 == 0
+
+Function max_val takes a, b
+    If a > b then
+        Return a
+    End
+    Return b
+End
+
+m1 = call max_val with 10, 20
+Assert m1 == 20
+
+m2 = call max_val with 99, 1
+Assert m2 == 99
+
+Say "All 8 function tests passed!"

@@ -1,0 +1,15 @@
+[project]
+name = "reference-backend-api"
+version = "1.0.0"
+description = "Reference EPL backend API application"
+author = "EPL Team"
+entry = "src/main.epl"
+
+[dependencies]
+epl-db = "^1.0.0"
+epl-web = "^1.0.0"
+
+[scripts]
+start = "epl serve src/main.epl"
+test = "epl test tests/"
+build = "epl build src/main.epl"

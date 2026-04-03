@@ -1,0 +1,85 @@
+Note: EPL Standard Library — Datetime Module
+Note: Import "datetime" to use date and time functions.
+
+Note: ─── Time Functions (wrappers over builtins) ─────────
+
+Define Function current_time
+    Return timestamp()
+End
+
+Define Function current_date
+    Return today()
+End
+
+Define Function format_date Takes ts, fmt
+    Return date_format(ts, fmt)
+End
+
+Define Function parse_date Takes date_str, fmt
+    Return date_parse(date_str, fmt)
+End
+
+Note: ─── Duration Helpers ────────────────────────────────
+
+Constant SECOND = 1
+Constant MINUTE = 60
+Constant HOUR = 3600
+Constant DAY = 86400
+Constant WEEK = 604800
+
+Define Function to_seconds Takes n
+    Return n
+End
+
+Define Function to_minutes Takes n
+    Return n * MINUTE
+End
+
+Define Function to_hours Takes n
+    Return n * HOUR
+End
+
+Define Function to_days Takes n
+    Return n * DAY
+End
+
+Define Function to_weeks Takes n
+    Return n * WEEK
+End
+
+Note: ─── Timer ───────────────────────────────────────────
+
+Define Function start_timer
+    Return timestamp()
+End
+
+Define Function timer_elapsed Takes start_time
+    Return timestamp() - start_time
+End
+
+Define Function timer_elapsed_ms Takes start_time
+    Return (timestamp() - start_time) * 1000
+End
+
+Note: ─── Formatting ──────────────────────────────────────
+
+Define Function format_duration Takes total_secs
+    Create hrs equal to floor(total_secs / 3600)
+    Create mins equal to floor((total_secs % 3600) / 60)
+    Create secs equal to floor(total_secs % 60)
+    Return to_text(hrs) + "h " + to_text(mins) + "m " + to_text(secs) + "s"
+End
+
+Define Function time_ago Takes ts
+    Create diff equal to timestamp() - ts
+    If diff < 60 Then
+        Return "just now"
+    End
+    If diff < 3600 Then
+        Return to_text(floor(diff / 60)) + " minutes ago"
+    End
+    If diff < 86400 Then
+        Return to_text(floor(diff / 3600)) + " hours ago"
+    End
+    Return to_text(floor(diff / 86400)) + " days ago"
+End

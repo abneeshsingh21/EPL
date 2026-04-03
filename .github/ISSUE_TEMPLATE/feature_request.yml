@@ -1,0 +1,52 @@
+name: Feature Request
+description: Suggest a new feature or improvement to EPL.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping make EPL better! Please describe your idea clearly.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What problem does this solve?"
+      description: "Describe the problem or limitation you're running into."
+      placeholder: "I find it hard to... / There's no way to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed EPL syntax or feature"
+      description: "What would the EPL code look like with this feature?"
+      render: "text"
+      placeholder: |
+        # Example of what I'd like to write:
+        Sort my_list by length descending
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered"
+      description: "Have you found any workarounds?"
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Which area of EPL does this affect?"
+      multiple: true
+      options:
+        - Language syntax
+        - Standard library
+        - Package manager
+        - CLI commands
+        - LSP / IDE support
+        - Web server
+        - Compiler / VM
+        - Documentation
+        - Other

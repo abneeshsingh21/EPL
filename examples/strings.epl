@@ -1,0 +1,48 @@
+Note: String and List Methods
+
+Note: String methods
+name = "Hello, World!"
+
+Print "Original: " + name
+Print "Uppercase: " + name.uppercase
+Print "Lowercase: " + name.lowercase
+Print "Length: " + name.length
+Print "Trimmed: " + "  Hello  ".trim
+
+Print "Contains 'World': " + name.contains("World")
+Print "Starts with 'Hello': " + name.starts_with("Hello")
+Print "Ends with '!': " + name.ends_with("!")
+Print "Replace: " + name.replace("World", "EPL")
+
+Note: Split a string
+sentence = "one two three four"
+words = sentence.split(" ")
+Print "Split result: " + words
+
+Note: Substring
+greeting = "Hello, World!"
+Print "Substring(0,5): " + greeting.substring(0, 5)
+
+Note: List methods
+numbers = [5, 3, 1, 4, 2]
+Print "Original list: " + numbers
+
+numbers.add(6)
+Print "After add(6): " + numbers
+
+numbers.remove(3)
+Print "After remove(3): " + numbers
+
+numbers.sort()
+Print "After sort: " + numbers
+
+numbers.reverse()
+Print "After reverse: " + numbers
+
+Print "Contains 4: " + numbers.contains(4)
+Print "Length: " + numbers.length
+
+Note: Join list into string
+fruits = ["apple", "banana", "cherry"]
+result = fruits.join(", ")
+Print "Joined: " + result

@@ -1,0 +1,40 @@
+Note: Loops
+
+Note: Repeat loop - run something N times
+Print "--- Repeat Loop ---"
+Repeat 5 times
+    Print "Hello from EPL!"
+End
+
+Note: While loop with counter
+Print "--- While Loop ---"
+count = 1
+While count <= 5
+    Print "Count: " + count
+    Increase count by 1
+End
+
+Note: Countdown
+Print "--- Countdown ---"
+timer = 5
+While timer > 0
+    Print timer
+    Decrease timer by 1
+End
+Print "Blast off!"
+
+Note: For each loop
+Print "--- For Each ---"
+colors = ["Red", "Green", "Blue", "Yellow"]
+For each color in colors
+    Print "Color: " + color
+End
+
+Note: Sum calculation
+total = 0
+i = 1
+While i <= 10
+    Set total to total + i
+    Increase i by 1
+End
+Print "Sum of 1 to 10 = " + total

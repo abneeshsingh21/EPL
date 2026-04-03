@@ -1,0 +1,156 @@
+{
+  "name": "epl-language",
+  "displayName": "EPL - Easy Programming Language",
+  "description": "Full language support for EPL: syntax highlighting, IntelliSense, diagnostics, go-to-definition, references, rename, code actions, signature help, formatting, profiling, and more.",
+  "version": "5.0.0",
+  "publisher": "epl-lang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters",
+    "Snippets"
+  ],
+  "keywords": [
+    "epl",
+    "easy programming language",
+    "beginner",
+    "programming"
+  ],
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/epl-lang/epl"
+  },
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "epl",
+        "aliases": [
+          "EPL",
+          "Easy Programming Language",
+          "epl"
+        ],
+        "extensions": [
+          ".epl"
+        ],
+        "configuration": "./epl-language-config.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "epl",
+        "scopeName": "source.epl",
+        "path": "./syntaxes/epl.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "epl",
+        "path": "./snippets/epl.json"
+      }
+    ],
+    "configuration": {
+      "title": "EPL",
+      "properties": {
+        "epl.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python executable used for the EPL language server."
+        },
+        "epl.lsp.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the EPL Language Server for diagnostics, completions, and more."
+        },
+        "epl.lsp.maxProblems": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of problems reported by the language server."
+        },
+        "epl.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the EPL language server."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "epl.runFile",
+        "title": "EPL: Run Current File",
+        "icon": "$(play)"
+      },
+      {
+        "command": "epl.compileFile",
+        "title": "EPL: Compile Current File (LLVM)"
+      },
+      {
+        "command": "epl.transpileJS",
+        "title": "EPL: Transpile to JavaScript"
+      },
+      {
+        "command": "epl.transpileKotlin",
+        "title": "EPL: Transpile to Kotlin"
+      },
+      {
+        "command": "epl.generateAndroid",
+        "title": "EPL: Generate Android Project"
+      },
+      {
+        "command": "epl.startWebServer",
+        "title": "EPL: Start Web Server"
+      },
+      {
+        "command": "epl.restartServer",
+        "title": "EPL: Restart Language Server"
+      },
+      {
+        "command": "epl.formatFile",
+        "title": "EPL: Format Current File"
+      },
+      {
+        "command": "epl.lintFile",
+        "title": "EPL: Lint Current File"
+      },
+      {
+        "command": "epl.profileFile",
+        "title": "EPL: Profile Current File"
+      }
+    ],
+    "menus": {
+      "editor/title/run": [
+        {
+          "command": "epl.runFile",
+          "when": "editorLangId == epl",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "epl.runFile",
+        "key": "ctrl+shift+r",
+        "mac": "cmd+shift+r",
+        "when": "editorLangId == epl"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "echo 'No build step needed'",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.22.0"
+  }
+}

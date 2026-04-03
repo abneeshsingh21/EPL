@@ -1,0 +1,229 @@
+# ─────────────────────────────────────────────────────────────
+# EPL TODO App — Full Stack with SQLite Persistence
+# Proves: CRUD, database, web server, JSON API, HTML rendering
+#
+# Run:  epl serve examples/apps/todo_app.epl
+# Open: http://localhost:3000
+# ─────────────────────────────────────────────────────────────
+
+# ── Setup database ────────────────────────────────────────────
+Set db To database_open("todos.db")
+
+Run sql on db with "CREATE TABLE IF NOT EXISTS todos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    done INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+)"
+
+# ── Helper functions ──────────────────────────────────────────
+Define function get_all_todos
+    Set rows To query db with "SELECT id, title, done, created_at FROM todos ORDER BY id DESC"
+    Return rows
+End
+
+Define function add_todo takes title
+    Run sql on db with "INSERT INTO todos (title) VALUES (?)" using [title]
+    Return query db with "SELECT last_insert_rowid() as id"
+End
+
+Define function toggle_todo takes id
+    Run sql on db with "UPDATE todos SET done = CASE WHEN done=0 THEN 1 ELSE 0 END WHERE id=?" using [id]
+End
+
+Define function delete_todo takes id
+    Run sql on db with "DELETE FROM todos WHERE id=?" using [id]
+End
+
+Define function todo_to_map takes row
+    Set t To create map
+    Set t["id"]         To row[0]
+    Set t["title"]      To row[1]
+    Set t["done"]       To row[2] is equal to 1
+    Set t["created_at"] To row[3]
+    Return t
+End
+
+# ── Web Routes ────────────────────────────────────────────────
+Create web app as app
+
+# GET / — Serve HTML UI
+When app gets "/"
+    Set todos To get_all_todos()
+    Set html_todos To ""
+    For Each row In todos
+        Set todo To todo_to_map(row)
+        Set checked To ""
+        Set style  To ""
+        If todo["done"] is equal to True Then
+            Set checked To "checked"
+            Set style   To "text-decoration:line-through;color:#94a3b8;"
+        End
+        Set html_todos To html_todos + "
+        <li class='todo-item'>
+          <input type='checkbox' " + checked + "
+                 hx-post='/toggle/" + to_text(todo["id"]) + "'
+                 hx-target='#todo-list' hx-swap='innerHTML'>
+          <span style='" + style + "'>" + todo["title"] + "</span>
+          <button hx-delete='/delete/" + to_text(todo["id"]) + "'
+                  hx-target='#todo-list' hx-swap='innerHTML'
+                  class='del-btn'>✕</button>
+        </li>"
+    End
+    Send html "<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>EPL TODO App</title>
+  <script src='https://unpkg.com/htmx.org@1.9.10'></script>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter',system-ui,sans-serif;background:#0f172a;
+         color:#e2e8f0;min-height:100vh;display:flex;align-items:center;
+         justify-content:center;padding:2rem}
+    .card{background:#1e293b;border-radius:16px;padding:2rem;
+          width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.4)}
+    h1{font-size:1.8rem;font-weight:800;margin-bottom:0.3rem;
+       background:linear-gradient(135deg,#60a5fa,#a78bfa);
+       -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .subtitle{color:#64748b;font-size:0.85rem;margin-bottom:1.5rem}
+    .add-form{display:flex;gap:0.5rem;margin-bottom:1.5rem}
+    .add-form input{flex:1;background:#0f172a;border:1px solid #334155;
+      border-radius:8px;padding:0.6rem 0.9rem;color:#e2e8f0;font-size:0.95rem}
+    .add-form input:focus{outline:none;border-color:#60a5fa}
+    .add-form button{background:#2563eb;color:white;border:none;padding:0.6rem 1.2rem;
+      border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.2s}
+    .add-form button:hover{background:#1d4ed8}
+    #todo-list{list-style:none}
+    .todo-item{display:flex;align-items:center;gap:0.8rem;padding:0.7rem 0;
+               border-bottom:1px solid #1e293b}
+    .todo-item:last-child{border-bottom:none}
+    .todo-item input[type=checkbox]{width:16px;height:16px;accent-color:#2563eb;cursor:pointer}
+    .todo-item span{flex:1;font-size:0.95rem}
+    .del-btn{background:none;border:1px solid #334155;color:#64748b;
+             width:28px;height:28px;border-radius:6px;cursor:pointer;
+             transition:all 0.2s;font-size:0.8rem}
+    .del-btn:hover{background:#ef4444;border-color:#ef4444;color:white}
+    .empty{text-align:center;color:#475569;padding:2rem;font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <div class='card'>
+    <h1>📝 EPL TODO</h1>
+    <p class='subtitle'>Built entirely in English Programming Language</p>
+    <form class='add-form' hx-post='/add' hx-target='#todo-list'
+          hx-swap='innerHTML' hx-on::after-request='this.reset()'>
+      <input name='title' placeholder='What needs to be done?' required autofocus>
+      <button type='submit'>Add</button>
+    </form>
+    <ul id='todo-list'>" + html_todos + "</ul>
+  </div>
+</body>
+</html>"
+End
+
+# POST /add — Add new todo, return updated list
+When app receives post at "/add"
+    Set title To trim(request body "title")
+    If length(title) is greater than 0 Then
+        Call add_todo(title)
+    End
+    Set todos To get_all_todos()
+    Set html_todos To ""
+    For Each row In todos
+        Set todo To todo_to_map(row)
+        Set checked To ""
+        Set style   To ""
+        If todo["done"] is equal to True Then
+            Set checked To "checked"
+            Set style   To "text-decoration:line-through;color:#94a3b8;"
+        End
+        Set html_todos To html_todos + "
+        <li class='todo-item'>
+          <input type='checkbox' " + checked + "
+                 hx-post='/toggle/" + to_text(todo["id"]) + "'
+                 hx-target='#todo-list' hx-swap='innerHTML'>
+          <span style='" + style + "'>" + todo["title"] + "</span>
+          <button hx-delete='/delete/" + to_text(todo["id"]) + "'
+                  hx-target='#todo-list' hx-swap='innerHTML'
+                  class='del-btn'>✕</button>
+        </li>"
+    End
+    If length(todos) is equal to 0 Then
+        Set html_todos To "<li class='empty'>No todos yet. Add one above!</li>"
+    End
+    Send html html_todos
+End
+
+# POST /toggle/:id — Toggle done state
+When app receives post at "/toggle/{id}"
+    Call toggle_todo(to_integer(id))
+    Set todos To get_all_todos()
+    Set html_todos To ""
+    For Each row In todos
+        Set todo To todo_to_map(row)
+        Set checked To ""
+        Set style   To ""
+        If todo["done"] is equal to True Then
+            Set checked To "checked"
+            Set style   To "text-decoration:line-through;color:#94a3b8;"
+        End
+        Set html_todos To html_todos + "
+        <li class='todo-item'>
+          <input type='checkbox' " + checked + "
+                 hx-post='/toggle/" + to_text(todo["id"]) + "'
+                 hx-target='#todo-list' hx-swap='innerHTML'>
+          <span style='" + style + "'>" + todo["title"] + "</span>
+          <button hx-delete='/delete/" + to_text(todo["id"]) + "'
+                  hx-target='#todo-list' hx-swap='innerHTML'
+                  class='del-btn'>✕</button>
+        </li>"
+    End
+    Send html html_todos
+End
+
+# DELETE /delete/:id — Remove todo
+When app receives delete at "/delete/{id}"
+    Call delete_todo(to_integer(id))
+    Set todos To get_all_todos()
+    Set html_todos To ""
+    For Each row In todos
+        Set todo To todo_to_map(row)
+        Set checked To ""
+        Set style   To ""
+        If todo["done"] is equal to True Then
+            Set checked To "checked"
+            Set style   To "text-decoration:line-through;color:#94a3b8;"
+        End
+        Set html_todos To html_todos + "
+        <li class='todo-item'>
+          <input type='checkbox' " + checked + "
+                 hx-post='/toggle/" + to_text(todo["id"]) + "'
+                 hx-target='#todo-list' hx-swap='innerHTML'>
+          <span style='" + style + "'>" + todo["title"] + "</span>
+          <button hx-delete='/delete/" + to_text(todo["id"]) + "'
+                  hx-target='#todo-list' hx-swap='innerHTML'
+                  class='del-btn'>✕</button>
+        </li>"
+    End
+    If length(todos) is equal to 0 Then
+        Set html_todos To "<li class='empty'>No todos yet. Add one above!</li>"
+    End
+    Send html html_todos
+End
+
+# ── JSON API (for programmatic access) ───────────────────────
+When app gets "/api/todos"
+    Set todos To get_all_todos()
+    Set result To []
+    For Each row In todos
+        Add todo_to_map(row) To result
+    End
+    Send json result
+End
+
+# ── Start server ──────────────────────────────────────────────
+Say "📝 EPL TODO App running at http://localhost:3000"
+Say "   Press Ctrl+C to stop"
+Start app on port 3000

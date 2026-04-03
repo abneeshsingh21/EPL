@@ -1,0 +1,17 @@
+Class Counter
+    value = 0
+
+    Function increment
+        value = value + 1
+    End
+
+    Function get_value
+        Return value
+    End
+End
+
+counter = new Counter
+For i from 1 to 1000
+    counter.increment()
+End For
+Print counter.get_value().

@@ -1,0 +1,45 @@
+Comment "EPL HTML Builder Module — elements, tables, forms, lists, pages"
+
+Comment "── Element Construction ──"
+
+Function element with tag, content, attrs
+    Return Call html_element with [tag, content, attrs]
+End Function
+
+Function table with headers, rows
+    Return Call html_table with [headers, rows]
+End Function
+
+Function form with action, method, fields
+    Return Call html_form with [action, method, fields]
+End Function
+
+Function list_html with items, ordered
+    Return Call html_list with [items, ordered]
+End Function
+
+Function link with href, text
+    Return Call html_link with [href, text]
+End Function
+
+Function image with src, alt
+    Return Call html_image with [src, alt]
+End Function
+
+Function page with title, body, css, js
+    Return Call html_page with [title, body, css, js]
+End Function
+
+Comment "── Escaping & Utilities ──"
+
+Function escape with text
+    Return Call html_escape with [text]
+End Function
+
+Function unescape with text
+    Return Call html_unescape with [text]
+End Function
+
+Function minify with html_str
+    Return Call html_minify with [html_str]
+End Function

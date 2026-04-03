@@ -1,0 +1,62 @@
+Display "=== EPL Database Application ===".
+Display "".
+
+Display "Creating database...".
+Create db equal to db_open("example_test.db").
+
+Display "Creating users table...".
+db_create_table(db, "users", "id INTEGER PRIMARY KEY, name TEXT, email TEXT, age INTEGER").
+
+Display "Inserting users...".
+db_execute(db, "INSERT INTO users (name, email, age) VALUES ('Alice', 'alice@example.com', 30)").
+db_execute(db, "INSERT INTO users (name, email, age) VALUES ('Bob', 'bob@example.com', 25)").
+db_execute(db, "INSERT INTO users (name, email, age) VALUES ('Charlie', 'charlie@example.com', 35)").
+db_execute(db, "INSERT INTO users (name, email, age) VALUES ('Diana', 'diana@example.com', 28)").
+
+Display "".
+Display "--- All Users ---".
+Create users equal to db_query(db, "SELECT * FROM users").
+For each user in users
+    Display user.
+End.
+
+Display "".
+Display "--- Users over 28 ---".
+Create older equal to db_query(db, "SELECT name, age FROM users WHERE age > 28").
+For each u in older
+    Display u.
+End.
+
+Display "".
+Display "--- Single User Lookup ---".
+Create alice equal to db_query_one(db, "SELECT name, email FROM users WHERE name = 'Alice'").
+Display alice.
+
+Display "".
+Display "--- Update a User ---".
+db_execute(db, "UPDATE users SET age = 31 WHERE name = 'Alice'").
+Create updated equal to db_query_one(db, "SELECT name, age FROM users WHERE name = 'Alice'").
+Display "Alice updated: ".
+Display updated.
+
+Display "".
+Display "--- Delete a User ---".
+db_execute(db, "DELETE FROM users WHERE name = 'Diana'").
+Create remaining equal to db_query(db, "SELECT name FROM users").
+Display "Remaining users: ".
+Display remaining.
+
+Display "".
+Display "--- Table List ---".
+Create tables equal to db_tables(db).
+Display "Tables: ".
+Display tables.
+
+Display "".
+db_close(db).
+Display "Database closed.".
+
+Display "".
+Display "Cleaning up...".
+file_delete("example_test.db").
+Display "=== Database Demo Complete ===".

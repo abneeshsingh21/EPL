@@ -1,0 +1,17 @@
+Note: ─── Import System in EPL ───
+Note: This file demonstrates importing code from other files
+
+Note: Import a utility file (path relative to where you run EPL from)
+Import "examples/math_utils.epl"
+
+Note: Use the imported function
+Print add(3, 4)
+Print multiply(5, 6)
+
+Note: Use the imported constant
+Print PI
+
+Note: Use in calculations
+radius = 5
+area = PI * (radius raised to 2)
+Print area
