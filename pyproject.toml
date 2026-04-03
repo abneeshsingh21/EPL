@@ -36,9 +36,9 @@ dev = ["pytest>=7.0", "coverage>=7.0", "build>=1.0.0"]
 epl = "epl.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/epl-lang/epl"
-Documentation = "https://github.com/epl-lang/epl/tree/main/docs"
-Repository = "https://github.com/epl-lang/epl"
+Homepage = "https://github.com/abneeshsingh21/EPL"
+Documentation = "https://github.com/abneeshsingh21/EPL/tree/main/docs"
+Repository = "https://github.com/abneeshsingh21/EPL"
 
 [tool.setuptools.dynamic]
 version = {attr = "epl.__version__"}
