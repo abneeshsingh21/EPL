@@ -260,8 +260,10 @@ from epl.interpreter import Interpreter
 
 # Redirect stdout to capture "Say" outputs
 stdout = io.StringIO()
+old_stdout = sys.stdout
 sys.stdout = stdout
 
+output_res = ""
 try:
     code = """${eplCode.replace(/"/g, '\\"')}"""
     
@@ -270,12 +272,14 @@ try:
     interpreter = Interpreter(safe_mode=True)
     interpreter.execute(program)
     
-    # Return output
-    sys.stdout.getvalue()
+    # Capture output
+    output_res = stdout.getvalue()
 except Exception as e:
-    "ERROR: " + str(e)
+    output_res = "ERROR: " + str(e)
 finally:
-    sys.stdout = sys.__stdout__
+    sys.stdout = old_stdout
+
+output_res
 `;
 
             try {
