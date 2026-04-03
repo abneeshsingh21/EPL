@@ -248,11 +248,15 @@ Say greet("Abneesh")
             const pythonRunner = `
 import sys
 import io
+
+# Monkeypatch to avoid old PyPI parser import bugs
+if "epl.type_system" not in sys.modules:
+    import types
+    sys.modules["epl.type_system"] = types.ModuleType("epl.type_system")
+sys.modules["epl.type_system"].EPLTypeChecker = None
+
+from epl.cli import _parse_epl_program
 from epl.interpreter import Interpreter
-from epl.parser import Parser
-from epl.lexer import Lexer
-from epl.environment import Environment
-from epl.stdlib.core import load_core_builtins
 
 # Redirect stdout to capture "Say" outputs
 stdout = io.StringIO()
@@ -261,17 +265,10 @@ sys.stdout = stdout
 try:
     code = """${eplCode.replace(/"/g, '\\"')}"""
     
-    lexer = Lexer()
-    tokens = lexer.tokenize(code)
+    program = _parse_epl_program(code, "playground.epl")
     
-    parser = Parser(tokens)
-    ast = parser.parse()
-    
-    env = Environment()
-    load_core_builtins(env)
-    
-    interpreter = Interpreter(env)
-    interpreter.interpret(ast)
+    interpreter = Interpreter(safe_mode=True)
+    interpreter.execute(program)
     
     # Return output
     sys.stdout.getvalue()
