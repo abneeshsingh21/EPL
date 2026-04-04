@@ -257,6 +257,21 @@ sys.modules["epl.type_system"].EPLTypeChecker = None
 
 from epl.cli import _parse_epl_program
 from epl.interpreter import Interpreter
+import builtins
+import js
+
+# Redirect inputs to browser prompt
+def browser_input(prompt_text=""):
+    res = js.prompt(prompt_text)
+    return str(res) if res is not None else ""
+builtins.input = browser_input
+
+class MockStdin:
+    def readline(self, *args):
+        return browser_input() + "\n"
+    def read(self, *args):
+        return browser_input() + "\n"
+sys.stdin = MockStdin()
 
 # Redirect stdout to capture "Say" outputs
 stdout = io.StringIO()
