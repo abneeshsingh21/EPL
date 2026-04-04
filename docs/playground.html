@@ -268,9 +268,9 @@ builtins.input = browser_input
 
 class MockStdin:
     def readline(self, *args):
-        return browser_input() + "\n"
+        return browser_input() + "\\n"
     def read(self, *args):
-        return browser_input() + "\n"
+        return browser_input() + "\\n"
 sys.stdin = MockStdin()
 
 # Redirect stdout to capture "Say" outputs
