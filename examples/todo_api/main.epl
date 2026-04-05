@@ -1,0 +1,70 @@
+Note: TODO API — RESTful task manager
+Note: Run with: epl serve examples/todo_api/main.epl
+
+Note: ── Create the app ──
+Create app called "Todo API"
+
+Note: ── Database setup ──
+Set db to db_open("todos.db")
+Call db_create_table(db, "todos", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and title = "TEXT NOT NULL" and completed = "INTEGER DEFAULT 0" and created_at = "TEXT DEFAULT CURRENT_TIMESTAMP")
+
+Note: ── GET all todos ──
+API GET "/api/todos" responds with
+    Set todos to db_query(db, "SELECT * FROM todos ORDER BY created_at DESC")
+    Return Map with success = True and data = todos
+End
+
+Note: ── POST create todo ──
+API POST "/api/todos" responds with
+    Set body to request_body()
+    Set title to get(body, "title")
+    If title is Nothing Then
+        Return Map with success = False and error = "Title is required"
+    End
+    Call db_execute(db, "INSERT INTO todos (title) VALUES (?)", List with title)
+    Return Map with success = True and message = "Todo created"
+End
+
+Note: ── PUT update todo ──
+API PUT "/api/todos/:id" responds with
+    Set todo_id to get(params, "id")
+    Set body to request_body()
+    Set title to get(body, "title")
+    Set completed to get(body, "completed")
+    If title is not Nothing Then
+        Call db_execute(db, "UPDATE todos SET title = ? WHERE id = ?", List with title and todo_id)
+    End
+    If completed is not Nothing Then
+        Call db_execute(db, "UPDATE todos SET completed = ? WHERE id = ?", List with completed and todo_id)
+    End
+    Return Map with success = True and message = "Todo updated"
+End
+
+Note: ── DELETE todo ──
+API DELETE "/api/todos/:id" responds with
+    Set todo_id to get(params, "id")
+    Call db_execute(db, "DELETE FROM todos WHERE id = ?", List with todo_id)
+    Return Map with success = True and message = "Todo deleted"
+End
+
+Note: ── Health check ──
+API GET "/api/health" responds with
+    Set count to db_query_one(db, "SELECT COUNT(*) as total FROM todos")
+    Return Map with status = "ok" and total_todos = get(count, "total")
+End
+
+Note: ── Documentation page ──
+Page "/" renders
+    Title "Todo API"
+    Heading "Todo API Documentation"
+    Paragraph "A RESTful API built with EPL."
+    Heading Level 2 "Endpoints"
+    Paragraph "GET    /api/todos       — List all todos"
+    Paragraph "POST   /api/todos       — Create a todo (body: {title: '...'})"
+    Paragraph "PUT    /api/todos/:id   — Update a todo"
+    Paragraph "DELETE /api/todos/:id   — Delete a todo"
+    Paragraph "GET    /api/health      — Health check"
+End
+
+Note: ── Start ──
+Start app on port 8000

@@ -1,0 +1,49 @@
+Note: Calculator — CLI calculator demo
+Note: Run with: epl run examples/calculator/main.epl
+
+Say "╔══════════════════════════════════╗"
+Say "║   EPL Calculator v1.0            ║"
+Say "║   Type an expression to evaluate ║"
+Say "║   Type 'quit' to exit            ║"
+Say "╚══════════════════════════════════╝"
+Say ""
+
+Set running to True
+Set history to List
+
+Repeat While running is True
+    Set input to Ask "calc> "
+    
+    If input == "quit" or input == "exit" Then
+        Say "Goodbye!"
+        Set running to False
+    Else If input == "history" Then
+        If length(history) == 0 Then
+            Say "  No calculations yet."
+        Else
+            Say "  ── History ──"
+            For Each entry in history
+                Say "  " + entry
+            End
+        End
+    Else If input == "help" Then
+        Say "  Supported operations:"
+        Say "    + - * / (basic math)"
+        Say "    sqrt(x), abs(x), pow(x,y)"
+        Say "    sin(x), cos(x), tan(x)"
+        Say "    pi, euler"
+        Say "  Commands: history, clear, help, quit"
+    Else If input == "clear" Then
+        Set history to List
+        Say "  History cleared."
+    Else If length(input) > 0 Then
+        Try
+            Set result to evaluate(input)
+            Set entry to input + " = " + to_string(result)
+            Say "  = " + to_string(result)
+            Append entry to history
+        Catch error
+            Say "  Error: " + to_string(error)
+        End
+    End
+End

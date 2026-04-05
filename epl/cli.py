@@ -143,9 +143,16 @@ HELP = f"""\
 {_bold('Serve Options:')}
   --port N         Server port (default: 8000)
   --workers N      Number of workers (default: 4)
-  --reload         Enable hot-reload (dev mode)
+  --dev            Development mode (built-in server + hot-reload)
+  --engine ENGINE  Production server: auto|waitress|gunicorn|uvicorn|builtin
+  --reload         Enable hot-reload
   --store TYPE     Store backend: memory|sqlite|redis
   --session TYPE   Session backend: memory|sqlite|redis
+
+{_bold('Android Options:')}
+  --build          Build APK after generating project (requires Android SDK)
+  --name NAME      Custom app name
+  --compose        Use Jetpack Compose UI
 
 {_bold('Package Ecosystem:')}
   epl resolve                      Resolve all dependencies (backtracking)
@@ -1356,8 +1363,10 @@ def _serve(args):
     port = 8000
     workers = 4
     reload_mode = False
+    dev_mode = False
     store_backend = 'memory'
     session_backend = 'memory'
+    engine = 'auto'
 
     i = 1
     while i < len(args):
@@ -1374,6 +1383,20 @@ def _serve(args):
             reload_mode = True
             i += 1
             continue
+        if arg == '--dev':
+            dev_mode = True
+            reload_mode = True
+            i += 1
+            continue
+        if arg == '--engine' and i + 1 < len(args):
+            engine = args[i + 1].lower()
+            valid_engines = ('auto', 'waitress', 'gunicorn', 'uvicorn', 'builtin')
+            if engine not in valid_engines:
+                print(f"{_red('Error:')} Unknown engine: {engine}")
+                print(f"Valid engines: {', '.join(valid_engines)}")
+                return 1
+            i += 2
+            continue
         if arg == '--store' and i + 1 < len(args):
             store_backend = args[i + 1]
             i += 2
@@ -1386,18 +1409,39 @@ def _serve(args):
         return 1
 
     try:
-        from epl.deploy import WSGIAdapter, serve
         from epl.store_backends import configure_backends
-
-        app, interpreter = _load_epl_web_app(filename)
         configure_backends(store=store_backend, session=session_backend)
-        serve(
-            WSGIAdapter(app, interpreter=interpreter),
-            host='0.0.0.0',
-            port=port,
-            workers=workers,
-            reload=reload_mode,
-        )
+
+        if dev_mode:
+            # Development mode: use built-in threaded server with hot-reload
+            from epl.web import start_server
+            app, interpreter = _load_epl_web_app(filename)
+            print(f"  {_yellow('⚠ Development mode')} — not for production use")
+            if reload_mode:
+                try:
+                    from epl.hot_reload import start_with_reload
+                    start_with_reload(filename, port=port)
+                except ImportError:
+                    start_server(app, port=port, interpreter=interpreter, workers=workers)
+            else:
+                start_server(app, port=port, interpreter=interpreter, workers=workers)
+        else:
+            # Production mode: use WSGI adapter with best available server
+            from epl.deploy import WSGIAdapter, serve
+            app, interpreter = _load_epl_web_app(filename)
+
+            # Auto-install waitress on Windows if no production server found
+            if engine == 'auto':
+                _ensure_production_server()
+
+            serve(
+                WSGIAdapter(app, interpreter=interpreter),
+                host='0.0.0.0',
+                port=port,
+                workers=workers,
+                reload=reload_mode,
+                engine=engine if engine != 'auto' else None,
+            )
         return 0
     except ValueError as exc:
         print(f"{_red('Error:')} {exc}")
@@ -1408,6 +1452,32 @@ def _serve(args):
     except Exception as exc:
         print(f"{_red('Error:')} {exc}")
         return 1
+
+
+def _ensure_production_server():
+    """Try to ensure at least one production WSGI server is available."""
+    for mod_name in ('waitress', 'gunicorn', 'uvicorn'):
+        try:
+            __import__(mod_name)
+            return  # found one
+        except ImportError:
+            continue
+    # None found — try to install waitress (cross-platform, lightweight)
+    print(f"  {_yellow('Note:')} No production server found. Installing waitress...")
+    import subprocess
+    try:
+        result = subprocess.run(
+            [sys.executable, '-m', 'pip', 'install', 'waitress'],
+            capture_output=True, text=True, timeout=60
+        )
+        if result.returncode == 0:
+            print(f"  {_green('✓')} waitress installed successfully.")
+        else:
+            print(f"  {_yellow('⚠')} Could not install waitress. Using built-in server.")
+            print(f"  Install manually: pip install waitress")
+    except Exception:
+        print(f"  {_yellow('⚠')} Could not install waitress. Using built-in server.")
+        print(f"  Install manually: pip install waitress")
 
 
 def _deploy(args):
@@ -1869,17 +1939,44 @@ def _android(args):
         return 1
     filename = args[0]
     use_compose = '--compose' in args[1:]
+    build_apk = '--build' in args[1:]
+    app_name = None
+    package_name = None
+
+    rest = args[1:]
+    i = 0
+    while i < len(rest):
+        if rest[i] == '--name' and i + 1 < len(rest):
+            app_name = rest[i + 1]
+            i += 2
+            continue
+        if rest[i] == '--package' and i + 1 < len(rest):
+            package_name = rest[i + 1]
+            i += 2
+            continue
+        i += 1
+
     try:
         from epl.kotlin_gen import generate_android_project
 
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         output_dir = f'{base}_android'
-        generate_android_project(program, output_dir, app_name=base.title())
-        print(f"  Android project generated: {output_dir}/")
+        resolved_name = app_name or base.replace('_', ' ').title()
+        generate_android_project(program, output_dir, app_name=resolved_name)
+
+        print(f"\n  {_green('✓')} Android project generated: {_bold(output_dir)}/")
+        print(f"  App name: {resolved_name}")
         if use_compose:
-            print("  Mode: Jetpack Compose")
-        print("  Open in Android Studio to build.")
+            print(f"  UI Mode: Jetpack Compose")
+
+        if build_apk:
+            _build_android_apk(output_dir)
+        else:
+            print(f"\n  {_dim('Next steps:')}")
+            print(f"    1. Open in Android Studio: {output_dir}/")
+            print(f"    2. Or build from CLI:  epl android {filename} --build")
+            print(f"    3. The APK will be at: {output_dir}/app/build/outputs/apk/")
         return 0
     except FileNotFoundError:
         print(f"{_red('Error:')} File not found: {filename}")
@@ -1887,6 +1984,82 @@ def _android(args):
     except Exception as exc:
         print(f"{_red('Error:')} {exc}", file=sys.stderr)
         return 1
+
+
+def _build_android_apk(project_dir):
+    """Attempt to build APK using Gradle wrapper or system Gradle."""
+    import subprocess as _sp
+    import shutil
+
+    # Find gradle/gradlew
+    gradlew = os.path.join(project_dir, 'gradlew.bat' if os.name == 'nt' else 'gradlew')
+    gradle_cmd = None
+
+    if os.path.isfile(gradlew):
+        gradle_cmd = gradlew
+        if os.name != 'nt':
+            os.chmod(gradlew, 0o755)
+    elif shutil.which('gradle'):
+        gradle_cmd = 'gradle'
+    else:
+        print(f"\n  {_yellow('⚠')} Gradle not found. Cannot build APK automatically.")
+        print(f"  Install Gradle: https://gradle.org/install/")
+        print(f"  Or open {project_dir}/ in Android Studio.")
+        return
+
+    # Check for ANDROID_HOME / ANDROID_SDK_ROOT
+    sdk_root = os.environ.get('ANDROID_HOME') or os.environ.get('ANDROID_SDK_ROOT')
+    if not sdk_root:
+        # Try common locations
+        candidates = [
+            os.path.expanduser('~/Android/Sdk'),
+            os.path.expanduser('~/Library/Android/sdk'),
+            'C:\\Users\\' + os.environ.get('USERNAME', '') + '\\AppData\\Local\\Android\\Sdk',
+        ]
+        for c in candidates:
+            if os.path.isdir(c):
+                sdk_root = c
+                break
+
+    if not sdk_root:
+        print(f"\n  {_yellow('⚠')} Android SDK not found (ANDROID_HOME not set).")
+        print(f"  Install Android Studio or set ANDROID_HOME.")
+        return
+
+    print(f"\n  {_cyan('Building APK...')} (this may take a minute)")
+    print(f"  SDK: {sdk_root}")
+
+    env = os.environ.copy()
+    env['ANDROID_HOME'] = sdk_root
+    env['ANDROID_SDK_ROOT'] = sdk_root
+
+    try:
+        result = _sp.run(
+            [gradle_cmd, 'assembleDebug'],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=300,
+        )
+        if result.returncode == 0:
+            apk_path = os.path.join(project_dir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk')
+            if os.path.isfile(apk_path):
+                size_mb = os.path.getsize(apk_path) / (1024 * 1024)
+                print(f"\n  {_green('✓')} APK built successfully!")
+                print(f"  {_bold(apk_path)} ({size_mb:.1f} MB)")
+            else:
+                print(f"\n  {_green('✓')} Build completed. Check {project_dir}/app/build/outputs/")
+        else:
+            print(f"\n  {_red('✗')} Build failed.")
+            # Show last 10 lines of stderr
+            lines = result.stderr.strip().split('\n')
+            for line in lines[-10:]:
+                print(f"    {line}")
+    except _sp.TimeoutExpired:
+        print(f"\n  {_red('✗')} Build timed out (5 min limit).")
+    except Exception as e:
+        print(f"\n  {_red('✗')} Build error: {e}")
 
 
 def _desktop(args):

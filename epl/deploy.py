@@ -667,7 +667,7 @@ async def _asgi_websocket_handler(scope, receive, send, app):
 # Cross-Platform Server (Waitress on Windows, Gunicorn on Linux)
 # ═══════════════════════════════════════════════════════════
 
-def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False):
+def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engine=None):
     """Start a production WSGI server — auto-detects platform.
     
     - Windows: Uses Waitress (pip install waitress)
@@ -680,6 +680,7 @@ def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False):
         port: Port number
         workers: Number of workers
         reload: Enable hot-reload (dev mode)
+        engine: Force a specific server: 'waitress', 'gunicorn', 'uvicorn', 'builtin'
     """
     import sys
     import platform
@@ -694,6 +695,33 @@ def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False):
     def _start_server():
         is_windows = platform.system() == 'Windows'
 
+        # If engine is explicitly specified, use that
+        if engine == 'builtin':
+            _fallback_serve(wsgi_app, host, port)
+            return
+        if engine == 'waitress':
+            import waitress
+            print(f'\n  EPL Production Server (Waitress)')
+            print(f'  Listening on {host}:{port} (workers={workers})')
+            print(f'  Press Ctrl+C to stop\n')
+            waitress.serve(wsgi_app, host=host, port=port,
+                          threads=workers, channel_timeout=120,
+                          map_size=100000, url_scheme='http')
+            return
+        if engine == 'gunicorn':
+            _run_gunicorn(wsgi_app, host, port, workers)
+            return
+        if engine == 'uvicorn':
+            import uvicorn
+            from epl.deploy import ASGIAdapter
+            asgi_app = ASGIAdapter(app_or_wsgi) if not isinstance(app_or_wsgi, ASGIAdapter) else app_or_wsgi
+            print(f'\n  EPL Production Server (Uvicorn)')
+            print(f'  Listening on {host}:{port} (workers={workers})')
+            print(f'  Press Ctrl+C to stop\n')
+            uvicorn.run(asgi_app, host=host, port=port, workers=workers)
+            return
+
+        # Auto-detect best available server
         if is_windows:
             # Windows: Use Waitress
             try:
