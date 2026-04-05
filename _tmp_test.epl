@@ -1,4 +1,0 @@
-Define function hi()
-    Print 42
-End
-Call hi()

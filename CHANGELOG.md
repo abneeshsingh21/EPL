@@ -40,9 +40,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - "EPL" and "English Programming Language" are trademarks of Abneesh Singh
 
 ---
-# Changelog
-
-All notable changes to EPL are documented here.
 
 ## [7.0.0] — 2026
 
