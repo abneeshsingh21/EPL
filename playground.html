@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPL - Interactive Playground</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CodeMirror (Editor) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/material-ocean.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script> <!-- We use python syntax highlighting as base for EPL -->
+
+    <!-- Pyodide (Python WebAssembly) -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #09090b;
+            --bg-panel: #18181b;
+            --border: #27272a;
+            --text-main: #f4f4f5;
+            --text-muted: #a1a1aa;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Navbar */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .logo i { color: var(--primary); }
+
+        .btn-run {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-run:hover { opacity: 0.9; }
+        .btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Main Workspace */
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .editor-container, .output-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+        }
+
+        .panel-header {
+            padding: 0.75rem 1rem;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* CodeMirror Overrides */
+        .CodeMirror {
+            flex: 1;
+            height: 100%;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            background-color: var(--bg-dark) !important;
+        }
+
+        /* Output Terminal */
+        .terminal {
+            flex: 1;
+            background: #000;
+            color: #d4d4d8;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            padding: 1rem;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .system-msg { color: #3b82f6; }
+        .error-msg { color: #ef4444; }
+
+        /* Loading Spinner */
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="index.html" class="logo">
+            <i class="fa-solid fa-code"></i> EPL Playground
+        </a>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <span id="status-text" class="text-muted" style="font-size: 0.9rem; color: var(--text-muted);">
+                <i class="fa-solid fa-circle-notch spinner"></i> Initializing Environment...
+            </span>
+            <button id="run-btn" class="btn-run" disabled onclick="runCode()">
+                <i class="fa-solid fa-play"></i> Run Code
+            </button>
+        </div>
+    </nav>
+
+    <div class="workspace">
+        <div class="editor-container">
+            <div class="panel-header">Input.epl</div>
+            <textarea id="code-editor">Note: Welcome to the EPL Interactive Playground!
+Note: This code runs entirely in your browser using WebAssembly.
+
+Create name as "Developer"
+Say "Hello, " + name + "!"
+
+Repeat 3 times
+    Say "EPL is awesome!"
+End Repeat
+
+Note: Try defining a function
+Define Function greet Takes person
+    Return "Nice to meet you, " + person
+End
+
+Say greet("Abneesh")
+</textarea>
+        </div>
+        
+        <div class="output-container">
+            <div class="panel-header">Output</div>
+            <div id="terminal" class="terminal"><span class="system-msg">> Engine booting up... Please wait about 10 seconds for the WebAssembly backend to download...</span><br></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize CodeMirror Editor
+        const editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
+            mode: "python", // Best approximate for now
+            theme: "material-ocean",
+            lineNumbers: true,
+            indentUnit: 4,
+            matchBrackets: true
+        });
+
+        // Terminal output helper
+        const terminal = document.getElementById("terminal");
+        function printToTerminal(text, type='normal') {
+            const span = document.createElement('span');
+            if(type === 'error') span.className = 'error-msg';
+            if(type === 'system') span.className = 'system-msg';
+            span.innerText = text + '\n';
+            terminal.appendChild(span);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearTerminal() {
+            terminal.innerHTML = '';
+        }
+
+        // Pyodide Instance
+        let pyodideReady = false;
+        let pyodide = null;
+
+        async function initEngine() {
+            try {
+                // 1. Load Pyodide (Python WASM environment)
+                pyodide = await loadPyodide();
+                
+                // 2. Install required Pyodide packages
+                await pyodide.loadPackage("micropip");
+                await pyodide.loadPackage("sqlite3");
+                await pyodide.loadPackage("ssl");
+                const micropip = pyodide.pyimport("micropip");
+                
+                printToTerminal("> Installing EPL compiler backend from PyPI...", "system");
+                
+                // 3. Install EPL from PyPI!
+                await micropip.install("eplang");
+                
+                printToTerminal("> Environment Ready! You can now run EPL code. \n", "system");
+                
+                document.getElementById('status-text').innerHTML = '<i class="fa-solid fa-check" style="color:#10b981"></i> Engine Ready';
+                document.getElementById('run-btn').disabled = false;
+                pyodideReady = true;
+
+            } catch (err) {
+                printToTerminal(`> Failed to initialize: ${err}`, "error");
+                document.getElementById('status-text').innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444"></i> Engine Error';
+            }
+        }
+
+        async function runCode() {
+            if(!pyodideReady) return;
+            
+            clearTerminal();
+            const eplCode = editor.getValue();
+            
+            // We write a small python script that imports EPL and runs the string
+            const pythonRunner = `
+import sys
+import io
+
+# Monkeypatch to avoid old PyPI parser import bugs
+if "epl.type_system" not in sys.modules:
+    import types
+    sys.modules["epl.type_system"] = types.ModuleType("epl.type_system")
+sys.modules["epl.type_system"].EPLTypeChecker = None
+
+from epl.cli import _parse_epl_program
+from epl.interpreter import Interpreter
+import builtins
+import js
+
+# Redirect inputs to browser prompt
+def browser_input(prompt_text=""):
+    res = js.prompt(prompt_text)
+    return str(res) if res is not None else ""
+builtins.input = browser_input
+
+class MockStdin:
+    def readline(self, *args):
+        return browser_input() + "\\n"
+    def read(self, *args):
+        return browser_input() + "\\n"
+sys.stdin = MockStdin()
+
+# Redirect stdout to capture "Say" outputs
+stdout = io.StringIO()
+old_stdout = sys.stdout
+sys.stdout = stdout
+
+output_res = ""
+try:
+    code = """${eplCode.replace(/"/g, '\\"')}"""
+    
+    program = _parse_epl_program(code, "playground.epl")
+    
+    interpreter = Interpreter(safe_mode=True)
+    interpreter.execute(program)
+    
+    # Capture output
+    output_res = stdout.getvalue()
+except Exception as e:
+    output_res = "ERROR: " + str(e)
+finally:
+    sys.stdout = old_stdout
+
+output_res
+`;
+
+            try {
+                // Execute in WebAssembly
+                printToTerminal("> Running code...\n", "system");
+                const result = await pyodide.runPythonAsync(pythonRunner);
+                
+                if(result && result.startsWith && result.startsWith("ERROR:")) {
+                    printToTerminal(result, "error");
+                } else {
+                    printToTerminal(result);
+                }
+            } catch (err) {
+                printToTerminal(`Execution Error:\n${err}`, "error");
+            }
+        }
+
+        // Start booting engine on page load
+        initEngine();
+    </script>
+</body>
+</html>
