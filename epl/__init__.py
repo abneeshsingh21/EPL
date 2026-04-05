@@ -18,7 +18,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__version__ = "7.0.1"
+__version__ = "7.1.0"
 __author__  = "Abneesh Singh"
 __email__   = "singhabneesh250@gmail.com"
 __license__ = "MIT"
