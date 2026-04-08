@@ -79,7 +79,7 @@ extra_css:
 copyright: Copyright &copy; 2024–2026 Abneesh Singh
 
 nav:
-  - Home: index.md
+  - Introduction: intro.md
   - Getting Started:
     - Installation: getting-started.md
     - Tutorials: tutorials.md
