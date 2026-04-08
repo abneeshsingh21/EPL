@@ -1227,6 +1227,11 @@ def auto_install_package(name):
     """
     # Resolve the name (allow 'math' -> 'epl-math')
     actual = _resolve_package_name(name)
+    official_pkg = _get_official_package_dir(actual)
+    if official_pkg:
+        success = _install_from_local(official_pkg, source=f'official:{actual}')
+        if success:
+            return find_package_module(actual)
     if actual in BUILTIN_REGISTRY:
         success = _install_builtin_package(actual)
         if success:
@@ -2310,6 +2315,21 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
 def _install_builtin_package(name, local=False, project_path='.'):
     """Install a built-in package by generating its content."""
     name = _sanitize_package_name(name)
+    official_pkg = _get_official_package_dir(name)
+    if official_pkg:
+        if local:
+            modules_dir = os.path.join(project_path, 'epl_modules')
+            dest = os.path.join(modules_dir, name)
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            os.makedirs(modules_dir, exist_ok=True)
+            shutil.copytree(official_pkg, dest)
+            manifest = load_manifest(dest)
+            version = manifest.get('version', '?') if manifest else '?'
+            print(f"  Installed: {name} @ {version} (official) -> epl_modules/")
+            return True
+        return _install_from_local(official_pkg, source=f'official:{name}')
+
     info = BUILTIN_REGISTRY[name]
     if local:
         modules_dir = os.path.join(project_path, 'epl_modules')

@@ -538,53 +538,86 @@ Assert name != Nothing
 ```epl
 Route GET "/" handler home_page
 Route POST "/api/data" handler process_data
-Route GET "/users/:id" handler get_user
+Create WebApp called app
 ```
 
-### 10.2 Handlers
+### 10.2 Native Routes
 
 ```epl
-Define Function home_page Takes request
-    Return "<h1>Welcome to EPL!</h1>"
-EndFunction
+Route "/" shows
+    Page "Welcome"
+        Heading "Welcome to EPL"
+        Text "Server-rendered page route"
+        Link "Users API" to "/api/users"
+    End
+End
 
-Define Function get_user Takes request
-    Create id equal to request["params"]["id"]
-    Return json_stringify({"id": id, "name": "User"})
-EndFunction
+Route "/api/users" responds with
+    Create users equal to ["Alice", "Bob"]
+    Send json Map with users = users and count = length(users)
+End
 ```
 
-### 10.3 Templates
+### 10.3 Request Context
+
+Inside native WebApp routes, EPL exposes:
+
+- `request_data`
+- `request_params`
+- `request_headers`
+- `request_method`
+- `request_path`
+- `request`
+- `session_id`
 
 ```epl
-Template "page" content
-    <html>
-    <body>
-        ${content}
-    </body>
-    </html>
-EndTemplate
+Route "/users/:name" responds with
+    Create name equal to request_params.name
+    Create role equal to request_data.get("role")
+    Send json Map with name = name and role = role and method = request_method
+End
 ```
 
-### 10.4 WebSocket
+### 10.4 Dynamic Pages
+
+Page strings support `$variable` interpolation from values defined earlier in the same route:
 
 ```epl
-WebSocket "/ws" handler ws_handler
+Route "/hello/:name" shows
+    Create title equal to "Welcome, " + request_params.name
+
+    Page "$title"
+        Heading "$title"
+        Text "Served from $request_path"
+    End
+End
 ```
 
-### 10.5 Middleware
+### 10.5 Helper Facades
 
-```epl
-Middleware auth_check
+The authoritative served runtime is the native `Create WebApp` DSL.
+
+Optional supported helper packages:
+
+- `epl-web`
+- `epl-db`
+- `epl-test`
+
+Install with:
+
+```bash
+epl install epl-web
+epl install epl-db
+epl install epl-test
 ```
 
 ### 10.6 Server
 
-```epl
-Serve on port 8080
-```
+Production server:
 
-Production server: `epl serve webapp.epl --port 8080 --workers 4`
+```bash
+epl serve webapp.epl --port 8080 --workers 4
+```
 
 ---
 
@@ -746,6 +779,7 @@ epl node program.epl         # Produces program_node.js
 ```bash
 epl kotlin program.epl       # Produces program.kt
 epl android program.epl      # Generates Android project
+epl ios program.epl          # Generates iOS / SwiftUI project
 ```
 
 ### 14.6 Bytecode VM
@@ -764,7 +798,11 @@ epl vm program.epl            # Fast bytecode execution
 epl new myproject             # Create full project structure
 epl new myproject --template web
 epl new myproject --template api
+epl new myproject --template frontend
+epl new myproject --template auth
+epl new myproject --template chatbot
 epl new myproject --template lib
+epl new myproject --template fullstack
 epl init                      # Initialize in current directory
 ```
 

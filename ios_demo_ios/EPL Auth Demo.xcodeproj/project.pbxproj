@@ -1,0 +1,227 @@
+// !$*UTF8*$!
+{
+    archiveVersion = 1;
+    classes = {};
+    objectVersion = 56;
+    objects = {
+
+/* Begin PBXBuildFile section */
+        36AEB36F2E4AF94E190B0B9B /* EPL Auth DemoApp.swift in Sources */ = {
+            isa = PBXBuildFile; fileRef = 7CFA6FC6B47541FA9D51A7B6;
+        };
+        BC527073FDB4B4011FCC3F57 /* ContentView.swift in Sources */ = {
+            isa = PBXBuildFile; fileRef = 55206EF48BA2018A8378E60E;
+        };
+        2BC18ED400823680B4DC71F7 /* EPLRuntime.swift in Sources */ = {
+            isa = PBXBuildFile; fileRef = E9647E92A27E622D6649CE82;
+        };
+        85EC473FD803826DE7BB0ADF /* Assets.xcassets in Resources */ = {
+            isa = PBXBuildFile; fileRef = 06087037919A91B37E25F411;
+        };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+        8FCDD9171E000AA8485B9902 /* EPL Auth Demo.app */ = {
+            isa = PBXFileReference; explicitFileType = wrapper.application;
+            includeInIndex = 0; path = "EPL Auth Demo.app";
+            sourceTree = BUILT_PRODUCTS_DIR;
+        };
+        7CFA6FC6B47541FA9D51A7B6 /* EPL Auth DemoApp.swift */ = {
+            isa = PBXFileReference; lastKnownFileType = sourcecode.swift;
+            path = "EPL Auth DemoApp.swift"; sourceTree = "<group>";
+        };
+        55206EF48BA2018A8378E60E /* ContentView.swift */ = {
+            isa = PBXFileReference; lastKnownFileType = sourcecode.swift;
+            path = "ContentView.swift"; sourceTree = "<group>";
+        };
+        E9647E92A27E622D6649CE82 /* EPLRuntime.swift */ = {
+            isa = PBXFileReference; lastKnownFileType = sourcecode.swift;
+            path = "EPLRuntime.swift"; sourceTree = "<group>";
+        };
+        06087037919A91B37E25F411 /* Assets.xcassets */ = {
+            isa = PBXFileReference; lastKnownFileType = folder.assetcatalog;
+            path = "Assets.xcassets"; sourceTree = "<group>";
+        };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+        EFFDB9E3B3E35780955AA3F1 = {
+            isa = PBXGroup;
+            children = (1817F96CE13AC303587B727E, 93A66E393DA4511A9C572100);
+            sourceTree = "<group>";
+        };
+        1817F96CE13AC303587B727E /* EPL Auth Demo */ = {
+            isa = PBXGroup;
+            children = (7CFA6FC6B47541FA9D51A7B6, D3F9469EB63D610919817C37, E9647E92A27E622D6649CE82, 06087037919A91B37E25F411);
+            path = "EPL Auth Demo";
+            sourceTree = "<group>";
+        };
+        D3F9469EB63D610919817C37 /* Views */ = {
+            isa = PBXGroup;
+            children = (55206EF48BA2018A8378E60E);
+            path = "Views";
+            sourceTree = "<group>";
+        };
+        93A66E393DA4511A9C572100 /* Products */ = {
+            isa = PBXGroup;
+            children = (8FCDD9171E000AA8485B9902);
+            name = Products;
+            sourceTree = "<group>";
+        };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+        6D73D632994FABC6BA4DA438 /* EPL Auth Demo */ = {
+            isa = PBXNativeTarget;
+            buildConfigurationList = D083C7B2BE55AF883313D88A;
+            buildPhases = (B2D532FCAC14A3471E1032DB, 3C24581062A9475D132A5F83, A6FC122E321055C0895F9153);
+            buildRules = ();
+            dependencies = ();
+            name = "EPL Auth Demo";
+            productName = "EPL Auth Demo";
+            productReference = 8FCDD9171E000AA8485B9902;
+            productType = "com.apple.product-type.application";
+        };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+        86F6F5A3B3D27216EC1B3900 /* Project object */ = {
+            isa = PBXProject;
+            attributes = {
+                BuildIndependentTargetsInParallel = 1;
+                LastSwiftUpdateCheck = 1500;
+                LastUpgradeCheck = 1500;
+            };
+            buildConfigurationList = 0612435912C2290FECF201E3;
+            compatibilityVersion = "Xcode 14.0";
+            developmentRegion = en;
+            hasScannedForEncodings = 0;
+            knownRegions = (en, Base);
+            mainGroup = EFFDB9E3B3E35780955AA3F1;
+            productRefGroup = 93A66E393DA4511A9C572100;
+            projectDirPath = "";
+            projectRoot = "";
+            targets = (6D73D632994FABC6BA4DA438);
+        };
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+        B2D532FCAC14A3471E1032DB /* Sources */ = {
+            isa = PBXSourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (36AEB36F2E4AF94E190B0B9B, BC527073FDB4B4011FCC3F57, 2BC18ED400823680B4DC71F7);
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+        3C24581062A9475D132A5F83 /* Frameworks */ = {
+            isa = PBXFrameworksBuildPhase;
+            buildActionMask = 2147483647;
+            files = ();
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+        A6FC122E321055C0895F9153 /* Resources */ = {
+            isa = PBXResourcesBuildPhase;
+            buildActionMask = 2147483647;
+            files = (85EC473FD803826DE7BB0ADF);
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+        4AA0E610701784D106D5AFAF /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ALWAYS_SEARCH_USER_PATHS = NO;
+                CLANG_ENABLE_MODULES = YES;
+                COPY_PHASE_STRIP = NO;
+                DEBUG_INFORMATION_FORMAT = dwarf;
+                ENABLE_STRICT_OBJC_MSGSEND = YES;
+                GCC_DYNAMIC_NO_PIC = NO;
+                GCC_OPTIMIZATION_LEVEL = 0;
+                GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)");
+                MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+                ONLY_ACTIVE_ARCH = YES;
+                SDKROOT = iphoneos;
+                SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+                SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+            };
+            name = Debug;
+        };
+        ED7E87EC619CEEAE1C4D9134 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ALWAYS_SEARCH_USER_PATHS = NO;
+                CLANG_ENABLE_MODULES = YES;
+                COPY_PHASE_STRIP = NO;
+                DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+                ENABLE_NS_ASSERTIONS = NO;
+                ENABLE_STRICT_OBJC_MSGSEND = YES;
+                MTL_ENABLE_DEBUG_INFO = NO;
+                SDKROOT = iphoneos;
+                SWIFT_COMPILATION_MODE = wholemodule;
+                SWIFT_OPTIMIZATION_LEVEL = "-O";
+                VALIDATE_PRODUCT = YES;
+            };
+            name = Release;
+        };
+        4784FB8FD23E044F0DBE51BA /* Debug */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CURRENT_PROJECT_VERSION = 1;
+                DEVELOPMENT_TEAM = "";
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = "EPL Auth Demo/Info.plist";
+                IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+                MARKETING_VERSION = 1.0.0;
+                PRODUCT_BUNDLE_IDENTIFIER = "com.epl.authdemo";
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_VERSION = 5.9;
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Debug;
+        };
+        0700D836506C620D70D78C55 /* Release */ = {
+            isa = XCBuildConfiguration;
+            buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CURRENT_PROJECT_VERSION = 1;
+                DEVELOPMENT_TEAM = "";
+                GENERATE_INFOPLIST_FILE = YES;
+                INFOPLIST_FILE = "EPL Auth Demo/Info.plist";
+                IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+                MARKETING_VERSION = 1.0.0;
+                PRODUCT_BUNDLE_IDENTIFIER = "com.epl.authdemo";
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SWIFT_EMIT_LOC_STRINGS = YES;
+                SWIFT_VERSION = 5.9;
+                TARGETED_DEVICE_FAMILY = "1,2";
+            };
+            name = Release;
+        };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+        0612435912C2290FECF201E3 /* Build configuration list for PBXProject */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (4AA0E610701784D106D5AFAF, ED7E87EC619CEEAE1C4D9134);
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+        D083C7B2BE55AF883313D88A /* Build configuration list for PBXNativeTarget */ = {
+            isa = XCConfigurationList;
+            buildConfigurations = (4784FB8FD23E044F0DBE51BA, 0700D836506C620D70D78C55);
+            defaultConfigurationIsVisible = 0;
+            defaultConfigurationName = Release;
+        };
+/* End XCConfigurationList section */
+
+    };
+    rootObject = 86F6F5A3B3D27216EC1B3900;
+}

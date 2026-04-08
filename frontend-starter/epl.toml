@@ -1,0 +1,17 @@
+
+[project]
+name = "frontend-starter"
+version = "1.0.0"
+description = "frontend-starter — EPL frontend experience"
+author = ""
+license = ""
+entry = "src/main.epl"
+
+[dependencies]
+
+
+[scripts]
+start = "epl run src/main.epl"
+test = "epl test tests/"
+build = "epl build src/main.epl"
+serve = "epl serve src/main.epl"

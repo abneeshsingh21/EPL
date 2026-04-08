@@ -382,6 +382,7 @@ KEYWORDS = {
     "wait": TokenType.WAIT,
     "seconds": TokenType.SECONDS,
     "exit": TokenType.EXIT_KW,
+    "comment": TokenType.COMMENT,
     "noteblock": TokenType.NOTEBLOCK,
     "route": TokenType.ROUTE,
     "webapp": TokenType.WEBAPP,

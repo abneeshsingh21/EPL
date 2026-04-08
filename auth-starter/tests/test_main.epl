@@ -1,0 +1,3 @@
+Define Function test_auth_template_smoke
+    expect_true(True, "starter auth test")
+End

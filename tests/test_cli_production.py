@@ -20,6 +20,8 @@ from epl.cli import cli_main
 from epl import __version__ as EPL_VERSION
 from epl.package_manager import load_manifest, save_manifest
 from epl.packager import BuildConfig
+from epl.lexer import Lexer
+from epl.parser import Parser
 
 
 def _write_manifest(project_dir: str, entry: str = "src/main.epl") -> None:
@@ -33,6 +35,10 @@ def _write_manifest(project_dir: str, entry: str = "src/main.epl") -> None:
         "scripts": {},
     }
     save_manifest(manifest, project_dir, fmt="toml")
+
+
+def _assert_parses(source: str) -> None:
+    Parser(Lexer(source).tokenize()).parse()
 
 
 class TestCLIProduction(unittest.TestCase):
@@ -81,7 +87,7 @@ class TestCLIProduction(unittest.TestCase):
             _write_manifest(tmpdir, entry="src/main.epl")
 
             with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
-                 mock.patch("main.compile_file", return_value=True) as compile_file:
+                 mock.patch("epl.runtime_support.compile_file", return_value=True) as compile_file:
                 exit_code = cli_main(["build"])
 
             self.assertEqual(exit_code, 0)
@@ -101,7 +107,7 @@ class TestCLIProduction(unittest.TestCase):
             _write_manifest(tmpdir, entry="src/main.epl")
 
             with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
-                 mock.patch("main.compile_file", return_value=True) as compile_file:
+                 mock.patch("epl.runtime_support.compile_file", return_value=True) as compile_file:
                 exit_code = cli_main(["build", "--no-static"])
 
             self.assertEqual(exit_code, 0)
@@ -113,7 +119,7 @@ class TestCLIProduction(unittest.TestCase):
 
     def test_compile_command_uses_direct_native_compiler_path(self):
         with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
-             mock.patch("main.compile_file", return_value=True) as compile_file:
+             mock.patch("epl.runtime_support.compile_file", return_value=True) as compile_file:
             exit_code = cli_main(["compile", "program.epl", "--opt", "3", "--static", "--target", "linux-x64"])
 
         self.assertEqual(exit_code, 0)
@@ -128,11 +134,31 @@ class TestCLIProduction(unittest.TestCase):
     def test_legacy_build_returns_nonzero_on_native_compile_failure(self):
         import main as main_module
 
-        with mock.patch("main.compile_file", return_value=False) as compile_file:
+        with mock.patch("epl.runtime_support.compile_file", return_value=False) as compile_file:
             exit_code = main_module.legacy_main(["build", "src/main.epl"])
 
         self.assertEqual(exit_code, 1)
         compile_file.assert_called_once_with("src/main.epl", opt_level=2, static=True, target=None)
+
+    def test_main_module_import_does_not_strip_interpret_flag_from_sys_argv(self):
+        script = """
+import importlib
+import sys
+sys.argv = ['main.py', 'demo.epl', '--interpret']
+module = importlib.import_module('main')
+print('|'.join(sys.argv))
+print(module._FORCE_INTERPRET)
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            capture_output=True,
+            text=True,
+            cwd=os.getcwd(),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("main.py|demo.epl|--interpret", result.stdout)
+        self.assertIn("True", result.stdout)
 
     def test_packager_reads_toml_project_manifest(self):
         with tempfile.TemporaryDirectory(prefix="epl_packager_toml_") as tmpdir:
@@ -172,7 +198,7 @@ class TestCLIProduction(unittest.TestCase):
         legacy_dispatch.assert_not_called()
         init_project.assert_called_once_with("workspace")
 
-    def test_new_project_web_template_uses_supported_packages(self):
+    def test_new_project_web_template_uses_native_webapp_scaffold(self):
         with tempfile.TemporaryDirectory(prefix="epl_cli_new_web_") as tmpdir:
             old_cwd = os.getcwd()
             try:
@@ -182,12 +208,52 @@ class TestCLIProduction(unittest.TestCase):
 
                 self.assertEqual(exit_code, 0)
                 manifest = load_manifest(Path(tmpdir, "webapp"))
-                self.assertEqual(manifest["dependencies"]["epl-web"], f"^{EPL_VERSION}")
+                self.assertEqual(manifest["dependencies"], {})
                 self.assertEqual(manifest["scripts"]["serve"], "epl serve src/main.epl")
 
                 source = Path(tmpdir, "webapp", "src", "main.epl").read_text(encoding="utf-8")
-                self.assertIn('Import "epl-web"', source)
-                self.assertIn('Call get_route(app, "/api/health"', source)
+                self.assertIn('Create WebApp called app', source)
+                self.assertIn('Route "/api/health" responds with', source)
+                _assert_parses(source)
+            finally:
+                os.chdir(old_cwd)
+
+    def test_new_project_api_template_creates_parseable_service_scaffold(self):
+        with tempfile.TemporaryDirectory(prefix="epl_cli_new_api_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with redirect_stdout(StringIO()):
+                    exit_code = cli_main(["new", "apiapp", "--template", "api"])
+
+                self.assertEqual(exit_code, 0)
+                manifest = load_manifest(Path(tmpdir, "apiapp"))
+                self.assertEqual(manifest["dependencies"]["epl-db"], f"^{EPL_VERSION}")
+
+                source = Path(tmpdir, "apiapp", "src", "main.epl").read_text(encoding="utf-8")
+                self.assertIn('Import "epl-db"', source)
+                self.assertIn('Create WebApp called apiApp', source)
+                _assert_parses(source)
+            finally:
+                os.chdir(old_cwd)
+
+    def test_new_project_fullstack_template_creates_parseable_scaffold(self):
+        with tempfile.TemporaryDirectory(prefix="epl_cli_new_fullstack_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with redirect_stdout(StringIO()):
+                    exit_code = cli_main(["new", "fullapp", "--template", "fullstack"])
+
+                self.assertEqual(exit_code, 0)
+                manifest = load_manifest(Path(tmpdir, "fullapp"))
+                self.assertEqual(manifest["dependencies"]["epl-db"], f"^{EPL_VERSION}")
+                self.assertEqual(manifest["scripts"]["serve"], "epl serve src/main.epl")
+
+                source = Path(tmpdir, "fullapp", "src", "main.epl").read_text(encoding="utf-8")
+                self.assertIn('Create WebApp called fullstackApp', source)
+                self.assertIn('Route "/api/notes" responds with', source)
+                _assert_parses(source)
             finally:
                 os.chdir(old_cwd)
 
@@ -201,12 +267,89 @@ class TestCLIProduction(unittest.TestCase):
 
                 self.assertEqual(exit_code, 0)
                 manifest = load_manifest(Path(tmpdir, "mylib"))
-                self.assertEqual(manifest["dependencies"]["epl-test"], f"^{EPL_VERSION}")
+                self.assertEqual(manifest["dependencies"], {})
 
                 test_source = Path(tmpdir, "mylib", "tests", "test_main.epl").read_text(encoding="utf-8")
                 self.assertIn('Import "src/main.epl"', test_source)
-                self.assertIn('Import "epl-test"', test_source)
-                self.assertIn('Call test_summary()', test_source)
+                self.assertIn('Define Function test_greet_returns_a_message', test_source)
+                _assert_parses(test_source)
+            finally:
+                os.chdir(old_cwd)
+
+    def test_new_project_ios_template_creates_mobile_scaffold(self):
+        with tempfile.TemporaryDirectory(prefix="epl_cli_new_ios_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with redirect_stdout(StringIO()):
+                    exit_code = cli_main(["new", "iosapp", "--template", "ios"])
+
+                self.assertEqual(exit_code, 0)
+                manifest = load_manifest(Path(tmpdir, "iosapp"))
+                self.assertEqual(manifest["scripts"]["ios"], 'epl ios src/main.epl --name "iosapp" --bundle-id "com.epl.iosapp"')
+
+                source = Path(tmpdir, "iosapp", "src", "main.epl").read_text(encoding="utf-8")
+                self.assertIn('iOS app template', source)
+                _assert_parses(source)
+            finally:
+                os.chdir(old_cwd)
+
+    def test_new_project_frontend_template_creates_parseable_creative_scaffold(self):
+        with tempfile.TemporaryDirectory(prefix="epl_cli_new_frontend_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with redirect_stdout(StringIO()):
+                    exit_code = cli_main(["new", "studio", "--template", "frontend"])
+
+                self.assertEqual(exit_code, 0)
+                manifest = load_manifest(Path(tmpdir, "studio"))
+                self.assertEqual(manifest["dependencies"], {})
+                self.assertEqual(manifest["scripts"]["serve"], "epl serve src/main.epl")
+
+                source = Path(tmpdir, "studio", "src", "main.epl").read_text(encoding="utf-8")
+                self.assertIn('Create WebApp called frontendApp', source)
+                self.assertIn('Route "/api/theme" responds with', source)
+                _assert_parses(source)
+            finally:
+                os.chdir(old_cwd)
+
+    def test_new_project_auth_template_creates_parseable_auth_service(self):
+        with tempfile.TemporaryDirectory(prefix="epl_cli_new_auth_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with redirect_stdout(StringIO()):
+                    exit_code = cli_main(["new", "authapp", "--template", "auth"])
+
+                self.assertEqual(exit_code, 0)
+                manifest = load_manifest(Path(tmpdir, "authapp"))
+                self.assertEqual(manifest["dependencies"]["epl-db"], f"^{EPL_VERSION}")
+
+                source = Path(tmpdir, "authapp", "src", "main.epl").read_text(encoding="utf-8")
+                self.assertIn('Create WebApp called authApp', source)
+                self.assertIn('Route "/api/login" responds with', source)
+                self.assertIn('request_data.get("username")', source)
+                _assert_parses(source)
+            finally:
+                os.chdir(old_cwd)
+
+    def test_new_project_chatbot_template_creates_parseable_ai_scaffold(self):
+        with tempfile.TemporaryDirectory(prefix="epl_cli_new_chatbot_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with redirect_stdout(StringIO()):
+                    exit_code = cli_main(["new", "botapp", "--template", "chatbot"])
+
+                self.assertEqual(exit_code, 0)
+                manifest = load_manifest(Path(tmpdir, "botapp"))
+                self.assertEqual(manifest["dependencies"], {})
+
+                source = Path(tmpdir, "botapp", "src", "main.epl").read_text(encoding="utf-8")
+                self.assertIn('Use python "epl.ai" as ai', source)
+                self.assertIn('Route "/api/chat" responds with', source)
+                _assert_parses(source)
             finally:
                 os.chdir(old_cwd)
 
@@ -578,6 +721,30 @@ class TestCLIProduction(unittest.TestCase):
             finally:
                 os.chdir(old_cwd)
 
+    def test_ios_generation_uses_direct_cli_path(self):
+        with tempfile.TemporaryDirectory(prefix="epl_cli_ios_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                source = Path("mobile.epl")
+                source.write_text('Say "mobile"\n', encoding="utf-8")
+
+                with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
+                     mock.patch("epl.ios_gen.generate_ios_project") as generator:
+                    exit_code = cli_main(
+                        ["ios", str(source), "--name", "Mobile App", "--bundle-id", "com.example.mobile", "--team-id", "TEAM123"]
+                    )
+
+                self.assertEqual(exit_code, 0)
+                legacy_dispatch.assert_not_called()
+                generator.assert_called_once()
+                self.assertEqual(generator.call_args.args[1], "mobile_ios")
+                self.assertEqual(generator.call_args.kwargs["app_name"], "Mobile App")
+                self.assertEqual(generator.call_args.kwargs["bundle_id"], "com.example.mobile")
+                self.assertEqual(generator.call_args.kwargs["team_id"], "TEAM123")
+            finally:
+                os.chdir(old_cwd)
+
     def test_desktop_generation_uses_direct_cli_path(self):
         with tempfile.TemporaryDirectory(prefix="epl_cli_desktop_") as tmpdir:
             old_cwd = os.getcwd()
@@ -695,7 +862,7 @@ class TestCLIProduction(unittest.TestCase):
                 tests_dir.mkdir()
                 Path("tests", "test_math.epl").write_text(
                     'Define Function test_numbers\n'
-                    '    Call expect_equal(2 + 2, 4, "two plus two")\n'
+                    '    expect_equal(2 + 2, 4, "two plus two")\n'
                     'End\n',
                     encoding="utf-8",
                 )
@@ -713,7 +880,7 @@ class TestCLIProduction(unittest.TestCase):
 
     def test_repl_uses_direct_runtime_without_legacy_dispatch(self):
         with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
-             mock.patch("main.run_repl") as run_repl:
+             mock.patch("epl.runtime_support.run_repl") as run_repl:
             exit_code = cli_main(["repl"])
 
         self.assertEqual(exit_code, 0)
@@ -780,3 +947,103 @@ class TestCLIProduction(unittest.TestCase):
                 self.assertIn("# micropython output", output_file.read_text(encoding="utf-8"))
             finally:
                 os.chdir(old_cwd)
+
+    def test_ai_prompt_uses_direct_runtime_without_legacy_dispatch(self):
+        stdout = StringIO()
+        with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
+             mock.patch("epl.ai._use_cloud", return_value=False), \
+             mock.patch("epl.ai.is_available", return_value=True), \
+             mock.patch("epl.ai.ensure_epl_model") as ensure_model, \
+             mock.patch("epl.ai.code_assist", return_value='Say "Hello"\n') as code_assist, \
+             redirect_stdout(stdout):
+            exit_code = cli_main(["ai", "write", "hello", "world"])
+
+        self.assertEqual(exit_code, 0)
+        legacy_dispatch.assert_not_called()
+        ensure_model.assert_called_once_with(verbose=False)
+        code_assist.assert_called_once_with("write hello world")
+        self.assertIn('Say "Hello"', stdout.getvalue())
+
+    def test_gen_command_uses_direct_generator_without_legacy_dispatch(self):
+        stdout = StringIO()
+        with tempfile.TemporaryDirectory(prefix="epl_cli_ai_gen_") as tmpdir:
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(tmpdir)
+                with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
+                     mock.patch("epl.ai.is_available", return_value=True), \
+                     mock.patch("epl.ai.ensure_epl_model") as ensure_model, \
+                     mock.patch(
+                         "epl.ai.generate_epl_code",
+                         return_value=('Say "Generated"\n', "```epl\nSay \"Generated\"\n```"),
+                     ) as generate_code, \
+                     redirect_stdout(stdout):
+                    exit_code = cli_main(["gen", "make", "a", "demo"])
+
+                self.assertEqual(exit_code, 0)
+                legacy_dispatch.assert_not_called()
+                ensure_model.assert_called_once_with(verbose=False)
+                generate_code.assert_called_once_with("make a demo", filename="make_a_demo.epl")
+                self.assertIn("Saved to: make_a_demo.epl", stdout.getvalue())
+            finally:
+                os.chdir(old_cwd)
+
+    def test_explain_command_uses_direct_ai_path_without_legacy_dispatch(self):
+        stdout = StringIO()
+        with tempfile.TemporaryDirectory(prefix="epl_cli_ai_explain_") as tmpdir:
+            source = Path(tmpdir, "explain.epl")
+            source.write_text('Say "Explain me"\n', encoding="utf-8")
+
+            with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
+                 mock.patch("epl.ai.is_available", return_value=True), \
+                 mock.patch("epl.ai.ensure_epl_model") as ensure_model, \
+                 mock.patch("epl.ai.explain_code", return_value="This says hello.") as explain_code, \
+                 redirect_stdout(stdout):
+                exit_code = cli_main(["explain", str(source)])
+
+        self.assertEqual(exit_code, 0)
+        legacy_dispatch.assert_not_called()
+        ensure_model.assert_called_once_with(verbose=False)
+        explain_code.assert_called_once_with('Say "Explain me"')
+        self.assertIn("This says hello.", stdout.getvalue())
+
+    def test_cloud_command_uses_direct_config_without_legacy_dispatch(self):
+        stdout = StringIO()
+        key = "AIzaSyDemoKeyForTesting123456"
+        with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
+             mock.patch("epl.ai.configure_cloud") as configure_cloud, \
+             redirect_stdout(stdout):
+            exit_code = cli_main(["cloud", "--gemini", key, "--model", "gemini-2.0-flash"])
+
+        self.assertEqual(exit_code, 0)
+        legacy_dispatch.assert_not_called()
+        configure_cloud.assert_called_once_with("gemini", key, "gemini-2.0-flash")
+        self.assertIn("Gemini configured", stdout.getvalue())
+
+    def test_train_command_uses_direct_ai_training_without_legacy_dispatch(self):
+        stdout = StringIO()
+        with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
+             mock.patch("epl.ai.is_available", return_value=True), \
+             mock.patch("epl.ai.model_exists", return_value=False), \
+             mock.patch("epl.ai.create_epl_model", return_value=True) as create_model, \
+             redirect_stdout(stdout):
+            exit_code = cli_main(["train", "--base", "qwen3:4b"])
+
+        self.assertEqual(exit_code, 0)
+        legacy_dispatch.assert_not_called()
+        create_model.assert_called_once_with(base_model="qwen3:4b")
+        self.assertIn("EPL-Coder Model Training", stdout.getvalue())
+
+    def test_model_command_uses_direct_management_without_legacy_dispatch(self):
+        stdout = StringIO()
+        with mock.patch("epl.cli._legacy_dispatch") as legacy_dispatch, \
+             mock.patch("epl.ai.is_available", return_value=True), \
+             mock.patch("epl.ai.list_models", return_value=["epl-coder:latest", "qwen3:4b"]), \
+             mock.patch("epl.ai.model_exists", return_value=True), \
+             redirect_stdout(stdout):
+            exit_code = cli_main(["model", "list"])
+
+        self.assertEqual(exit_code, 0)
+        legacy_dispatch.assert_not_called()
+        self.assertIn("Installed Ollama Models", stdout.getvalue())
+        self.assertIn("epl-coder:latest", stdout.getvalue())

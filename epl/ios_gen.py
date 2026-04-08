@@ -876,10 +876,10 @@ import CryptoKit
         if isinstance(node, ast.Identifier):
             return node.name
         if isinstance(node, ast.BinaryOp):
-            return f'{self._expr(node.left)} {self._swift_op(node.op)} {self._expr(node.right)}'
+            return f'{self._expr(node.left)} {self._swift_op(node.operator)} {self._expr(node.right)}'
         if isinstance(node, ast.FunctionCall):
             name = node.name if isinstance(node.name, str) else node.name.name
-            args_str = ', '.join(self._expr(a) for a in (node.args or []))
+            args_str = ', '.join(self._expr(a) for a in (node.arguments or []))
             return f'{name}({args_str})'
         return str(node)
 

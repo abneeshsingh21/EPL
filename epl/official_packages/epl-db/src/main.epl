@@ -12,28 +12,44 @@ Function execute takes conn and sql
     Return db_execute(conn, sql)
 End
 
+Function execute_params takes conn and sql and params
+    Return db_execute(conn, sql, params)
+End
+
 Function query takes conn and sql
     Return db_query(conn, sql)
+End
+
+Function query_params takes conn and sql and params
+    Return db_query(conn, sql, params)
 End
 
 Function query_one takes conn and sql
     Return db_query_one(conn, sql)
 End
 
+Function query_one_params takes conn and sql and params
+    Return db_query_one(conn, sql, params)
+End
+
 Function insert takes conn and table and record
     Return db_insert(conn, table, record)
 End
 
-Function update takes conn and table and data and where
-    Return db_update(conn, table, data, where)
+Function update takes conn and table and data and where_clause
+    Return db_update(conn, table, data, where_clause)
 End
 
-Function delete takes conn and table and where
-    Return db_delete(conn, table, where)
+Function delete_rows takes conn and table and where_clause
+    Return db_delete(conn, table, where_clause)
 End
 
 Function create_table takes conn and table and schema
     Return db_create_table(conn, table, schema)
+End
+
+Function count takes conn and table
+    Return db_count(conn, table)
 End
 
 Function begin takes conn

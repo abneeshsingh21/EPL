@@ -1,0 +1,40 @@
+Note: frontend-starter frontend template
+
+Create hero_title equal to "Build a bold frontend in EPL"
+Create hero_copy equal to "Creative landing page starter with routes, narrative sections, and API-backed data."
+
+Create WebApp called frontendApp
+
+Route "/" shows
+    Page "$hero_title"
+        Heading "$hero_title"
+        SubHeading "Creative frontend starter"
+        Text "$hero_copy"
+        Link "Roadmap" to "/roadmap"
+        Link "Launch Checklist" to "/checklist"
+        Link "Theme API" to "/api/theme"
+        List ["Editorial hero layout", "Server-rendered routes", "Fast iteration", "JSON APIs for richer UI"]
+    End
+End
+
+Route "/roadmap" shows
+    Page "Roadmap"
+        Heading "Design direction"
+        Text "Start with a strong narrative, then connect user actions to focused API endpoints."
+        List ["Hero messaging", "Feature grid", "Social proof", "Interactive widgets"]
+        Link "Back home" to "/"
+    End
+End
+
+Route "/checklist" shows
+    Page "Launch Checklist"
+        Heading "Frontend launch checklist"
+        List ["Content polish", "Performance pass", "Accessibility review", "Deployment smoke tests"]
+        Link "Theme API" to "/api/theme"
+    End
+End
+
+Route "/api/theme" responds with
+    Create accent equal to "electric-blue"
+    Send json Map with accent = accent and surface = "slate" and motion = "staggered"
+End

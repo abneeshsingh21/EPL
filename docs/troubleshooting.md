@@ -109,6 +109,9 @@ To activate it, configure:
 - `EPL_REFERENCE_BACKEND_URL`
 - `EPL_REFERENCE_FULLSTACK_URL`
 
+You can also trigger the workflow manually and pass `backend_url` /
+`fullstack_url` as dispatch inputs for one-off checks.
+
 You can also run monitoring locally:
 
 ```bash

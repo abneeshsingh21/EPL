@@ -534,13 +534,15 @@ class EPLTestRunner:
         for k, v in interp.global_env.functions.items():
             test_interp.global_env.functions[k] = v
         # Copy class definitions
-        for k, v in interp.global_env.variables.items():
+        for k, binding in interp.global_env.variables.items():
+            value = binding.get('value') if isinstance(binding, dict) else binding
+            var_type = binding.get('type') if isinstance(binding, dict) else None
             from epl.interpreter import EPLClass
-            if isinstance(v, EPLClass):
-                test_interp.global_env.define_variable(k, v)
+            # Copy the resolved value, not the environment metadata wrapper.
+            if isinstance(value, EPLClass):
+                test_interp.global_env.define_variable(k, value, var_type)
             else:
-                # Copy value (snapshot) for test isolation
-                test_interp.global_env.define_variable(k, v)
+                test_interp.global_env.define_variable(k, value, var_type)
 
         try:
             # Run setup
@@ -595,8 +597,10 @@ class EPLTestRunner:
             # Create a fresh interpreter with test builtins + base context
             interp = self._create_test_interpreter()
             # Copy global variables from base interpreter
-            for k, v in base_interp.global_env.variables.items():
-                interp.global_env.set(k, v)
+            for k, binding in base_interp.global_env.variables.items():
+                value = binding.get('value') if isinstance(binding, dict) else binding
+                var_type = binding.get('type') if isinstance(binding, dict) else None
+                interp.global_env.define_variable(k, value, var_type)
 
             tokens = Lexer(test_source).tokenize()
             program = Parser(tokens).parse()

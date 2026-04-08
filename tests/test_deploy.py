@@ -190,6 +190,32 @@ class TestWSGIAdapter(unittest.TestCase):
         result = adapter(environ, start_response)
         self.assertIn('200', status_holder['status'])
         self.assertIn('application/json', status_holder['headers'].get('Content-Type', ''))
+        body = json.loads(b''.join(result).decode('utf-8'))
+        self.assertEqual(body, 'hello')
+
+    def test_wsgi_fetch_route_without_interpreter_returns_collection_payload(self):
+        """WSGI keeps legacy FetchStatement JSON behavior for Python-defined apps."""
+        from epl import ast_nodes as ast
+        from epl.web import _data_store, store_add
+
+        _data_store.clear()
+        store_add('items', 'apple')
+        store_add('items', 'banana')
+        self.app.add_route('/api/items', 'json', [ast.FetchStatement('items')], method='GET')
+
+        adapter = WSGIAdapter(self.app)
+        environ = self._make_environ(path='/api/items')
+        status_holder = {}
+
+        def start_response(status, headers, exc_info=None):
+            status_holder['status'] = status
+
+        result = adapter(environ, start_response)
+        payload = json.loads(b''.join(result).decode('utf-8'))
+        self.assertIn('200', status_holder['status'])
+        self.assertEqual(payload['collection'], 'items')
+        self.assertEqual(payload['count'], 2)
+        self.assertEqual(payload['items'], ['apple', 'banana'])
 
     def test_wsgi_static_path_traversal(self):
         """WSGI prevents path traversal on static files."""
@@ -330,6 +356,40 @@ class TestASGIAdapter(unittest.TestCase):
         asyncio.run(adapter(scope, receive, send))
         # Should get a response (404 since no route, but that's fine)
         self.assertTrue(len(received) >= 2)
+
+    def test_asgi_fetch_route_without_interpreter_returns_collection_payload(self):
+        """ASGI preserves legacy FetchStatement JSON behavior for Python-defined apps."""
+        from epl import ast_nodes as ast
+        from epl.web import _data_store, store_add
+
+        _data_store.clear()
+        store_add('pings', 'hello-asgi')
+        self.app.add_route('/api/ping', 'json', [ast.FetchStatement('pings')], method='GET')
+        adapter = ASGIAdapter(self.app)
+
+        scope = {
+            'type': 'http',
+            'method': 'GET',
+            'path': '/api/ping',
+            'query_string': b'',
+            'headers': [],
+            'client': ('127.0.0.1', 0),
+            'server': ('localhost', 8000),
+        }
+        received = []
+
+        async def receive():
+            return {'type': 'http.request', 'body': b'', 'more_body': False}
+
+        async def send(message):
+            received.append(message)
+
+        asyncio.run(adapter(scope, receive, send))
+        self.assertEqual(received[0]['status'], 200)
+        payload = json.loads(received[1]['body'].decode('utf-8'))
+        self.assertEqual(payload['collection'], 'pings')
+        self.assertEqual(payload['count'], 1)
+        self.assertEqual(payload['items'], ['hello-asgi'])
 
 
 class TestGunicornConfig(unittest.TestCase):

@@ -1,0 +1,53 @@
+# EPL Official Starter: AI Chatbot
+# Full-stack chatbot with graceful fallback when no AI backend is running.
+#
+# Run:  epl serve examples/official_starters/chatbot/main.epl
+# Test: curl -X POST http://localhost:8081/api/chat -d '{"message":"Hello"}' -H 'Content-Type: application/json'
+#
+# Requires Ollama (ollama serve) or OPENAI_API_KEY environment variable.
+
+Use python "epl.ai" as ai
+
+Define Function get_reply takes message
+    If message equal to nothing Or message equal to "" Then
+        Return Map with ok = False and mode = "error" and reply = "Message cannot be empty"
+    End If
+    Set messages To [
+        Map with role = "system" and content = "You are a helpful, concise assistant built on EPL.",
+        Map with role = "user"   and content = message
+    ]
+    Try
+        Set answer To ai.chat(messages)
+        Return Map with ok = True and mode = "ai" and reply = answer
+    Catch error
+        Set fallback To "AI backend unavailable. Run: ollama serve"
+        Return Map with ok = False and mode = "fallback" and reply = fallback
+    End
+End Function
+
+Note: web app
+Create web app as app
+
+When app gets "/"
+    Send html "<!DOCTYPE html><html><head><title>EPL Chatbot</title></head><body>
+<h1>EPL AI Chatbot</h1>
+<form method='POST' action='/api/chat'>
+  <input name='message' placeholder='Ask a question...' style='width:300px'>
+  <button type='submit'>Send</button>
+</form>
+<p>GET /api/health | POST /api/chat (JSON: message)</p>
+</body></html>"
+End
+
+When app gets "/api/health"
+    Send json Map with status = "ok" and service = "epl-chatbot" and version = "1.0.0"
+End
+
+When app receives post at "/api/chat"
+    Set message To request body "message"
+    Set response To get_reply(message)
+    Send json response
+End
+
+Say "Chatbot running at http://localhost:8081"
+Start app on port 8081

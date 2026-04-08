@@ -1,0 +1,58 @@
+Note: auth-starter auth template
+Import "epl-db"
+
+Create db equal to open(":memory:")
+Call create_table(db, "users", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and username = "TEXT UNIQUE NOT NULL" and password_hash = "TEXT NOT NULL")
+
+Create WebApp called authApp
+
+Route "/" shows
+    Page "Auth Starter"
+        Heading "Auth starter for $request_path"
+        Text "Register or login using the forms below. The JSON routes are ready for frontend integration."
+        SubHeading "Register"
+        Form action "/api/register"
+            Input "username" placeholder "Choose a username"
+            Input "password" placeholder "Choose a password"
+        End
+        SubHeading "Login"
+        Form action "/api/login"
+            Input "username" placeholder "Your username"
+            Input "password" placeholder "Your password"
+        End
+        Link "Health API" to "/api/health"
+    End
+End
+
+Route "/api/health" responds with
+    Send json Map with status = "ok" and app = "auth-starter"
+End
+
+Route "/api/register" responds with
+    Create username equal to request_data.get("username")
+    Create password equal to request_data.get("password")
+    Create response equal to Map with ok = False and error = "Username and password are required"
+    If username != nothing And password != nothing Then
+        If username != "" And password != "" Then
+            Try
+                Create password_hash equal to auth_hash_password(password)
+                Call execute_params(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, password_hash])
+                Create response equal to Map with ok = True and user = username and token = auth_generate_token(32)
+            Catch error
+                Create response equal to Map with ok = False and error = "Username already exists"
+            End
+        End
+    End
+    Send json response
+End
+
+Route "/api/login" responds with
+    Create username equal to request_data.get("username")
+    Create password equal to request_data.get("password")
+    Create account equal to query_one_params(db, "SELECT username, password_hash FROM users WHERE username = ?", [username])
+    Create response equal to Map with ok = False and error = "Invalid credentials"
+    If account != nothing And auth_verify_password(password, account.password_hash) Then
+        Create response equal to Map with ok = True and user = account.username and token = auth_generate_token(32)
+    End
+    Send json response
+End

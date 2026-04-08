@@ -14,9 +14,8 @@ epl install epl-web
 Import "epl-web"
 
 Create app equal to create_app("demo")
-Call get_route(app, "/", Function()
-    Return html_response("<h1>Hello from EPL Web</h1>", 200)
-End)
+Call get_route(app, "/", given req return html_response("<h1>Hello from EPL Web</h1>", 200))
+Call get_route(app, "/api/health", given req return json_response(Map with status = "ok", 200))
 Call start_app(app, 8080)
 ```
 
@@ -28,3 +27,8 @@ Call start_app(app, 8080)
 - response helpers
 - session helpers
 - test client helpers
+
+## Notes
+
+- `epl-web` is a supported helper facade.
+- `epl serve` and `epl new --template web|api|auth|chatbot|frontend|fullstack` use EPL's native `Create WebApp` DSL as the authoritative served runtime.

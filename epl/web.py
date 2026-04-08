@@ -257,6 +257,105 @@ def session_create():
     return get_session_backend().create(timeout=SESSION_TIMEOUT)
 
 
+def _build_route_env(interpreter, method, path, form_data=None, params=None, headers=None, session_id=None):
+    """Create a child interpreter environment populated with request context bindings."""
+    if interpreter is None:
+        return None
+
+    route_env = interpreter.global_env.create_child("web:route")
+    request_data = interpreter._wrap_python_result(form_data or {})
+    request_params = interpreter._wrap_python_result(params or {})
+
+    header_map = {}
+    for key, value in (headers or {}).items():
+        header_map[key] = value
+        lower = key.lower()
+        if lower not in header_map:
+            header_map[lower] = value
+        normalized = lower.replace('-', '_')
+        if normalized not in header_map:
+            header_map[normalized] = value
+    request_headers = interpreter._wrap_python_result(header_map)
+
+    request_obj = interpreter._wrap_python_result({
+        "method": method,
+        "path": path,
+        "data": form_data or {},
+        "params": params or {},
+        "headers": header_map,
+        "session_id": session_id,
+    })
+
+    route_env.define_variable("request", request_obj)
+    route_env.define_variable("request_data", request_data)
+    route_env.define_variable("form_data", request_data)
+    route_env.define_variable("request_body", request_data)
+    route_env.define_variable("request_params", request_params)
+    route_env.define_variable("query_params", request_params)
+    route_env.define_variable("request_headers", request_headers)
+    route_env.define_variable("request_method", method)
+    route_env.define_variable("request_path", path)
+    route_env.define_variable("session_id", session_id)
+    return route_env
+
+
+def _execute_route_block(interpreter, body, route_env):
+    """Execute a route block and return a RouteResponseSignal if one is emitted."""
+    if interpreter is None or route_env is None:
+        return None
+
+    from epl.interpreter import RouteResponseSignal
+
+    old_flag = interpreter._route_response_enabled
+    interpreter._route_response_enabled = True
+    try:
+        interpreter._exec_block(body, route_env)
+    except RouteResponseSignal as signal:
+        return signal
+    finally:
+        interpreter._route_response_enabled = old_flag
+    return None
+
+
+def _resolve_page_value(value, interpreter, env):
+    """Resolve string templates inside Page/HtmlElement content."""
+    if interpreter is None or env is None:
+        return value
+    if isinstance(value, str):
+        return interpreter._resolve_template(value, env)
+    if isinstance(value, ast.Literal):
+        if isinstance(value.value, str):
+            return ast.Literal(interpreter._resolve_template(value.value, env), value.line)
+        return value
+    if isinstance(value, ast.ListLiteral):
+        return ast.ListLiteral(
+            [_resolve_page_value(element, interpreter, env) for element in value.elements],
+            value.line,
+        )
+    return value
+
+
+def _resolve_page_element(elem, interpreter, env):
+    if not isinstance(elem, ast.HtmlElement):
+        return elem
+    content = _resolve_page_value(elem.content, interpreter, env)
+    attrs = {
+        key: interpreter._resolve_template(value, env) if isinstance(value, str) else value
+        for key, value in (elem.attributes or {}).items()
+    }
+    children = [_resolve_page_element(child, interpreter, env) for child in (elem.children or [])]
+    return ast.HtmlElement(elem.tag, content, attrs, children, elem.line)
+
+
+def _resolve_page_def(page_def, interpreter, env):
+    """Clone a PageDef and resolve string templates against the route environment."""
+    if interpreter is None or env is None or not isinstance(page_def, ast.PageDef):
+        return page_def
+    title = interpreter._resolve_template(page_def.title, env) if isinstance(page_def.title, str) else page_def.title
+    elements = [_resolve_page_element(element, interpreter, env) for element in page_def.elements]
+    return ast.PageDef(title, elements, page_def.line)
+
+
 # ─── Middleware Registry ─────────────────────────────────
 _middleware = []  # list of (name, func) pairs
 
@@ -1627,6 +1726,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         if not self._run_middleware_before():
             return
         path = self.path.split('?')[0]
+        query_string = self.path.split('?')[1] if '?' in self.path else ''
         raw_body, form_data = self._read_body()
 
         # Validate CSRF token on state-changing requests
@@ -1642,7 +1742,9 @@ class EPLHandler(BaseHTTPRequestHandler):
         if route:
             response_type, body, route_params = route
             form_data.update(route_params)  # merge route params
-            self._handle_route(response_type, body, form_data=form_data)
+            request_params = dict(urllib.parse.parse_qsl(query_string))
+            request_params.update(route_params)
+            self._handle_route(response_type, body, form_data=form_data, params=request_params)
             return
 
         self._send_error(404, f"Route not found: {path}")
@@ -1653,6 +1755,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         if not self._run_middleware_before():
             return
         path = self.path.split('?')[0]
+        query_string = self.path.split('?')[1] if '?' in self.path else ''
         raw_body, form_data = self._read_body()
 
         # Validate CSRF token on state-changing requests
@@ -1664,7 +1767,9 @@ class EPLHandler(BaseHTTPRequestHandler):
         if route:
             response_type, body, route_params = route
             form_data.update(route_params)
-            self._handle_route(response_type, body, form_data=form_data)
+            request_params = dict(urllib.parse.parse_qsl(query_string))
+            request_params.update(route_params)
+            self._handle_route(response_type, body, form_data=form_data, params=request_params)
             return
         self._send_error(404, f"Route not found: {path}")
 
@@ -1674,6 +1779,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         if not self._run_middleware_before():
             return
         path = self.path.split('?')[0]
+        query_string = self.path.split('?')[1] if '?' in self.path else ''
         raw_body, form_data = self._read_body()
 
         # Validate CSRF token on state-changing requests
@@ -1685,7 +1791,9 @@ class EPLHandler(BaseHTTPRequestHandler):
         if route:
             response_type, body, route_params = route
             form_data.update(route_params)
-            self._handle_route(response_type, body, form_data=form_data)
+            request_params = dict(urllib.parse.parse_qsl(query_string))
+            request_params.update(route_params)
+            self._handle_route(response_type, body, form_data=form_data, params=request_params)
             return
         self._send_error(404, f"Route not found: {path}")
 
@@ -1725,7 +1833,7 @@ class EPLHandler(BaseHTTPRequestHandler):
             else:
                 self._send_html(html)
         elif response_type == 'json':
-            data = self._build_json(body)
+            data = self._build_json(body, form_data=form_data, params=params)
             self._send_json(data)
         elif response_type == 'action':
             # Execute action statements, then check for redirect
@@ -1737,16 +1845,26 @@ class EPLHandler(BaseHTTPRequestHandler):
 
     def _build_page(self, body, form_data=None, params=None):
         """Build HTML from route body statements."""
+        route_env = _build_route_env(
+            self.interpreter,
+            self.command,
+            self.path.split('?')[0],
+            form_data=form_data,
+            params=params,
+            headers=dict(self.headers),
+            session_id=self._get_session_id(),
+        )
+
         # Execute all Store/Delete/Redirect statements in a single pass
         for stmt in body:
             # Handle Store statements
             if isinstance(stmt, ast.StoreStatement):
-                self._exec_store(stmt, form_data)
+                self._exec_store(stmt, form_data, route_env=route_env)
                 continue
 
             # Handle Delete statements
             if isinstance(stmt, ast.DeleteStatement):
-                self._exec_delete(stmt, form_data)
+                self._exec_delete(stmt, form_data, route_env=route_env)
                 continue
 
             # Handle Redirect - immediately return
@@ -1754,28 +1872,47 @@ class EPLHandler(BaseHTTPRequestHandler):
                 redirect_url = stmt.data.value if hasattr(stmt.data, 'value') else str(stmt.data)
                 return f'REDIRECT:{redirect_url}'
 
+        signal = _execute_route_block(self.interpreter, body, route_env)
+        if signal is not None:
+            if signal.response_type == 'redirect':
+                redirect_url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                return f'REDIRECT:{redirect_url}'
+            if signal.response_type == 'text' and self.interpreter is not None:
+                text_value = self.interpreter._eval(signal.payload, route_env)
+                return str(text_value)
+            if signal.response_type == 'json' and self.interpreter is not None:
+                data = self._normalize_json_value(self.interpreter._eval(signal.payload, route_env))
+                return f"<pre>{json.dumps(data, indent=2, default=str)}</pre>"
+
         # Build page
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
-                return generate_html(stmt, data_store=_data_store, form_data=form_data)
+                return generate_html(
+                    _resolve_page_def(stmt, self.interpreter, route_env),
+                    data_store=_data_store,
+                    form_data=form_data,
+                )
 
         # If no PageDef, check for elements
-        elements = [s for s in body if isinstance(s, ast.HtmlElement)]
+        elements = [
+            _resolve_page_element(s, self.interpreter, route_env)
+            for s in body if isinstance(s, ast.HtmlElement)
+        ]
         if elements:
             page = ast.PageDef("EPL Page", elements)
             return generate_html(page, data_store=_data_store, form_data=form_data)
 
         return generate_html(ast.PageDef("EPL Page", []), data_store=_data_store)
 
-    def _execute_stores(self, body, form_data=None):
+    def _execute_stores(self, body, form_data=None, route_env=None):
         """Execute Store and Delete statements in route body."""
         for stmt in body:
             if isinstance(stmt, ast.StoreStatement):
-                self._exec_store(stmt, form_data)
+                self._exec_store(stmt, form_data, route_env=route_env)
             if isinstance(stmt, ast.DeleteStatement):
-                self._exec_delete(stmt, form_data)
+                self._exec_delete(stmt, form_data, route_env=route_env)
 
-    def _exec_store(self, stmt, form_data=None):
+    def _exec_store(self, stmt, form_data=None, route_env=None):
         """Execute a single Store statement (in-memory + SQLite if enabled)."""
         collection = stmt.collection
         if form_data and stmt.field_name:
@@ -1786,7 +1923,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 store_add(collection, value)
         elif stmt.value and self.interpreter:
             try:
-                val = self.interpreter._eval(stmt.value, self.interpreter.global_env)
+                val = self.interpreter._eval(stmt.value, route_env or self.interpreter.global_env)
                 if self.app.db_enabled:
                     db_store_add(collection, val)
                 else:
@@ -1795,7 +1932,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 import sys
                 print(f"Warning: Store evaluation error: {e}", file=sys.stderr)
 
-    def _exec_delete(self, stmt, form_data=None):
+    def _exec_delete(self, stmt, form_data=None, route_env=None):
         """Execute a single Delete statement (in-memory + SQLite if enabled)."""
         collection = stmt.collection
         if form_data and 'index' in form_data:
@@ -1809,7 +1946,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 pass
         elif stmt.index is not None and self.interpreter:
             try:
-                index = self.interpreter._eval(stmt.index, self.interpreter.global_env)
+                index = self.interpreter._eval(stmt.index, route_env or self.interpreter.global_env)
                 if self.app.db_enabled:
                     db_store_remove(collection, int(index))
                 else:
@@ -1820,34 +1957,58 @@ class EPLHandler(BaseHTTPRequestHandler):
 
     def _execute_action(self, body, form_data=None):
         """Execute action route body and return redirect or HTML."""
+        route_env = _build_route_env(
+            self.interpreter,
+            self.command,
+            self.path.split('?')[0],
+            form_data=form_data,
+            params={},
+            headers=dict(self.headers),
+            session_id=self._get_session_id(),
+        )
         for stmt in body:
             if isinstance(stmt, ast.StoreStatement):
-                self._exec_store(stmt, form_data)
+                self._exec_store(stmt, form_data, route_env=route_env)
             elif isinstance(stmt, ast.DeleteStatement):
-                self._exec_delete(stmt, form_data)
+                self._exec_delete(stmt, form_data, route_env=route_env)
             elif isinstance(stmt, ast.SendResponse) and stmt.response_type == 'redirect':
                 redirect_url = stmt.data.value if hasattr(stmt.data, 'value') else str(stmt.data)
                 return f'REDIRECT:{redirect_url}'
+        signal = _execute_route_block(self.interpreter, body, route_env)
+        if signal is not None:
+            if signal.response_type == 'redirect':
+                redirect_url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                return f'REDIRECT:{redirect_url}'
+            if self.interpreter is not None and signal.response_type == 'text':
+                return str(self.interpreter._eval(signal.payload, route_env))
         return None
 
-    def _build_json(self, body):
+    def _build_json(self, body, form_data=None, params=None):
         """Build JSON from route body - evaluate Send or Fetch statements."""
-        for stmt in body:
-            # Fetch "collection" → return collection data as JSON
-            if isinstance(stmt, ast.FetchStatement):
-                collection = stmt.collection
-                items = store_get(collection)
-                return self._normalize_json_value(
-                    {"collection": collection, "count": len(items), "items": items}
-                )
-
-            if isinstance(stmt, ast.SendResponse):
-                if self.interpreter:
-                    try:
-                        result = self.interpreter._eval(stmt.data, self.interpreter.global_env)
-                        return self._normalize_json_value(result)
-                    except Exception as e:
-                        return {"error": str(e)}
+        route_env = _build_route_env(
+            self.interpreter,
+            self.command,
+            self.path.split('?')[0],
+            form_data=form_data,
+            params=params,
+            headers=dict(self.headers),
+            session_id=self._get_session_id(),
+        )
+        if self.interpreter and route_env:
+            try:
+                signal = _execute_route_block(self.interpreter, body, route_env)
+                if signal is not None:
+                    if signal.response_type == 'fetch':
+                        items = store_get(signal.payload)
+                        return self._normalize_json_value(
+                            {"collection": signal.payload, "count": len(items), "items": items}
+                        )
+                    if signal.response_type == 'redirect':
+                        return {"redirect": self.interpreter._eval(signal.payload, route_env)}
+                    result = self.interpreter._eval(signal.payload, route_env)
+                    return self._normalize_json_value(result)
+            except Exception as e:
+                return {"error": str(e)}
         # Fallback: return all store data
         return self._normalize_json_value({"store": {k: list(v) for k, v in _data_store.items()}})
 

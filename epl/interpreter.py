@@ -239,6 +239,14 @@ class _GeneratorClose(BaseException):
     pass
 
 
+class RouteResponseSignal(Exception):
+    """Internal signal used by the web runtime to short-circuit route execution."""
+
+    def __init__(self, response_type, payload):
+        self.response_type = response_type
+        self.payload = payload
+
+
 # ─── OOP Runtime ─────────────────────────────────────────
 
 class EPLClass:
@@ -430,6 +438,7 @@ class Interpreter:
         self._stmt_dispatch = self._build_stmt_dispatch()
         self._expr_dispatch = self._build_expr_dispatch()
         self._yield_cache = {}  # cache _func_contains_yield results
+        self._route_response_enabled = False
 
     def _build_stmt_dispatch(self):
         """Build O(1) dispatch table for statement execution."""
@@ -571,9 +580,19 @@ class Interpreter:
         if isinstance(node, ast.ExitStatement):
             raise ExitSignal()
 
+        if isinstance(node, ast.SendResponse):
+            if self._route_response_enabled:
+                raise RouteResponseSignal(node.response_type, node.data)
+            return
+
+        if isinstance(node, ast.FetchStatement):
+            if self._route_response_enabled:
+                raise RouteResponseSignal('fetch', node.collection)
+            return
+
         # No-ops by design (handled in specific contexts)
-        if isinstance(node, (ast.PageDef, ast.SendResponse, ast.ScriptBlock,
-                             ast.StoreStatement, ast.FetchStatement, ast.DeleteStatement,
+        if isinstance(node, (ast.PageDef, ast.ScriptBlock,
+                             ast.StoreStatement, ast.DeleteStatement,
                              ast.HtmlElement, ast.ExportStatement, ast.AbstractMethodDef)):
             return
 
@@ -1987,7 +2006,7 @@ class Interpreter:
 
         if callable(func):
             try:
-                result = func(*args)
+                result = func(*[self._unwrap_python_argument(arg) for arg in args])
                 return self._wrap_python_result(result)
             except TypeError as e:
                 raise EPLRuntimeError(f'Argument error: {e}', line)
@@ -2295,7 +2314,7 @@ class Interpreter:
         attr = getattr(py_mod.module, method)
         if callable(attr):
             try:
-                result = attr(*args)
+                result = attr(*[self._unwrap_python_argument(arg) for arg in args])
                 return self._wrap_python_result(result)
             except TypeError as e:
                 raise EPLRuntimeError(
@@ -2335,6 +2354,49 @@ class Interpreter:
             # Return as PythonModule wrapper so methods can still be called
             if hasattr(value, '__dict__') or hasattr(value, '__class__'):
                 return PythonModule(value, type_name)
+            return value
+        finally:
+            _seen.discard(obj_id)
+
+    def _unwrap_python_argument(self, value, _seen=None):
+        """Convert EPL runtime values back into plain Python objects for Python calls."""
+        if value is None or isinstance(value, (int, float, bool, str)):
+            return value
+        if isinstance(value, PythonModule):
+            return value.module
+
+        if _seen is None:
+            _seen = set()
+        obj_id = id(value)
+        if obj_id in _seen:
+            return None
+        _seen.add(obj_id)
+
+        try:
+            if isinstance(value, EPLDict):
+                return {
+                    key: self._unwrap_python_argument(item, _seen)
+                    for key, item in value.data.items()
+                }
+            if isinstance(value, dict):
+                if value.get('__is_module__'):
+                    return {
+                        key: self._unwrap_python_argument(item, _seen)
+                        for key, item in value.items()
+                        if not key.startswith('__')
+                    }
+                if 'value' in value and 'type' in value and len(value) == 2:
+                    return self._unwrap_python_argument(value['value'], _seen)
+                return {
+                    key: self._unwrap_python_argument(item, _seen)
+                    for key, item in value.items()
+                }
+            if isinstance(value, list):
+                return [self._unwrap_python_argument(item, _seen) for item in value]
+            if isinstance(value, tuple):
+                return tuple(self._unwrap_python_argument(item, _seen) for item in value)
+            if isinstance(value, set):
+                return {self._unwrap_python_argument(item, _seen) for item in value}
             return value
         finally:
             _seen.discard(obj_id)

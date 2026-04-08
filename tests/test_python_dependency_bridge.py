@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
@@ -108,3 +109,23 @@ class TestPythonDependencyBridge(unittest.TestCase):
             wrapped = interp.global_env.get_variable("yaml")
             self.assertIsInstance(wrapped, PythonModule)
             self.assertIs(wrapped.module, fake_module)
+
+    def test_python_bridge_unwraps_epl_maps_and_lists_for_python_calls(self):
+        interp = Interpreter(debug_interactive=False)
+        program = _parse(
+            'Use python "json" as json_mod\n'
+            'Create payload equal to Map with message = "hello" and items = [1, 2, 3] and nested = Map with ok = True\n'
+            'Create encoded equal to json_mod.dumps(payload)\n'
+        )
+
+        interp.execute(program)
+
+        encoded = interp.global_env.get_variable("encoded")
+        self.assertEqual(
+            json.loads(encoded),
+            {
+                "message": "hello",
+                "items": [1, 2, 3],
+                "nested": {"ok": True},
+            },
+        )

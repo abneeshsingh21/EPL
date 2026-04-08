@@ -1,87 +1,99 @@
-Comment "Supported EPL Web facade package"
+Comment "Supported EPL web facade package"
 
 Comment "App lifecycle"
 
 Function create_app with name
-    Return Call web_create with [name]
-End Function
+    Return web_create(name)
+End
 
 Function start_app with app_id, port
-    Return Call web_start with [app_id, port]
-End Function
+    Return web_start(app_id, port)
+End
 
 Function stop_app with app_id
-    Return Call web_stop with [app_id]
-End Function
+    Return web_stop(app_id)
+End
 
 Comment "Routing"
 
 Function get_route with app_id, path, handler
-    Return Call web_get with [app_id, path, handler]
-End Function
+    Return web_get(app_id, path, handler)
+End
 
 Function post_route with app_id, path, handler
-    Return Call web_post with [app_id, path, handler]
-End Function
+    Return web_post(app_id, path, handler)
+End
 
 Function put_route with app_id, path, handler
-    Return Call web_put with [app_id, path, handler]
-End Function
+    Return web_put(app_id, path, handler)
+End
 
 Function delete_route with app_id, path, handler
-    Return Call web_delete with [app_id, path, handler]
-End Function
+    Return web_delete(app_id, path, handler)
+End
+
+Function enable_cors with app_id, origin
+    Return web_set_cors(app_id, origin)
+End
+
+Function add_middleware with app_id, before_fn, after_fn
+    Return web_middleware(app_id, before_fn, after_fn)
+End
 
 Comment "Request helpers"
 
 Function request_data
-    Return Call web_request_data with []
-End Function
+    Return web_request_data()
+End
 
 Function request_args
-    Return Call web_request_args with []
-End Function
+    Return web_request_args()
+End
 
 Function request_method
-    Return Call web_request_method with []
-End Function
+    Return web_request_method()
+End
 
 Function request_path
-    Return Call web_request_path with []
-End Function
+    Return web_request_path()
+End
 
 Function request_header with name
-    Return Call web_request_header with [name]
-End Function
+    Return web_request_header(name)
+End
 
 Comment "Responses"
 
 Function json_response with data, status
-    Return Call web_json with [data, status]
-End Function
+    Return web_json(data, status)
+End
 
 Function html_response with content, status
-    Return Call web_html with [content, status]
-End Function
+    Return web_html(content, status)
+End
 
 Function redirect_to with url
-    Return Call web_redirect with [url]
-End Function
+    Return web_redirect(url)
+End
 
 Function response with body, status, headers
-    Return Call web_response with [body, status, headers]
-End Function
+    Return web_response(body, status, headers)
+End
+
+Function send_file with path, mimetype
+    Return web_send_file(path, mimetype)
+End
 
 Comment "Sessions"
 
 Function session_get with key
-    Return Call web_session_get with [key]
-End Function
+    Return web_session_get(key)
+End
 
 Function session_set with key, value
-    Return Call web_session_set with [key, value]
-End Function
+    Return web_session_set(key, value)
+End
 
 Function session_clear
-    Return Call web_session_clear with []
-End Function
+    Return web_session_clear()
+End

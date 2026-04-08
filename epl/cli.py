@@ -19,6 +19,7 @@ Usage:
     epl pydeps                   List Python ecosystem dependencies
     epl github <cmd>             Clone/pull/push GitHub projects
     epl serve <file.epl>         Start production server
+    epl ios <file.epl>           Generate iOS app project
     epl desktop <file.epl>       Generate desktop app project
     epl web <file.epl>           Generate web app bundle
     epl <file.epl>               Shorthand for 'epl run'
@@ -107,6 +108,7 @@ HELP = f"""\
   epl kotlin <file.epl>            Transpile to Kotlin
   epl python <file.epl>            Transpile to Python
   epl android <file.epl>           Generate Android project
+  epl ios <file.epl>               Generate iOS project
   epl desktop <file.epl>           Generate desktop app project
   epl web <file.epl>               Generate web app bundle
   epl gui <file.epl>               Run with GUI support
@@ -154,6 +156,11 @@ HELP = f"""\
   --name NAME      Custom app name
   --compose        Use Jetpack Compose UI
 
+{_bold('iOS Options:')}
+  --name NAME      Custom app name
+  --bundle-id ID   Bundle identifier (default: com.epl.app)
+  --team-id ID     Apple developer team ID
+
 {_bold('Package Ecosystem:')}
   epl resolve                      Resolve all dependencies (backtracking)
   epl workspace <cmd>              Workspace/monorepo (init, list, install, validate)
@@ -163,6 +170,8 @@ HELP = f"""\
 {_bold('Examples:')}
   epl hello.epl                    Run a program
   epl new myapp --template web     Create a web starter
+  epl new authapp --template auth  Create an auth/API starter
+  epl new botapp --template chatbot Create a chatbot starter
   epl build myapp/main.epl         Compile to .exe
   epl wasm myapp/main.epl          Compile to .wasm
   epl test tests/                  Run all tests
@@ -172,6 +181,7 @@ HELP = f"""\
   epl gitinstall epl-lang/web-kit
   epl pyinstall yaml pyyaml>=6     Save/import a pip package with different name
   epl github clone epl-lang/epl
+  epl ios examples/text_editor.epl --name "EPL Notes"
   epl desktop examples/text_editor.epl
   epl workspace init               Initialize monorepo workspace
 
@@ -213,6 +223,17 @@ _TARGET_OPTION_FLAGS = {
     '--workers',
     '--store',
     '--session',
+    '--name',
+    '--package',
+    '--bundle-id',
+    '--team-id',
+    '--width',
+    '--height',
+    '--mode',
+    '--output',
+    '--host',
+    '--runs',
+    '--warmup',
 }
 
 
@@ -354,6 +375,7 @@ def cli_main(argv=None):
         'kotlin':    lambda: _transpile_kotlin(rest),
         'python':    lambda: _transpile_python(rest),
         'android':   lambda: _android(rest),
+        'ios':       lambda: _ios(rest),
         'desktop':   lambda: _desktop(rest),
         'web':       lambda: _web(rest),
         'gui':       lambda: _gui(rest),
@@ -373,9 +395,9 @@ def cli_main(argv=None):
         'gen':       lambda: _ai_gen(rest),
         'explain':   lambda: _ai_explain(rest),
         'package':   lambda: _package(rest),
-        'cloud':     lambda: _cloud(),
-        'train':     lambda: _train(),
-        'model':     lambda: _model(),
+        'cloud':     lambda: _cloud(rest),
+        'train':     lambda: _train(rest),
+        'model':     lambda: _model(rest),
         'resolve':   lambda: _resolve(),
         'workspace': lambda: _workspace(rest),
         'ci':        lambda: _ci(rest),
@@ -435,15 +457,15 @@ def _run_file(args, flags):
         print(f"{_red('Error:')} File not found: {filename}")
         return 1
 
-    main_mod = _resolve_main_module()
-    main_mod.run_file(
+    from epl.runtime_support import run_file
+
+    return 0 if run_file(
         filename,
         strict='--strict' in flags,
         safe_mode='--sandbox' in flags,
         force_interpret='--interpret' in flags,
         json_errors='--json' in flags,
-    )
-    return 0
+    ) else 1
 
 
 # ─── New Project ──────────────────────────────────────────
@@ -452,7 +474,7 @@ def _new_project(args):
     """Create a new EPL project with full structure."""
     if not args:
         print(f"{_red('Error:')} No project name specified.")
-        print(f"Usage: epl new <project-name> [--template basic|web|api|cli|lib]")
+        print(f"Usage: epl new <project-name> [--template basic|web|api|cli|lib|frontend|auth|chatbot|android|ios|fullstack]")
         return 1
 
     name = args[0]
@@ -464,10 +486,10 @@ def _new_project(args):
             return 1
         template = args[idx + 1].lower()
 
-    valid_templates = {'basic', 'web', 'api', 'cli', 'lib', 'android', 'fullstack'}
+    valid_templates = {'basic', 'web', 'api', 'cli', 'lib', 'frontend', 'auth', 'chatbot', 'android', 'ios', 'fullstack'}
     if template not in valid_templates:
         print(f"{_red('Error:')} Unknown template: {template}")
-        print("Available templates: basic, web, api, cli, lib, android, fullstack")
+        print("Available templates: basic, web, api, cli, lib, frontend, auth, chatbot, android, ios, fullstack")
         return 1
 
     # Validate project name
@@ -525,10 +547,12 @@ def _new_project(args):
     print(f"    cd {name}")
     print(f"    epl install                  {_dim('# sync EPL, GitHub, and Python dependencies')}")
     print(f"    epl run                      {_dim('# uses the manifest entrypoint')}")
-    if template in ('web', 'api', 'lib'):
+    if template in ('web', 'api', 'lib', 'frontend', 'auth', 'chatbot', 'fullstack'):
         print(f"    epl test tests/             {_dim('# run the starter tests')}")
-    if template in ('web', 'api'):
+    if template in ('web', 'api', 'frontend', 'auth', 'chatbot', 'fullstack'):
         print(f"    epl serve                   {_dim('# boot the generated web app')}")
+    if template in ('android', 'ios'):
+        print(f"    epl {template} src/main.epl        {_dim('# generate the mobile project')}")
     print(f"    epl pyinstall requests       {_dim('# add a Python package for `Use python`')}")
     print(f"    epl gitinstall owner/repo    {_dim('# add a GitHub EPL package')}")
     print()
@@ -546,25 +570,25 @@ def _project_template(name, template):
 
     if template == 'web':
         description = f"{name} — EPL web application"
-        dependencies = {"epl-web": f"^{__version__}"}
         scripts["serve"] = "epl serve src/main.epl"
         main_source = (
             f'Note: {name} web app template\n'
-            'Import "epl-web"\n\n'
-            f'Create app equal to create_app("{name}")\n\n'
-            'Call get_route(app, "/", Function()\n'
-            f'    Return html_response("<h1>{name}</h1><p>EPL web template ready.</p>", 200)\n'
-            'End)\n\n'
-            'Call get_route(app, "/api/health", Function()\n'
-            f'    Return json_response(Map with status = "ok" and app = "{name}", 200)\n'
-            'End)\n'
+            'Create WebApp called app\n\n'
+            'Route "/" shows\n'
+            f'    Page "{name}"\n'
+            f'        Heading "{name}"\n'
+            '        Text "EPL web template ready."\n'
+            '        Link "Health API" to "/api/health"\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/health" responds with\n'
+            f'    Send json Map with status = "ok" and app = "{name}"\n'
+            'End\n'
         )
         test_source = (
-            'Import "epl-test"\n\n'
-            'Call test("web template smoke", Function()\n'
-            '    Call expect_equal(1 + 1, 2, "basic arithmetic still works")\n'
-            'End)\n\n'
-            'Call test_summary()\n'
+            'Define Function test_web_template_smoke\n'
+            '    expect_equal(1 + 1, 2, "basic arithmetic still works")\n'
+            'End\n'
         )
         readme_body = _template_readme(
             name,
@@ -574,34 +598,30 @@ def _project_template(name, template):
                 "epl serve",
                 "epl run",
             ],
-            "Starter web app using the supported `epl-web` facade package.",
+            "Starter web app using EPL's native `Create WebApp` routing DSL.",
         )
     elif template == 'api':
         description = f"{name} — EPL API service"
-        dependencies = {"epl-web": f"^{__version__}", "epl-db": f"^{__version__}"}
+        dependencies = {"epl-db": f"^{__version__}"}
         scripts["serve"] = "epl serve src/main.epl"
         main_source = (
             f'Note: {name} API template\n'
-            'Import "epl-web"\n'
             'Import "epl-db"\n\n'
-            'db = open(":memory:")\n'
+            'Create db equal to open(":memory:")\n'
             'Call create_table(db, "items", Map with id = "INTEGER" and name = "TEXT")\n'
             'Call execute(db, "INSERT INTO items (id, name) VALUES (1, \'example item\')")\n\n'
-            f'Create app equal to create_app("{name}")\n\n'
-            'Call get_route(app, "/api/health", Function()\n'
-            f'    Return json_response(Map with status = "ok" and service = "{name}", 200)\n'
-            'End)\n\n'
-            'Call get_route(app, "/api/items", Function()\n'
-            '    items = query(db, "SELECT id, name FROM items ORDER BY id")\n'
-            '    Return json_response(Map with items = items, 200)\n'
-            'End)\n'
+            'Create WebApp called apiApp\n\n'
+            'Route "/api/health" responds with\n'
+            f'    Send json Map with status = "ok" and service = "{name}"\n'
+            'End\n\n'
+            'Route "/api/items" responds with\n'
+            '    Send json Map with items = query(db, "SELECT id, name FROM items ORDER BY id")\n'
+            'End\n'
         )
         test_source = (
-            'Import "epl-test"\n\n'
-            'Call test("api template smoke", Function()\n'
-            '    Call expect_true(True, "starter API test")\n'
-            'End)\n\n'
-            'Call test_summary()\n'
+            'Define Function test_api_template_smoke\n'
+            '    expect_true(True, "starter API test")\n'
+            'End\n'
         )
         readme_body = _template_readme(
             name,
@@ -611,7 +631,7 @@ def _project_template(name, template):
                 "epl serve",
                 "epl run",
             ],
-            "Starter API app using the supported `epl-web` and `epl-db` facade packages.",
+            "Starter API app using the native WebApp DSL and the supported `epl-db` package.",
         )
     elif template == 'cli':
         description = f"{name} — EPL CLI tool"
@@ -638,7 +658,6 @@ def _project_template(name, template):
         )
     elif template == 'lib':
         description = f"{name} — EPL library package"
-        dependencies = {"epl-test": f"^{__version__}"}
         main_source = (
             f'Note: {name} library template\n\n'
             'Define Function greet Takes name\n'
@@ -647,11 +666,10 @@ def _project_template(name, template):
         )
         test_source = (
             'Import "src/main.epl"\n'
-            'Import "epl-test"\n\n'
-            'Call test("greet returns a message", Function()\n'
-            f'    Call expect_equal(greet("EPL"), "Hello, EPL!", "{name} greet helper")\n'
-            'End)\n\n'
-            'Call test_summary()\n'
+            '\n'
+            'Define Function test_greet_returns_a_message\n'
+            f'    expect_equal(greet("EPL"), "Hello, EPL!", "{name} greet helper")\n'
+            'End\n'
         )
         readme_body = _template_readme(
             name,
@@ -661,7 +679,185 @@ def _project_template(name, template):
                 "epl test tests/",
                 "epl run src/main.epl",
             ],
-            "Starter reusable EPL library with tests using the supported `epl-test` facade package.",
+            "Starter reusable EPL library with tests using EPL's native test runner.",
+        )
+    elif template == 'frontend':
+        description = f"{name} — EPL frontend experience"
+        scripts["serve"] = "epl serve src/main.epl"
+        main_source = (
+            f'Note: {name} frontend template\n\n'
+            'Create hero_title equal to "Build a bold frontend in EPL"\n'
+            'Create hero_copy equal to "Creative landing page starter with routes, narrative sections, and API-backed data."\n\n'
+            'Create WebApp called frontendApp\n\n'
+            'Route "/" shows\n'
+            '    Page "$hero_title"\n'
+            '        Heading "$hero_title"\n'
+            '        SubHeading "Creative frontend starter"\n'
+            '        Text "$hero_copy"\n'
+            '        Link "Roadmap" to "/roadmap"\n'
+            '        Link "Launch Checklist" to "/checklist"\n'
+            '        Link "Theme API" to "/api/theme"\n'
+            '        List ["Editorial hero layout", "Server-rendered routes", "Fast iteration", "JSON APIs for richer UI"]\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/roadmap" shows\n'
+            '    Page "Roadmap"\n'
+            '        Heading "Design direction"\n'
+            '        Text "Start with a strong narrative, then connect user actions to focused API endpoints."\n'
+            '        List ["Hero messaging", "Feature grid", "Social proof", "Interactive widgets"]\n'
+            '        Link "Back home" to "/"\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/checklist" shows\n'
+            '    Page "Launch Checklist"\n'
+            '        Heading "Frontend launch checklist"\n'
+            '        List ["Content polish", "Performance pass", "Accessibility review", "Deployment smoke tests"]\n'
+            '        Link "Theme API" to "/api/theme"\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/theme" responds with\n'
+            '    Create accent equal to "electric-blue"\n'
+            '    Send json Map with accent = accent and surface = "slate" and motion = "staggered"\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_frontend_template_smoke\n'
+            '    expect_true(True, "starter frontend test")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            [
+                "epl install",
+                "epl serve",
+                "epl test tests/",
+            ],
+            "Creative frontend starter using EPL's native `Create WebApp` routes and server-rendered page DSL.",
+        )
+    elif template == 'auth':
+        description = f"{name} — EPL auth starter"
+        dependencies = {"epl-db": f"^{__version__}"}
+        scripts["serve"] = "epl serve src/main.epl"
+        main_source = (
+            f'Note: {name} auth template\n'
+            'Import "epl-db"\n\n'
+            'Create db equal to open(":memory:")\n'
+            'Call create_table(db, "users", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and username = "TEXT UNIQUE NOT NULL" and password_hash = "TEXT NOT NULL")\n\n'
+            'Create WebApp called authApp\n\n'
+            'Route "/" shows\n'
+            '    Page "Auth Starter"\n'
+            '        Heading "Auth starter for $request_path"\n'
+            '        Text "Register or login using the forms below. The JSON routes are ready for frontend integration."\n'
+            '        SubHeading "Register"\n'
+            '        Form action "/api/register"\n'
+            '            Input "username" placeholder "Choose a username"\n'
+            '            Input "password" placeholder "Choose a password"\n'
+            '        End\n'
+            '        SubHeading "Login"\n'
+            '        Form action "/api/login"\n'
+            '            Input "username" placeholder "Your username"\n'
+            '            Input "password" placeholder "Your password"\n'
+            '        End\n'
+            '        Link "Health API" to "/api/health"\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/health" responds with\n'
+            f'    Send json Map with status = "ok" and app = "{name}"\n'
+            'End\n\n'
+            'Route "/api/register" responds with\n'
+            '    Create username equal to request_data.get("username")\n'
+            '    Create password equal to request_data.get("password")\n'
+            '    Create response equal to Map with ok = False and error = "Username and password are required"\n'
+            '    If username != nothing And password != nothing Then\n'
+            '        If username != "" And password != "" Then\n'
+            '            Try\n'
+            '                Create password_hash equal to auth_hash_password(password)\n'
+            '                Call execute_params(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, password_hash])\n'
+            '                Create response equal to Map with ok = True and user = username and token = auth_generate_token(32)\n'
+            '            Catch error\n'
+            '                Create response equal to Map with ok = False and error = "Username already exists"\n'
+            '            End\n'
+            '        End\n'
+            '    End\n'
+            '    Send json response\n'
+            'End\n\n'
+            'Route "/api/login" responds with\n'
+            '    Create username equal to request_data.get("username")\n'
+            '    Create password equal to request_data.get("password")\n'
+            '    Create account equal to query_one_params(db, "SELECT username, password_hash FROM users WHERE username = ?", [username])\n'
+            '    Create response equal to Map with ok = False and error = "Invalid credentials"\n'
+            '    If account != nothing And auth_verify_password(password, account.password_hash) Then\n'
+            '        Create response equal to Map with ok = True and user = account.username and token = auth_generate_token(32)\n'
+            '    End\n'
+            '    Send json response\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_auth_template_smoke\n'
+            '    expect_true(True, "starter auth test")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            [
+                "epl install",
+                "epl serve",
+                "epl test tests/",
+            ],
+            "Auth/API starter using the native WebApp DSL, request context bindings, and the supported `epl-db` package.",
+        )
+    elif template == 'chatbot':
+        description = f"{name} — EPL chatbot starter"
+        scripts["serve"] = "epl serve src/main.epl"
+        main_source = (
+            f'Note: {name} chatbot template\n'
+            'Use python "epl.ai" as ai\n\n'
+            'Create WebApp called chatApp\n\n'
+            'Route "/" shows\n'
+            '    Page "Chatbot Starter"\n'
+            '        Heading "Chatbot starter in EPL"\n'
+            '        Text "Submit a message to the chat API. If the AI backend is unavailable, the starter returns a clear fallback response."\n'
+            '        Form action "/api/chat"\n'
+            '            Input "message" placeholder "Ask a question"\n'
+            '        End\n'
+            '        Link "Health API" to "/api/health"\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/health" responds with\n'
+            f'    Send json Map with status = "ok" and bot = "{name}"\n'
+            'End\n\n'
+            'Route "/api/chat" responds with\n'
+            '    Create message equal to request_data.get("message")\n'
+            '    Create reply equal to Map with ok = False and mode = "starter" and reply = "Message is required"\n'
+            '    If message != nothing And message != "" Then\n'
+            '        Try\n'
+            '            Create messages equal to [Map with role = "system" and content = "You are a helpful EPL assistant.", Map with role = "user" and content = message]\n'
+            '            Create answer equal to ai.chat(messages)\n'
+            '            Create reply equal to Map with ok = True and mode = "ai" and reply = answer\n'
+            '        Catch error\n'
+            '            Create fallback equal to "AI backend unavailable. Start Ollama with `ollama serve` or run `epl cloud --setup`."\n'
+            '            Create reply equal to Map with ok = False and mode = "fallback" and reply = fallback and detail = to_text(error)\n'
+            '        End\n'
+            '    End\n'
+            '    Send json reply\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_chatbot_template_smoke\n'
+            '    expect_true(True, "starter chatbot test")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            [
+                "epl install",
+                "epl serve",
+                "epl test tests/",
+            ],
+            "Chatbot starter using EPL's web runtime plus the built-in AI bridge, with a graceful fallback when no model backend is configured.",
         )
     elif template == 'android':
         description = f"{name} — EPL Android app"
@@ -691,61 +887,66 @@ def _project_template(name, template):
             ],
             "Starter Android app. Generates a Kotlin/Jetpack Compose project and builds an APK.",
         )
+    elif template == 'ios':
+        description = f"{name} — EPL iOS app"
+        bundle_slug = name.lower().replace('_', '-')
+        scripts["ios"] = f'epl ios src/main.epl --name "{name}" --bundle-id "com.epl.{bundle_slug}"'
+        main_source = (
+            f'Note: {name} — iOS app template\n'
+            f'Note: Generate a SwiftUI project with: epl ios src/main.epl --name "{name}" --bundle-id "com.epl.{bundle_slug}"\n\n'
+            f'Say "{name} iOS App"\n\n'
+            'Define Function greeting Takes username\n'
+            f'    Return "Hello, " + username + " from {name}!"\n'
+            'End\n\n'
+            'Say greeting("World")\n'
+        )
+        test_source = (
+            f'Note: Tests for {name}\n\n'
+            'Assert 1 + 1 == 2\n'
+            'Assert length("hello") == 5\n'
+            'Say "All tests passed!"\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            [
+                "epl run",
+                f'epl ios src/main.epl --name "{name}" --bundle-id "com.epl.{bundle_slug}"',
+                "epl test tests/",
+            ],
+            "Starter iOS app. Generates a SwiftUI/Xcode project from EPL source.",
+        )
     elif template == 'fullstack':
         description = f"{name} — EPL full-stack web app"
-        dependencies = {"epl-web": f"^{__version__}", "epl-db": f"^{__version__}"}
+        dependencies = {"epl-db": f"^{__version__}"}
         scripts["serve"] = "epl serve src/main.epl"
         main_source = (
             f'Note: {name} — Full-stack web app with database\n\n'
-            f'Create app called "{name}"\n\n'
-            'Note: ── Database setup ──\n'
-            'Set db to db_open("' + name + '.db")\n'
-            'Call db_create_table(db, "users", Map with '
-            'id = "INTEGER PRIMARY KEY AUTOINCREMENT" '
-            'and name = "TEXT NOT NULL" '
-            'and email = "TEXT UNIQUE" '
-            'and created_at = "TEXT DEFAULT CURRENT_TIMESTAMP")\n\n'
-            'Note: ── Home page ──\n'
-            'Page "/" renders\n'
-            f'    Title "{name}"\n'
-            f'    Heading "{name}"\n'
-            '    Paragraph "A full-stack EPL web application."\n'
-            '    Link "/users" shows "View Users"\n'
-            'End\n\n'
-            'Note: ── Users page ──\n'
-            'Page "/users" renders\n'
-            '    Title "Users"\n'
-            '    Heading "User List"\n'
-            '    Set users to db_query(db, "SELECT * FROM users")\n'
-            '    For Each user in users\n'
-            '        Paragraph get(user, "name") + " — " + get(user, "email")\n'
+            'Import "epl-db"\n\n'
+            'Create db equal to open(":memory:")\n'
+            'Call create_table(db, "notes", Map with id = "INTEGER" and title = "TEXT")\n'
+            'Call execute(db, "INSERT INTO notes (id, title) VALUES (1, \'Welcome to EPL\')")\n'
+            'Call execute(db, "INSERT INTO notes (id, title) VALUES (2, \'Build your next fullstack app\')")\n\n'
+            'Create WebApp called fullstackApp\n\n'
+            'Route "/" shows\n'
+            f'    Page "{name}"\n'
+            f'        Heading "{name}"\n'
+            '        Text "Server-rendered page with API routes."\n'
+            '        Link "Login API" to "/api/login"\n'
+            '        Link "Notes API" to "/api/notes"\n'
             '    End\n'
-            '    Link "/" shows "Back to home"\n'
             'End\n\n'
-            'Note: ── API endpoints ──\n'
-            'API GET "/api/users" responds with\n'
-            '    Set users to db_query(db, "SELECT * FROM users")\n'
-            '    Return Map with success = True and data = users\n'
+            'Route "/api/login" responds with\n'
+            '    Send json Map with user = "demo" and token = "starter-session"\n'
             'End\n\n'
-            'API POST "/api/users" responds with\n'
-            '    Set body to request_body()\n'
-            '    Call db_execute(db, "INSERT INTO users (name, email) VALUES (?, ?)", '
-            'List with get(body, "name") and get(body, "email"))\n'
-            '    Return Map with success = True and message = "User created"\n'
-            'End\n\n'
-            'API GET "/api/health" responds with\n'
-            '    Set count to db_query_one(db, "SELECT COUNT(*) as total FROM users")\n'
-            '    Return Map with status = "ok" and total_users = get(count, "total")\n'
-            'End\n\n'
-            'Note: ── Start ──\n'
-            'Start app on port 8000\n'
+            'Route "/api/notes" responds with\n'
+            '    Send json Map with notes = query(db, "SELECT id, title FROM notes ORDER BY id")\n'
+            'End\n'
         )
         test_source = (
-            'Import "epl-test"\n\n'
-            'Call test("fullstack template smoke", Function()\n'
-            '    Call expect_true(True, "starter fullstack test")\n'
-            'End)\n\n'
-            'Call test_summary()\n'
+            'Define Function test_fullstack_template_smoke\n'
+            '    expect_true(True, "starter fullstack test")\n'
+            'End\n'
         )
         readme_body = _template_readme(
             name,
@@ -755,7 +956,7 @@ def _project_template(name, template):
                 "epl serve",
                 "epl run",
             ],
-            "Full-stack web app with pages, REST API, SQLite database, and user management.",
+            "Full-stack web app with native routes, a server-rendered page, and SQLite-backed APIs.",
         )
     else:
         main_source = (
@@ -863,8 +1064,9 @@ def _build(args, flags, command='build'):
         return 1
 
     try:
-        main_mod = _resolve_main_module()
-        return 0 if main_mod.compile_file(filename, opt_level=opt_level, static=static_link, target=target) else 1
+        from epl.runtime_support import compile_file
+
+        return 0 if compile_file(filename, opt_level=opt_level, static=static_link, target=target) else 1
     except FileNotFoundError:
         print(f"{_red('Error:')} File not found: {filename}")
         return 1
@@ -923,8 +1125,9 @@ def _run_tests(args, flags):
 
 def _run_repl(flags):
     try:
-        main_mod = _resolve_main_module()
-        main_mod.run_repl()
+        from epl.runtime_support import run_repl
+
+        run_repl()
         return 0
     except Exception as exc:
         print(f"{_red('Error:')} {exc}", file=sys.stderr)
@@ -1364,7 +1567,21 @@ def _read_epl_source(filepath):
     if not os.path.isfile(filepath):
         raise FileNotFoundError(filepath)
     with open(filepath, 'r', encoding='utf-8') as handle:
-        return handle.read()
+        raw = handle.read()
+    # Normalize # comments to Note: so the lexer handles them uniformly.
+    # (The interpreter path already strips # lines; this makes the
+    # transpiler/generator commands — ios, android, wasm, build — consistent.)
+    lines = []
+    for line in raw.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith('#'):
+            # Replace entire line with a Note: comment so the parser sees a valid token
+            indent = line[:len(line) - len(stripped)]
+            comment_text = stripped[1:].strip()
+            lines.append(f"{indent}Note: {comment_text}" if comment_text else f"{indent}Note: .")
+        else:
+            lines.append(line)
+    return '\n'.join(lines)
 
 
 def _parse_epl_program(source, filepath):
@@ -1431,7 +1648,7 @@ def _load_epl_web_app(filepath):
     if app is None:
         app = _find_web_app(interpreter.global_env)
     if app is None:
-        raise RuntimeError("No web app found in EPL file. Use 'Create App ...' or the epl-web facade package.")
+        raise RuntimeError("No web app found in EPL file. Use 'Create WebApp called ...' or import a package that creates one.")
     return app, interpreter
 
 
@@ -2071,6 +2288,68 @@ def _android(args):
             print(f"    1. Open in Android Studio: {output_dir}/")
             print(f"    2. Or build from CLI:  epl android {filename} --build")
             print(f"    3. The APK will be at: {output_dir}/app/build/outputs/apk/")
+        return 0
+    except FileNotFoundError:
+        print(f"{_red('Error:')} File not found: {filename}")
+        return 1
+    except Exception as exc:
+        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        return 1
+
+
+def _ios(args):
+    args = _resolve_target_args(args)
+    if not args:
+        print(f"{_red('Error:')} No file specified.")
+        return 1
+
+    filename = args[0]
+    app_name = None
+    bundle_id = "com.epl.app"
+    team_id = None
+
+    i = 1
+    while i < len(args):
+        arg = args[i]
+        if arg == '--name' and i + 1 < len(args):
+            app_name = args[i + 1]
+            i += 2
+            continue
+        if arg == '--bundle-id' and i + 1 < len(args):
+            bundle_id = args[i + 1]
+            i += 2
+            continue
+        if arg == '--team-id' and i + 1 < len(args):
+            team_id = args[i + 1]
+            i += 2
+            continue
+        print(f"{_red('Error:')} Unknown ios option: {arg}")
+        return 1
+
+    try:
+        from epl.ios_gen import generate_ios_project
+
+        _, program = _load_epl_program(filename)
+        base = os.path.splitext(os.path.basename(filename))[0]
+        output_dir = f'{base}_ios'
+        resolved_name = app_name or base.replace('_', ' ').title()
+        generate_ios_project(
+            program,
+            output_dir,
+            app_name=resolved_name,
+            bundle_id=bundle_id,
+            team_id=team_id,
+        )
+
+        print(f"\n  {_green('✓')} iOS project generated: {_bold(output_dir)}/")
+        print(f"  App name: {resolved_name}")
+        print(f"  Bundle ID: {bundle_id}")
+        if team_id:
+            print(f"  Team ID: {team_id}")
+        print(f"\n  {_dim('Next steps:')}")
+        print(f"    1. Open in Xcode: {output_dir}/")
+        print(f"    2. Or build package: xcodebuild -project {output_dir}/{resolved_name}.xcodeproj")
+        print(f"    3. Review README: {output_dir}/README.md")
         return 0
     except FileNotFoundError:
         print(f"{_red('Error:')} File not found: {filename}")
@@ -2733,15 +3012,122 @@ def _start_lsp(args):
 
 
 def _ai(args):
-    return _legacy_dispatch(['ai'] + args)
+    try:
+        from epl.ai import (
+            Conversation,
+            EPL_MODEL_NAME,
+            _use_cloud,
+            code_assist,
+            ensure_epl_model,
+            get_cloud_status,
+            is_available,
+        )
+
+        using_cloud = _use_cloud()
+        if not using_cloud:
+            if not is_available():
+                print("  Ollama is not running. Start it with: ollama serve")
+                print("  Or use cloud AI: epl cloud --setup")
+                return 1
+            ensure_epl_model(verbose=False)
+
+        if args:
+            print(code_assist(' '.join(args)))
+            return 0
+
+        if using_cloud:
+            status = get_cloud_status()
+            provider = status.get('provider', 'cloud').title()
+            model = status.get('model', 'auto')
+            print(f"  EPL AI Assistant [cloud: {provider} / {model}]")
+            print("  Tip: 'epl cloud --off' to switch to local Ollama.")
+        else:
+            model_name = EPL_MODEL_NAME if is_available() else 'default'
+            print(f"  EPL AI Assistant [local: {model_name}]")
+            print("  Tip: 'epl cloud --setup' for cloud AI.")
+
+        print("  Type your questions or 'quit' to exit.\n")
+        conversation = Conversation(system="You are EPL-Coder, an expert EPL programming assistant.")
+        while True:
+            try:
+                prompt = input("AI> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\nGoodbye!")
+                break
+            if prompt.lower() in ('quit', 'exit', 'q'):
+                break
+            if prompt:
+                print(conversation.say(prompt))
+                print()
+        return 0
+    except Exception as exc:
+        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        return 1
 
 
 def _ai_gen(args):
-    return _legacy_dispatch(['gen'] + args)
+    try:
+        from epl.ai import ensure_epl_model, generate_epl_code, is_available
+
+        if not args:
+            print("Usage: epl gen <description>", file=sys.stderr)
+            print('Example: epl gen "sort a list of numbers"', file=sys.stderr)
+            return 1
+
+        if not is_available():
+            print("  Ollama is not running. Start it with: ollama serve")
+            return 1
+
+        ensure_epl_model(verbose=False)
+        description = ' '.join(args)
+        safe_name = description[:30].replace(' ', '_').replace('"', '').replace("'", '')
+        safe_name = ''.join(char for char in safe_name if char.isalnum() or char == '_')
+        filename = f"{safe_name}.epl"
+
+        print(f'\n  Generating EPL code: "{description}"')
+        print("  " + "\u2500" * 44)
+        code, full_response = generate_epl_code(description, filename=filename)
+
+        if code:
+            print(f"\n{full_response}")
+            print(f"\n  " + "\u2500" * 44)
+            print(f"  Saved to: {filename}")
+            print(f"  Run it:   epl run {filename}")
+            return 0
+
+        print("  Could not generate code. Try a more specific description.")
+        return 1
+    except Exception as exc:
+        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        return 1
 
 
 def _ai_explain(args):
-    return _legacy_dispatch(['explain'] + args)
+    try:
+        from epl.ai import ensure_epl_model, explain_code, is_available
+
+        if len(args) != 1:
+            print("Usage: epl explain <file.epl>", file=sys.stderr)
+            return 1
+
+        if not is_available():
+            print("  Ollama is not running. Start it with: ollama serve")
+            return 1
+
+        filepath = args[0]
+        source = _read_epl_source(filepath)
+        ensure_epl_model(verbose=False)
+
+        print(f"\n  Analyzing: {filepath}")
+        print("  " + "\u2500" * 44)
+        print(f"\n{explain_code(source)}")
+        return 0
+    except FileNotFoundError:
+        print(f"{_red('Error:')} File not found: {args[0] if args else ''}", file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        return 1
 
 
 def _package(args):
@@ -2780,16 +3166,294 @@ def _package(args):
         return 1
 
 
-def _cloud():
-    return _legacy_dispatch(['cloud'])
+def _mask_key(key):
+    if len(key) <= 12:
+        return key[:4] + "..." if len(key) > 4 else key
+    return key[:8] + '...' + key[-4:]
 
 
-def _train():
-    return _legacy_dispatch(['train'])
+def _cloud(args):
+    try:
+        import epl.ai as ai
+
+        if not args or '--help' in args or '-h' in args:
+            status = ai.get_cloud_status()
+            print("\n  ╔══════════════════════════════════════╗")
+            print("  ║     Cloud AI Configuration          ║")
+            print("  ╚══════════════════════════════════════╝")
+            if status.get('active'):
+                print(f"\n  ✓ Active: {status['provider'].title()} ({status['model']})")
+                print(f"  Key:     {status['key_masked']}")
+            else:
+                print("\n  Status: Not configured (using local Ollama)")
+            print("\n  Providers:")
+            print("  Gemini  — Google, free, works globally   https://aistudio.google.com/apikey")
+            print("  Groq    — Fast, free (may be region-locked) https://console.groq.com/keys")
+            print("\n  Commands:")
+            print("  epl cloud --setup             Interactive setup")
+            print("  epl cloud --gemini <key>      Set Google Gemini key")
+            print("  epl cloud --groq <key>        Set Groq API key")
+            print("  epl cloud --model <model>     Change cloud model")
+            print("  epl cloud --models            List available models")
+            print("  epl cloud --status            Show current config")
+            print("  epl cloud --off               Disable cloud, use Ollama")
+            return 0
+
+        if '--off' in args:
+            ai.clear_cloud()
+            print("  Cloud AI disabled. Using local Ollama.")
+            return 0
+
+        if '--status' in args:
+            status = ai.get_cloud_status()
+            if status.get('active'):
+                print(f"\n  Provider: {status['provider'].title()}")
+                print(f"  Model:    {status['model']}")
+                print(f"  Key:      {status['key_masked']}")
+                print("  Status:   ✓ Active")
+            else:
+                print("\n  Cloud AI not configured.")
+                print("  Run: epl cloud --setup")
+            return 0
+
+        if '--models' in args:
+            print("\n  Available Gemini Models (free, recommended):")
+            print("  " + "-" * 60)
+            for name, desc in ai.GEMINI_MODELS:
+                print(f"  {name:<30} {desc}")
+            print("\n  Available Groq Models (free, may be region-locked):")
+            print("  " + "-" * 60)
+            for name, desc in ai.GROQ_MODELS:
+                print(f"  {name:<30} {desc}")
+            return 0
+
+        if '--gemini' in args or '--groq' in args or '--key' in args:
+            if '--gemini' in args:
+                provider_flag = '--gemini'
+                provider = 'gemini'
+            elif '--groq' in args:
+                provider_flag = '--groq'
+                provider = 'groq'
+            else:
+                provider_flag = '--key'
+                idx = args.index('--key')
+                if idx + 1 >= len(args):
+                    print("  Usage: epl cloud --gemini <key>  or  --groq <key>")
+                    return 1
+                key = args[idx + 1]
+                provider = 'groq' if key.startswith('gsk_') else 'gemini'
+
+            if provider_flag != '--key':
+                idx = args.index(provider_flag)
+                if idx + 1 >= len(args):
+                    print(f"  Usage: epl cloud {provider_flag} <your_api_key>")
+                    return 1
+                key = args[idx + 1]
+
+            model = None
+            if '--model' in args:
+                midx = args.index('--model')
+                if midx + 1 >= len(args):
+                    print("  Usage: epl cloud --model <model_name>")
+                    return 1
+                model = args[midx + 1]
+            ai.configure_cloud(provider, key, model)
+            print(f"\n  ✓ {provider.title()} configured!")
+            print(f"  Key:   {_mask_key(key)}")
+            if model:
+                print(f"  Model: {model}")
+            print('\n  Test it: epl ai "Write hello world in EPL"')
+            return 0
+
+        if '--model' in args:
+            idx = args.index('--model')
+            if idx + 1 >= len(args):
+                print("  Usage: epl cloud --model <model_name>")
+                return 1
+            status = ai.get_cloud_status()
+            if not status.get('active'):
+                print("  No cloud provider configured. Run: epl cloud --setup")
+                return 1
+            model = args[idx + 1]
+            ai.configure_cloud(ai.CLOUD_PROVIDER, ai.CLOUD_API_KEY, model)
+            print(f"  ✓ Cloud model changed to: {model}")
+            return 0
+
+        if '--setup' in args:
+            print("\n  Cloud AI Setup")
+            print("  " + "-" * 50)
+            print("  Choose a provider:\n")
+            print("  [1] Google Gemini  — Free, fast, works globally (recommended)")
+            print("  [2] Groq           — Free, very fast (may be region-locked)\n")
+            try:
+                choice = input("  Provider (1/2): ").strip()
+                provider = 'groq' if choice == '2' else 'gemini'
+                if provider == 'groq':
+                    print("\n  Get a free Groq key: https://console.groq.com/keys")
+                else:
+                    print("\n  Get a free Gemini key: https://aistudio.google.com/apikey")
+                key = input("  API Key: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print("\n  Cancelled.")
+                return 1
+            if not key:
+                print("  No key provided. Cancelled.")
+                return 1
+            ai.configure_cloud(provider, key)
+            print(f"\n  ✓ {provider.title()} configured! Key: {_mask_key(key)}")
+            print('  Test it: epl ai "Write hello world in EPL"')
+            return 0
+
+        key = args[0]
+        if key.startswith('gsk_') or key.startswith('AIza') or len(key) > 20:
+            provider = 'groq' if key.startswith('gsk_') else 'gemini'
+            ai.configure_cloud(provider, key)
+            print(f"\n  ✓ {provider.title()} configured!")
+            print(f"  Key:   {_mask_key(key)}")
+            print('\n  Test it: epl ai "Write hello world in EPL"')
+            return 0
+
+        print(f"  Unknown option: {key}")
+        print("  Run: epl cloud --help")
+        return 1
+    except Exception as exc:
+        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        return 1
 
 
-def _model():
-    return _legacy_dispatch(['model'])
+def _train(args):
+    try:
+        from epl.ai import (
+            EPL_MODEL_NAME,
+            create_epl_model,
+            delete_epl_model,
+            is_available,
+            list_base_models,
+            model_exists,
+        )
+
+        for arg in args:
+            if arg in ('--help', '-h'):
+                print("\n  EPL Model Training")
+                print("  " + "-" * 40)
+                print("  epl train                Create EPL-Coder model")
+                print("  epl train --base <model> Use specific base model")
+                print("  epl train --force        Recreate even if exists")
+                print("  epl train --delete       Remove EPL-Coder model")
+                print("  epl train --list         Show base model options")
+                return 0
+            if arg in ('--list', '--models'):
+                print("\n  Recommended base models for EPL:")
+                print("  " + "-" * 55)
+                for name, size, desc in list_base_models():
+                    print(f"  {name:<20} {size:<10} {desc}")
+                print("\n  Usage: epl train --base <model>")
+                return 0
+
+        if '--delete' in args:
+            if not is_available():
+                print("\n  Ollama is not running. Start it with: ollama serve")
+                print("  Install from: https://ollama.com")
+                return 1
+            delete_epl_model()
+            return 0
+
+        if not is_available():
+            print("\n  Ollama is not running. Start it with: ollama serve")
+            print("  Install from: https://ollama.com")
+            return 1
+
+        base_model = None
+        if '--base' in args:
+            idx = args.index('--base')
+            if idx + 1 >= len(args):
+                print("  Usage: epl train --base <model>")
+                return 1
+            base_model = args[idx + 1]
+        force = '--force' in args
+
+        if model_exists() and not force:
+            print(f"\n  EPL model '{EPL_MODEL_NAME}' already exists!")
+            print("  Use --force to recreate, or --delete to remove.")
+            print("  Or just run: epl ai")
+            return 0
+
+        print()
+        print("  ╔══════════════════════════════════════╗")
+        print("  ║     EPL-Coder Model Training         ║")
+        print("  ╚══════════════════════════════════════╝")
+        print()
+
+        if model_exists() and force:
+            print("  Removing existing model...")
+            delete_epl_model(verbose=False)
+
+        ok = create_epl_model(base_model=base_model)
+        return 0 if ok else 1
+    except Exception as exc:
+        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        return 1
+
+
+def _model(args):
+    try:
+        from epl.ai import EPL_MODEL_NAME, get_model_info, is_available, list_base_models, list_models, model_exists
+
+        sub = args[0] if args else 'list'
+
+        if sub == 'bases':
+            print("\n  Recommended Base Models:")
+            print("  " + "-" * 55)
+            for name, size, desc in list_base_models():
+                print(f"  {name:<20} {size:<10} {desc}")
+            return 0
+
+        if sub in ('--help', '-h', 'help'):
+            print("\n  Model Management:")
+            print("  epl model list     List installed models")
+            print("  epl model info     Show EPL model details")
+            print("  epl model bases    Show base model options")
+            return 0
+
+        if not is_available():
+            print("\n  Ollama is not running.")
+            return 1
+
+        if sub == 'list':
+            models = list_models()
+            epl_exists = model_exists()
+            print("\n  Installed Ollama Models:")
+            print("  " + "-" * 40)
+            if not models:
+                print("  (none)")
+            for model in models:
+                tag = " ← EPL-Coder" if EPL_MODEL_NAME in model else ""
+                print(f"  {model}{tag}")
+            print()
+            if not epl_exists:
+                print("  EPL model not installed. Run: epl train")
+            return 0
+
+        if sub == 'info':
+            info = get_model_info()
+            if info:
+                params = info.get('details', {}).get('parameter_size', 'N/A')
+                family = info.get('details', {}).get('family', 'N/A')
+                fmt = info.get('details', {}).get('format', 'N/A')
+                print(f"\n  Model: {EPL_MODEL_NAME}")
+                print(f"  Family: {family}")
+                print(f"  Parameters: {params}")
+                print(f"  Format: {fmt}")
+                return 0
+            print(f"  Model '{EPL_MODEL_NAME}' not found. Run: epl train")
+            return 1
+
+        print(f"\n  Unknown subcommand: {sub}")
+        print("  Try: epl model --help")
+        return 1
+    except Exception as exc:
+        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        return 1
 
 
 # ─── Phase 7 Commands ────────────────────────────────────

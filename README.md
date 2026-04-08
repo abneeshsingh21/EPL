@@ -28,44 +28,51 @@ pip install eplang
 ## ✨ What does EPL look like?
 
 ```epl
--- Hello World
+Note: Hello World
 Say "Hello, World!"
 
--- Variables
-Set name to "Abneesh"
-Set age to 20
+Note: Variables
+Create name equal to "Abneesh"
+Create age equal to 20
 
--- Conditionals
+Note: Conditionals
 If age is greater than 18 then
     Say "Welcome, " + name
 Otherwise
     Say "Access denied"
-End If
+End
 
--- Functions
-Define greet taking person
+Note: Functions
+Define Function greet Takes person
     Return "Hello, " + person + "!"
-End Function
+End
 
 Say greet("World")
 
--- Loops
+Note: Loops
 Repeat 5 times
     Say "EPL is awesome!"
-End Repeat
+End
 
--- Lists
-Set fruits to ["apple", "banana", "mango"]
+Note: Lists
+Create fruits equal to ["apple", "banana", "mango"]
 For Each fruit in fruits
     Say fruit
-End For
+End
 
--- Web Server
-Start server on port 8080
-    Route GET "/"
-        Send "Welcome to EPL!"
-    End Route
-End Server
+Note: Web Server
+Create WebApp called app
+
+Route "/" shows
+    Page "Welcome"
+        Heading "Welcome to EPL"
+        Text "This page is served by the native EPL web runtime."
+    End
+End
+
+Route "/api/health" responds with
+    Send json Map with status = "ok"
+End
 ```
 
 **No semicolons. No curly braces. No cryptic symbols. Just English.**
@@ -97,7 +104,11 @@ epl repl
 
 ```bash
 epl new myapp --template web
-epl serve myapp/main.epl
+epl new authapp --template auth
+epl new botapp --template chatbot
+epl new studio --template frontend
+cd myapp
+epl serve
 ```
 
 ---
@@ -122,43 +133,41 @@ epl serve myapp/main.epl
 
 ### 🌐 Web Applications
 ```epl
-Start server on port 3000
-    Route GET "/api/users"
-        Set users to Fetch all from "users"
-        Send JSON users
-    End Route
+Create WebApp called apiApp
 
-    Route POST "/api/users"
-        Store request body in "users"
-        Send "Created!" with status 201
-    End Route
-End Server
+Route "/api/users" responds with
+    Create users equal to ["Alice", "Bob"]
+    Send json Map with users = users and count = length(users)
+End
 ```
 
 ### 🤖 AI & Machine Learning
 ```epl
-Import "ai"
-Set model to AI load "gpt-3.5-turbo"
-Set response to AI ask model "Explain quantum computing in simple terms"
+Use python "epl.ai" as ai
+
+Create messages equal to [Map with role = "user" and content = "Explain quantum computing simply"]
+Create response equal to ai.chat(messages)
 Say response
 ```
 
 ### 🗄️ Database Apps
 ```epl
-Import "database"
-Connect to database "myapp.db"
+Import "epl-db"
 
-Define save_user taking name, email
-    Store name, email in "users"
-    Return "User saved!"
-End Function
-
-Set result to Fetch from "users" where "email = 'test@example.com'"
+Create db equal to open("myapp.db")
+Call create_table(db, "users", Map with name = "TEXT" and email = "TEXT")
+Call insert(db, "users", Map with name = "Ada" and email = "ada@example.com")
+Say query(db, "SELECT * FROM users")
 ```
 
 ### 📱 Android Apps (Kotlin transpile)
 ```bash
 epl android myapp/main.epl   # Generates full Android Studio project
+```
+
+### 🍎 iOS Apps (SwiftUI project generation)
+```bash
+epl ios myapp/main.epl       # Generates Xcode / SwiftUI project
 ```
 
 ### 🖥️ Desktop Apps
@@ -187,6 +196,7 @@ epl check [file]          # Static type checking
 epl fmt <file>            # Format source code
 epl lint [file]           # Lint source code
 epl android <file.epl>    # Generate Android project
+epl ios <file.epl>        # Generate iOS project
 epl desktop <file.epl>    # Generate desktop app
 epl install <package>     # Install a package
 epl upgrade               # Update EPL

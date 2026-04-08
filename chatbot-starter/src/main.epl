@@ -1,0 +1,35 @@
+Note: chatbot-starter chatbot template
+Use python "epl.ai" as ai
+
+Create WebApp called chatApp
+
+Route "/" shows
+    Page "Chatbot Starter"
+        Heading "Chatbot starter in EPL"
+        Text "Submit a message to the chat API. If the AI backend is unavailable, the starter returns a clear fallback response."
+        Form action "/api/chat"
+            Input "message" placeholder "Ask a question"
+        End
+        Link "Health API" to "/api/health"
+    End
+End
+
+Route "/api/health" responds with
+    Send json Map with status = "ok" and bot = "chatbot-starter"
+End
+
+Route "/api/chat" responds with
+    Create message equal to request_data.get("message")
+    Create reply equal to Map with ok = False and mode = "starter" and reply = "Message is required"
+    If message != nothing And message != "" Then
+        Try
+            Create messages equal to [Map with role = "system" and content = "You are a helpful EPL assistant.", Map with role = "user" and content = message]
+            Create answer equal to ai.chat(messages)
+            Create reply equal to Map with ok = True and mode = "ai" and reply = answer
+        Catch error
+            Create fallback equal to "AI backend unavailable. Start Ollama with `ollama serve` or run `epl cloud --setup`."
+            Create reply equal to Map with ok = False and mode = "fallback" and reply = fallback and detail = to_text(error)
+        End
+    End
+    Send json reply
+End

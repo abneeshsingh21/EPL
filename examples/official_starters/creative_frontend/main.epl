@@ -1,0 +1,89 @@
+# EPL Official Starter: Creative Frontend
+# A server-rendered multi-page UI showcasing EPL's native
+# web DSL with dynamic routing, loops, and page generation.
+#
+# Run:  epl serve examples/official_starters/creative_frontend/main.epl
+# Open: http://localhost:8082
+
+Set features To [
+    Map with title = "English Syntax"    and desc = "No semicolons. No curly braces. Just English.",
+    Map with title = "Web Framework"     and desc = "Built-in HTTP server, routing, and HTML rendering.",
+    Map with title = "Database ORM"      and desc = "Store, Fetch, Delete in plain English.",
+    Map with title = "AI Integration"    and desc = "epl.ai connects to Ollama and OpenAI.",
+    Map with title = "Native Compiler"   and desc = "Compile to native executables via LLVM.",
+    Map with title = "Mobile Support"    and desc = "Generate Android and iOS apps from EPL source."
+]
+
+Define Function build_feature_cards takes items
+    Set html To ""
+    For Each f In items
+        Set html To html + "<div style='margin:1rem 0;padding:1rem;background:#1e293b;border-radius:8px;'>
+<strong>" + f.title + "</strong><br>" + f.desc + "</div>"
+    End
+    Return html
+End Function
+
+Create web app as app
+
+When app gets "/"
+    Set cards To build_feature_cards(features)
+    Send html "<!DOCTYPE html><html><head>
+<title>EPL — English Programming Language</title>
+<style>body{font-family:system-ui;background:#0f172a;color:#e2e8f0;max-width:700px;margin:auto;padding:2rem}
+h1{font-size:2rem;background:linear-gradient(135deg,#60a5fa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+a{color:#60a5fa}</style>
+</head><body>
+<h1>Write code in plain English.</h1>
+<p>EPL is a production-ready programming language where every keyword reads like natural language.</p>
+<h2>Why EPL?</h2>" + cards + "
+<h2>Get Started</h2>
+<pre style='background:#1e293b;padding:1rem;border-radius:8px;'>pip install eplang
+echo 'Say &quot;Hello, World!&quot;' > hello.epl
+epl hello.epl</pre>
+<p><a href='/examples'>View Code Examples</a> &nbsp;|&nbsp;
+<a href='https://github.com/abneeshsingh21/EPL'>GitHub</a></p>
+</body></html>"
+End
+
+When app gets "/examples"
+    Send html "<!DOCTYPE html><html><head>
+<title>EPL Examples</title>
+<style>body{font-family:system-ui;background:#0f172a;color:#e2e8f0;max-width:700px;margin:auto;padding:2rem}
+pre{background:#1e293b;padding:1rem;border-radius:8px;overflow:auto}
+a{color:#60a5fa}</style>
+</head><body>
+<h1>EPL in Action</h1>
+<h2>Hello World</h2>
+<pre>Say &quot;Hello, World!&quot;</pre>
+<h2>Variables and Conditionals</h2>
+<pre>Set name To &quot;Abneesh&quot;
+Set age To 20
+If age is greater than 18 Then
+    Say &quot;Welcome, &quot; + name
+End</pre>
+<h2>Web Server</h2>
+<pre>Create web app as myApp
+When myApp gets &quot;/&quot;
+    Send html &quot;&lt;h1&gt;Hello from EPL!&lt;/h1&gt;&quot;
+End
+Start myApp on port 3000</pre>
+<h2>Database</h2>
+<pre>Set db To database_open(&quot;myapp.db&quot;)
+Run sql on db with &quot;CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT)&quot;
+Run sql on db with &quot;INSERT INTO users (name) VALUES (?)&quot; using [&quot;Abneesh&quot;]
+Set users To query db with &quot;SELECT * FROM users&quot;
+Say users</pre>
+<p><a href='/'>Back to Home</a> &nbsp;|&nbsp; <a href='/api/features'>Features JSON</a></p>
+</body></html>"
+End
+
+When app gets "/api/features"
+    Send json features
+End
+
+When app gets "/api/health"
+    Send json Map with status = "ok" and service = "epl-creative-frontend" and version = "1.0.0"
+End
+
+Say "Creative Frontend running at http://localhost:8082"
+Start app on port 8082

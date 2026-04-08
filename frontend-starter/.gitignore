@@ -1,0 +1,13 @@
+# EPL
+epl_modules/
+*.exe
+*.o
+build/
+dist/
+# Python
+__pycache__/
+*.pyc
+.venv/
+# IDE
+.vscode/
+.idea/

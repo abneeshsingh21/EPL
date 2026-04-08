@@ -27,7 +27,8 @@ Reference platform gates:
 - fullstack reference app passes `EPL_RUN_DOCKER_DEPLOY_TESTS=1 python -m pytest tests/test_reference_apps.py -q` through the generated Docker Compose deployment in the Docker CI environment
 - Android reference app passes `EPL_RUN_ANDROID_BUILD_TESTS=1 python -m pytest tests/test_reference_apps.py -q` with lint, unit tests, debug build, and release build in the Android SDK/JDK CI environment
 - desktop reference app passes `EPL_RUN_DESKTOP_BUILD_TESTS=1 python -m pytest tests/test_reference_apps.py -q` in the JDK CI environment
-- if deployed reference app URLs are configured, `.github/workflows/reference-app-monitor.yml` is green and `python scripts/monitor_reference_apps.py --backend-url <url> --fullstack-url <url>` succeeds
+- if deployed reference app URLs are configured, `.github/workflows/reference-app-monitor.yml` is green on its scheduled run, and `python scripts/monitor_reference_apps.py --backend-url <url> --fullstack-url <url>` succeeds locally
+- manual operational checks can use the workflow_dispatch inputs `backend_url` and `fullstack_url` without changing repo secrets
 
 ## Build and Install Gates
 

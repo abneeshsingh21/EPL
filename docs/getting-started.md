@@ -152,7 +152,8 @@ epl serve myapp.epl
 
 ```bash
 epl new myproject --template web
-epl serve myproject/main.epl
+cd myproject
+epl serve
 ```
 
 ---

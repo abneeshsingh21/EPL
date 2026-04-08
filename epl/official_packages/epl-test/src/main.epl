@@ -34,12 +34,38 @@ Define Function expect_false Takes value, message
     End
 End
 
+Define Function expect_nothing Takes value, message
+    If value != Nothing Then
+        Throw "Expected Nothing but got " + to_text(value) + ". " + message
+    End
+End
+
 Define Function expect_error Takes test_fn, message
     Try
         Call test_fn
         Throw "Expected an error but none was thrown. " + message
     Catch error
         Note: Error thrown as expected
+    End
+End
+
+Define Function expect_contains Takes haystack, needle, message
+    If Not haystack.contains(needle) Then
+        Throw "Expected to contain " + to_text(needle) + ". " + message
+    End
+End
+
+Define Function expect_length Takes collection, expected_len, message
+    Create actual_len equal to length(collection)
+    If actual_len != expected_len Then
+        Throw "Expected length " + to_text(expected_len) + " but got " + to_text(actual_len) + ". " + message
+    End
+End
+
+Define Function expect_type Takes value, expected_type, message
+    Create actual_type equal to type_of(value)
+    If actual_type != expected_type Then
+        Throw "Expected type " + expected_type + " but got " + actual_type + ". " + message
     End
 End
 

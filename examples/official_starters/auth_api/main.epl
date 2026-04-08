@@ -1,0 +1,91 @@
+# EPL Official Starter: Auth API
+# A production-ready authentication API with user registration,
+# login, token generation, and password hashing using epl-db.
+#
+# Run:  epl serve examples/official_starters/auth_api/main.epl
+# Test: curl http://localhost:8080/api/health
+
+Note: database setup
+Set db To database_open(":memory:")
+
+Run sql on db with "CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at    TEXT DEFAULT CURRENT_TIMESTAMP
+)"
+
+Note: helpers
+
+Define Function find_user takes username
+    Set rows To query db with "SELECT id, username, password_hash FROM users WHERE username = ?" using [username]
+    If length(rows) is greater than 0 Then
+        Return rows[0]
+    End
+    Return nothing
+End Function
+
+Define Function register_user takes username, password
+    If username equal to "" Or password equal to "" Then
+        Return Map with ok = False and error = "Username and password are required"
+    End If
+    If length(username) is less than 3 Then
+        Return Map with ok = False and error = "Username must be at least 3 characters"
+    End If
+    If length(password) is less than 6 Then
+        Return Map with ok = False and error = "Password must be at least 6 characters"
+    End If
+    Try
+        Set hashed To auth_hash_password(password)
+        Run sql on db with "INSERT INTO users (username, password_hash) VALUES (?, ?)" using [username, hashed]
+        Set token To auth_generate_token(48)
+        Return Map with ok = True and user = username and token = token
+    Catch err
+        Return Map with ok = False and error = "Username already exists"
+    End
+End Function
+
+Define Function login_user takes username, password
+    Set account To find_user(username)
+    If account is equal to nothing Then
+        Return Map with ok = False and error = "Invalid credentials"
+    End If
+    If auth_verify_password(password, account[2]) Then
+        Set token To auth_generate_token(48)
+        Return Map with ok = True and user = account[1] and token = token
+    End If
+    Return Map with ok = False and error = "Invalid credentials"
+End Function
+
+Note: web app
+Create web app as app
+
+When app gets "/"
+    Send html "<!DOCTYPE html><html><head><title>EPL Auth API</title></head><body>
+<h1>EPL Auth API</h1>
+<p>POST /api/register — register (JSON: username, password)</p>
+<p>POST /api/login    — login and receive token</p>
+<p>GET  /api/health   — health check</p>
+</body></html>"
+End
+
+When app gets "/api/health"
+    Send json Map with status = "ok" and service = "epl-auth-api" and version = "1.0.0"
+End
+
+When app receives post at "/api/register"
+    Set username To request body "username"
+    Set password To request body "password"
+    Set res To register_user(username, password)
+    Send json res
+End
+
+When app receives post at "/api/login"
+    Set username To request body "username"
+    Set password To request body "password"
+    Set res To login_user(username, password)
+    Send json res
+End
+
+Say "Auth API running at http://localhost:8080"
+Start app on port 8080

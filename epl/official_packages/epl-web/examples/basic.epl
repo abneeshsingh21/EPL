@@ -2,9 +2,7 @@ Import "epl-web"
 
 Create app equal to create_app("official-web-demo")
 
-Call get_route(app, "/", Function()
-    Return html_response("<h1>official epl-web package</h1>", 200)
-End)
+Call get_route(app, "/", lambda -> html_response("<h1>official epl-web package</h1>", 200))
 
 Note: Uncomment to run locally.
 Note: Call start_app(app, 8080)

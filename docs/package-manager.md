@@ -8,6 +8,7 @@ Complete guide to managing EPL projects and packages.
 # Initialize a new project
 epl init my-project
 epl new my-project --template web
+cd my-project
 
 # Install a package
 epl install epl-math
@@ -18,13 +19,14 @@ epl install owner/repo
 epl packages
 
 # Run your project
-epl main.epl
+epl run
+epl serve        # for web/api/frontend/auth/chatbot/fullstack starters
 ```
 
 ## Project Initialization
 
 ```bash
-python main.py init [project-name]
+epl init [project-name]
 ```
 
 Creates a project directory (or initializes in the current directory) with:
@@ -180,9 +182,11 @@ EPL currently ships supported facade packages that reuse the existing runtime:
 
 | Package | Purpose |
 |---------|---------|
-| `epl-web` | Supported web app facade |
+| `epl-web` | Supported web helper facade for request/response/session helpers |
 | `epl-db` | Supported database facade |
 | `epl-test` | Supported testing facade |
+
+`epl new --template web|api|frontend|auth|chatbot|fullstack` now generates the native `Create WebApp` DSL because that is the authoritative served web runtime. Use `epl-web` when you want explicit helper wrappers on top of the lower-level web helper builtins.
 
 These install like normal packages:
 

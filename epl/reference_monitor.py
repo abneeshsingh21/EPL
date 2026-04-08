@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
+
+BACKEND_URL_ENV = "EPL_REFERENCE_BACKEND_URL"
+FULLSTACK_URL_ENV = "EPL_REFERENCE_FULLSTACK_URL"
+REQUIRE_CONFIGURED_ENV = "EPL_REFERENCE_MONITOR_REQUIRE_CONFIGURED"
 
 
 def _normalize_base_url(url: str) -> str:
@@ -172,6 +177,22 @@ def format_monitoring_report(result: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _env_flag(name: str) -> bool:
+    value = os.environ.get(name, "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _write_github_step_summary(result: Dict[str, Any]) -> None:
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        return
+    with open(summary_path, "a", encoding="utf-8") as handle:
+        handle.write("## EPL Reference App Monitoring\n\n")
+        handle.write("```\n")
+        handle.write(format_monitoring_report(result))
+        handle.write("\n```\n")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Monitor deployed EPL reference apps.")
     parser.add_argument("--backend-url", help="Base URL of the deployed reference backend API.")
@@ -189,16 +210,20 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    backend_url = args.backend_url or os.environ.get(BACKEND_URL_ENV)
+    fullstack_url = args.fullstack_url or os.environ.get(FULLSTACK_URL_ENV)
+    require_configured = args.require_configured or _env_flag(REQUIRE_CONFIGURED_ENV)
     result = run_monitoring(
-        backend_url=args.backend_url,
-        fullstack_url=args.fullstack_url,
+        backend_url=backend_url,
+        fullstack_url=fullstack_url,
         timeout=args.timeout,
-        require_configured=args.require_configured,
+        require_configured=require_configured,
     )
     if args.json:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
         print(format_monitoring_report(result))
+    _write_github_step_summary(result)
     return 0 if result.get("ok") else 1
 
 

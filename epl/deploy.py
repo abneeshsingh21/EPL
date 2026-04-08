@@ -54,7 +54,9 @@ class WSGIAdapter:
         from epl.web import (
             _data_store, store_get, store_add, store_remove,
             db_store_add, db_store_get, db_store_remove,
-            _check_rate_limit, generate_html, Request, Response
+            _check_rate_limit, generate_html, Request, Response,
+            _build_route_env, _execute_route_block,
+            _resolve_page_def, _resolve_page_element,
         )
         self._data_store = _data_store
         self._store_get = store_get
@@ -67,6 +69,10 @@ class WSGIAdapter:
         self._generate_html = generate_html
         self._Request = Request
         self._Response = Response
+        self._build_route_env = _build_route_env
+        self._execute_route_block = _execute_route_block
+        self._resolve_page_def = _resolve_page_def
+        self._resolve_page_element = _resolve_page_element
 
     def __call__(self, environ, start_response):
         """WSGI entry point — translate environ to Request, route, return Response."""
@@ -164,9 +170,12 @@ class WSGIAdapter:
                     f'Route not found: {_html_mod.escape(clean_path)}')
 
         response_type, route_body, route_params = route
-        all_params = dict(urllib.parse.parse_qsl(query_string))
-        all_params.update(route_params)
+        request_params = dict(urllib.parse.parse_qsl(query_string))
+        request_params.update(route_params)
+        all_params = dict(request_params)
         all_params.update(form_data)
+        req.form = form_data
+        req.params = request_params
 
         # Build response
         try:
@@ -197,18 +206,18 @@ class WSGIAdapter:
                 else:
                     resp = self._html_response(start_response, 200, str(result) if result else '<p>OK</p>')
             elif response_type == 'json':
-                data = self._build_json(route_body, all_params)
+                data = self._build_json(route_body, form_data, request_params, method, clean_path, headers, req.session_id)
                 body = json.dumps(data, indent=2, default=str)
                 resp = self._json_response(start_response, 200, body)
             elif response_type == 'page':
-                html = self._build_page(route_body, form_data, all_params)
+                html = self._build_page(route_body, form_data, request_params, method, clean_path, headers, req.session_id)
                 if html.startswith('REDIRECT:'):
                     location = html[len('REDIRECT:'):]
                     resp = self._redirect_response(start_response, location)
                 else:
                     resp = self._html_response(start_response, 200, html)
             elif response_type == 'action':
-                result = self._exec_action(route_body, form_data)
+                result = self._exec_action(route_body, form_data, method, clean_path, headers, req.session_id)
                 if result and result.startswith('REDIRECT:'):
                     location = result[len('REDIRECT:'):]
                     resp = self._redirect_response(start_response, location)
@@ -224,61 +233,112 @@ class WSGIAdapter:
 
         return resp
 
-    def _build_page(self, body, form_data, params):
+    def _build_page(self, body, form_data, params, method, path, headers, session_id):
         """Build HTML page response."""
         from epl import ast_nodes as ast
         from epl.web import _data_store
+        route_env = self._build_route_env(
+            self.interpreter,
+            method,
+            path,
+            form_data=form_data,
+            params=params,
+            headers=headers,
+            session_id=session_id,
+        )
         for stmt in body:
             if isinstance(stmt, ast.StoreStatement):
-                self._exec_store(stmt, form_data)
+                self._exec_store(stmt, form_data, route_env)
             elif isinstance(stmt, ast.DeleteStatement):
-                self._exec_delete(stmt, form_data)
+                self._exec_delete(stmt, form_data, route_env)
             elif isinstance(stmt, ast.SendResponse) and stmt.response_type == 'redirect':
                 url = stmt.data.value if hasattr(stmt.data, 'value') else str(stmt.data)
                 return f'REDIRECT:{url}'
+        signal = self._execute_route_block(self.interpreter, body, route_env)
+        if signal is not None:
+            if signal.response_type == 'redirect':
+                url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                return f'REDIRECT:{url}'
+            if signal.response_type == 'text' and self.interpreter is not None:
+                return str(self.interpreter._eval(signal.payload, route_env))
+            if signal.response_type == 'json' and self.interpreter is not None:
+                data = self._build_json(body, form_data, params, method, path, headers, session_id)
+                return f"<pre>{json.dumps(data, indent=2, default=str)}</pre>"
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
-                return self._generate_html(stmt, data_store=_data_store, form_data=form_data)
+                page_def = self._resolve_page_def(stmt, self.interpreter, route_env)
+                return self._generate_html(page_def, data_store=_data_store, form_data=form_data)
         from epl import ast_nodes as ast
-        elements = [s for s in body if isinstance(s, ast.HtmlElement)]
+        elements = [
+            self._resolve_page_element(s, self.interpreter, route_env)
+            for s in body if isinstance(s, ast.HtmlElement)
+        ]
         if elements:
             page = ast.PageDef("EPL Page", elements)
             return self._generate_html(page, data_store=_data_store, form_data=form_data)
         return self._generate_html(ast.PageDef("EPL Page", []), data_store=_data_store)
 
-    def _build_json(self, body, params):
+    def _build_json(self, body, form_data, params, method, path, headers, session_id):
         """Build JSON response."""
-        from epl import ast_nodes as ast
-        from epl.web import store_get, _data_store
-        for stmt in body:
-            if isinstance(stmt, ast.FetchStatement):
-                items = store_get(stmt.collection)
-                return {"collection": stmt.collection, "count": len(items), "items": items}
-            if isinstance(stmt, ast.SendResponse):
-                if self.interpreter:
-                    try:
-                        result = self.interpreter._eval(stmt.data, self.interpreter.global_env)
-                        if hasattr(result, 'data'):
-                            result = result.data
-                        return result
-                    except Exception as e:
-                        return {"error": str(e)}
+        from epl.web import _data_store
+        route_env = self._build_route_env(
+            self.interpreter,
+            method,
+            path,
+            form_data=form_data,
+            params=params,
+            headers=headers,
+            session_id=session_id,
+        )
+        if self.interpreter and route_env:
+            try:
+                signal = self._execute_route_block(self.interpreter, body, route_env)
+                if signal is not None:
+                    if signal.response_type == 'fetch':
+                        return self._fetch_payload(signal.payload)
+                    if signal.response_type == 'redirect':
+                        return {"redirect": self.interpreter._eval(signal.payload, route_env)}
+                    result = self.interpreter._eval(signal.payload, route_env)
+                    if hasattr(result, 'data'):
+                        result = result.data
+                    return result
+            except Exception as e:
+                return {"error": str(e)}
+        legacy_result = self._legacy_json_fallback(body, form_data)
+        if legacy_result is not None:
+            return legacy_result
         return {"store": {k: list(v) for k, v in _data_store.items()}}
 
-    def _exec_action(self, body, form_data):
+    def _exec_action(self, body, form_data, method, path, headers, session_id):
         """Execute action route."""
         from epl import ast_nodes as ast
+        route_env = self._build_route_env(
+            self.interpreter,
+            method,
+            path,
+            form_data=form_data,
+            params={},
+            headers=headers,
+            session_id=session_id,
+        )
         for stmt in body:
             if isinstance(stmt, ast.StoreStatement):
-                self._exec_store(stmt, form_data)
+                self._exec_store(stmt, form_data, route_env)
             elif isinstance(stmt, ast.DeleteStatement):
-                self._exec_delete(stmt, form_data)
+                self._exec_delete(stmt, form_data, route_env)
             elif isinstance(stmt, ast.SendResponse) and stmt.response_type == 'redirect':
                 url = stmt.data.value if hasattr(stmt.data, 'value') else str(stmt.data)
                 return f'REDIRECT:{url}'
+        signal = self._execute_route_block(self.interpreter, body, route_env)
+        if signal is not None:
+            if signal.response_type == 'redirect':
+                url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                return f'REDIRECT:{url}'
+            if signal.response_type == 'text' and self.interpreter is not None:
+                return str(self.interpreter._eval(signal.payload, route_env))
         return None
 
-    def _exec_store(self, stmt, form_data):
+    def _exec_store(self, stmt, form_data, route_env=None):
         from epl.web import store_add, db_store_add
         collection = stmt.collection
         if form_data and stmt.field_name:
@@ -289,7 +349,7 @@ class WSGIAdapter:
                 store_add(collection, value)
         elif stmt.value and self.interpreter:
             try:
-                val = self.interpreter._eval(stmt.value, self.interpreter.global_env)
+                val = self.interpreter._eval(stmt.value, route_env or self.interpreter.global_env)
                 if self.app.db_enabled:
                     db_store_add(collection, val)
                 else:
@@ -297,7 +357,7 @@ class WSGIAdapter:
             except Exception:
                 pass
 
-    def _exec_delete(self, stmt, form_data):
+    def _exec_delete(self, stmt, form_data, route_env=None):
         from epl.web import store_remove, db_store_remove
         collection = stmt.collection
         if form_data and 'index' in form_data:
@@ -309,6 +369,54 @@ class WSGIAdapter:
                     store_remove(collection, index)
             except (ValueError, IndexError):
                 pass
+        elif stmt.index is not None and self.interpreter:
+            try:
+                index = self.interpreter._eval(stmt.index, route_env or self.interpreter.global_env)
+                if self.app.db_enabled:
+                    db_store_remove(collection, int(index))
+                else:
+                    store_remove(collection, int(index))
+            except Exception:
+                pass
+
+    def _fetch_payload(self, collection):
+        items = self._store_get(collection)
+        return {"collection": collection, "count": len(items), "items": items}
+
+    def _legacy_json_fallback(self, body, form_data):
+        """Preserve legacy JSON-route behavior for Python-defined apps without an interpreter."""
+        from epl import ast_nodes as ast
+
+        for stmt in body:
+            if isinstance(stmt, ast.StoreStatement):
+                self._exec_store(stmt, form_data)
+                continue
+            if isinstance(stmt, ast.DeleteStatement):
+                self._exec_delete(stmt, form_data)
+                continue
+            if isinstance(stmt, ast.FetchStatement):
+                return self._fetch_payload(stmt.collection)
+            if isinstance(stmt, ast.SendResponse):
+                if stmt.response_type == 'redirect':
+                    return {"redirect": self._coerce_json_literal(stmt.data)}
+                if stmt.response_type in ('json', 'text'):
+                    return self._coerce_json_literal(stmt.data)
+        return None
+
+    def _coerce_json_literal(self, node):
+        """Evaluate simple AST literals for adapter-only JSON routes."""
+        from epl import ast_nodes as ast
+
+        if isinstance(node, ast.Literal):
+            return node.value
+        if isinstance(node, ast.ListLiteral):
+            return [self._coerce_json_literal(element) for element in node.elements]
+        if isinstance(node, ast.DictLiteral):
+            return {
+                key: self._coerce_json_literal(value)
+                for key, value in node.pairs
+            }
+        return str(node)
 
     def _serve_static(self, start_response, path, environ):
         """Serve static files via WSGI."""

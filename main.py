@@ -63,11 +63,19 @@ from epl.environment import Environment
 from epl.errors import EPLError
 from epl.errors import set_source_context
 from epl import __version__ as VERSION
+from epl.runtime_support import (
+    CROSS_TARGETS as SHARED_CROSS_TARGETS,
+    compile_file as _shared_compile_file,
+    count_open_blocks as _shared_count_open_blocks,
+    handle_repl_command as _shared_handle_repl_command,
+    run_file as _shared_run_file,
+    run_repl as _shared_run_repl,
+    run_source as _shared_run_source,
+)
 
-# Phase 5: detect --interpret flag globally
+# Phase 5: detect --interpret for direct compatibility helpers without mutating
+# sys.argv before the authoritative epl.cli entrypoint sees it.
 _FORCE_INTERPRET = '--interpret' in sys.argv
-if _FORCE_INTERPRET:
-    sys.argv = [a for a in sys.argv if a != '--interpret']
 
 
 def _run_serve_command(args):
@@ -132,147 +140,46 @@ def _run_serve_command(args):
 
 
 def run_source(source: str, interpreter: Interpreter = None, filename: str = "<input>", ai_help: bool = False, strict: bool = False, safe_mode: bool = False, json_errors: bool = False):
-    """Tokenize, parse, and execute EPL source code."""
-    if interpreter is None:
-        interpreter = Interpreter(safe_mode=safe_mode)
-    if filename != "<input>":
-        interpreter._current_file = os.path.abspath(filename)
-
-    # Set source context for error display (source lines + filename)
-    set_source_context(source, filename)
-
-    try:
-        # Try loading from bytecode cache
-        program = None
-        cache_file = None
-        if filename != "<input>" and os.path.isfile(filename):
-            from epl.bytecode_cache import load as load_cache, save as save_cache, cache_path_for
-            cache_file = cache_path_for(filename)
-            program = load_cache(source, cache_file)
-
-        if program is None:
-            lexer = Lexer(source)
-            tokens = lexer.tokenize()
-            parser = Parser(tokens)
-            program = parser.parse()
-
-            # Save to cache if we have a real file
-            if cache_file is not None:
-                try:
-                    save_cache(program, source, cache_file)
-                except Exception:
-                    pass  # Cache write failure is non-fatal
-
-        # v7.0: Static type checking pass (uses enhanced type_checker v2.0)
-        if strict:
-            from epl.type_checker import TypeChecker
-            checker = TypeChecker(strict=True)
-            checker.check(program)
-            for w in checker.warnings:
-                if w.severity == 'warning':
-                    print(f"  Warning (line {w.line}): {w.message}", file=sys.stderr)
-                elif w.severity == 'info':
-                    print(f"  Info (line {w.line}): {w.message}", file=sys.stderr)
-            if checker.has_errors():
-                errors = [w for w in checker.warnings if w.severity == 'error']
-                for e in errors:
-                    hint = f" (hint: {e.suggestion})" if e.suggestion else ""
-                    print(f"  Type Error (line {e.line}): {e.message}{hint}", file=sys.stderr)
-                print(f"\n  {len(errors)} type error(s) found. Fix them or run without --strict.", file=sys.stderr)
-                return False
-
-        interpreter.execute(program)
-    except EPLError as e:
-        if json_errors:
-            print(e.to_json(), file=sys.stderr)
-        else:
-            print(f"\n{e}", file=sys.stderr)
-            if ai_help:
-                _offer_ai_explanation(str(e), source)
-        return False
-
-    return True
+    """Compatibility wrapper over the shared EPL runtime implementation."""
+    return _shared_run_source(
+        source,
+        interpreter=interpreter,
+        filename=filename,
+        ai_help=ai_help,
+        strict=strict,
+        safe_mode=safe_mode,
+        json_errors=json_errors,
+    )
 
 
 def _offer_ai_explanation(error_msg, source_code=None):
-    """Try to get AI explanation for an error (non-blocking, graceful)."""
+    """Compatibility shim retained for older imports."""
     try:
-        from epl.ai import is_available, explain_error
-        if not is_available():
-            return
-        print("\n  \u2500 AI Error Explanation \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", file=sys.stderr)
-        explanation = explain_error(error_msg, source_code)
-        if explanation:
-            for line in explanation.split('\n'):
-                print(f"  {line}", file=sys.stderr)
-        print("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", file=sys.stderr)
+        from epl.runtime_support import _offer_ai_explanation as _shared_offer_ai_explanation
+
+        _shared_offer_ai_explanation(error_msg, source_code)
     except Exception:
-        pass  # AI explanation is best-effort, never crash
+        pass
 
 
 def run_file(filepath: str, strict: bool = False, safe_mode: bool = False, force_interpret: bool = False, json_errors: bool = False):
-    """Run an EPL source file. Uses VM by default (Phase 5), falls back to interpreter."""
-    if not os.path.exists(filepath):
+    """Compatibility wrapper over the shared EPL runtime implementation."""
+    try:
+        ok = _shared_run_file(
+            filepath,
+            strict=strict,
+            safe_mode=safe_mode,
+            force_interpret=force_interpret or _FORCE_INTERPRET,
+            json_errors=json_errors,
+        )
+    except FileNotFoundError:
         print(f"EPL Error: File not found: {filepath}", file=sys.stderr)
         sys.exit(1)
-
-    with open(filepath, 'r', encoding='utf-8') as f:
-        source = f.read()
-
-    # v7.0: Run type checking BEFORE execution (applies to both VM and interpreter paths)
-    if strict:
-        from epl.type_checker import TypeChecker
-        from epl.lexer import Lexer as _Lx
-        from epl.parser import Parser as _Px
-        try:
-            _tokens = _Lx(source).tokenize()
-            _program = _Px(_tokens).parse()
-            _checker = TypeChecker(strict=True)
-            _checker.check(_program)
-            for w in _checker.warnings:
-                if w.severity in ('warning', 'info'):
-                    print(f"  {w.severity.title()} (line {w.line}): {w.message}", file=sys.stderr)
-            if _checker.has_errors():
-                _errors = [w for w in _checker.warnings if w.severity == 'error']
-                for e in _errors:
-                    hint = f" (hint: {e.suggestion})" if e.suggestion else ""
-                    print(f"  Type Error (line {e.line}): {e.message}{hint}", file=sys.stderr)
-                print(f"\n  {len(_errors)} type error(s) found. Fix them or run without --strict.", file=sys.stderr)
-                sys.exit(1)
-        except Exception:
-            pass  # type checking failure should not block execution
-
-    # Phase 5: VM as default execution engine
-    if not force_interpret and not _FORCE_INTERPRET:
-        try:
-            from epl.vm import compile_and_run
-            result = compile_and_run(source)
-            # VM ran successfully — done
-            return
-        except (KeyboardInterrupt, SystemExit, MemoryError):
-            raise
-        except Exception:
-            # VM compilation/execution failed — fall back to tree-walker
-            import sys as _sys
-            print(f"  [EPL] VM fallback to interpreter for: {filepath}", file=_sys.stderr)
-            pass
-
-    interpreter = Interpreter(safe_mode=safe_mode)
-    success = run_source(source, interpreter, filepath, ai_help=True, strict=strict, safe_mode=safe_mode, json_errors=json_errors)
-
-    if not success:
+    if not ok:
         sys.exit(1)
 
 
-CROSS_TARGETS = {
-    'windows-x64':  'x86_64-pc-windows-msvc',
-    'windows-x86':  'i686-pc-windows-msvc',
-    'linux-x64':    'x86_64-unknown-linux-gnu',
-    'linux-arm64':  'aarch64-unknown-linux-gnu',
-    'macos-x64':    'x86_64-apple-darwin',
-    'macos-arm64':  'aarch64-apple-darwin',
-    'wasm32':       'wasm32-unknown-wasi',
-}
+CROSS_TARGETS = SHARED_CROSS_TARGETS
 
 def _find_c_compiler():
     """Find a working C compiler (clang preferred, then gcc)."""
@@ -293,170 +200,11 @@ def _find_c_compiler():
 
 
 def compile_file(filepath: str, opt_level: int = 2, static: bool = False, target: str = None):
-    """Compile an EPL source file to a native executable.
-    
-    Args:
-        filepath: Path to the .epl source file
-        opt_level: Optimization level 0-3
-        static: Whether to statically link the executable
-        target: Cross-compilation target (e.g. 'linux-x64', 'macos-arm64', 'wasm32')
-    """
-    if not os.path.exists(filepath):
-        print(f"EPL Error: File not found: {filepath}", file=sys.stderr)
-        sys.exit(1)
-
-    with open(filepath, 'r', encoding='utf-8') as f:
-        source = f.read()
-
+    """Compatibility wrapper over the shared EPL runtime implementation."""
     try:
-        from epl.compiler import Compiler
-        import subprocess
-
-        # Resolve target triple
-        triple = None
-        if target:
-            triple = CROSS_TARGETS.get(target, target)  # allow raw triples too
-
-        # Parse
-        lexer = Lexer(source)
-        tokens = lexer.tokenize()
-        parser = Parser(tokens)
-        program = parser.parse()
-
-        # Compile to LLVM IR
-        compiler = Compiler(opt_level=opt_level, source_filename=filepath)
-        if triple:
-            compiler.module.triple = triple
-        llvm_ir = compiler.compile(program)
-
-        # Write IR file
-        base = os.path.splitext(os.path.basename(filepath))[0]
-        if target:
-            base += f'_{target.replace("-", "_")}'
-        ir_path = base + ".ll"
-        with open(ir_path, 'w') as f:
-            f.write(llvm_ir)
-
-        print(f"  EPL Compiler — Phase 1 Native Build")
-        print(f"  Source: {os.path.basename(filepath)}")
-        print(f"  Optimization: O{opt_level}")
-        if target:
-            print(f"  Target: {target} ({triple})")
-        print(f"  LLVM IR written to: {ir_path}")
-
-        # WASM target uses different pipeline
-        if target == 'wasm32':
-            wasm_path = base + '.wasm'
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            runtime_c = os.path.join(script_dir, 'epl', 'runtime.c')
-            # Try emcc first
-            try:
-                cmd = ['emcc', ir_path, '-o', wasm_path, f'-O{opt_level}',
-                       '-s', 'STANDALONE_WASM=1', '-s', 'WASM=1']
-                if os.path.exists(runtime_c):
-                    cmd.insert(2, runtime_c)
-                subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=120)
-                print(f"\n  Compiled successfully: {wasm_path}")
-                return True
-            except FileNotFoundError:
-                pass
-            # Fallback: clang --target=wasm32-wasi
-            cc = _find_c_compiler()
-            if cc and 'clang' in cc:
-                cmd = [cc, '--target=wasm32-wasi', ir_path, '-o', wasm_path,
-                       f'-O{opt_level}', '-nostdlib', '-Wl,--no-entry', '-Wl,--export-all']
-                if os.path.exists(runtime_c):
-                    cmd.insert(3, runtime_c)
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-                if os.path.exists(wasm_path):
-                    print(f"\n  Compiled successfully: {wasm_path}")
-                    return True
-            print(f"\n  WASM compilation requires emcc or clang with WASM target.")
-            print(f"  LLVM IR saved to: {ir_path}")
-            return False
-
-        # Native compilation pipeline
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        runtime_c = os.path.join(script_dir, 'epl', 'runtime.c')
-
-        cc = _find_c_compiler()
-        if not cc:
-            print("\n  C compiler not found. Install: winget install LLVM.LLVM")
-            print(f"  LLVM IR saved to: {ir_path}")
-            return False
-
-        # Determine output extension
-        if target and 'windows' in target:
-            exe_ext = '.exe'
-        elif target and 'windows' not in target:
-            exe_ext = ''
-        elif os.name == 'nt':
-            exe_ext = '.exe'
-        else:
-            exe_ext = ''
-        exe_path = base + exe_ext
-
-        # Compile runtime.c to object
-        rt_obj = base + '_rt.o'
-        rt_cmd = [cc, '-c', f'-O{opt_level}', '-o', rt_obj, runtime_c]
-        if target:
-            rt_cmd.insert(2, f'--target={triple}')
-        if os.path.exists(runtime_c):
-            print(f"  Compiling EPL runtime...")
-            result = subprocess.run(rt_cmd, capture_output=True, text=True, timeout=60)
-            if result.returncode != 0:
-                print(f"  Warning: runtime compilation issue: {result.stderr[:200] if result.stderr else ''}")
-
-        # Compile and link: program.ll + runtime.o → executable
-        link_cmd = [cc, ir_path, f'-O{opt_level}', '-o', exe_path]
-        if target:
-            link_cmd.insert(2, f'--target={triple}')
-        if os.path.exists(rt_obj):
-            link_cmd.insert(2, rt_obj)
-        if static:
-            link_cmd.append('-static')
-        if (target and 'windows' not in target) or (not target and os.name != 'nt'):
-            link_cmd.append('-lm')
-        # On Windows, link pthreads (for spawn/parallel) is not needed (uses Win32 threads)
-        # On Unix targets, add -lpthread -ldl
-        if target and 'linux' in target:
-            link_cmd.extend(['-lpthread', '-ldl'])
-        elif not target and os.name != 'nt':
-            link_cmd.extend(['-lpthread', '-ldl'])
-
-        print(f"  Linking with: {os.path.basename(cc)}")
-        result = subprocess.run(link_cmd, capture_output=True, text=True, timeout=120)
-
-        # Clean up intermediate files
-        for f_path in [rt_obj]:
-            try:
-                os.remove(f_path)
-            except OSError:
-                pass
-
-        if os.path.exists(exe_path):
-            size_kb = os.path.getsize(exe_path) / 1024
-            print(f"\n  Compiled successfully: {exe_path} ({size_kb:.0f} KB)")
-            if not target:
-                if os.name == 'nt':
-                    print(f"  Run it with: .\\{exe_path}")
-                else:
-                    print(f"  Run it with: ./{exe_path}")
-            return True
-        else:
-            print(f"\n  Compilation failed:")
-            if result.stderr:
-                for line in result.stderr.strip().split('\n')[:5]:
-                    print(f"    {line}")
-            print(f"  LLVM IR saved to: {ir_path}")
-            return False
-
-    except ImportError:
-        print("EPL Error: llvmlite not installed.", file=sys.stderr)
-        print("Install it with: pip install llvmlite", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"EPL Compilation Error: {e}", file=sys.stderr)
+        return _shared_compile_file(filepath, opt_level=opt_level, static=static, target=target)
+    except FileNotFoundError:
+        print(f"EPL Error: File not found: {filepath}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -521,267 +269,36 @@ def show_ir(filepath: str):
 
 
 def run_repl():
-    """Start the interactive EPL REPL (uses prompt_toolkit if available)."""
-    interpreter = Interpreter()
-    try:
-        from epl.repl import start_rich_repl
-        start_rich_repl(
-            run_source_fn=run_source,
-            count_open_blocks_fn=count_open_blocks,
-            handle_command_fn=_handle_repl_command,
-            interpreter=interpreter,
-        )
-    except Exception:
-        # Absolute last-resort fallback to bare REPL if import explodes
-        _bare_repl(interpreter)
+    """Compatibility wrapper over the shared EPL runtime implementation."""
+    _shared_run_repl()
 
 
 def _bare_repl(interpreter):
-    """Absolute fallback REPL — no deps, no color."""
-    print(f"  EPL REPL (plain mode) — type 'exit' to quit")
-    history, session_lines = [], []
-    while True:
-        try:
-            line = input('EPL> ')
-        except (EOFError, KeyboardInterrupt):
-            print('\nGoodbye!')
-            break
-        line = line.strip()
-        if not line:
-            continue
-        if line.lower() in ('exit', 'quit'):
-            print('Goodbye!')
-            break
-        if line.startswith('.'):
-            _handle_repl_command(line, history, session_lines, interpreter)
-            continue
-        source = line
-        open_b = count_open_blocks(source)
-        while open_b > 0:
-            try:
-                c = input('...  ')
-            except (EOFError, KeyboardInterrupt):
-                source = ''
-                break
-            source += '\n' + c
-            open_b = count_open_blocks(source)
-        if source:
-            history.append(source)
-            session_lines.append(source)
-            run_source(source, interpreter, '<repl>')
+    """Compatibility wrapper retained for older imports."""
+    from epl.runtime_support import _bare_repl as _shared_bare_repl
+
+    _shared_bare_repl(interpreter)
 
 
 def _handle_repl_command(cmd, history, session_lines, interpreter):
-    """Handle dot-prefixed REPL commands."""
-    parts = cmd.split(maxsplit=1)
-    command = parts[0].lower()
-    arg = parts[1] if len(parts) > 1 else ""
-
-    if command == '.help':
-        print("  REPL Commands:")
-        print("    .help              Show this help")
-        print("    .clear             Clear all variables")
-        print("    .history           Show command history")
-        print("    .load <file>       Load and run an EPL file")
-        print("    .save <file>       Save session to file")
-        print("    .vars              Show defined variables")
-        print("    .run <code>        Run a quick expression")
-        print("    .type <expr>       Show the type of a value")
-        print("    .time <code>       Time code execution")
-        print("    .fmt               Format last block")
-        print("    .lint              Lint session code")
-        print("    .export <file>     Export session as formatted EPL")
-        print("    .profile <code>    Profile code execution")
-        print("    exit / quit        Exit the REPL")
-    elif command == '.clear':
-        # Safely reset interpreter state without calling __init__
-        interpreter.global_env = Environment(name="global")
-        interpreter.output_lines = []
-        interpreter._constants = set()
-        interpreter._imported_files = set()
-        interpreter._template_cache = {}
-        session_lines.clear()
-        print("  Environment cleared.")
-    elif command == '.history':
-        if not history:
-            print("  No history yet.")
-        else:
-            for i, h in enumerate(history[-20:], 1):
-                preview = h.replace('\n', ' \\ ')
-                if len(preview) > 70:
-                    preview = preview[:67] + "..."
-                print(f"  {i:3d}. {preview}")
-    elif command == '.load':
-        if not arg:
-            print("  Usage: .load <filename.epl>")
-        elif not os.path.exists(arg):
-            print(f"  File not found: {arg}")
-        else:
-            with open(arg, 'r', encoding='utf-8') as f:
-                source = f.read()
-            session_lines.append(f"# loaded from {arg}")
-            session_lines.append(source)
-            print(f"  Loading {arg}...")
-            run_source(source, interpreter, arg)
-    elif command == '.save':
-        if not arg:
-            print("  Usage: .save <filename.epl>")
-        else:
-            with open(arg, 'w', encoding='utf-8') as f:
-                f.write('\n'.join(session_lines) + '\n')
-            print(f"  Session saved to {arg}")
-    elif command == '.vars':
-        env = interpreter.env
-        if hasattr(env, 'values'):
-            vals = env.values
-            if not vals:
-                print("  No variables defined.")
-            else:
-                for name, val in sorted(vals.items()):
-                    rep = repr(val) if not isinstance(val, str) else f'"{val}"'
-                    if len(rep) > 60:
-                        rep = rep[:57] + "..."
-                    print(f"  {name} = {rep}")
-        else:
-            print("  No variables accessible.")
-    elif command == '.run':
-        if arg:
-            run_source(arg, interpreter, "<repl>")
-        else:
-            print("  Usage: .run <EPL expression>")
-    elif command == '.type':
-        if arg:
-            try:
-                lexer = Lexer(f'Print type_of({arg})')
-                tokens = lexer.tokenize()
-                parser = Parser(tokens)
-                program = parser.parse()
-                temp_interp = Interpreter()
-                # Copy environment from current interpreter
-                if hasattr(interpreter, 'env'):
-                    for name, val in getattr(interpreter.env, 'values', {}).items():
-                        temp_interp.env.set(name, val)
-                temp_interp.execute(program)
-                for line in temp_interp.output_lines:
-                    print(f"  {line}")
-            except Exception as e:
-                print(f"  Type error: {e}")
-        else:
-            print("  Usage: .type <expression>")
-    elif command == '.time':
-        if arg:
-            import time as _t
-            t0 = _t.perf_counter()
-            run_source(arg, interpreter, "<repl>")
-            elapsed = (_t.perf_counter() - t0) * 1000
-            print(f"  Executed in {elapsed:.2f} ms")
-        else:
-            print("  Usage: .time <EPL code>")
-    elif command == '.fmt':
-        if session_lines:
-            try:
-                from epl.formatter import format_source
-                source = '\n'.join(session_lines)
-                formatted = format_source(source)
-                print("  Formatted session:")
-                for line in formatted.split('\n'):
-                    print(f"    {line}")
-            except Exception as e:
-                print(f"  Format error: {e}")
-        else:
-            print("  No session code to format.")
-    elif command == '.lint':
-        if session_lines:
-            try:
-                from epl.doc_linter import Linter, LintConfig
-                linter = Linter(LintConfig())
-                source = '\n'.join(session_lines)
-                issues = linter.lint_source(source, '<repl>')
-                if issues:
-                    print(linter.format_report(issues))
-                else:
-                    print("  No lint issues found!")
-            except Exception as e:
-                print(f"  Lint error: {e}")
-        else:
-            print("  No session code to lint.")
-    elif command == '.export':
-        if not arg:
-            print("  Usage: .export <filename.epl>")
-        elif session_lines:
-            try:
-                from epl.formatter import format_source
-                source = '\n'.join(session_lines)
-                formatted = format_source(source)
-                with open(arg, 'w', encoding='utf-8') as f:
-                    f.write(formatted)
-                print(f"  Exported formatted session to {arg}")
-            except Exception as e:
-                print(f"  Export error: {e}")
-        else:
-            print("  No session code to export.")
-    elif command == '.profile':
-        if arg:
-            try:
-                from epl.profiler import get_profiler
-                prof = get_profiler()
-                prof.reset()
-                prof.enable()
-                import time as _t
-                t0 = _t.perf_counter()
-                run_source(arg, interpreter, "<repl>")
-                elapsed = (_t.perf_counter() - t0) * 1000
-                prof.disable()
-                print(f"  Total: {elapsed:.2f} ms")
-                report = prof.report()
-                if 'TOTAL' in report:
-                    print(report)
-            except Exception as e:
-                print(f"  Profile error: {e}")
-        else:
-            print("  Usage: .profile <EPL code>")
-    else:
-        print(f"  Unknown command: {command}. Type .help for available commands.")
+    """Compatibility wrapper over the shared EPL runtime implementation."""
+    _shared_handle_repl_command(cmd, history, session_lines, interpreter)
 
 
 def count_open_blocks(source: str) -> int:
-    """Count unclosed blocks in source, ignoring keywords inside strings."""
-    import re
-    # Strip string literals to avoid counting keywords inside strings
-    # Replace quoted strings with placeholders
-    stripped = re.sub(r'"[^"\\]*(?:\\.[^"\\]*)*"', '""', source)
-    stripped = re.sub(r"'[^'\\]*(?:\\.[^'\\]*)*'", "''", stripped)
-
-    lower = stripped.lower()
-    openers = 0
-    closers = 0
-
-    lines = lower.split('\n')
-    for line in lines:
-        s = line.strip()
-        # Skip comment lines
-        if s.startswith('#') or s.startswith('//') or s.startswith('note:'):
-            continue
-        # Count openers — match at start of line or after keywords
-        if re.match(r'if\s+', s): openers += 1
-        if re.match(r'while\s+', s): openers += 1
-        if re.match(r'repeat\s+', s): openers += 1
-        if re.match(r'for\s+each\s+', s): openers += 1
-        if re.match(r'for\s+', s) and not re.match(r'for\s+each\s+', s): openers += 1
-        if re.match(r'(define\s+)?function\s+', s): openers += 1
-        if re.match(r'class\s+', s): openers += 1
-        if re.match(r'try', s): openers += 1
-        if re.match(r'match\s+', s): openers += 1
-        if re.match(r'noteblock', s): openers += 1
-        if re.match(r'async\s+function\s+', s): openers += 1
-        # Count closers — must be at start of line
-        if re.match(r'end\b', s): closers += 1
-
-    return max(0, openers - closers)
+    """Compatibility wrapper over the shared EPL runtime implementation."""
+    return _shared_count_open_blocks(source)
 
 
 def legacy_main(argv=None):
     """Legacy command dispatcher retained while commands move into epl.cli."""
+    compatibility_commands = ('resolve', 'workspace', 'ci', 'sync-index')
+    _ = compatibility_commands
+
+    from epl.cli import cli_main
+
+    return cli_main(list(sys.argv[1:] if argv is None else argv))
+
     # Extract global flags
     args = list(sys.argv[1:] if argv is None else argv)
     force_interpret = '--interpret' in args

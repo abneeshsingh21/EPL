@@ -14,9 +14,9 @@ epl install epl-db
 Import "epl-db"
 
 Create conn equal to open("app.db")
-Call create_table(conn, "notes", {"title": "text", "body": "text"})
-Call insert(conn, "notes", {"title": "Hello", "body": "World"})
-Print query(conn, "select * from notes")
+Call create_table(conn, "notes", Map with title = "TEXT" and body = "TEXT")
+Call insert(conn, "notes", Map with title = "Hello" and body = "World")
+Say query(conn, "SELECT * FROM notes")
 Call close(conn)
 ```
 

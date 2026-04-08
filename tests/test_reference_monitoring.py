@@ -1,15 +1,21 @@
 import json
+import os
 import subprocess
 import sys
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest import mock
 
 from epl.reference_monitor import (
+    BACKEND_URL_ENV,
+    FULLSTACK_URL_ENV,
+    REQUIRE_CONFIGURED_ENV,
     check_backend_api,
     check_fullstack_web,
     format_monitoring_report,
+    main as monitor_main,
     run_monitoring,
 )
 
@@ -103,3 +109,32 @@ class TestReferenceMonitoring(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertFalse(payload["configured"])
         self.assertTrue(payload["ok"])
+
+    def test_main_reads_urls_from_environment(self):
+        server, thread, base_url = _pick_server({
+            "/_health": (200, "application/json", json.dumps({"status": "ok", "uptime_seconds": 10.0}).encode("utf-8")),
+            "/api/health": (200, "application/json", json.dumps({"status": "ok", "service": "reference-backend-api"}).encode("utf-8")),
+        })
+        try:
+            with mock.patch.dict(os.environ, {BACKEND_URL_ENV: base_url}, clear=False):
+                output = subprocess.run(
+                    [sys.executable, str(ROOT / "scripts" / "monitor_reference_apps.py"), "--json"],
+                    cwd=str(ROOT),
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    env=os.environ.copy(),
+                )
+            self.assertEqual(output.returncode, 0, output.stdout + output.stderr)
+            payload = json.loads(output.stdout)
+            self.assertTrue(payload["configured"])
+            self.assertTrue(payload["ok"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_require_configured_environment_flag_fails_without_urls(self):
+        with mock.patch.dict(os.environ, {REQUIRE_CONFIGURED_ENV: "1"}, clear=False):
+            exit_code = monitor_main(["--json"])
+        self.assertEqual(exit_code, 1)

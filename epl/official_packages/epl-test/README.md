@@ -13,9 +13,11 @@ epl install epl-test
 ```epl
 Import "epl-test"
 
-Call test("math works", Function()
+Define Function math_test
     Call expect_equal(1 + 1, 2, "basic arithmetic")
-End)
+End
+
+Call test("math works", math_test)
 
 Call test_summary()
 ```

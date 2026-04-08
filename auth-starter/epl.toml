@@ -1,0 +1,17 @@
+
+[project]
+name = "auth-starter"
+version = "1.0.0"
+description = "auth-starter — EPL auth starter"
+author = ""
+license = ""
+entry = "src/main.epl"
+
+[dependencies]
+epl-db = "^7.3.2"
+
+[scripts]
+start = "epl run src/main.epl"
+test = "epl test tests/"
+build = "epl build src/main.epl"
+serve = "epl serve src/main.epl"

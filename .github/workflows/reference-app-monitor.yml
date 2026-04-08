@@ -4,6 +4,20 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
+    inputs:
+      backend_url:
+        description: "Override backend reference app URL for this run"
+        required: false
+        type: string
+      fullstack_url:
+        description: "Override fullstack reference app URL for this run"
+        required: false
+        type: string
+      require_configured:
+        description: "Fail if no monitoring URLs are configured"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   monitor:
@@ -18,10 +32,17 @@ jobs:
 
       - name: Run deployed reference app monitoring
         env:
-          EPL_REFERENCE_BACKEND_URL: ${{ secrets.EPL_REFERENCE_BACKEND_URL }}
-          EPL_REFERENCE_FULLSTACK_URL: ${{ secrets.EPL_REFERENCE_FULLSTACK_URL }}
+          EPL_REFERENCE_BACKEND_URL_INPUT: ${{ inputs.backend_url }}
+          EPL_REFERENCE_FULLSTACK_URL_INPUT: ${{ inputs.fullstack_url }}
+          EPL_REFERENCE_BACKEND_URL_SECRET: ${{ secrets.EPL_REFERENCE_BACKEND_URL }}
+          EPL_REFERENCE_FULLSTACK_URL_SECRET: ${{ secrets.EPL_REFERENCE_FULLSTACK_URL }}
+          EPL_REFERENCE_MONITOR_REQUIRE_CONFIGURED_INPUT: ${{ inputs.require_configured }}
         run: |
-          python scripts/monitor_reference_apps.py \
-            --backend-url "${EPL_REFERENCE_BACKEND_URL}" \
-            --fullstack-url "${EPL_REFERENCE_FULLSTACK_URL}" \
-            --json
+          export EPL_REFERENCE_BACKEND_URL="${EPL_REFERENCE_BACKEND_URL_INPUT:-$EPL_REFERENCE_BACKEND_URL_SECRET}"
+          export EPL_REFERENCE_FULLSTACK_URL="${EPL_REFERENCE_FULLSTACK_URL_INPUT:-$EPL_REFERENCE_FULLSTACK_URL_SECRET}"
+
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${EPL_REFERENCE_MONITOR_REQUIRE_CONFIGURED_INPUT}" = "true" ]; then
+            export EPL_REFERENCE_MONITOR_REQUIRE_CONFIGURED=1
+          fi
+
+          python scripts/monitor_reference_apps.py --json

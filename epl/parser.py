@@ -227,6 +227,9 @@ class Parser:
         if tok.type == TokenType.ASK:
             return self._parse_ask()
 
+        if tok.type == TokenType.COMMENT:
+            return self._parse_comment()
+
         if tok.type == TokenType.IF:
             return self._parse_if()
 
@@ -943,9 +946,14 @@ class Parser:
             self._advance()
             self._expect(TokenType.TAKES, 'Expected "takes" after "that".')
             params = self._parse_param_list()
-        elif self._match(TokenType.TAKES):
+        elif self._match(TokenType.TAKES, TokenType.WITH):
             self._advance()
             params = self._parse_param_list()
+        elif self._match(TokenType.LPAREN):
+            self._advance()
+            if not self._match(TokenType.RPAREN):
+                params = self._parse_param_list()
+            self._expect(TokenType.RPAREN, 'Expected ")" after function parameters.')
 
         return_type = None
         if self._match(TokenType.AND):
@@ -985,9 +993,14 @@ class Parser:
         func_name = name_tok.value
 
         params = []
-        if self._match(TokenType.TAKES):
+        if self._match(TokenType.TAKES, TokenType.WITH):
             self._advance()
             params = self._parse_param_list()
+        elif self._match(TokenType.LPAREN):
+            self._advance()
+            if not self._match(TokenType.RPAREN):
+                params = self._parse_param_list()
+            self._expect(TokenType.RPAREN, 'Expected ")" after function parameters.')
 
         return_type = None
         if self._match(TokenType.AND):
@@ -1080,15 +1093,31 @@ class Parser:
         line = self._current().line
         self._advance()  # consume CALL
 
-        name_tok = self._expect_identifier('Expected function name after "Call".')
-        func_name = name_tok.value
+        callee = self._parse_postfix()
 
         arguments = []
         if self._match(TokenType.WITH):
             self._advance()
             arguments = self._parse_arg_list()
 
-        return ast.FunctionCall(func_name, arguments, line)
+        if isinstance(callee, ast.FunctionCall):
+            return callee
+
+        if isinstance(callee, ast.MethodCall):
+            return callee
+
+        if isinstance(callee, ast.Identifier):
+            return ast.FunctionCall(callee.name, arguments, line)
+
+        if isinstance(callee, ast.PropertyAccess):
+            return ast.MethodCall(callee.obj, callee.property_name, arguments, line)
+
+        if isinstance(callee, ast.ModuleAccess):
+            if callee.arguments is None:
+                return ast.ModuleAccess(callee.module_name, callee.member_name, arguments, line)
+            return callee
+
+        raise ParserError('Expected function or method name after "Call".', line)
 
     def _parse_arg_list(self) -> list:
         """Parse function arguments: 5 and 10"""
@@ -1845,6 +1874,14 @@ class Parser:
         self._end_statement()
 
         return ast.ImportStatement(filepath_tok.value, line, alias=alias)
+
+    def _parse_comment(self):
+        """Comment "text" — compatibility alias for Note: comments."""
+        self._advance()  # consume COMMENT
+        while not self._match(TokenType.NEWLINE, TokenType.EOF, TokenType.DOT):
+            self._advance()
+        self._end_statement()
+        return None
 
     # ─── v0.3: Use python library ────────────────────────
 
