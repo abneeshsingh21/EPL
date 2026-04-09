@@ -168,11 +168,7 @@ End
 ### Ternary
 
 ```epl
-If x > 10 then
-Note: [Parser Error]     label = "big"
-Otherwise
-Note: [Parser Error]     label = "small"
-End
+result = "big" if x > 10 otherwise "small"
 ```
 
 ---
@@ -226,7 +222,7 @@ End
 
 ```epl
 While true
-    If condition then
+    If condition Then
         Break
     End
     Continue
@@ -248,8 +244,8 @@ Function add takes a, b
     Return a + b
 End
 
-Note: With arrow syntax
-Note: [Parser Error] Function double takes x -> Return x * 2
+Note: With arrow syntax (lambdas only)
+double = lambda x -> x * 2
 ```
 
 ### Calling Functions
@@ -359,11 +355,7 @@ Print keys(person)      Note: [name, age]
 ### Enums
 
 ```epl
-Note: [Parser Error] Enum Color
-    Red = 0
-    Green = 1
-    Blue = 2
-Note: [Parser Error] End
+Enum Color Red, Green, Blue
 
 Print Color.Red         Note: 0
 ```
@@ -581,5 +573,5 @@ Print content
 ```epl
 name = "World"
 age = 25
-Print "Hello, {nameEnd! You are {ageEnd years old."
+Print "Hello, {name}! You are {age} years old."
 ```

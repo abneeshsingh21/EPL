@@ -36,8 +36,7 @@ Full RESTful CRUD API with SQLite.
 ```epl
 Create WebApp called app
 db = db_open("todos.db")
-Note: [Parser Error] db_create_table(db, "todos", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and title = "TEXT NOT NULL" and completed = "INTEGER DEFAULT 0"
-Note: [Parser Error] )
+db_create_table(db, "todos", Map with id = "INTEGER PRIMARY KEY" and title = "TEXT NOT NULL" and completed = "INT DEFAULT 0")
 
 Route "/api/todos" responds with
     todos = db_query(db, "SELECT * FROM todos ORDER BY id DESC")
@@ -76,19 +75,19 @@ Repeat 3 times
     Say "Loop"
 End
 
-While running == True
-Note: [Parser Error]     input = Ask "calc> "
-Note: [Parser Error]     If input == "quit" then
-        running = False
-Note: [Parser Error]     Otherwise if input == "history" then
-        For Each entry in history
+While running == true
+    Ask "calc> " store in user_input
+    If user_input == "quit" Then
+        running = false
+    Otherwise If user_input == "history" Then
+        For each entry in history
             Say entry
         End
-Note: [Parser Error]     Otherwise
-Note: [Parser Error]         result = evaluate(input)
+    Otherwise
+        result = evaluate(user_input)
         Say "= " + to_string(result)
     End
-Note: [Parser Error] End
+End
 ```
 
 ```bash
