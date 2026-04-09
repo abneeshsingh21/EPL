@@ -787,23 +787,34 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
                 ];
 
                 let data = null;
-                // Transparent auto-retry mechanism to bypass Pollinations API queueing locks or transient 502s
+                // Transparent auto-retry mechanism: Tries secure edge backend first, falls back to Pollinations on GitHub Pages
                 for (let attempts = 0; attempts < 3; attempts++) {
                     try {
-                        const response = await fetch("https://text.pollinations.ai/openai", {
+                        // Attempt to hit the Cloudflare Edge Function natively (works when deployed on Cloudflare Pages)
+                        let response = await fetch("/chat", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                messages: apiPayload,
-                                model: "openai",
-                                jsonMode: false,
-                                seed: Math.floor(Math.random() * 1000000) // randomized seed bypass
-                            })
+                            body: JSON.stringify({ messages: apiPayload })
                         });
                         
-                        data = await response.json(); // Throws if HTML 502
+                        if (!response.ok) {
+                            // If /chat doesn't exist (e.g. running locally or on GitHub Pages), fallback to Pollinations!
+                            console.log("Edge proxy not detected, falling back to Pollinations AI...");
+                            response = await fetch("https://text.pollinations.ai/openai", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    messages: apiPayload,
+                                    model: "openai",
+                                    jsonMode: false,
+                                    seed: Math.floor(Math.random() * 1000000)
+                                })
+                            });
+                        }
                         
-                        // If queue is full or other transient API error, wait 2 seconds and try again
+                        data = await response.json();
+                        
+                        // If queue is full or other transient API error, wait 2.5 seconds and try again
                         if (data && data.error) {
                             await new Promise(r => setTimeout(r, 2500));
                             continue;
