@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPL - Interactive Playground</title>
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- CodeMirror (Editor) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+
+    <!-- Pyodide (Python WebAssembly) -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js"></script>
+
+    <style>
+        :root {
+            --bg: #09090b;
+            --surface: #18181b;
+            --border: #3f3f46;
+            --text: #f4f4f5;
+            --text-dim: #a1a1aa;
+            --accent: #ff4500;
+            --accent-hover: #ff571a;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* Grid background for technical feel */
+            background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                              linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: -1px -1px;
+        }
+
+        /* BRUTALIST NAV */
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            background: var(--bg);
+            border-bottom: 2px solid var(--border);
+            height: 60px;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            border-right: 2px solid var(--border);
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            background: var(--surface);
+        }
+        
+        .logo span {
+            color: var(--accent);
+            margin-right: 8px;
+        }
+
+        .controls {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .status-box {
+            display: flex;
+            align-items: center;
+            padding: 0 1.5rem;
+            border-left: 2px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            font-weight: 600;
+            background: var(--bg);
+        }
+
+        .btn-run {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            border-left: 2px solid var(--border);
+            padding: 0 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 1rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-run:hover:not(:disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: -4px 4px 0px rgba(255, 69, 0, 0.3);
+        }
+
+        .btn-run:active:not(:disabled) {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .btn-run:disabled {
+            background: var(--surface);
+            color: var(--text-dim);
+            cursor: not-allowed;
+        }
+
+        /* 60/40 SPLIT WORKSPACE */
+        .workspace {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 2px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+            min-width: 0;
+        }
+        
+        .panel:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 10px 10px 0px rgba(0, 0, 0, 0.6);
+            border-color: #52525b;
+        }
+
+        .editor-container {
+            flex: 6;
+        }
+
+        .output-container {
+            flex: 4;
+        }
+
+        .panel-header {
+            padding: 0.75rem 1.25rem;
+            background: var(--border);
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* CODEMIRROR OVERRIDES */
+        .CodeMirror {
+            flex: 1;
+            height: 100% !important;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            background-color: var(--surface) !important;
+            padding-top: 10px;
+        }
+        .CodeMirror-gutters {
+            background-color: var(--surface) !important;
+            border-right: 1px solid var(--border) !important;
+        }
+
+        /* TERMINAL */
+        .terminal {
+            flex: 1;
+            background: #000;
+            color: #d4d4d8;
+            padding: 1.5rem;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .system-msg { color: var(--accent); }
+        .error-msg { color: var(--error); }
+        .success-msg { color: var(--success); }
+
+        /* ANIMATIONS */
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        /* AGENTIC FEATURES */
+        .ai-block {
+            margin-top: 0.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            background: #000;
+            border-left: 3px solid var(--accent);
+        }
+        .ai-block pre {
+            margin: 0;
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            color: #eab308;
+            border: none;
+        }
+        .ai-actions {
+            display: flex;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+        }
+        .ai-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            background: transparent;
+            color: var(--text-dim);
+            border: none;
+            border-right: 1px solid var(--border);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .ai-actions button:last-child { border-right: none; }
+        .ai-actions button:hover {
+            color: var(--accent);
+            background: rgba(255, 69, 0, 0.1);
+        }
+        
+        .terminal-ai-btn {
+            background: rgba(255, 69, 0, 0.15);
+            color: var(--accent);
+            border: 1px dashed var(--accent);
+            padding: 4px 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            margin-top: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .terminal-ai-btn:hover {
+            background: var(--accent);
+            color: #000;
+        }
+
+        /* SCROLLBARS */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg); border-left: 1px solid var(--border); }
+        ::-webkit-scrollbar-thumb { background: var(--border); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* CHATBOT UI */
+        .chatbot-fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: var(--accent);
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(255, 69, 0, 0.4);
+            border: 2px solid #000;
+            z-index: 999;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .chatbot-fab:hover {
+            transform: scale(1.1) rotate(-5deg);
+        }
+
+        .chatbot-window {
+            position: fixed;
+            bottom: 6rem;
+            right: 2rem;
+            width: 380px;
+            height: 500px;
+            background: rgba(24, 24, 27, 0.95);
+            backdrop-filter: blur(12px);
+            border: 2px solid var(--border);
+            box-shadow: -10px 10px 0px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transform: translateY(20px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .chatbot-window.active {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .chat-header {
+            padding: 1rem 1.25rem;
+            background: #000;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .chat-header i {
+            color: var(--accent);
+            margin-right: 8px;
+        }
+
+        .close-chat {
+            cursor: pointer;
+            color: var(--text-dim);
+            transition: color 0.2s;
+        }
+        .close-chat:hover { color: var(--error); }
+
+        .chat-body {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .chat-msg {
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .chat-msg pre {
+            background: #000;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            margin-top: 0.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            color: #eab308;
+            border-left: 2px solid var(--accent);
+        }
+
+        .chat-msg.bot {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            align-self: flex-start;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .chat-msg.user {
+            background: #27272a;
+            color: #fff;
+            align-self: flex-end;
+            border: 1px solid var(--border);
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+
+        .chat-input-area {
+            padding: 1rem;
+            border-top: 2px solid var(--border);
+            background: #000;
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.85rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        .chat-input:focus {
+            border-color: var(--accent);
+        }
+
+        .chat-send-btn {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            width: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1.1rem;
+        }
+
+        .chat-send-btn:hover {
+            background: var(--accent-hover);
+        }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a href="index.html" class="logo">
+            <span>&#9632;</span> EPL Playground
+        </a>
+        <div class="controls">
+            <div id="status-text" class="status-box">
+                <i class="fa-solid fa-circle-notch spinner" style="margin-right:8px; color: var(--accent);"></i> Booting Engine
+            </div>
+            <button id="run-btn" class="btn-run" disabled onclick="runCode()">
+                <i class="fa-solid fa-play"></i> Execute
+            </button>
+        </div>
+    </nav>
+
+    <div class="workspace">
+        <div class="panel editor-container">
+            <div class="panel-header">
+                <span><i class="fa-solid fa-code"></i> INPUT.EPL</span>
+                <span style="color:var(--text-dim); font-size:0.7rem">v7.4.2</span>
+            </div>
+            <textarea id="code-editor">Note: Welcome to the EPL Interactive Playground!
+Note: This runs a full compiled interpreter directly in your browser.
+
+name = "Developer"
+Say "Hello, " + name + "!"
+
+Repeat 3 times
+    Say "Looping..."
+End
+
+Function greet takes person
+    Return "Nice to meet you, " + person
+End
+
+Say greet("Abneesh")
+</textarea>
+        </div>
+        
+        <div class="panel output-container">
+            <div class="panel-header">
+                <span><i class="fa-solid fa-terminal"></i> OUTPUT</span>
+                <i class="fa-solid fa-trash" style="cursor:pointer; color:var(--text-dim);" onclick="clearTerminal()" title="Clear"></i>
+            </div>
+            <div id="terminal" class="terminal"><span class="system-msg">> Downloading LLVM/WASM boundaries. Please wait ~10s...</span><br></div>
+        </div>
+    </div>
+
+    <!-- CHATBOT WIDGET -->
+    <div class="chatbot-fab" id="chatbot-fab" onclick="toggleChat()" title="Ask AI Assistant">
+        <i class="fa-solid fa-robot"></i>
+    </div>
+
+    <div class="chatbot-window" id="chatbot-window">
+        <div class="chat-header">
+            <div><i class="fa-solid fa-robot"></i> EPL Assistant</div>
+            <div>
+                <i class="fa-solid fa-trash close-chat" style="margin-right: 15px; font-size: 0.8rem;" onclick="clearChat()" title="Clear Chat"></i>
+                <i class="fa-solid fa-xmark close-chat" onclick="toggleChat()" title="Close"></i>
+            </div>
+        </div>
+        <div class="chat-body" id="chat-body">
+            <div class="chat-msg bot">
+                System Initialized. I am the EPL Code Assistant. How can I help you write English Programming Language today? ⚡
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Ask about macros, routing, loops..." onkeypress="handleChatEnter(event)">
+            <button class="chat-send-btn" onclick="sendChatMessage()">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize CodeMirror Editor
+        const editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
+            mode: "python", // EPL is close enough visually to python for the highlighter
+            theme: "monokai",
+            lineNumbers: true,
+            indentUnit: 4,
+            matchBrackets: true,
+            viewportMargin: Infinity
+        });
+
+        // Terminal Helper
+        const terminal = document.getElementById("terminal");
+        let lastTerminalOutput = "";
+
+        function printToTerminal(text, type='normal') {
+            const span = document.createElement('span');
+            if(type === 'error') span.className = 'error-msg';
+            if(type === 'system') span.className = 'system-msg';
+            if(type === 'success') span.className = 'success-msg';
+            span.innerText = text + '\n';
+            terminal.appendChild(span);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearTerminal() {
+            terminal.innerHTML = '';
+            lastTerminalOutput = "";
+        }
+
+        // Pyodide Instance
+        let pyodideReady = false;
+        let pyodide = null;
+
+        async function initEngine() {
+            try {
+                // 1. Load Pyodide
+                pyodide = await loadPyodide();
+                
+                // 2. Install required Pyodide packages
+                await pyodide.loadPackage("micropip");
+                await pyodide.loadPackage("sqlite3");
+                await pyodide.loadPackage("ssl");
+                const micropip = pyodide.pyimport("micropip");
+                
+                printToTerminal("> Installing standard EPL Compiler (v7.4.2)...", "system");
+                
+                // 3. Install EPL from PyPI
+                await micropip.install("eplang");
+                
+                printToTerminal("> Kernel Initialized. System Ready.", "success");
+                printToTerminal("--------------------------------------------------\n");
+                
+                document.getElementById('status-text').innerHTML = '<i class="fa-solid fa-check" style="color:var(--success); margin-right:8px;"></i> Runtime Online';
+                document.getElementById('run-btn').disabled = false;
+                pyodideReady = true;
+
+            } catch (err) {
+                printToTerminal(`> KERNEL PANIC: ${err}`, "error");
+                document.getElementById('status-text').innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:var(--error); margin-right:8px;"></i> System Offline';
+            }
+        }
+
+        async function runCode() {
+            if(!pyodideReady) return;
+            
+            clearTerminal();
+            const eplCode = editor.getValue();
+            
+            // Core EPL Python Execution Bridge
+            const pythonRunner = `
+import sys
+import io
+
+# Monkeypatch to avoid old PyPI parser import bugs
+if "epl.type_system" not in sys.modules:
+    import types
+    sys.modules["epl.type_system"] = types.ModuleType("epl.type_system")
+sys.modules["epl.type_system"].EPLTypeChecker = None
+
+from epl.cli import _parse_epl_program
+from epl.interpreter import Interpreter
+import builtins
+import js
+
+# Redirect inputs to browser prompt
+def browser_input(prompt_text=""):
+    res = js.prompt(prompt_text)
+    return str(res) if res is not None else ""
+builtins.input = browser_input
+
+class MockStdin:
+    def readline(self, *args):
+        return browser_input() + "\\n"
+    def read(self, *args):
+        return browser_input() + "\\n"
+sys.stdin = MockStdin()
+
+# Redirect stdout to capture "Say" outputs
+stdout = io.StringIO()
+old_stdout = sys.stdout
+sys.stdout = stdout
+
+output_res = ""
+try:
+    code = """${eplCode.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"""
+    
+    program = _parse_epl_program(code, "playground.epl")
+    
+    interpreter = Interpreter(safe_mode=True)
+    interpreter.execute(program)
+    
+    output_res = stdout.getvalue()
+except Exception as e:
+    output_res = "ERROR: " + str(e)
+finally:
+    sys.stdout = old_stdout
+
+output_res
+`;
+
+            try {
+                printToTerminal(`> Executing [${new Date().toLocaleTimeString()}]...`, "system");
+                const result = await pyodide.runPythonAsync(pythonRunner);
+                lastTerminalOutput = result || "";
+                
+                if(result && typeof result === 'string' && result.startsWith("ERROR:")) {
+                    printToTerminal(result, "error");
+                    // Inject AI Auto-Debug button!
+                    const aiBtn = document.createElement("button");
+                    aiBtn.className = "terminal-ai-btn";
+                    aiBtn.innerHTML = "<i class=\"fa-solid fa-robot\"></i> Analyze with AI Assistant";
+                    aiBtn.onclick = () => {
+                        window.toggleChat();
+                        document.getElementById('chat-input').value = "Why did I get this error? Please analyze my code and fix it.";
+                        window.sendChatMessage();
+                    };
+                    terminal.appendChild(aiBtn);
+                    terminal.scrollTop = terminal.scrollHeight;
+                } else if (result) {
+                    printToTerminal(result);
+                } else {
+                    printToTerminal("[Program exited with code 0]", "system");
+                }
+            } catch (err) {
+                lastTerminalOutput = "FATAL ERROR:\n" + err;
+                printToTerminal(lastTerminalOutput, "error");
+            }
+        }
+
+        // Start booting engine on page load
+        initEngine();
+
+        // CHATBOT LOGIC - SMART AI POWERED
+        const chatWindow = document.getElementById('chatbot-window');
+        const chatBody = document.getElementById('chat-body');
+        const chatInput = document.getElementById('chat-input');
+
+        const baseSystemPrompt = `You are the OMNISCIENT AI Copilot for EPL (English Programming Language), a language exclusively designed, authored, and developed by visionary engineer Abneesh Singh.
+You have ABSOLUTE KNOWLEDGE of the comprehensive 'EPL Book', syntax, standard library, and internal AST architecture.
+EPL is a production-grade systems language where keywords are natural English. NEVER use brackets {}, semicolons, colons, or standard C/Python syntax.
+
+--- HIGHLY SECURED DOMAIN CONFINEMENT ---
+You are strictly hardcoded to ONLY discuss the English Programming Language (EPL) and its surrounding ecosystem.
+If the user asks you anything NOT related to EPL (e.g., general knowledge, other coding languages, jokes, riddles, history, politics, etc.), you MUST politely refuse and state: "I am specifically calibrated for EPL by Abneesh Singh. I cannot process unrelated requests."
+Do NOT find loopholes to write non-EPL facts inside of EPL print statements. Shut the request down fundamentally.
+
+--- DYNAMIC THINKING MODE ---
+You must operate dynamically based on the complexity of the user's request:
+1. FAST MODE (Normal Chat/Simple Syntax): If the user asks a simple syntax question, asks for basic information, or asks you to fix a tiny typo, reply instantly and concisely. Do NOT write out your thoughts.
+2. THINKING MODE (Complex Coding/Architecture): If the user asks you to build a project, write complex algorithmic code, or debug a convoluted error, you MUST wrap your underlying logic process in a markdown quote block like this:
+> *Thinking Process:*
+> I need to analyze the AST implications...
+> I will structure the loop logic...
+
+--- AGENTIC BEHAVIOR ---
+Any code you output inside \`\`\`epl ... \`\`\` will be AUTOMATICALLY INJECTED by the system directly into the user's Editor!
+Keep your conversational text concise because ONLY the casual chat stays inside the chatbot. All your generated code is piped straight to the developer's workspace.
+
+--- CAPABILITIES & PROGRAM TYPES ---
+1. FULLSTACK WEBSITES & WEB APPS (e.g., E-Commerce, Portfolios, Dashboards):
+   To build highly complex web apps, leverage the EPL Web Server and embed beautiful HTML/CSS/JS. You MUST use TRIPLE-QUOTES (\"\"\") for multi-line strings to avoid escaping errors!
+   'Start server on port 8000 \\n Route "/" responds with \\n HTML = \"\"\" \n <html>\n  <style>body{background:#000;color:#0f0}</style>\n  <h1>Welcome to Book Store</h1>\n </html> \n \"\"\" \\n Send HTML HTML \\n End \\n End'
+   You can use complex inline CSS/JS arrays safely within the triple quotes.
+2. GAMES (e.g., Snake, CLI adventures):
+   - For graphical games (like Snake), build a Web Server that serves an HTML5 Canvas Javascript game completely wrapped inside an EPL \"\"\" string payload!
+   - For text CLI games, loop logic using 'guess = Ask "Move: "' inside a 'While' loop.
+3. CALCULATORS & ALGORITHMS:
+   'Function calculate takes a, b \\n Return a + b \\n End'
+4. STRICT EPL SYNTAX RULES (NO EXCEPTIONS):
+   Variables: 'name = "Alice"'. NEVER use "Set X to".
+   Ternary: 'result = "big" if x > 10 otherwise "small"'
+   Comments: You MUST ONLY use 'Note: comment'. NEVER use '//', '#', '/*', or '--'.
+   Printing: 'Print "Hello"'
+   Inputs: 'Ask "Enter name: " store in user_input' (NEVER use 'user_input = Ask')
+   Lists/Maps: 'items = [1, 2]', 'Add 3 to items', 'm = Map with x = 1 and y = 2'
+   Logic: 'If age >= 18 Then \\n Print "Adult" \\n Otherwise \\n Print "Child" \\n End'
+   Loops: 'Repeat 5 times \\n Print "Hi" \\n End', 'While count < 5 \\n Increase count by 1 \\n End', 'For i from 1 to 10 \\n Print i \\n End'
+   Functions: 'Function calculate takes a, b \\n Return a + b \\n End' (NO arrow syntax for standard functions!)
+   Lambdas: 'square = lambda x -> x * 2'
+   Enums: 'Enum Color Red, Green, Blue' (Inline comma-separated only!)
+   Built-ins: ALWAYS use parentheses. 'length(items)' NEVER 'length items'.
+   Classes: 'Class Dog \\n name = "Rex" \\n Function speak \\n Print name \\n End \\n End \\n d = new Dog \\n d.speak()'
+   Error Handling: 'Try \\n ... \\n Catch err \\n Print err \\n End'
+
+You MUST fulfill ANY user request (e-commerce sites, snake games, complex math) smartly and accurately. Use your immense creativity to dynamically generate the exact required logic. For complex UI/UX or graphical games, perfectly embed HTML5/CSS3/JS inside an EPL Web Server response so the user gets exactly what they asked for running perfectly!
+The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom of the system prompt to give you exact context.`;
+
+        let chatHistory = [];
+
+        window.toggleChat = function() {
+            chatWindow.classList.toggle('active');
+            if(chatWindow.classList.contains('active')) {
+                chatInput.focus();
+            }
+        };
+
+        window.handleChatEnter = function(e) {
+            if (e.key === 'Enter') {
+                window.sendChatMessage();
+            }
+        };
+
+        function parseMarkdown(md) {
+            let html = md.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            html = html.replace(/\n/g, '<br>');
+            return html;
+        }
+
+        function appendMessage(htmlContent, sender) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-msg ${sender}`;
+            msgDiv.innerHTML = htmlContent;
+            chatBody.appendChild(msgDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        window.clearChat = function() {
+            chatHistory = [];
+            chatBody.innerHTML = '<div class="chat-msg bot">Agent Memory Wiped. Code context synchronized. I am ready! ⚡</div>';
+        };
+
+        window.sendChatMessage = async function() {
+            const text = chatInput.value.trim();
+            if(!text) return;
+            
+            appendMessage(parseMarkdown(text), 'user');
+            chatInput.value = '';
+            
+            // Append only user query to visible history array (to prevent massive token blowout from repetitive context)
+            chatHistory.push({ role: "user", content: text });
+
+            const typingId = "typing-" + Date.now();
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `chat-msg bot`;
+            msgDiv.id = typingId;
+            msgDiv.innerHTML = '<i class="fa-solid fa-circle-notch spinner"></i> Analyzing Workspace & Neural Inference...';
+            chatBody.appendChild(msgDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+
+            // Lock UI to prevent user from sending multiple requests and flooding the IP Queue
+            chatInput.disabled = true;
+            chatInput.placeholder = "Neural inference in progress...";
+
+            try {
+                // Dynamically compile the Agent's Workspace Reality Payload
+                const dynamicContext = `\n\n--- ENVIRONMENT STATE ---\n[CURRENT WORKSPACE EPL CODE]\n\`\`\`epl\n${editor.getValue()}\n\`\`\`\n\n[LAST TERMINAL OUTPUT]\n\`\`\`\n${lastTerminalOutput}\n\`\`\``;
+                
+                // Shadow payload to API (includes the live context exactly once at the system root)
+                const apiPayload = [
+                    { role: "system", content: baseSystemPrompt + dynamicContext },
+                    ...chatHistory
+                ];
+
+                let data = null;
+                // Transparent auto-retry mechanism: Tries secure edge backend first, falls back to Pollinations on GitHub Pages
+                for (let attempts = 0; attempts < 3; attempts++) {
+                    try {
+                        // Attempt to hit the Cloudflare Edge Function natively (works when deployed on Cloudflare Pages)
+                        let response = await fetch("/chat", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ messages: apiPayload })
+                        });
+                        
+                        if (!response.ok) {
+                            // If /chat doesn't exist (e.g. running locally or on GitHub Pages), fallback to Pollinations!
+                            console.log("Edge proxy not detected, falling back to Pollinations AI...");
+                            response = await fetch("https://text.pollinations.ai/openai", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    messages: apiPayload,
+                                    model: "openai",
+                                    jsonMode: false,
+                                    seed: Math.floor(Math.random() * 1000000)
+                                })
+                            });
+                        }
+                        
+                        data = await response.json();
+                        
+                        // If queue is full or other transient API error, wait 2.5 seconds and try again
+                        if (data && data.error) {
+                            await new Promise(r => setTimeout(r, 2500));
+                            continue;
+                        }
+                        
+                        // If perfectly successful, break retry loop natively
+                        if (data && data.choices) {
+                            break;
+                        }
+                    } catch (fetchErr) {
+                        // Catch 502 Bad Gateway / Timeout
+                        await new Promise(r => setTimeout(r, 2500));
+                    }
+                }
+                
+                let replyText = "I encountered a neural synchronization block. Please try again.";
+                
+                if (data && data.choices && data.choices.length > 0) {
+                    const content = data.choices[0].message?.content;
+                    if (content === "" || content === null) {
+                        replyText = "[API Returned Empty String - LLM inference failed to generate tokens]";
+                    } else {
+                        replyText = content || replyText;
+                    }
+                } else if (data && data.error) {
+                    let errObj = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
+                    replyText = `API Error: ${errObj}`;
+                } else {
+                    // Dump unknown JSON structure for debugging instead of silent fallback
+                    replyText = `Unexpected API Schema: \n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
+                }
+                
+                // Coerce to string safely to prevent replace undefined errors
+                replyText = String(replyText);
+
+                const loader = document.getElementById(typingId);
+                if (loader) loader.remove();
+                
+                // Save AI original response to history
+                chatHistory.push({ role: "assistant", content: replyText });
+                
+                // Auto-Typer Agentic Logic:
+                const codeBlockRegex = /```(?:epl|[a-z]*)\n([\s\S]*?)```/gi;
+                let codeChunks = [];
+                
+                // Filter out the code blocks from conversational text
+                let conversationalText = replyText.replace(codeBlockRegex, (match, code) => {
+                    codeChunks.push(code.trim());
+                    return `[[AI_AUTO_TYPED_CODE]]`;
+                });
+
+                // Directly type the code into the CodeMirror editor!
+                if (codeChunks.length > 0) {
+                    editor.setValue(codeChunks.join("\n\n"));
+                }
+                
+                // Render ONLY conversational text inside chatbot UI
+                if (conversationalText.trim()) {
+                    let finalHtml = parseMarkdown(conversationalText);
+                    finalHtml = finalHtml.replace(/\[\[AI_AUTO_TYPED_CODE\]\]/g, `<div class="ai-block" style="border-left: 3px solid #0f0; margin-top: 10px; margin-bottom: 10px;">
+                        <div class="ai-actions" style="background: rgba(0, 255, 0, 0.05); color: #0f0; padding: 0.6rem; text-align: center; font-weight: bold; border-radius: 4px;">
+                            <i class="fa-solid fa-bolt"></i> Code Extracted & Typed into Workspace
+                        </div>
+                    </div>`);
+                    appendMessage(finalHtml, 'bot');
+                }
+
+            } catch (err) {
+                console.error("Agent Error:", err);
+                const loader = document.getElementById(typingId);
+                if (loader) loader.remove();
+                appendMessage("API Connection interrupted or timeout. Please check your network and try again.", 'bot error');
+            } finally {
+                // Always unlock the UI
+                chatInput.disabled = false;
+                chatInput.placeholder = "Ask about macros, routing, loops...";
+                chatInput.focus();
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,2611 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Write code the way you think. In plain English.">
+      
+      
+        <meta name="author" content="Abneesh Singh">
+      
+      
+        <link rel="canonical" href="https://abneeshsingh21.github.io/EPL/stdlib-reference/">
+      
+      
+        <link rel="prev" href="../language-spec/">
+      
+      
+        <link rel="next" href="../guides/web/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Standard Library - EPL — English Programming Language</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#epl-standard-library-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="EPL — English Programming Language" class="md-header__button md-logo" aria-label="EPL — English Programming Language" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.6 16.6 4.6-4.6-4.6-4.6L16 6l6 6-6 6zm-5.2 0L4.8 12l4.6-4.6L8 6l-6 6 6 6z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            EPL — English Programming Language
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Standard Library
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/abneeshsingh21/EPL" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    abneeshsingh21/EPL
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../intro/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Introduction
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../language-reference/" class="md-tabs__link">
+          
+  
+  
+  Language Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/web/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../troubleshooting/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Troubleshooting
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="EPL — English Programming Language" class="md-nav__button md-logo" aria-label="EPL — English Programming Language" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.6 16.6 4.6-4.6-4.6-4.6L16 6l6 6-6 6zm-5.2 0L4.8 12l4.6-4.6L8 6l-6 6 6 6z"/></svg>
+
+    </a>
+    EPL — English Programming Language
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/abneeshsingh21/EPL" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    abneeshsingh21/EPL
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Language Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language-spec/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language Specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standard Library
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standard Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Categories
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Categories">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#io-display" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I/O &amp; Display
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#math-built-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Math (built-in)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        String Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Conversion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#map-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Map Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP / Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#date-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Date &amp; Time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regex
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cryptography-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cryptography &amp; Encoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#os-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OS &amp; System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#csv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSV
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orm-object-relational-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ORM (Object-Relational Mapping)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database & ORM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/android/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Android Apps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-manager/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Package Manager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../support-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#categories" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Categories
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Categories">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#io-display" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        I/O &amp; Display
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#math-built-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Math (built-in)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#string-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        String Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-conversion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Conversion
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#list-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#map-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Map Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#set-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Set Functions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#http-networking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HTTP / Networking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#file-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#date-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Date &amp; Time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#regex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Regex
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cryptography-encoding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cryptography &amp; Encoding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#os-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OS &amp; System
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#csv" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CSV
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#concurrency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Concurrency
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#orm-object-relational-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ORM (Object-Relational Mapping)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-note" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security Note
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="epl-standard-library-reference">EPL Standard Library Reference<a class="headerlink" href="#epl-standard-library-reference" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>EPL v7.0.0 — 725 Python-backed functions plus native EPL stdlib modules</p>
+</blockquote>
+<h2 id="categories">Categories<a class="headerlink" href="#categories" title="Permanent link">&para;</a></h2>
+<h3 id="io-display">I/O &amp; Display<a class="headerlink" href="#io-display" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Print &lt;expr&gt;</code></td>
+<td>Display a value to stdout</td>
+</tr>
+<tr>
+<td><code>Display &lt;expr&gt;</code></td>
+<td>Alias for Print</td>
+</tr>
+<tr>
+<td><code>read_input(prompt)</code></td>
+<td>Read user input</td>
+</tr>
+<tr>
+<td><code>print_error(msg)</code></td>
+<td>Print to stderr</td>
+</tr>
+</tbody>
+</table>
+<h3 id="math-built-in">Math (built-in)<a class="headerlink" href="#math-built-in" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>round(n)</code></td>
+<td>Round to nearest integer</td>
+</tr>
+<tr>
+<td><code>floor(n)</code></td>
+<td>Round down</td>
+</tr>
+<tr>
+<td><code>ceil(n)</code></td>
+<td>Round up</td>
+</tr>
+<tr>
+<td><code>absolute(n)</code></td>
+<td>Absolute value</td>
+</tr>
+<tr>
+<td><code>power(base, exp)</code></td>
+<td>Exponentiation</td>
+</tr>
+<tr>
+<td><code>sqrt(n)</code></td>
+<td>Square root</td>
+</tr>
+<tr>
+<td><code>max(a, b)</code></td>
+<td>Maximum</td>
+</tr>
+<tr>
+<td><code>min(a, b)</code></td>
+<td>Minimum</td>
+</tr>
+<tr>
+<td><code>random()</code></td>
+<td>Random float 0-1</td>
+</tr>
+<tr>
+<td><code>random_integer(min, max)</code></td>
+<td>Random integer in range</td>
+</tr>
+<tr>
+<td><code>log(n)</code></td>
+<td>Natural logarithm</td>
+</tr>
+<tr>
+<td><code>sin(n)</code>, <code>cos(n)</code>, <code>tan(n)</code></td>
+<td>Trigonometric functions</td>
+</tr>
+<tr>
+<td><code>asin(n)</code>, <code>acos(n)</code>, <code>atan(n)</code></td>
+<td>Inverse trig</td>
+</tr>
+<tr>
+<td><code>atan2(y, x)</code></td>
+<td>Two-argument arctangent</td>
+</tr>
+<tr>
+<td><code>degrees(rad)</code>, <code>radians(deg)</code></td>
+<td>Angle conversion</td>
+</tr>
+<tr>
+<td><code>gcd(a, b)</code>, <code>lcm(a, b)</code></td>
+<td>Greatest common divisor, least common multiple</td>
+</tr>
+<tr>
+<td><code>factorial(n)</code></td>
+<td>Factorial</td>
+</tr>
+<tr>
+<td><code>clamp(val, lo, hi)</code></td>
+<td>Clamp value to range</td>
+</tr>
+<tr>
+<td><code>lerp(a, b, t)</code></td>
+<td>Linear interpolation</td>
+</tr>
+<tr>
+<td><code>sign(n)</code></td>
+<td>Sign (-1, 0, 1)</td>
+</tr>
+<tr>
+<td><code>pi</code>, <code>euler</code>, <code>inf</code>, <code>nan</code></td>
+<td>Math constants</td>
+</tr>
+<tr>
+<td><code>is_finite(n)</code>, <code>is_nan(n)</code></td>
+<td>Number type checks</td>
+</tr>
+</tbody>
+</table>
+<h3 id="string-functions">String Functions<a class="headerlink" href="#string-functions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>length(s)</code></td>
+<td>String/list length</td>
+</tr>
+<tr>
+<td><code>uppercase(s)</code></td>
+<td>Convert to uppercase</td>
+</tr>
+<tr>
+<td><code>lowercase(s)</code></td>
+<td>Convert to lowercase</td>
+</tr>
+<tr>
+<td><code>trim(s)</code></td>
+<td>Remove leading/trailing whitespace</td>
+</tr>
+<tr>
+<td><code>contains(s, sub)</code></td>
+<td>Check if contains substring</td>
+</tr>
+<tr>
+<td><code>replace(s, old, new)</code></td>
+<td>Replace occurrences</td>
+</tr>
+<tr>
+<td><code>split(s, delim)</code></td>
+<td>Split string into list</td>
+</tr>
+<tr>
+<td><code>join(list, delim)</code></td>
+<td>Join list into string</td>
+</tr>
+<tr>
+<td><code>substring(s, start, end)</code></td>
+<td>Extract substring</td>
+</tr>
+<tr>
+<td><code>starts_with(s, prefix)</code></td>
+<td>Check prefix</td>
+</tr>
+<tr>
+<td><code>ends_with(s, suffix)</code></td>
+<td>Check suffix</td>
+</tr>
+<tr>
+<td><code>index_of(s, sub)</code></td>
+<td>Find position</td>
+</tr>
+<tr>
+<td><code>char_code(s)</code></td>
+<td>Get character code</td>
+</tr>
+<tr>
+<td><code>from_char_code(n)</code></td>
+<td>Character from code</td>
+</tr>
+<tr>
+<td><code>format(template, ...)</code></td>
+<td>String formatting</td>
+</tr>
+<tr>
+<td><code>regex_escape(s)</code></td>
+<td>Escape regex special chars</td>
+</tr>
+</tbody>
+</table>
+<h3 id="type-conversion">Type Conversion<a class="headerlink" href="#type-conversion" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>to_integer(val)</code></td>
+<td>Convert to integer</td>
+</tr>
+<tr>
+<td><code>to_text(val)</code></td>
+<td>Convert to string</td>
+</tr>
+<tr>
+<td><code>to_decimal(val)</code></td>
+<td>Convert to float</td>
+</tr>
+<tr>
+<td><code>type_of(val)</code></td>
+<td>Get type name as string</td>
+</tr>
+</tbody>
+</table>
+<h3 id="list-functions">List Functions<a class="headerlink" href="#list-functions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>list.add(item)</code></td>
+<td>Append item</td>
+</tr>
+<tr>
+<td><code>list.push(item)</code></td>
+<td>Alias for add</td>
+</tr>
+<tr>
+<td><code>list.remove(index)</code></td>
+<td>Remove at index</td>
+</tr>
+<tr>
+<td><code>list.contains(item)</code></td>
+<td>Check membership</td>
+</tr>
+<tr>
+<td><code>list.reverse()</code></td>
+<td>Reverse in place</td>
+</tr>
+<tr>
+<td><code>list.sort()</code></td>
+<td>Sort in place</td>
+</tr>
+<tr>
+<td><code>sort(list)</code></td>
+<td>Return sorted copy</td>
+</tr>
+<tr>
+<td><code>reverse(list)</code></td>
+<td>Return reversed copy</td>
+</tr>
+<tr>
+<td><code>unique(list)</code></td>
+<td>Remove duplicates</td>
+</tr>
+<tr>
+<td><code>sum(list)</code></td>
+<td>Sum numeric list</td>
+</tr>
+<tr>
+<td><code>zip_lists(a, b)</code></td>
+<td>Zip two lists</td>
+</tr>
+<tr>
+<td><code>enumerate_list(list)</code></td>
+<td>List of [index, value] pairs</td>
+</tr>
+<tr>
+<td><code>dict_from_lists(keys, vals)</code></td>
+<td>Create map from parallel lists</td>
+</tr>
+</tbody>
+</table>
+<h3 id="map-functions">Map Functions<a class="headerlink" href="#map-functions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>map.keys()</code></td>
+<td>Get all keys</td>
+</tr>
+<tr>
+<td><code>map.values()</code></td>
+<td>Get all values</td>
+</tr>
+<tr>
+<td><code>map.has(key)</code></td>
+<td>Check if key exists</td>
+</tr>
+</tbody>
+</table>
+<h3 id="set-functions">Set Functions<a class="headerlink" href="#set-functions" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>set_create()</code></td>
+<td>Create empty set</td>
+</tr>
+<tr>
+<td><code>set_add(set, item)</code></td>
+<td>Add to set</td>
+</tr>
+<tr>
+<td><code>set_remove(set, item)</code></td>
+<td>Remove from set</td>
+</tr>
+<tr>
+<td><code>set_contains(set, item)</code></td>
+<td>Check membership</td>
+</tr>
+<tr>
+<td><code>set_union(a, b)</code></td>
+<td>Union of sets</td>
+</tr>
+<tr>
+<td><code>set_intersection(a, b)</code></td>
+<td>Intersection</td>
+</tr>
+<tr>
+<td><code>set_difference(a, b)</code></td>
+<td>Difference</td>
+</tr>
+</tbody>
+</table>
+<h3 id="json">JSON<a class="headerlink" href="#json" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>json_parse(str)</code></td>
+<td>Parse JSON string to value</td>
+</tr>
+<tr>
+<td><code>json_stringify(val)</code></td>
+<td>Convert value to JSON string</td>
+</tr>
+<tr>
+<td><code>json_pretty(val)</code></td>
+<td>Pretty-print JSON</td>
+</tr>
+</tbody>
+</table>
+<h3 id="http-networking">HTTP / Networking<a class="headerlink" href="#http-networking" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http_get(url)</code></td>
+<td>HTTP GET request</td>
+</tr>
+<tr>
+<td><code>http_post(url, data)</code></td>
+<td>HTTP POST request</td>
+</tr>
+<tr>
+<td><code>http_put(url, data)</code></td>
+<td>HTTP PUT request</td>
+</tr>
+<tr>
+<td><code>http_delete(url)</code></td>
+<td>HTTP DELETE request</td>
+</tr>
+<tr>
+<td><code>url_encode(s)</code>, <code>url_decode(s)</code></td>
+<td>URL encoding</td>
+</tr>
+<tr>
+<td><code>dns_lookup(host)</code></td>
+<td>DNS resolution</td>
+</tr>
+<tr>
+<td><code>is_port_open(host, port)</code></td>
+<td>Check port availability</td>
+</tr>
+</tbody>
+</table>
+<h3 id="file-system">File System<a class="headerlink" href="#file-system" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>file_read(path)</code></td>
+<td>Read file contents</td>
+</tr>
+<tr>
+<td><code>file_write(path, data)</code></td>
+<td>Write to file</td>
+</tr>
+<tr>
+<td><code>file_append(path, data)</code></td>
+<td>Append to file</td>
+</tr>
+<tr>
+<td><code>file_exists(path)</code></td>
+<td>Check if file exists</td>
+</tr>
+<tr>
+<td><code>file_delete(path)</code></td>
+<td>Delete file</td>
+</tr>
+<tr>
+<td><code>file_rename(old, new)</code></td>
+<td>Rename file</td>
+</tr>
+<tr>
+<td><code>file_copy(src, dst)</code></td>
+<td>Copy file</td>
+</tr>
+<tr>
+<td><code>file_size(path)</code></td>
+<td>Get file size</td>
+</tr>
+<tr>
+<td><code>file_read_lines(path)</code></td>
+<td>Read as list of lines</td>
+</tr>
+<tr>
+<td><code>dir_list(path)</code></td>
+<td>List directory contents</td>
+</tr>
+<tr>
+<td><code>dir_create(path)</code></td>
+<td>Create directory</td>
+</tr>
+<tr>
+<td><code>dir_delete(path)</code></td>
+<td>Delete directory</td>
+</tr>
+<tr>
+<td><code>dir_exists(path)</code></td>
+<td>Check directory exists</td>
+</tr>
+<tr>
+<td><code>path_join(a, b)</code></td>
+<td>Join path components</td>
+</tr>
+<tr>
+<td><code>path_basename(p)</code></td>
+<td>Get filename</td>
+</tr>
+<tr>
+<td><code>path_dirname(p)</code></td>
+<td>Get directory</td>
+</tr>
+<tr>
+<td><code>path_extension(p)</code></td>
+<td>Get file extension</td>
+</tr>
+<tr>
+<td><code>temp_file()</code>, <code>temp_dir()</code></td>
+<td>Create temporary file/directory</td>
+</tr>
+</tbody>
+</table>
+<h3 id="database">Database<a class="headerlink" href="#database" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>db_open(path)</code></td>
+<td>Open SQLite database</td>
+</tr>
+<tr>
+<td><code>db_close()</code></td>
+<td>Close database</td>
+</tr>
+<tr>
+<td><code>db_execute(sql, params)</code></td>
+<td>Execute SQL</td>
+</tr>
+<tr>
+<td><code>db_query(sql, params)</code></td>
+<td>Query, return all rows</td>
+</tr>
+<tr>
+<td><code>db_query_one(sql, params)</code></td>
+<td>Query, return first row</td>
+</tr>
+<tr>
+<td><code>db_insert(table, data)</code></td>
+<td>Insert record</td>
+</tr>
+<tr>
+<td><code>db_create_table(name, cols)</code></td>
+<td>Create table</td>
+</tr>
+</tbody>
+</table>
+<h3 id="date-time">Date &amp; Time<a class="headerlink" href="#date-time" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>now()</code></td>
+<td>Current datetime string</td>
+</tr>
+<tr>
+<td><code>today()</code></td>
+<td>Current date string</td>
+</tr>
+<tr>
+<td><code>sleep(seconds)</code></td>
+<td>Pause execution</td>
+</tr>
+<tr>
+<td><code>timestamp()</code></td>
+<td>Unix timestamp</td>
+</tr>
+<tr>
+<td><code>date_format(date, fmt)</code></td>
+<td>Format date</td>
+</tr>
+<tr>
+<td><code>date_parse(str, fmt)</code></td>
+<td>Parse date string</td>
+</tr>
+<tr>
+<td><code>date_diff(a, b, unit)</code></td>
+<td>Difference between dates</td>
+</tr>
+<tr>
+<td><code>year(d)</code>, <code>month(d)</code>, <code>day(d)</code></td>
+<td>Extract date parts</td>
+</tr>
+<tr>
+<td><code>hour(d)</code>, <code>minute(d)</code>, <code>second(d)</code></td>
+<td>Extract time parts</td>
+</tr>
+<tr>
+<td><code>day_of_week(d)</code></td>
+<td>Day of week (0=Monday)</td>
+</tr>
+<tr>
+<td><code>is_leap_year(y)</code></td>
+<td>Check leap year</td>
+</tr>
+</tbody>
+</table>
+<h3 id="regex">Regex<a class="headerlink" href="#regex" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>regex_match(pattern, str)</code></td>
+<td>Match regex at start</td>
+</tr>
+<tr>
+<td><code>regex_find(pattern, str)</code></td>
+<td>Find first match</td>
+</tr>
+<tr>
+<td><code>regex_find_all(pattern, str)</code></td>
+<td>Find all matches</td>
+</tr>
+<tr>
+<td><code>regex_replace(pattern, repl, str)</code></td>
+<td>Replace matches</td>
+</tr>
+<tr>
+<td><code>regex_split(pattern, str)</code></td>
+<td>Split by pattern</td>
+</tr>
+<tr>
+<td><code>regex_test(pattern, str)</code></td>
+<td>Test if matches</td>
+</tr>
+</tbody>
+</table>
+<h3 id="cryptography-encoding">Cryptography &amp; Encoding<a class="headerlink" href="#cryptography-encoding" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hash_md5(s)</code></td>
+<td>MD5 hash</td>
+</tr>
+<tr>
+<td><code>hash_sha256(s)</code></td>
+<td>SHA-256 hash</td>
+</tr>
+<tr>
+<td><code>hash_sha512(s)</code></td>
+<td>SHA-512 hash</td>
+</tr>
+<tr>
+<td><code>base64_encode(s)</code></td>
+<td>Base64 encode</td>
+</tr>
+<tr>
+<td><code>base64_decode(s)</code></td>
+<td>Base64 decode</td>
+</tr>
+<tr>
+<td><code>uuid()</code>, <code>uuid4()</code></td>
+<td>Generate UUID</td>
+</tr>
+<tr>
+<td><code>hex_encode(s)</code>, <code>hex_decode(s)</code></td>
+<td>Hex encoding</td>
+</tr>
+</tbody>
+</table>
+<h3 id="os-system">OS &amp; System<a class="headerlink" href="#os-system" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>exec(cmd)</code></td>
+<td>Execute shell command</td>
+</tr>
+<tr>
+<td><code>exec_output(cmd)</code></td>
+<td>Execute and capture output</td>
+</tr>
+<tr>
+<td><code>env_get(key)</code></td>
+<td>Get environment variable</td>
+</tr>
+<tr>
+<td><code>env_set(key, val)</code></td>
+<td>Set environment variable</td>
+</tr>
+<tr>
+<td><code>platform()</code></td>
+<td>OS name</td>
+</tr>
+<tr>
+<td><code>cpu_count()</code></td>
+<td>Number of CPUs</td>
+</tr>
+<tr>
+<td><code>memory_usage()</code></td>
+<td>Memory usage in bytes</td>
+</tr>
+<tr>
+<td><code>cwd()</code></td>
+<td>Current working directory</td>
+</tr>
+<tr>
+<td><code>chdir(path)</code></td>
+<td>Change directory</td>
+</tr>
+<tr>
+<td><code>pid()</code></td>
+<td>Process ID</td>
+</tr>
+<tr>
+<td><code>args()</code></td>
+<td>Command-line arguments</td>
+</tr>
+<tr>
+<td><code>timer_start()</code>, <code>timer_stop()</code></td>
+<td>Performance timing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="csv">CSV<a class="headerlink" href="#csv" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>csv_read(path)</code></td>
+<td>Read CSV file</td>
+</tr>
+<tr>
+<td><code>csv_write(path, data)</code></td>
+<td>Write CSV file</td>
+</tr>
+<tr>
+<td><code>csv_parse(text)</code></td>
+<td>Parse CSV string</td>
+</tr>
+</tbody>
+</table>
+<h3 id="concurrency">Concurrency<a class="headerlink" href="#concurrency" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mutex_create()</code></td>
+<td>Create mutex lock</td>
+</tr>
+<tr>
+<td><code>mutex_lock(m)</code>, <code>mutex_unlock(m)</code></td>
+<td>Lock/unlock</td>
+</tr>
+<tr>
+<td><code>channel_create(size)</code></td>
+<td>Create buffered channel</td>
+</tr>
+<tr>
+<td><code>channel_send(ch, val)</code></td>
+<td>Send to channel</td>
+</tr>
+<tr>
+<td><code>channel_receive(ch)</code></td>
+<td>Receive from channel</td>
+</tr>
+<tr>
+<td><code>semaphore_create(n)</code></td>
+<td>Create semaphore</td>
+</tr>
+<tr>
+<td><code>parallel_map(fn, list)</code></td>
+<td>Map in parallel</td>
+</tr>
+<tr>
+<td><code>thread_pool_create(n)</code></td>
+<td>Create thread pool</td>
+</tr>
+</tbody>
+</table>
+<h3 id="orm-object-relational-mapping">ORM (Object-Relational Mapping)<a class="headerlink" href="#orm-object-relational-mapping" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>orm_open(path)</code></td>
+<td>Open ORM database</td>
+</tr>
+<tr>
+<td><code>orm_define_model(name)</code></td>
+<td>Define a model</td>
+</tr>
+<tr>
+<td><code>orm_add_field(model, name, type)</code></td>
+<td>Add field</td>
+</tr>
+<tr>
+<td><code>orm_migrate()</code></td>
+<td>Run migrations</td>
+</tr>
+<tr>
+<td><code>orm_create(model, data)</code></td>
+<td>Create record</td>
+</tr>
+<tr>
+<td><code>orm_find(model, query)</code></td>
+<td>Find records</td>
+</tr>
+<tr>
+<td><code>orm_update(model, id, data)</code></td>
+<td>Update record</td>
+</tr>
+<tr>
+<td><code>orm_delete(model, id)</code></td>
+<td>Delete record</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="security-note">Security Note<a class="headerlink" href="#security-note" title="Permanent link">&para;</a></h2>
+<p>When running with <code>--sandbox</code> flag, the following functions are <strong>disabled</strong>:
+<code>exec</code>, <code>exec_output</code>, <code>file_write</code>, <code>file_delete</code>, <code>file_append</code>,
+<code>dir_delete</code>, <code>dir_create</code>, <code>chdir</code>, <code>env_set</code>, <code>env_get</code>,
+<code>download</code>, <code>http_get</code>, <code>http_post</code></p>
+<p>This prevents untrusted EPL code from modifying the filesystem or making network requests.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024–2026 Abneesh Singh
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/abneeshsingh21/EPL" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/eplang/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
