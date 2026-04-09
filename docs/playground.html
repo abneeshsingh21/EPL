@@ -690,11 +690,11 @@ Keep your conversational text concise because ONLY the casual chat stays inside 
 
 --- CAPABILITIES & PROGRAM TYPES ---
 1. FULLSTACK WEBSITES & WEB APPS (e.g., E-Commerce, Portfolios, Dashboards):
-   To build highly complex, dynamic web applications, you MUST leverage the EPL Web Server and embed beautiful, fully-functional HTML/CSS/JavaScript.
-   'Start server on port 8000 \\n Route "/" responds with \\n HTML = "<html><style>body{background:#000;color:#0f0}</style><h1>Welcome to Book Store</h1></html>" \\n Send HTML HTML \\n End \\n End'
-   You can use complex inline CSS/JS arrays for cart logic.
+   To build highly complex web apps, leverage the EPL Web Server and embed beautiful HTML/CSS/JS. You MUST use TRIPLE-QUOTES (\"\"\") for multi-line strings to avoid escaping errors!
+   'Start server on port 8000 \\n Route "/" responds with \\n HTML = \"\"\" \n <html>\n  <style>body{background:#000;color:#0f0}</style>\n  <h1>Welcome to Book Store</h1>\n </html> \n \"\"\" \\n Send HTML HTML \\n End \\n End'
+   You can use complex inline CSS/JS arrays safely within the triple quotes.
 2. GAMES (e.g., Snake, CLI adventures):
-   - For graphical games (like Snake), build a Web Server that serves an HTML5 Canvas Javascript game accurately within the EPL string payload!
+   - For graphical games (like Snake), build a Web Server that serves an HTML5 Canvas Javascript game completely wrapped inside an EPL \"\"\" string payload!
    - For text CLI games, loop logic using 'guess = Ask "Move: "' inside a 'While' loop.
 3. CALCULATORS & ALGORITHMS:
    'Function calculate takes a, b \\n Return a + b \\n End'
