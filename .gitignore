@@ -116,3 +116,9 @@ spark.db
 
 # AI config with API keys - never commit
 epl/.ai_config.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
