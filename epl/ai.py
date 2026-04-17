@@ -476,21 +476,17 @@ def code_assist(prompt, language="EPL"):
     model = None
     if language == "EPL" and model_exists():
         model = EPL_MODEL_NAME
-    system = f"""You are an expert {language} programming assistant. 
-Write clean, working code. Be concise and helpful.
-EPL is an English-like programming language with syntax like:
-- x = 5
-- Remember name as "Alice"
-- Say "Hello"
-- Print "Hello"
-- If x > 3 then ... End
-- For each item in list ... End
-- For i from 1 to 10 ... End
-- Function add takes a and b ... Return a + b ... End
-- result = call add with 3 and 5
-- While x < 10 ... End
-- Repeat 5 times ... End
-Only output code unless asked for explanations."""
+    if language == "EPL":
+        from epl.syntax_reference import get_syntax_text
+        syntax_guide = get_syntax_text()
+        system = (
+            "You are an expert EPL programming assistant. "
+            "Write clean, working, parser-valid EPL code. "
+            "Prefer the authoritative syntax forms below and output only code unless asked for explanations.\n\n"
+            f"{syntax_guide}"
+        )
+    else:
+        system = f"You are an expert {language} programming assistant. Write clean, working code. Be concise and helpful."
     return generate(prompt, model=model, system=system)
 
 
@@ -558,12 +554,14 @@ def generate_epl_code(description, filename=None):
     """
     model = EPL_MODEL_NAME if model_exists() else None
     
-    system = ("You are EPL-Coder, an expert EPL code generator. "
-              "Given a description, generate clean, working EPL code. "
-              "Output ONLY the EPL code wrapped in ```epl ... ``` blocks, "
-              "followed by a brief explanation. Use proper EPL syntax: "
-              "Print/Say for output, End for blocks, $var for templates, "
-              ".uppercase not .upper(), Map with key = value.")
+    from epl.syntax_reference import get_syntax_text
+
+    system = (
+        "You are EPL-Coder, an expert EPL code generator. "
+        "Given a description, generate clean, working EPL code that matches the real parser-supported syntax. "
+        "Output ONLY the EPL code wrapped in ```epl ... ``` blocks, followed by a brief explanation.\n\n"
+        f"{get_syntax_text()}"
+    )
     
     prompt = f"Generate EPL code that does the following: {description}"
     

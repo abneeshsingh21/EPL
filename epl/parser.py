@@ -2064,11 +2064,38 @@ class Parser:
             self._end_statement()
             return ast.HtmlElement('subheading', content, line=tok.line)
 
-        if tok.type == TokenType.TYPE_TEXT:
-            self._advance()
-            content = self._expect(TokenType.STRING, "Expected text content").value
-            self._end_statement()
-            return ast.HtmlElement('text', content, line=tok.line)
+        if tok.type in (TokenType.TYPE_TEXT, TokenType.SAY, TokenType.DISPLAY, TokenType.SHOW):
+            is_store_list = (
+                tok.type in (TokenType.SAY, TokenType.DISPLAY, TokenType.SHOW)
+                and (
+                    (hasattr(TokenType, 'ITEMS') and self._peek().type == TokenType.ITEMS)
+                    or (
+                        self._peek().type in (TokenType.IDENTIFIER,) + self._SOFT_KEYWORDS
+                        and str(self._peek().value).lower() == 'items'
+                    )
+                )
+            )
+            if is_store_list:
+                self._advance()
+                if hasattr(TokenType, 'ITEMS'):
+                    self._optional(TokenType.ITEMS)
+                if self._match_identifier() and str(self._current().value).lower() == 'items':
+                    self._advance()
+                self._optional(TokenType.FROM)
+                collection_tok = self._expect(TokenType.STRING, 'Expected collection name after list output keyword.')
+                attrs = {'collection': collection_tok.value}
+                if self._match(TokenType.DELETE_KW):
+                    self._advance()
+                    del_tok = self._expect(TokenType.STRING, 'Expected delete action URL.')
+                    attrs['delete_action'] = del_tok.value
+                self._end_statement()
+                return ast.HtmlElement('store_list', None, attrs, line=tok.line)
+
+            if tok.type == TokenType.TYPE_TEXT or self._peek().type == TokenType.STRING:
+                self._advance()
+                content = self._expect(TokenType.STRING, "Expected text content").value
+                self._end_statement()
+                return ast.HtmlElement('text', content, line=tok.line)
 
         if tok.type == TokenType.LINK:
             self._advance()
@@ -2134,24 +2161,6 @@ class Parser:
             items = self._parse_expression()
             self._end_statement()
             return ast.HtmlElement('list', items, line=tok.line)
-
-        if tok.type == TokenType.SHOW or tok.type == TokenType.DISPLAY:
-            # Show items from "collection" delete "/path"
-            self._advance()
-            self._optional(TokenType.ITEMS) if hasattr(TokenType, 'ITEMS') else None
-            # Accept optional "items" as plain identifier
-            if self._match_identifier() and self._current().value.lower() == 'items':
-                self._advance()
-            self._optional(TokenType.FROM)
-            collection_tok = self._expect(TokenType.STRING, 'Expected collection name after "Show".')
-            attrs = {'collection': collection_tok.value}
-            # Optional "delete" action path
-            if self._match(TokenType.DELETE_KW):
-                self._advance()
-                del_tok = self._expect(TokenType.STRING, 'Expected delete action URL.')
-                attrs['delete_action'] = del_tok.value
-            self._end_statement()
-            return ast.HtmlElement('store_list', None, attrs, line=tok.line)
 
         if tok.type == TokenType.SCRIPT:
             return self._parse_script_element()

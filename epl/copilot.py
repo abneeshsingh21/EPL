@@ -11,17 +11,357 @@ Usage:
 
 import re
 
+from epl.syntax_reference import get_syntax_sections, get_syntax_text
+
 # ── Public API ───────────────────────────────────────────
 
 def generate_from_description(description: str) -> str:
-    """Generate EPL code from an English description. Returns EPL source code."""
+    """Generate EPL code from an English description. Returns parse-checked EPL source."""
+    return assist_request(description, mode='generate')['code']
+
+
+def analyze_code(code: str, strict: bool = False) -> dict:
+    """Analyze EPL source and return parse/type diagnostics."""
+    from epl.errors import EPLError
+    from epl.lexer import Lexer
+    from epl.parser import Parser
+    from epl.type_checker import TypeChecker
+
+    source = _normalize_code_block(code)
+    if not source.strip():
+        return {
+            'ok': True,
+            'syntax_ok': True,
+            'diagnostics': [],
+            'statement_count': 0,
+        }
+
+    try:
+        tokens = Lexer(source).tokenize()
+    except EPLError as exc:
+        return {
+            'ok': False,
+            'syntax_ok': False,
+            'diagnostics': [_diagnostic_from_error(exc, source='lexer')],
+            'statement_count': 0,
+        }
+
+    parser = Parser(tokens)
+    program, errors = parser.parse_with_recovery()
+    diagnostics = [_diagnostic_from_error(err, source='parser') for err in errors]
+    syntax_ok = not errors
+
+    if syntax_ok:
+        checker = TypeChecker(strict=strict)
+        checker.check(program)
+        diagnostics.extend(_normalize_type_diagnostics(checker.to_lsp_diagnostics()))
+
+    ok = syntax_ok and not any(diag['level'] == 'error' for diag in diagnostics)
+    return {
+        'ok': ok,
+        'syntax_ok': syntax_ok,
+        'diagnostics': diagnostics,
+        'statement_count': len(getattr(program, 'statements', [])),
+    }
+
+
+def assist_request(message: str, current_code: str = "", mode: str = "auto") -> dict:
+    """Generate, explain, fix, or improve EPL code with syntax-aware diagnostics."""
+    prompt = message.strip()
+    code = _normalize_code_block(current_code)
+    resolved_mode = _detect_assist_mode(prompt, code, mode)
+
+    if resolved_mode == 'generate' or (not code and resolved_mode in ('fix', 'improve', 'explain')):
+        candidate = _generate_candidate(prompt)
+        final_code, analysis, repair_notes = _validate_generated_code(candidate, prompt)
+        reply = _build_generation_reply(prompt, analysis, repair_notes)
+        return {
+            'mode': 'generate',
+            'reply': reply,
+            'code': final_code,
+            'syntax_ok': analysis['syntax_ok'],
+            'diagnostics': analysis['diagnostics'],
+            'repair_notes': repair_notes,
+            'syntax_sections': _select_syntax_sections(prompt, final_code, analysis['diagnostics']),
+        }
+
+    if resolved_mode == 'fix':
+        repaired, repair_notes = _repair_common_syntax_mistakes(code)
+        repaired_analysis = analyze_code(repaired)
+        if repaired != code and repaired_analysis['syntax_ok']:
+            reply = _build_fix_reply(repaired_analysis, repair_notes, auto_fixed=True)
+            return {
+                'mode': 'fix',
+                'reply': reply,
+                'code': repaired,
+                'syntax_ok': repaired_analysis['syntax_ok'],
+                'diagnostics': repaired_analysis['diagnostics'],
+                'repair_notes': repair_notes,
+                'syntax_sections': _select_syntax_sections(prompt, repaired, repaired_analysis['diagnostics']),
+            }
+
+        analysis = analyze_code(code)
+        reply = _build_fix_reply(analysis, repair_notes, auto_fixed=False)
+        return {
+            'mode': 'fix',
+            'reply': reply,
+            'code': repaired if repaired != code else code,
+            'syntax_ok': analysis['syntax_ok'],
+            'diagnostics': analysis['diagnostics'],
+            'repair_notes': repair_notes,
+            'syntax_sections': _select_syntax_sections(prompt, code, analysis['diagnostics']),
+        }
+
+    if resolved_mode == 'improve':
+        improved, repair_notes = _repair_common_syntax_mistakes(code)
+        analysis = analyze_code(improved)
+        reply = _build_improve_reply(analysis, repair_notes)
+        return {
+            'mode': 'improve',
+            'reply': reply,
+            'code': improved,
+            'syntax_ok': analysis['syntax_ok'],
+            'diagnostics': analysis['diagnostics'],
+            'repair_notes': repair_notes,
+            'syntax_sections': _select_syntax_sections(prompt, improved, analysis['diagnostics']),
+        }
+
+    analysis = analyze_code(code)
+    reply = _build_explain_reply(code, analysis)
+    return {
+        'mode': 'explain',
+        'reply': reply,
+        'code': code,
+        'syntax_ok': analysis['syntax_ok'],
+        'diagnostics': analysis['diagnostics'],
+        'repair_notes': [],
+        'syntax_sections': _select_syntax_sections(prompt, code, analysis['diagnostics']),
+    }
+
+
+def _generate_candidate(description: str) -> str:
     desc = description.strip().lower()
-    # Try each pattern category
     for matcher in _MATCHERS:
         result = matcher(desc, description.strip())
         if result:
             return result
     return _fallback(desc, description.strip())
+
+
+def _normalize_code_block(code: str) -> str:
+    text = code.strip()
+    fence = re.search(r'```(?:epl)?\s*\n(.*?)\n```', text, re.DOTALL | re.IGNORECASE)
+    if fence:
+        return fence.group(1).strip()
+    return text
+
+
+def _detect_assist_mode(message: str, code: str, mode: str) -> str:
+    if mode and mode != 'auto':
+        return mode
+    lowered = message.lower()
+    if code and re.search(r'\b(fix|debug|repair|error|broken|syntax)\b', lowered):
+        return 'fix'
+    if code and re.search(r'\b(explain|what does|how does|describe)\b', lowered):
+        return 'explain'
+    if code and re.search(r'\b(improve|refactor|optimize|cleanup|clean up)\b', lowered):
+        return 'improve'
+    return 'generate'
+
+
+def _validate_generated_code(code: str, description: str):
+    candidate = _normalize_code_block(code)
+    analysis = analyze_code(candidate)
+    if analysis['syntax_ok']:
+        return candidate, analysis, []
+
+    repaired, repair_notes = _repair_common_syntax_mistakes(candidate)
+    if repaired != candidate:
+        repaired_analysis = analyze_code(repaired)
+        if repaired_analysis['syntax_ok']:
+            return repaired, repaired_analysis, repair_notes
+
+    safe_fallback = _fallback(description.lower(), description.strip())
+    fallback_analysis = analyze_code(safe_fallback)
+    notes = repair_notes + ['Fell back to a safe starter because the first draft did not parse cleanly.']
+    return safe_fallback, fallback_analysis, notes
+
+
+def _repair_common_syntax_mistakes(code: str):
+    repaired = _normalize_code_block(code)
+    notes = []
+    original = repaired
+
+    if repaired.startswith('//'):
+        repaired = '\n'.join(
+            (re.sub(r'^(\s*)//\s*', r'\1Note: ', line) if re.match(r'^\s*//', line) else line)
+            for line in repaired.splitlines()
+        )
+        notes.append('Converted // comments into EPL Note: comments.')
+
+    if re.search(r'^\s*Else If\b', repaired, re.IGNORECASE | re.MULTILINE):
+        repaired = re.sub(r'^(\s*)Else If\b', r'\1Otherwise If', repaired, flags=re.IGNORECASE | re.MULTILINE)
+        notes.append('Replaced Else If with EPL Otherwise If.')
+
+    if re.search(r'^\s*Else\b', repaired, re.IGNORECASE | re.MULTILINE):
+        repaired = re.sub(r'^(\s*)Else\b', r'\1Otherwise', repaired, flags=re.IGNORECASE | re.MULTILINE)
+        notes.append('Replaced Else with EPL Otherwise.')
+
+    if ';' in repaired:
+        cleaned_lines = []
+        changed = False
+        for line in repaired.splitlines():
+            stripped = line.rstrip()
+            if stripped.endswith(';'):
+                cleaned_lines.append(stripped[:-1])
+                changed = True
+            else:
+                cleaned_lines.append(line)
+        if changed:
+            repaired = '\n'.join(cleaned_lines)
+            notes.append('Removed trailing semicolons.')
+
+    if repaired != original:
+        repaired = repaired.strip() + '\n'
+
+    return repaired, notes
+
+
+def _diagnostic_from_error(exc, source='parser'):
+    payload = exc.to_dict() if hasattr(exc, 'to_dict') else {}
+    return {
+        'level': 'error',
+        'source': source,
+        'message': payload.get('message', str(exc)),
+        'line': payload.get('line'),
+        'code': payload.get('error_code') or payload.get('code', ''),
+    }
+
+
+def _normalize_type_diagnostics(items):
+    severity_map = {1: 'error', 2: 'warning', 3: 'info', 4: 'hint'}
+    normalized = []
+    for item in items:
+        start = item.get('range', {}).get('start', {})
+        normalized.append({
+            'level': severity_map.get(item.get('severity', 2), 'warning'),
+            'source': item.get('source', 'typecheck'),
+            'message': item.get('message', ''),
+            'line': start.get('line', 0) + 1,
+            'code': item.get('code', ''),
+        })
+    return normalized
+
+
+def _summarize_diagnostics(diagnostics, limit=3):
+    if not diagnostics:
+        return 'No syntax issues found.'
+    parts = []
+    for diag in diagnostics[:limit]:
+        line = f"line {diag['line']}" if diag.get('line') else 'unknown line'
+        parts.append(f"{line}: {diag['message']}")
+    if len(diagnostics) > limit:
+        parts.append(f"... and {len(diagnostics) - limit} more issue(s)")
+    return '; '.join(parts)
+
+
+def _build_generation_reply(prompt: str, analysis: dict, repair_notes):
+    subject = _infer_subject(prompt)
+    status = 'The starter parses cleanly.' if analysis['syntax_ok'] else 'The starter still needs manual review.'
+    details = _summarize_diagnostics(analysis['diagnostics'], limit=2)
+    extra = f" Repairs applied: {' '.join(repair_notes)}" if repair_notes else ""
+    return f"Generated a syntax-aware EPL {subject} starter. {status} Diagnostics: {details}.{extra}".strip()
+
+
+def _build_fix_reply(analysis: dict, repair_notes, auto_fixed: bool):
+    if auto_fixed:
+        extra = f" Applied: {' '.join(repair_notes)}" if repair_notes else ""
+        return f"I repaired common EPL syntax issues and revalidated the code. Diagnostics: {_summarize_diagnostics(analysis['diagnostics'], limit=2)}.{extra}".strip()
+    guidance = _summarize_diagnostics(analysis['diagnostics'], limit=3)
+    syntax_text = get_syntax_text()
+    return (
+        f"I could not safely auto-rewrite everything, but I found these issues: {guidance}. "
+        f"Use parser-supported forms such as Note: comments, Otherwise instead of Else, "
+        f"Function name takes arg, and Create WebApp called myApp for web starters.\n\n"
+        f"{syntax_text}"
+    )
+
+
+def _build_explain_reply(code: str, analysis: dict):
+    features = []
+    lowered = code.lower()
+    if 'create webapp' in lowered:
+        features.append('a native WebApp')
+    if re.search(r'^\s*(define\s+function|function)\b', code, re.IGNORECASE | re.MULTILINE):
+        features.append('functions')
+    if re.search(r'^\s*class\b', code, re.IGNORECASE | re.MULTILINE):
+        features.append('classes')
+    if re.search(r'^\s*(for|while|repeat)\b', code, re.IGNORECASE | re.MULTILINE):
+        features.append('control-flow loops')
+    if 'use python ' in lowered:
+        features.append('the Python bridge')
+    if not features:
+        features.append('core EPL statements')
+    return (
+        f"This code uses {', '.join(features)}. "
+        f"Syntax diagnostics: {_summarize_diagnostics(analysis['diagnostics'], limit=3)}"
+    )
+
+
+def _build_improve_reply(analysis: dict, repair_notes):
+    if analysis['syntax_ok']:
+        base = "The code already parses. Keep using parser-safe forms like Note:, Otherwise, Map with, and Route ... shows/responds with."
+    else:
+        base = f"The code needs syntax cleanup first. Diagnostics: {_summarize_diagnostics(analysis['diagnostics'], limit=3)}"
+    if repair_notes:
+        base += f" Applied: {' '.join(repair_notes)}"
+    return base
+
+
+def _infer_subject(prompt: str) -> str:
+    lowered = prompt.lower()
+    if re.search(r'\b(chatbot|assistant|ai bot|chat bot)\b', lowered):
+        return 'chatbot'
+    if re.search(r'\b(auth|login|register|signup|signin)\b', lowered):
+        return 'auth'
+    if re.search(r'\b(frontend|landing page|dashboard|ui|ux)\b', lowered):
+        return 'frontend'
+    if re.search(r'\b(api|backend|rest|server)\b', lowered):
+        return 'backend'
+    if re.search(r'\b(web app|website|fullstack)\b', lowered):
+        return 'web'
+    return 'code'
+
+
+def _select_syntax_sections(message: str, code: str, diagnostics):
+    text = ' '.join(
+        [message or '', code or ''] + [diag.get('message', '') for diag in diagnostics or []]
+    ).lower()
+    section_keywords = {
+        'web': ['webapp', 'route', '/api', 'send json', 'request_data', 'fetch '],
+        'functions': ['function', 'return', 'call ', '(', 'lambda', '->'],
+        'control_flow': ['otherwise', 'else', 'while', 'repeat', 'for each', 'for ', 'match', 'when'],
+        'collections': ['map with', '[', ']', 'keys(', 'values(', 'items'],
+        'imports': ['import ', 'use python', 'json', 'module'],
+        'oop': ['class', 'new ', 'this', 'super', '.'],
+        'output_input': ['say ', 'display ', 'ask ', 'input '],
+        'gui': ['window', 'label', 'textbox', 'button', 'column', 'row'],
+        'error_handling': ['try', 'catch', 'throw', 'assert', 'error', 'exception'],
+        'file_io': ['write ', 'read file', 'append ', 'file '],
+        'enums_ternary': ['enum', 'otherwise', 'ternary', 'if ', 'lambda'],
+        'misc': ['wait', 'exit', 'length(', 'type_of(', 'to_text('],
+    }
+    scored = []
+    for section in get_syntax_sections():
+        keywords = section_keywords.get(section['id'], [])
+        score = sum(1 for keyword in keywords if keyword in text)
+        scored.append((score, section))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    chosen = [section for score, section in scored if score > 0][:3]
+    if not chosen:
+        ids = {'variables', 'functions', 'control_flow'}
+        chosen = [section for section in get_syntax_sections() if section['id'] in ids]
+    return chosen
 
 
 def start_copilot_web(port: int = 8095, open_browser: bool = True):
@@ -537,6 +877,125 @@ while running
 end'''
     return None
 
+def _match_frontend(desc, orig):
+    if re.search(r'frontend|landing\s*page|dashboard|creative\s*ui|creative\s*ux|hero\s*section', desc):
+        return '''Create WebApp called studioApp
+
+Route "/" shows
+    Create hero_title = "Neon Studio"
+    Create hero_copy = "Build bold interfaces with real EPL syntax."
+    Page "$hero_title"
+        Heading "$hero_title"
+        SubHeading "Creative frontend starter"
+        Text "$hero_copy"
+        Link "View roadmap" to "/roadmap"
+    End
+End
+
+Route "/roadmap" shows
+    Page "Roadmap"
+        Heading "Roadmap"
+        Text "Design. Build. Launch."
+        Link "Back home" to "/"
+    End
+End
+
+Route "/api/theme" responds with
+    Send json Map with accent = "#58a6ff" and mode = "creative"
+End
+
+Start studioApp on port 8080'''
+    return None
+
+def _match_auth(desc, orig):
+    if re.search(r'auth|login|register|signup|sign\s*in|sign\s*up', desc):
+        return '''Import "epl-db"
+
+Create db equal to open(":memory:")
+Call create_table(db, "users", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and username = "TEXT UNIQUE NOT NULL" and password_hash = "TEXT NOT NULL")
+
+Create WebApp called authApp
+
+Route "/" shows
+    Page "Auth Starter"
+        Heading "Auth starter"
+        Text "Post username and password to the JSON routes below."
+        Link "Health API" to "/api/health"
+    End
+End
+
+Route "/api/health" responds with
+    Send json Map with status = "ok" and service = "auth"
+End
+
+Route "/api/register" responds with
+    Create username equal to request_data.get("username")
+    Create password equal to request_data.get("password")
+    Create response equal to Map with ok = False and error = "Username and password are required"
+    If username != nothing And password != nothing Then
+        If username != "" And password != "" Then
+            Try
+                Create password_hash equal to auth_hash_password(password)
+                Call execute_params(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, password_hash])
+                Create response equal to Map with ok = True and user = username
+            Catch error
+                Create response equal to Map with ok = False and error = "Username already exists"
+            End
+        End
+    End
+    Send json response
+End
+
+Route "/api/login" responds with
+    Create username equal to request_data.get("username")
+    Create password equal to request_data.get("password")
+    Create account equal to query_one_params(db, "SELECT username, password_hash FROM users WHERE username = ?", [username])
+    Create response equal to Map with ok = False and error = "Invalid credentials"
+    If account != nothing And auth_verify_password(password, account.password_hash) Then
+        Create response equal to Map with ok = True and user = account.username and token = auth_generate_token(32)
+    End
+    Send json response
+End
+
+Start authApp on port 8080'''
+    return None
+
+def _match_chatbot(desc, orig):
+    if re.search(r'chatbot|chat\s*bot|ai\s*assistant|assistant\s*api|chat\s*api', desc):
+        return '''Use python "epl.ai" as ai
+
+Create WebApp called chatApp
+
+Route "/" shows
+    Page "Chatbot Starter"
+        Heading "EPL chatbot starter"
+        Text "Send JSON to /api/chat with a message field."
+        Link "Health API" to "/api/health"
+    End
+End
+
+Route "/api/health" responds with
+    Send json Map with status = "ok" and service = "chatbot"
+End
+
+Route "/api/chat" responds with
+    Create message equal to request_data.get("message")
+    Create reply equal to Map with ok = False and mode = "starter" and reply = "Message is required"
+    If message != nothing And message != "" Then
+        Try
+            Create messages equal to [Map with role = "system" and content = "You are a helpful EPL assistant.", Map with role = "user" and content = message]
+            Create answer equal to ai.chat(messages)
+            Create reply equal to Map with ok = True and mode = "ai" and reply = answer
+        Catch error
+            Create reply equal to Map with ok = False and mode = "fallback" and reply = "AI backend unavailable" and detail = to_text(error)
+        End
+    End
+    Send json reply
+End
+
+Start chatApp on port 8080'''
+    return None
+
 def _match_api_web(desc, orig):
     if re.search(r'api|web\s*app|server|route|http|rest', desc):
         return '''Create WebApp called myApp
@@ -636,6 +1095,9 @@ _MATCHERS = [
     _match_string,
     _match_pattern,
     _match_todo,
+    _match_frontend,
+    _match_auth,
+    _match_chatbot,
     _match_class,
     _match_timer,
     _match_loop,
@@ -843,6 +1305,9 @@ header p { color: var(--text-dim); font-size: 0.95em; }
             <span class="suggestion" onclick="suggest('todo list')">todo app</span>
             <span class="suggestion" onclick="suggest('countdown timer 10')">timer</span>
             <span class="suggestion" onclick="suggest('dictionary operations')">dictionary</span>
+            <span class="suggestion" onclick="suggest('creative frontend landing page')">frontend</span>
+            <span class="suggestion" onclick="suggest('auth api with login and register')">auth</span>
+            <span class="suggestion" onclick="suggest('chatbot api assistant')">chatbot</span>
         </div>
     </div>
 

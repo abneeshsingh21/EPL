@@ -445,6 +445,98 @@
         .chat-send-btn:hover {
             background: var(--accent-hover);
         }
+
+        /* AST GUTTER MARKERS */
+        .cm-ast-error {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--error);
+            display: inline-block;
+            margin-top: 6px;
+            box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+            cursor: pointer;
+        }
+        .cm-ast-warning {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f59e0b;
+            display: inline-block;
+            margin-top: 6px;
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+            cursor: pointer;
+        }
+        .CodeMirror-lint-tooltip {
+            background: #18181b;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            max-width: 350px;
+            z-index: 10000;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        .ast-line-error {
+            background: rgba(239, 68, 68, 0.08) !important;
+        }
+
+        /* AST DIAGNOSTICS BADGE */
+        .ast-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        .ast-badge.ok { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .ast-badge.error { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .ast-badge.analyzing { background: rgba(255, 69, 0, 0.1); color: var(--accent); }
+
+        /* THINKING MODE ANIMATION */
+        .thinking-dots::after {
+            content: '';
+            animation: thinkingDots 1.5s steps(4, end) infinite;
+        }
+        @keyframes thinkingDots {
+            0% { content: ''; }
+            25% { content: '.'; }
+            50% { content: '..'; }
+            75% { content: '...'; }
+        }
+        .thinking-block {
+            border-left: 2px solid var(--accent);
+            padding: 8px 12px;
+            margin: 8px 0;
+            background: rgba(255, 69, 0, 0.05);
+            font-style: italic;
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* AUTO-RUN BADGE */
+        .auto-run-notice {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+            padding: 6px 12px;
+            border-radius: 4px;
+            margin-top: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -454,6 +546,7 @@
             <span>&#9632;</span> EPL Playground
         </a>
         <div class="controls">
+            <span id="ast-badge" class="ast-badge analyzing" style="margin-right:8px;"><i class="fa-solid fa-circle-notch spinner" style="font-size:0.6rem"></i> AST</span>
             <div id="status-text" class="status-box">
                 <i class="fa-solid fa-circle-notch spinner" style="margin-right:8px; color: var(--accent);"></i> Booting Engine
             </div>
@@ -467,7 +560,7 @@
         <div class="panel editor-container">
             <div class="panel-header">
                 <span><i class="fa-solid fa-code"></i> INPUT.EPL</span>
-                <span style="color:var(--text-dim); font-size:0.7rem">v7.4.2</span>
+                <span style="color:var(--text-dim); font-size:0.7rem">v7.4.3</span>
             </div>
             <textarea id="code-editor">Note: Welcome to the EPL Interactive Playground!
 Note: This runs a full compiled interpreter directly in your browser.
@@ -525,12 +618,13 @@ Say greet("Abneesh")
     <script>
         // Initialize CodeMirror Editor
         const editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
-            mode: "python", // EPL is close enough visually to python for the highlighter
+            mode: "python",
             theme: "monokai",
             lineNumbers: true,
             indentUnit: 4,
             matchBrackets: true,
-            viewportMargin: Infinity
+            viewportMargin: Infinity,
+            gutters: ["CodeMirror-linenumbers", "ast-gutter"]
         });
 
         // Terminal Helper
@@ -567,7 +661,7 @@ Say greet("Abneesh")
                 await pyodide.loadPackage("ssl");
                 const micropip = pyodide.pyimport("micropip");
                 
-                printToTerminal("> Installing standard EPL Compiler (v7.4.2)...", "system");
+                printToTerminal("> Installing standard EPL Compiler (v7.4.3)...", "system");
                 
                 // 3. Install EPL from PyPI
                 await micropip.install("eplang");
@@ -578,6 +672,9 @@ Say greet("Abneesh")
                 document.getElementById('status-text').innerHTML = '<i class="fa-solid fa-check" style="color:var(--success); margin-right:8px;"></i> Runtime Online';
                 document.getElementById('run-btn').disabled = false;
                 pyodideReady = true;
+
+                // Run initial AST analysis on the default editor content
+                analyzeCodeAST(editor.getValue());
 
             } catch (err) {
                 printToTerminal(`> KERNEL PANIC: ${err}`, "error");
@@ -654,9 +751,11 @@ output_res
                     const aiBtn = document.createElement("button");
                     aiBtn.className = "terminal-ai-btn";
                     aiBtn.innerHTML = "<i class=\"fa-solid fa-robot\"></i> Analyze with AI Assistant";
-                    aiBtn.onclick = () => {
+                    aiBtn.onclick = async () => {
+                        // Run AST analysis first so the AI gets full context
+                        await analyzeCodeAST(editor.getValue());
                         window.toggleChat();
-                        document.getElementById('chat-input').value = "Why did I get this error? Please analyze my code and fix it.";
+                        document.getElementById('chat-input').value = "My code has errors. Please analyze the AST diagnostics and fix the issues.";
                         window.sendChatMessage();
                     };
                     terminal.appendChild(aiBtn);
@@ -675,6 +774,192 @@ output_res
         // Start booting engine on page load
         initEngine();
 
+        // ═══════════════════════════════════════════════════════
+        // AST-AWARE LIVE ANALYSIS ENGINE
+        // Uses the Pyodide-loaded EPL compiler for real-time
+        // parse_with_recovery() directly in the browser.
+        // ═══════════════════════════════════════════════════════
+        let lastASTResult = null;
+        let astDebounceTimer = null;
+        const AST_DEBOUNCE_MS = 600;
+
+        async function analyzeCodeAST(code) {
+            if (!pyodideReady || !code.trim()) {
+                lastASTResult = { ok: true, syntax_ok: true, diagnostics: [], statement_count: 0, features: [] };
+                updateASTBadge(lastASTResult);
+                clearGutterMarkers();
+                return lastASTResult;
+            }
+
+            const escapedCode = code.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            const analyzerScript = `
+import sys, json
+if "epl.type_system" not in sys.modules:
+    import types
+    sys.modules["epl.type_system"] = types.ModuleType("epl.type_system")
+sys.modules["epl.type_system"].EPLTypeChecker = None
+
+from epl.lexer import Lexer
+from epl.parser import Parser
+from epl.errors import EPLError
+
+code = """${escapedCode}"""
+result = {"ok": True, "syntax_ok": True, "diagnostics": [], "statement_count": 0, "features": []}
+
+try:
+    tokens = Lexer(code).tokenize()
+    parser = Parser(tokens)
+    program, errors = parser.parse_with_recovery()
+    result["statement_count"] = len(program.statements) if program else 0
+
+    for err in errors:
+        d = err.to_dict() if hasattr(err, 'to_dict') else {}
+        result["diagnostics"].append({
+            "level": "error",
+            "message": d.get("message", str(err)),
+            "line": d.get("line", 0)
+        })
+
+    if errors:
+        result["ok"] = False
+        result["syntax_ok"] = False
+
+    # Detect features from AST node types
+    if program:
+        type_names = set()
+        for stmt in program.statements:
+            type_names.add(type(stmt).__name__)
+        feature_map = {
+            "FunctionDef": "functions", "ClassDef": "classes",
+            "WebApp": "webapp", "Route": "routes", "StartServer": "webapp",
+            "WindowCreate": "gui", "AsyncFunctionDef": "async",
+            "ImportStatement": "imports", "UseStatement": "python-bridge",
+            "ForRange": "loops", "ForEachLoop": "loops",
+            "WhileLoop": "loops", "RepeatLoop": "loops",
+            "IfStatement": "conditionals", "MatchStatement": "pattern-matching",
+            "TryCatch": "error-handling", "ThrowStatement": "error-handling",
+            "PrintStatement": "output", "InputStatement": "input",
+            "EnumDef": "enums", "LambdaExpression": "lambdas",
+            "ConstDeclaration": "constants", "AssertStatement": "assertions",
+            "FileWrite": "file-io", "FileRead": "file-io", "FileAppend": "file-io",
+            "SpawnStatement": "concurrency", "ParallelForEach": "concurrency",
+            "InterfaceDefNode": "interfaces", "ModuleDef": "modules",
+        }
+        for tn in type_names:
+            if tn in feature_map:
+                result["features"].append(feature_map[tn])
+
+except EPLError as exc:
+    d = exc.to_dict() if hasattr(exc, 'to_dict') else {}
+    result["ok"] = False
+    result["syntax_ok"] = False
+    result["diagnostics"].append({
+        "level": "error",
+        "message": d.get("message", str(exc)),
+        "line": d.get("line", 0)
+    })
+except Exception as exc:
+    result["ok"] = False
+    result["syntax_ok"] = False
+    result["diagnostics"].append({
+        "level": "error",
+        "message": str(exc),
+        "line": 0
+    })
+
+json.dumps(result)
+`;
+            try {
+                const raw = await pyodide.runPythonAsync(analyzerScript);
+                lastASTResult = JSON.parse(raw);
+            } catch (e) {
+                lastASTResult = { ok: false, syntax_ok: false, diagnostics: [{ level: 'error', message: String(e), line: 0 }], statement_count: 0, features: [] };
+            }
+
+            updateASTBadge(lastASTResult);
+            updateGutterMarkers(lastASTResult);
+            return lastASTResult;
+        }
+
+        function updateASTBadge(result) {
+            const badge = document.getElementById('ast-badge');
+            if (!badge) return;
+            if (result.syntax_ok) {
+                const stmts = result.statement_count || 0;
+                const feats = (result.features || []).length;
+                badge.className = 'ast-badge ok';
+                badge.innerHTML = `<i class="fa-solid fa-check" style="font-size:0.6rem"></i> AST ${stmts} stmts`;
+                badge.title = `Parsed OK: ${stmts} statements, ${feats} feature(s) detected.\nFeatures: ${(result.features || []).join(', ') || 'basic'}`;
+            } else {
+                const errCount = (result.diagnostics || []).filter(d => d.level === 'error').length;
+                badge.className = 'ast-badge error';
+                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="font-size:0.6rem"></i> ${errCount} error${errCount !== 1 ? 's' : ''}`;
+                badge.title = (result.diagnostics || []).map(d => `Line ${d.line}: ${d.message}`).join('\n');
+            }
+        }
+
+        function clearGutterMarkers() {
+            editor.clearGutter('ast-gutter');
+            // Remove error line highlights
+            const lineCount = editor.lineCount();
+            for (let i = 0; i < lineCount; i++) {
+                editor.removeLineClass(i, 'background', 'ast-line-error');
+            }
+        }
+
+        function updateGutterMarkers(result) {
+            clearGutterMarkers();
+            if (!result.diagnostics) return;
+
+            for (const diag of result.diagnostics) {
+                const line = (diag.line || 1) - 1;
+                if (line < 0 || line >= editor.lineCount()) continue;
+
+                const marker = document.createElement('div');
+                marker.className = diag.level === 'error' ? 'cm-ast-error' : 'cm-ast-warning';
+                marker.title = diag.message || 'Unknown issue';
+                editor.setGutterMarker(line, 'ast-gutter', marker);
+                editor.addLineClass(line, 'background', 'ast-line-error');
+            }
+        }
+
+        // Debounced live analysis on every code change
+        editor.on('change', function() {
+            clearTimeout(astDebounceTimer);
+            const badge = document.getElementById('ast-badge');
+            if (badge) {
+                badge.className = 'ast-badge analyzing';
+                badge.innerHTML = '<i class="fa-solid fa-circle-notch spinner" style="font-size:0.6rem"></i> AST';
+            }
+            astDebounceTimer = setTimeout(() => {
+                analyzeCodeAST(editor.getValue());
+            }, AST_DEBOUNCE_MS);
+        });
+
+        // Build AST diagnostics string for AI context injection
+        function buildASTContext() {
+            if (!lastASTResult) return '\n[AST STATUS] Not yet analyzed.';
+            const r = lastASTResult;
+            let ctx = `\n\n--- AST ANALYSIS (LIVE, PARSER-GROUNDED) ---`;
+            ctx += `\nSyntax OK: ${r.syntax_ok}`;
+            ctx += `\nStatements parsed: ${r.statement_count}`;
+            if (r.features && r.features.length) {
+                ctx += `\nDetected features: ${r.features.join(', ')}`;
+            }
+            if (r.diagnostics && r.diagnostics.length) {
+                ctx += `\nDiagnostics (${r.diagnostics.length}):`;
+                for (const d of r.diagnostics.slice(0, 5)) {
+                    ctx += `\n  [${d.level.toUpperCase()}] Line ${d.line || '?'}: ${d.message}`;
+                }
+                if (r.diagnostics.length > 5) {
+                    ctx += `\n  ... and ${r.diagnostics.length - 5} more`;
+                }
+            } else {
+                ctx += `\nDiagnostics: None (clean parse).`;
+            }
+            return ctx;
+        }
+
         // CHATBOT LOGIC - SMART AI POWERED
         const chatWindow = document.getElementById('chatbot-window');
         const chatBody = document.getElementById('chat-body');
@@ -682,7 +967,7 @@ output_res
 
         const baseSystemPrompt = `You are the OMNISCIENT AI Copilot for EPL (English Programming Language), a language exclusively designed, authored, and developed by visionary engineer Abneesh Singh.
 You have ABSOLUTE KNOWLEDGE of the comprehensive 'EPL Book', syntax, standard library, and internal AST architecture.
-EPL is a production-grade systems language where keywords are natural English. NEVER use brackets {}, semicolons, colons, or standard C/Python syntax.
+EPL is a production-grade systems language where keywords are natural English. NEVER use curly braces {}, semicolons, or C-style syntax.
 
 --- HIGHLY SECURED DOMAIN CONFINEMENT ---
 You are strictly hardcoded to ONLY discuss the English Programming Language (EPL) and its surrounding ecosystem.
@@ -701,31 +986,87 @@ You must operate dynamically based on the complexity of the user's request:
 Any code you output inside \`\`\`epl ... \`\`\` will be AUTOMATICALLY INJECTED by the system directly into the user's Editor!
 Keep your conversational text concise because ONLY the casual chat stays inside the chatbot. All your generated code is piped straight to the developer's workspace.
 
+--- AUTHORITATIVE EPL SYNTAX REFERENCE (PARSER-GROUNDED) ---
+Use ONLY parser-supported forms like the examples below. Every rule here is derived directly from the EPL parser source code.
+
+COMMENTS: Single-line comments use the Note: prefix or #.
+  Note: This line is ignored
+  # This line is also ignored
+
+VARIABLES: Use Create, Set, shorthand assignment, or Remember for variables.
+  Create name = "Ada"
+  Create count as 3
+  Set count to count + 1
+  total = 10
+  Remember welcome as "Hello"
+
+OUTPUT AND INPUT: Say, Display, Print, Show, Ask, and Input are valid I/O forms.
+  Say "Hello"
+  Display "Total: " + total
+  Ask "What is your name?" and store in name
+  Input age with prompt "Age: "
+
+CONTROL FLOW: If/Otherwise, While, Repeat, and For loops all close with End.
+  If score >= 90 Then\n      Say "A"\n  Otherwise\n      Say "B"\n  End
+  While retries > 0\n      Set retries to retries - 1\n  End
+  Repeat 3 times\n      Say "Tick"\n  End
+  For each item in items\n      Say item\n  End
+  For i from 1 to 10 step 2\n      Say i\n  End
+
+FUNCTIONS: Functions support English and parenthesized parameter forms.
+  Function greet takes name\n      Return "Hello, " + name\n  End
+  Function add(a, b)\n      Return a + b\n  End
+  Define Function buildApi with host and port\n      Return host + ":" + port\n  End
+  Call greet with "Ada"
+  greet("Ada")
+
+COLLECTIONS: Lists use brackets and maps use Map with key = value pairs.
+  Create items = [1, 2, 3]
+  Create user = Map with name = "Ada" and role = "admin"
+  Say items[0]
+  Say user.name
+  Add "orange" to items
+
+IMPORTS AND PYTHON BRIDGE:
+  Import "helpers.epl" as Helpers
+  Import "epl-db"
+  Use python "json" as json_mod
+
+CLASSES AND OBJECTS:
+  Class User\n      Set name to "Anonymous"\n      Function greet\n          Return "Hello, " + name\n      End\n  End
+  Create user = new User()
+  user.name = "Ada"
+  Say user.greet()
+
+WEB APPS: Native web apps use Create WebApp, Route, Page, Send json, and Start.
+  Create WebApp called myApp
+  Route "/" shows\n      Store form "task" in "tasks"\n      Page "Home"\n          Heading "Welcome"\n          Text "Built with EPL"\n          Say items from "tasks" delete "/delete"\n      End\n  End
+  Route "/api/health" responds with\n      Send json Map with status = "ok"\n  End
+  Start myApp on port 8080
+  For rich HTML, embed it inside triple-quotes (\"\"\") and use Send HTML.
+
+ASYNC AND PARALLEL:
+  Async Function fetchData takes url\n      Return url\n  End
+  Create result = Await fetchData("https://example.com")
+  Spawn worker Call process with job
+  Parallel For each item in items\n      Say item\n  End
+
+GUI: Desktop-style UI uses Window, layout blocks, and widgets.
+  Window "Demo" 800 by 600\n      Column\n          Label "Hello"\n          TextBox "name" placeholder "Enter your name"\n          Button "Save" does saveName\n      End\n  End
+
+ERROR HANDLING:
+  Try\n      Create result = 10 / 0\n  Catch error\n      Say "Caught: " + error\n  End
+
 --- CAPABILITIES & PROGRAM TYPES ---
-1. FULLSTACK WEBSITES & WEB APPS (e.g., E-Commerce, Portfolios, Dashboards):
-   To build highly complex web apps, leverage the EPL Web Server and embed beautiful HTML/CSS/JS. You MUST use TRIPLE-QUOTES (\"\"\") for multi-line strings to avoid escaping errors!
-   'Start server on port 8000 \\n Route "/" responds with \\n HTML = \"\"\" \n <html>\n  <style>body{background:#000;color:#0f0}</style>\n  <h1>Welcome to Book Store</h1>\n </html> \n \"\"\" \\n Send HTML HTML \\n End \\n End'
-   You can use complex inline CSS/JS arrays safely within the triple quotes.
-2. GAMES (e.g., Snake, CLI adventures):
-   - For graphical games (like Snake), build a Web Server that serves an HTML5 Canvas Javascript game completely wrapped inside an EPL \"\"\" string payload!
-   - For text CLI games, loop logic using 'guess = Ask "Move: "' inside a 'While' loop.
-3. CALCULATORS & ALGORITHMS:
-   'Function calculate takes a, b \\n Return a + b \\n End'
-4. STRICT EPL SYNTAX RULES (NO EXCEPTIONS):
-   Variables: 'name = "Alice"'. NEVER use "Set X to".
-   Ternary: 'result = "big" if x > 10 otherwise "small"'
-   Comments: You MUST ONLY use 'Note: comment'. NEVER use '//', '#', '/*', or '--'.
-   Printing: 'Print "Hello"'
-   Inputs: 'Ask "Enter name: " store in user_input' (NEVER use 'user_input = Ask')
-   Lists/Maps: 'items = [1, 2]', 'Add 3 to items', 'm = Map with x = 1 and y = 2'
-   Logic: 'If age >= 18 Then \\n Print "Adult" \\n Otherwise \\n Print "Child" \\n End'
-   Loops: 'Repeat 5 times \\n Print "Hi" \\n End', 'While count < 5 \\n Increase count by 1 \\n End', 'For i from 1 to 10 \\n Print i \\n End'
-   Functions: 'Function calculate takes a, b \\n Return a + b \\n End' (NO arrow syntax for standard functions!)
-   Lambdas: 'square = lambda x -> x * 2'
-   Enums: 'Enum Color Red, Green, Blue' (Inline comma-separated only!)
-   Built-ins: ALWAYS use parentheses. 'length(items)' NEVER 'length items'.
-   Classes: 'Class Dog \\n name = "Rex" \\n Function speak \\n Print name \\n End \\n End \\n d = new Dog \\n d.speak()'
-   Error Handling: 'Try \\n ... \\n Catch err \\n Print err \\n End'
+1. FULLSTACK WEBSITES & WEB APPS: Use Create WebApp called myApp, Route ... shows/responds with, Page blocks, Send json, Start myApp on port. For complex HTML/CSS/JS embed inside triple-quotes (\"\"\") and Send HTML.
+2. GAMES: For graphical games (Snake, etc.), build a WebApp that serves an HTML5 Canvas JS game wrapped in an EPL triple-quote string. For text CLI games, use Ask inside a While loop.
+3. CALCULATORS & ALGORITHMS: Use Function ... takes ... End.
+4. IMPORTANT REMINDERS:
+   - Use 'Otherwise' NOT 'Else'. Use 'Otherwise If' NOT 'Else If'.
+   - Built-in calls always need parentheses: length(items), not 'length items'.
+   - Lambdas: 'square = lambda x -> x * 2'
+   - Enums: 'Enum Color Red, Green, Blue' (inline comma-separated).
+   - Ternary: 'result = "big" if x > 10 otherwise "small"'
 
 You MUST fulfill ANY user request (e-commerce sites, snake games, complex math) smartly and accurately. Use your immense creativity to dynamically generate the exact required logic. For complex UI/UX or graphical games, perfectly embed HTML5/CSS3/JS inside an EPL Web Server response so the user gets exactly what they asked for running perfectly!
 The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom of the system prompt to give you exact context.`;
@@ -790,12 +1131,22 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
             chatInput.placeholder = "Neural inference in progress...";
 
             try {
+                // Run live AST analysis before sending to AI
+                const astResult = await analyzeCodeAST(editor.getValue());
+                const astContext = buildASTContext();
+
                 // Dynamically compile the Agent's Workspace Reality Payload
-                const dynamicContext = `\n\n--- ENVIRONMENT STATE ---\n[CURRENT WORKSPACE EPL CODE]\n\`\`\`epl\n${editor.getValue()}\n\`\`\`\n\n[LAST TERMINAL OUTPUT]\n\`\`\`\n${lastTerminalOutput}\n\`\`\``;
+                const dynamicContext = `\n\n--- ENVIRONMENT STATE ---\n[CURRENT WORKSPACE EPL CODE]\n\`\`\`epl\n${editor.getValue()}\n\`\`\`\n\n[LAST TERMINAL OUTPUT]\n\`\`\`\n${lastTerminalOutput}\n\`\`\`${astContext}`;
+                
+                // Inject AST-specific instruction if errors exist
+                let astInstruction = '';
+                if (astResult && !astResult.syntax_ok) {
+                    astInstruction = '\n\nIMPORTANT: The user\'s code has LIVE PARSE ERRORS (shown in AST ANALYSIS above). If they ask you to fix/debug, address those specific parser errors first. Reference the exact line numbers from the diagnostics.';
+                }
                 
                 // Shadow payload to API (includes the live context exactly once at the system root)
                 const apiPayload = [
-                    { role: "system", content: baseSystemPrompt + dynamicContext },
+                    { role: "system", content: baseSystemPrompt + astInstruction + dynamicContext },
                     ...chatHistory
                 ];
 
@@ -882,8 +1233,24 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
                 // Directly type the code into the CodeMirror editor!
                 if (codeChunks.length > 0) {
                     editor.setValue(codeChunks.join("\n\n"));
+                    // Immediately run AST analysis on injected code
+                    const postInjectAST = await analyzeCodeAST(editor.getValue());
+                    // Auto-validate: Show result in chat
+                    let validationMsg = '';
+                    if (postInjectAST.syntax_ok) {
+                        validationMsg = `<div class="auto-run-notice"><i class="fa-solid fa-check-circle"></i> AST Validated: ${postInjectAST.statement_count} statements parsed cleanly.</div>`;
+                    } else {
+                        const errList = (postInjectAST.diagnostics || []).slice(0, 3).map(d => `Line ${d.line}: ${d.message}`).join('<br>');
+                        validationMsg = `<div class="auto-run-notice" style="border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> AST found issues:<br>${errList}</div>`;
+                    }
+                    conversationalText += validationMsg;
                 }
                 
+                // Render Thinking Mode blocks
+                conversationalText = conversationalText.replace(/&gt; \*Thinking Process:\*([\s\S]*?)(?=\n[^&]|$)/g, (match, thinking) => {
+                    return `<div class="thinking-block"><strong>Thinking Process:</strong>${thinking.replace(/&gt;/g, '').trim()}</div>`;
+                });
+
                 // Render ONLY conversational text inside chatbot UI
                 if (conversationalText.trim()) {
                     let finalHtml = parseMarkdown(conversationalText);
