@@ -2,7 +2,7 @@
   "name": "epl-language",
   "displayName": "EPL - Easy Programming Language",
   "description": "Full language support for EPL: syntax highlighting, IntelliSense, diagnostics, go-to-definition, references, rename, code actions, signature help, formatting, profiling, and more.",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "publisher": "epl-lang",
   "license": "MIT",
   "engines": {
