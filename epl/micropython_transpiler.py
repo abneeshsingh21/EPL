@@ -355,13 +355,132 @@ def i2c_read(bus, addr, n):
             self._line(f'{obj}.{node.method_name}({args})')
 
         elif isinstance(node, ast.ImportStatement):
-            self._line(f'# import: {node.path}')
+            self._line(f'# import: {node.filepath}')
 
         elif isinstance(node, ast.ExitStatement):
             self._line('raise SystemExit')
 
         elif isinstance(node, ast.AssertStatement):
             self._line(f'assert {self._expr(node.expression)}')
+
+        # ─── v7.4 Missing handlers ────────────────────────
+        elif isinstance(node, ast.MatchStatement):
+            expr = self._expr(node.expression)
+            first = True
+            for clause in node.when_clauses:
+                vals = ' or '.join(f'{expr} == {self._expr(v)}' for v in clause.values)
+                kw = 'if' if first else 'elif'
+                self._line(f'{kw} {vals}:')
+                self.indent += 1
+                for s in clause.body:
+                    self._compile_stmt(s)
+                if not clause.body:
+                    self._line('pass')
+                self.indent -= 1
+                first = False
+            if node.default_body:
+                self._line('else:')
+                self.indent += 1
+                for s in node.default_body:
+                    self._compile_stmt(s)
+                self.indent -= 1
+
+        elif isinstance(node, ast.EnumDef):
+            self._line(f'class {node.name}:')
+            self.indent += 1
+            for i, member in enumerate(node.members):
+                self._line(f'{member} = {i}')
+            if not node.members:
+                self._line('pass')
+            self.indent -= 1
+            self._line('')
+
+        elif isinstance(node, ast.TryCatchFinally):
+            self._line('try:')
+            self.indent += 1
+            for s in node.try_body:
+                self._compile_stmt(s)
+            if not node.try_body:
+                self._line('pass')
+            self.indent -= 1
+            for err_type, err_var, body in node.catch_clauses:
+                exc = err_type if err_type else 'Exception'
+                var = err_var if err_var else 'e'
+                self._line(f'except {exc} as {var}:')
+                self.indent += 1
+                for s in body:
+                    self._compile_stmt(s)
+                if not body:
+                    self._line('pass')
+                self.indent -= 1
+            if node.finally_body:
+                self._line('finally:')
+                self.indent += 1
+                for s in node.finally_body:
+                    self._compile_stmt(s)
+                self.indent -= 1
+
+        elif isinstance(node, ast.FileWrite):
+            self._line(f'with open({self._expr(node.filepath)}, "w") as _f:')
+            self.indent += 1
+            self._line(f'_f.write(str({self._expr(node.content)}))')
+            self.indent -= 1
+
+        elif isinstance(node, ast.FileAppend):
+            self._line(f'with open({self._expr(node.filepath)}, "a") as _f:')
+            self.indent += 1
+            self._line(f'_f.write(str({self._expr(node.content)}) + "\\n")')
+            self.indent -= 1
+
+        elif isinstance(node, ast.AsyncFunctionDef):
+            # MicroPython has limited async — emit as uasyncio coroutine
+            params = ', '.join(self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params)
+            self._line(f'async def {self._safe_name(node.name)}({params}):')
+            self.indent += 1
+            for s in node.body:
+                self._compile_stmt(s)
+            if not node.body:
+                self._line('pass')
+            self.indent -= 1
+            self._line('')
+
+        elif isinstance(node, ast.SuperCall):
+            args = ', '.join(self._expr(a) for a in node.arguments)
+            if node.method_name:
+                self._line(f'super().{node.method_name}({args})')
+            else:
+                self._line(f'super().__init__({args})')
+
+        elif isinstance(node, ast.DestructureAssignment):
+            names = ', '.join(self._safe_name(n) for n in node.names)
+            self._line(f'{names} = {self._expr(node.value)}')
+
+        elif isinstance(node, ast.YieldStatement):
+            val = f' {self._expr(node.value)}' if node.value else ''
+            self._line(f'yield{val}')
+
+        elif isinstance(node, ast.ModuleDef):
+            self._line(f'# Module: {node.name}')
+            for s in node.body:
+                self._compile_stmt(s)
+
+        elif isinstance(node, ast.VisibilityModifier):
+            self._compile_stmt(node.statement)
+
+        elif isinstance(node, ast.StaticMethodDef):
+            params = ', '.join(self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params)
+            self._line('@staticmethod')
+            self._line(f'def {self._safe_name(node.name)}({params}):')
+            self.indent += 1
+            for s in node.body:
+                self._compile_stmt(s)
+            if not node.body:
+                self._line('pass')
+            self.indent -= 1
+            self._line('')
+
+        elif isinstance(node, ast.ExportStatement):
+            self._line(f'# export: {node.name}')
 
         else:
             # Try to compile as expression
@@ -422,7 +541,7 @@ def i2c_read(bus, addr, n):
             return f'{self._expr(node.obj)}.{node.property_name}'
 
         if isinstance(node, ast.IndexAccess):
-            return f'{self._expr(node.object)}[{self._expr(node.index)}]'
+            return f'{self._expr(node.obj)}[{self._expr(node.index)}]'
 
         if isinstance(node, ast.ListLiteral):
             elems = ', '.join(self._expr(e) for e in node.elements)
@@ -444,10 +563,31 @@ def i2c_read(bus, addr, n):
             return f'{node.class_name}({args})'
 
         if isinstance(node, ast.SliceAccess):
-            obj = self._expr(node.object)
+            obj = self._expr(node.obj)
             s = self._expr(node.start) if node.start else ''
             e = self._expr(node.end) if node.end else ''
             return f'{obj}[{s}:{e}]'
+
+        if isinstance(node, ast.FileRead):
+            return f'open({self._expr(node.filepath)}).read()'
+
+        if isinstance(node, ast.AwaitExpression):
+            return f'await {self._expr(node.expression)}'
+
+        if isinstance(node, ast.SuperCall):
+            args = ', '.join(self._expr(a) for a in node.arguments)
+            if node.method_name:
+                return f'super().{node.method_name}({args})'
+            return f'super().__init__({args})'
+
+        if isinstance(node, ast.ModuleAccess):
+            if node.arguments is not None:
+                args = ', '.join(self._expr(a) for a in node.arguments)
+                return f'{node.module_name}.{node.member_name}({args})'
+            return f'{node.module_name}.{node.member_name}'
+
+        if hasattr(ast, 'SpreadExpression') and isinstance(node, ast.SpreadExpression):
+            return f'*{self._expr(node.expression)}'
 
         return repr(node)
 

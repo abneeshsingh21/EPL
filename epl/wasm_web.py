@@ -787,6 +787,96 @@ footer {
                 'widget': node.widget_name, 'event': node.event_type,
                 'handler': node.handler,
             })
+        elif isinstance(node, ast.MatchStatement):
+            self._line(f'switch ({self._js_expr(node.expression)}) {{')
+            self.indent += 1
+            for clause in node.when_clauses:
+                for v in clause.values:
+                    self._line(f'case {self._js_expr(v)}:')
+                self.indent += 1
+                for s in clause.body:
+                    self._emit_js_stmt(s)
+                self._line('break;')
+                self.indent -= 1
+            if node.default_body:
+                self._line('default:')
+                self.indent += 1
+                for s in node.default_body:
+                    self._emit_js_stmt(s)
+                self.indent -= 1
+            self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.EnumDef):
+            self._line(f'const {node.name} = Object.freeze({{')
+            self.indent += 1
+            for i, m in enumerate(node.members):
+                self._line(f'{m}: {i},')
+            self.indent -= 1
+            self._line('});')
+        elif isinstance(node, ast.TryCatchFinally):
+            self._line('try {')
+            self.indent += 1
+            for s in node.try_body:
+                self._emit_js_stmt(s)
+            self.indent -= 1
+            for clause in node.catch_clauses:
+                err_type, var_name, body = clause[0], clause[1], clause[2]
+                var_name = var_name or '_err'
+                self._line(f'}} catch ({var_name}) {{')
+                self.indent += 1
+                for s in body:
+                    self._emit_js_stmt(s)
+                self.indent -= 1
+            if not node.catch_clauses:
+                self._line('} catch (_err) {')
+                self.indent += 1
+                self._line('/* no catch body */')
+                self.indent -= 1
+            if node.finally_body:
+                self._line('} finally {')
+                self.indent += 1
+                for s in node.finally_body:
+                    self._emit_js_stmt(s)
+                self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.AsyncFunctionDef):
+            params = ', '.join(p[0] if isinstance(p, tuple) else p for p in node.params)
+            self._line(f'async function {node.name}({params}) {{')
+            self.indent += 1
+            for s in node.body:
+                self._emit_js_stmt(s)
+            self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.ConstDeclaration):
+            self._line(f'const {node.name} = {self._js_expr(node.value)};')
+        elif isinstance(node, ast.EnumDef):
+            pass  # Already handled above
+        elif isinstance(node, ast.FileWrite):
+            self._line(f'console.warn("File I/O not available in browser");')
+        elif isinstance(node, ast.FileAppend):
+            self._line(f'console.warn("File I/O not available in browser");')
+        elif isinstance(node, ast.SuperCall):
+            args = ', '.join(self._js_expr(a) for a in node.arguments)
+            if node.method_name:
+                self._line(f'super.{node.method_name}({args});')
+            else:
+                self._line(f'super({args});')
+        elif isinstance(node, ast.DestructureAssignment):
+            names = ', '.join(node.names)
+            self._line(f'const [{names}] = {self._js_expr(node.value)};')
+        elif isinstance(node, ast.YieldStatement):
+            self._line(f'yield {self._js_expr(node.value)};')
+        elif isinstance(node, ast.ExportStatement):
+            pass  # handled at module level
+        elif isinstance(node, ast.VisibilityModifier):
+            self._emit_js_stmt(node.statement)
+        elif isinstance(node, ast.ModuleDef):
+            self._line(f'const {node.name} = (() => {{')
+            self.indent += 1
+            for s in node.body:
+                self._emit_js_stmt(s)
+            self.indent -= 1
+            self._line('})();')
 
     def _js_expr(self, node):
         """Convert AST expression to JavaScript."""
@@ -857,6 +947,26 @@ footer {
         if isinstance(node, ast.NewInstance):
             args = ', '.join(self._js_expr(a) for a in node.arguments)
             return f'new {node.class_name}({args})'
+        if isinstance(node, ast.AwaitExpression):
+            return f'await {self._js_expr(node.expression)}'
+        if isinstance(node, ast.SuperCall):
+            args = ', '.join(self._js_expr(a) for a in node.arguments)
+            if node.method_name:
+                return f'super.{node.method_name}({args})'
+            return f'super({args})'
+        if isinstance(node, ast.FileRead):
+            return f'null /* File I/O not available in browser */'
+        if isinstance(node, ast.ModuleAccess):
+            return f'{node.module_name}.{node.member_name}'
+        if isinstance(node, ast.SliceAccess):
+            obj = self._js_expr(node.obj)
+            start = self._js_expr(node.start) if node.start else '0'
+            end = self._js_expr(node.end) if node.end else ''
+            if end:
+                return f'{obj}.slice({start}, {end})'
+            return f'{obj}.slice({start})'
+        if hasattr(ast, 'SpreadExpression') and isinstance(node, ast.SpreadExpression):
+            return f'...{self._js_expr(node.expression)}'
         return 'null'
 
     # ── WASM Loader & Runtime ───────────────────────────

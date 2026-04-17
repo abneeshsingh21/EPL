@@ -51,6 +51,24 @@ class ASTVisitor:
             return node.accept(self)
 
 
+class StrictASTVisitor(ASTVisitor):
+    """Strict visitor that raises on any unhandled AST node.
+
+    Use this as the base class for transpiler backends to guarantee
+    that every AST node is explicitly handled. If a new node type is
+    added to ast_nodes.py and a transpiler doesn't implement a visitor
+    for it, compilation will fail immediately with a clear error instead
+    of silently omitting code.
+    """
+
+    def generic_visit(self, node):
+        raise NotImplementedError(
+            f"{type(self).__name__} does not handle AST node: {type(node).__name__}. "
+            f"Add a visit_{type(node).__name__} method to fix this."
+        )
+
+
+
 # ─── Program ──────────────────────────────────────────────
 
 class Program(ASTNode):

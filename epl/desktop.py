@@ -917,6 +917,85 @@ object EPLRuntime {{
             self._line(f'{node.name} {node.operator} {self._expr(node.value)}')
         elif isinstance(node, ast.FunctionDef):
             self._emit_function(node)
+        elif isinstance(node, ast.MatchStatement):
+            self._line(f'when ({self._expr(node.expression)}) {{')
+            self.indent += 1
+            for clause in node.when_clauses:
+                vals = ', '.join(self._expr(v) for v in clause.values)
+                self._line(f'{vals} -> {{')
+                self.indent += 1
+                for s in clause.body:
+                    self._emit_stmt(s)
+                self.indent -= 1
+                self._line('}')
+            if node.default_body:
+                self._line('else -> {')
+                self.indent += 1
+                for s in node.default_body:
+                    self._emit_stmt(s)
+                self.indent -= 1
+                self._line('}')
+            self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.EnumDef):
+            self._line(f'enum class {node.name} {{')
+            self.indent += 1
+            if not node.members:
+                self._line('// empty')
+            else:
+                self._line(', '.join(node.members))
+            self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.TryCatchFinally):
+            self._line('try {')
+            self.indent += 1
+            for s in node.try_body:
+                self._emit_stmt(s)
+            self.indent -= 1
+            for err_type, err_var, body in node.catch_clauses:
+                var = err_var if err_var else 'e'
+                exc = err_type if err_type else 'Exception'
+                self._line(f'}} catch ({var}: {exc}) {{')
+                self.indent += 1
+                for s in body:
+                    self._emit_stmt(s)
+                self.indent -= 1
+            if node.finally_body:
+                self._line('} finally {')
+                self.indent += 1
+                for s in node.finally_body:
+                    self._emit_stmt(s)
+                self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.AsyncFunctionDef):
+            params = ', '.join(f'{p[0]}: Any' if isinstance(p, (list, tuple)) else f'{p}: Any' for p in node.params)
+            self._line(f'suspend fun {node.name}({params}): Any? {{')
+            self.indent += 1
+            for s in node.body:
+                self._emit_stmt(s)
+            self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.SpawnStatement):
+            self.imports.add('kotlinx.coroutines.launch')
+            self.imports.add('kotlinx.coroutines.GlobalScope')
+            self._line('GlobalScope.launch {')
+            self.indent += 1
+            self._emit_stmt(node.function_call)
+            self.indent -= 1
+            self._line('}')
+        elif isinstance(node, ast.DestructureAssignment):
+            names = ', '.join(node.names)
+            self._line(f'val ({names}) = {self._expr(node.value)}')
+        elif isinstance(node, ast.SuperCall):
+            args = ', '.join(self._expr(a) for a in node.arguments)
+            if node.method_name:
+                self._line(f'super.{node.method_name}({args})')
+            else:
+                self._line(f'super({args})')
+        elif isinstance(node, ast.FileWrite):
+            self._line(f'java.io.File({self._expr(node.filepath)}).writeText({self._expr(node.content)}.toString())')
+        elif isinstance(node, ast.FileAppend):
+            self._line(f'java.io.File({self._expr(node.filepath)}).appendText({self._expr(node.content)}.toString() + "\\n")')
 
     # ── GUI Node Collection ─────────────────────────────
 
