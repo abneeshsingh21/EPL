@@ -560,7 +560,7 @@
         <div class="panel editor-container">
             <div class="panel-header">
                 <span><i class="fa-solid fa-code"></i> INPUT.EPL</span>
-                <span style="color:var(--text-dim); font-size:0.7rem">v7.4.3</span>
+                <span style="color:var(--text-dim); font-size:0.7rem">v7.4.4</span>
             </div>
             <textarea id="code-editor">Note: Welcome to the EPL Interactive Playground!
 Note: This runs a full compiled interpreter directly in your browser.
@@ -661,7 +661,7 @@ Say greet("Abneesh")
                 await pyodide.loadPackage("ssl");
                 const micropip = pyodide.pyimport("micropip");
                 
-                printToTerminal("> Installing standard EPL Compiler (v7.4.3)...", "system");
+                printToTerminal("> Installing standard EPL Compiler (v7.4.4)...", "system");
                 
                 // 3. Install EPL from PyPI
                 await micropip.install("eplang");
@@ -1194,7 +1194,8 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
                     }
                 }
                 
-                let replyText = "I encountered a neural synchronization block. Please try again.";
+                let errReason = (data && data.error) ? (typeof data.error === 'object' ? JSON.stringify(data.error) : data.error) : "API Timeout / 403 Forbidden";
+                let replyText = `Neural Synchronization Block. [Diagnostic: Edge Proxy '/chat' Unreachable -> Fallback AI Proxy Failed (${errReason})]. Try running via 'npx wrangler pages dev docs' for the local API proxy.`;
                 
                 if (data && data.choices && data.choices.length > 0) {
                     const content = data.choices[0].message?.content;
@@ -1204,8 +1205,7 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
                         replyText = content || replyText;
                     }
                 } else if (data && data.error) {
-                    let errObj = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
-                    replyText = `API Error: ${errObj}`;
+                    replyText = `API Error: ${errReason}`;
                 } else {
                     // Dump unknown JSON structure for debugging instead of silent fallback
                     replyText = `Unexpected API Schema: \n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``;
