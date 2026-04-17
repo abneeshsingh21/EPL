@@ -2,6 +2,14 @@
 
 All notable changes to EPL are documented in this file.
 
+## [7.4.3] — 2026-04-17
+
+### Added
+- **Browser AST-Aware Copilot** — The web playground now features a live AST analysis engine powered by Pyodide, securely linked to an Edge AI backend for syntax-specific debugging.
+- **Dynamic AI Thinking Mode** — Copilot natively evaluates complex architectural requests using a multi-step semantic logic sequence.
+- **Strict Grammar SSOT** — Single Source of Truth enforced across CLI and Edge workers to accurately identify Enums, Ternaries, Error Handling, and File I/O naturally.
+- **Root Repository Restructuring** — Purged thousands of lines of dev scratchpads and leaked release artifacts to enforce an industry-standard project structure.
+
 ## [7.3.2] — 2026-04-06
 
 ### Fixed

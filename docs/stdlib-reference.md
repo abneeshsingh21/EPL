@@ -1,6 +1,6 @@
 # EPL Standard Library Reference
 
-> EPL v7.0.0 — 725 Python-backed functions plus native EPL stdlib modules
+> EPL v7.4.3 — 725 Python-backed functions plus native EPL stdlib modules
 
 ## Categories
 

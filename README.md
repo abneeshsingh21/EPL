@@ -216,7 +216,7 @@ epl upgrade               # Update EPL
 | **Tooling** | LSP server, debugger, REPL, test framework, code coverage, formatter |
 | **Targets** | Interpreter, VM, LLVM native, JavaScript, Node.js, Kotlin, Python, WASM, MicroPython |
 | **Packaging** | SemVer package manager, lockfiles, checksums, PyPI integration |
-| **AI** | Built-in `ai` module, code generation, explanation via Groq/OpenAI |
+| **AI** | Built-in `ai` module, Web Playground AST-Aware Copilot, Dual "Thinking" Mode via Groq/Gemini |
 | **Standard Library** | 300+ functions across HTTP, DB, Math, Crypto, File I/O, JSON, Regex, Date |
 
 ---
@@ -273,7 +273,7 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the list of contributors.
 - [x] PyPI release (`pip install eplang`)
 - [x] VS Code extension
 - [x] Official documentation website
-- [x] Online playground (try EPL in browser)
+- [x] Online playground (try EPL in browser with AST-Aware AI Copilot)
 - [ ] Community package registry
 - [ ] iOS transpiler
 - [ ] EPL Notebook (Jupyter-style)
