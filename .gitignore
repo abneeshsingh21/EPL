@@ -129,3 +129,9 @@ epl/.ai_config.json
 # Blocks root logs
 /build_output.log
 /test_output.log
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
