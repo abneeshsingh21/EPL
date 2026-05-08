@@ -1,0 +1,9 @@
+[project]
+name = "epl-cloud"
+version = "1.0.0"
+description = "AWS cloud integration for EPL — S3, Lambda, SQS"
+author = "EPL Community"
+entry = "src/main.epl"
+
+[scripts]
+example = "epl run examples/basic.epl"

@@ -1,0 +1,65 @@
+Comment "EPL Cloud — AWS S3, Lambda, and SQS integration package"
+
+Function configure takes region and access_key and secret_key
+    Return cloud_configure(region, access_key, secret_key)
+End
+
+Comment "S3 — Object operations"
+
+Function upload takes bucket and key and file_path
+    Return cloud_s3_upload(bucket, key, file_path)
+End
+
+Function download takes bucket and key and file_path
+    Return cloud_s3_download(bucket, key, file_path)
+End
+
+Function list_objects takes bucket and prefix
+    Return cloud_s3_list(bucket, prefix)
+End
+
+Function delete_object takes bucket and key
+    Return cloud_s3_delete(bucket, key)
+End
+
+Function exists takes bucket and key
+    Return cloud_s3_exists(bucket, key)
+End
+
+Function read_text takes bucket and key
+    Return cloud_s3_read_text(bucket, key)
+End
+
+Function write_text takes bucket and key and content
+    Return cloud_s3_write_text(bucket, key, content)
+End
+
+Comment "S3 — Bucket operations"
+
+Function create_bucket takes bucket
+    Return cloud_s3_create_bucket(bucket)
+End
+
+Function list_buckets
+    Return cloud_s3_list_buckets()
+End
+
+Comment "Lambda — Serverless functions"
+
+Function invoke_function takes function_name and payload
+    Return cloud_lambda_invoke(function_name, payload)
+End
+
+Comment "SQS — Message queues"
+
+Function send_message takes queue_url and message
+    Return cloud_sqs_send(queue_url, message)
+End
+
+Function receive_messages takes queue_url and max_messages
+    Return cloud_sqs_receive(queue_url, max_messages)
+End
+
+Function delete_message takes queue_url and receipt_handle
+    Return cloud_sqs_delete(queue_url, receipt_handle)
+End

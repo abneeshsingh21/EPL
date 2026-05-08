@@ -431,6 +431,17 @@ STDLIB_FUNCTIONS = {
     'web_test_client', 'web_test_get', 'web_test_post',
     'web_upload_config', 'web_request_files',
     'web_send_file', 'web_response', 'web_url_for',
+
+    # ══════════════════════════════════════════════════════
+    #  Cloud (AWS — S3, Lambda, SQS)
+    # ══════════════════════════════════════════════════════
+    'cloud_configure',
+    'cloud_s3_upload', 'cloud_s3_download', 'cloud_s3_list',
+    'cloud_s3_delete', 'cloud_s3_exists',
+    'cloud_s3_read_text', 'cloud_s3_write_text',
+    'cloud_s3_create_bucket', 'cloud_s3_list_buckets',
+    'cloud_lambda_invoke',
+    'cloud_sqs_send', 'cloud_sqs_receive', 'cloud_sqs_delete',
 }
 
 
@@ -3977,6 +3988,12 @@ def call_stdlib(name, args, line):
         # ══════════════════════════════════════════════════
         if name.startswith('3d_'):
             return _call_3d(name, args, line)
+
+        # ══════════════════════════════════════════════════
+        #  Cloud (AWS — S3, Lambda, SQS)
+        # ══════════════════════════════════════════════════
+        if name.startswith('cloud_'):
+            return _call_cloud(name, args, line)
 
         raise EPLRuntimeError(f'Unknown stdlib function: {name}', line)
 
@@ -9480,3 +9497,115 @@ def _call_ds(name, args, line):
         return False
 
     raise EPLRuntimeError(f'Unknown data science function: {name}', line)
+
+
+# ═══════════════════════════════════════════════════════════
+#  Cloud Module (AWS — S3, Lambda, SQS via boto3)
+# ═══════════════════════════════════════════════════════════
+
+def _call_cloud(name, args, line):
+    """Dispatch cloud_* stdlib calls to epl.cloud_backend."""
+    from epl import cloud_backend as _cb
+
+    # ── Configuration ──
+    if name == 'cloud_configure':
+        region = str(args[0]) if len(args) > 0 else None
+        access_key = str(args[1]) if len(args) > 1 else None
+        secret_key = str(args[2]) if len(args) > 2 else None
+        return _cb.cloud_configure(region, access_key, secret_key)
+
+    # ── S3 Object Operations ──
+    if name == 'cloud_s3_upload':
+        if len(args) < 3:
+            raise EPLRuntimeError(
+                'cloud_s3_upload(bucket, key, file_path) requires 3 args.', line)
+        result = _cb.cloud_s3_upload(args[0], args[1], args[2])
+        return _to_epl_dict(result)
+
+    if name == 'cloud_s3_download':
+        if len(args) < 3:
+            raise EPLRuntimeError(
+                'cloud_s3_download(bucket, key, file_path) requires 3 args.', line)
+        result = _cb.cloud_s3_download(args[0], args[1], args[2])
+        return _to_epl_dict(result)
+
+    if name == 'cloud_s3_list':
+        if len(args) < 1:
+            raise EPLRuntimeError(
+                'cloud_s3_list(bucket[, prefix]) requires at least 1 arg.', line)
+        prefix = str(args[1]) if len(args) > 1 else ''
+        results = _cb.cloud_s3_list(args[0], prefix)
+        return [_to_epl_dict(r) for r in results]
+
+    if name == 'cloud_s3_delete':
+        if len(args) < 2:
+            raise EPLRuntimeError(
+                'cloud_s3_delete(bucket, key) requires 2 args.', line)
+        result = _cb.cloud_s3_delete(args[0], args[1])
+        return _to_epl_dict(result)
+
+    if name == 'cloud_s3_exists':
+        if len(args) < 2:
+            raise EPLRuntimeError(
+                'cloud_s3_exists(bucket, key) requires 2 args.', line)
+        return _cb.cloud_s3_exists(args[0], args[1])
+
+    if name == 'cloud_s3_read_text':
+        if len(args) < 2:
+            raise EPLRuntimeError(
+                'cloud_s3_read_text(bucket, key[, encoding]) requires at least 2 args.', line)
+        encoding = str(args[2]) if len(args) > 2 else 'utf-8'
+        return _cb.cloud_s3_read_text(args[0], args[1], encoding)
+
+    if name == 'cloud_s3_write_text':
+        if len(args) < 3:
+            raise EPLRuntimeError(
+                'cloud_s3_write_text(bucket, key, content) requires 3 args.', line)
+        result = _cb.cloud_s3_write_text(args[0], args[1], args[2])
+        return _to_epl_dict(result)
+
+    # ── S3 Bucket Operations ──
+    if name == 'cloud_s3_create_bucket':
+        if len(args) < 1:
+            raise EPLRuntimeError(
+                'cloud_s3_create_bucket(bucket) requires 1 arg.', line)
+        result = _cb.cloud_s3_create_bucket(args[0])
+        return _to_epl_dict(result)
+
+    if name == 'cloud_s3_list_buckets':
+        results = _cb.cloud_s3_list_buckets()
+        return [_to_epl_dict(r) for r in results]
+
+    # ── Lambda ──
+    if name == 'cloud_lambda_invoke':
+        if len(args) < 1:
+            raise EPLRuntimeError(
+                'cloud_lambda_invoke(function_name[, payload]) requires at least 1 arg.', line)
+        payload = _from_epl(args[1]) if len(args) > 1 else None
+        result = _cb.cloud_lambda_invoke(args[0], payload)
+        return _to_epl_dict(result)
+
+    # ── SQS ──
+    if name == 'cloud_sqs_send':
+        if len(args) < 2:
+            raise EPLRuntimeError(
+                'cloud_sqs_send(queue_url, message) requires 2 args.', line)
+        result = _cb.cloud_sqs_send(args[0], args[1])
+        return _to_epl_dict(result)
+
+    if name == 'cloud_sqs_receive':
+        if len(args) < 1:
+            raise EPLRuntimeError(
+                'cloud_sqs_receive(queue_url[, max_messages]) requires at least 1 arg.', line)
+        max_msgs = int(args[1]) if len(args) > 1 else 1
+        results = _cb.cloud_sqs_receive(args[0], max_msgs)
+        return [_to_epl_dict(r) for r in results]
+
+    if name == 'cloud_sqs_delete':
+        if len(args) < 2:
+            raise EPLRuntimeError(
+                'cloud_sqs_delete(queue_url, receipt_handle) requires 2 args.', line)
+        result = _cb.cloud_sqs_delete(args[0], args[1])
+        return _to_epl_dict(result)
+
+    raise EPLRuntimeError(f'Unknown cloud function: {name}', line)

@@ -17,7 +17,7 @@ from importlib import import_module as _import_module
 
 def __getattr__(name):
     """Lazy-load domain submodules on first access."""
-    _sub = {'web', 'db', 'concurrency', 'math', 'collections'}
+    _sub = {'web', 'db', 'concurrency', 'math', 'collections', 'cloud'}
     if name in _sub:
         mod = _import_module(f'epl.stdlib_modules.{name}')
         globals()[name] = mod
@@ -347,6 +347,16 @@ DOMAIN_MAP = {
         'test_describe', 'test_it', 'test_before_each', 'test_after_each',
         'test_skip', 'test_expect_near', 'test_expect_match',
         'test_benchmark', 'test_assert_throws',
+    },
+    # Cloud (AWS — S3, Lambda, SQS)
+    'cloud': {
+        'cloud_configure',
+        'cloud_s3_upload', 'cloud_s3_download', 'cloud_s3_list',
+        'cloud_s3_delete', 'cloud_s3_exists',
+        'cloud_s3_read_text', 'cloud_s3_write_text',
+        'cloud_s3_create_bucket', 'cloud_s3_list_buckets',
+        'cloud_lambda_invoke',
+        'cloud_sqs_send', 'cloud_sqs_receive', 'cloud_sqs_delete',
     },
 }
 

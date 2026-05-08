@@ -1,0 +1,29 @@
+Use "epl-cloud"
+
+Note: Configure AWS region (credentials come from environment)
+Call configure("us-east-1", "", "")
+
+Note: Create a bucket
+result = create_bucket("my-epl-demo-bucket")
+Say result
+
+Note: Write text directly to S3
+Call write_text("my-epl-demo-bucket", "hello.txt", "Hello from EPL Cloud!")
+
+Note: Read it back
+content = read_text("my-epl-demo-bucket", "hello.txt")
+Say "File content: " + content
+
+Note: Check if it exists
+found = exists("my-epl-demo-bucket", "hello.txt")
+Say "Exists: " + to_text(found)
+
+Note: List all objects in the bucket
+files = list_objects("my-epl-demo-bucket", "")
+For Each item in files
+    Say item
+End
+
+Note: Clean up — delete the object
+Call delete_object("my-epl-demo-bucket", "hello.txt")
+Say "Deleted hello.txt"

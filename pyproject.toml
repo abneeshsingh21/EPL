@@ -37,6 +37,7 @@ server = [
 ]
 redis = ["redis>=5.0.0"]
 repl = ["prompt_toolkit>=3.0.0", "pygments>=2.15.0"]
+cloud = ["boto3>=1.28.0"]
 dev = ["pytest>=7.0", "coverage>=7.0", "build>=1.0.0"]
 all = [
     "waitress>=2.1.0",
@@ -46,6 +47,7 @@ all = [
     "gunicorn>=21.2; platform_system != 'Windows'",
     "prompt_toolkit>=3.0.0",
     "pygments>=2.15.0",
+    "boto3>=1.28.0",
 ]
 
 [project.scripts]
