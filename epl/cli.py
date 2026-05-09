@@ -1532,7 +1532,7 @@ def _upgrade():
     """Self-update EPL to the latest version."""
     import subprocess
     print("  Checking for EPL updates...")
-    
+
     # Try pip upgrade (works if EPL was installed via pip)
     try:
         result = subprocess.run(
@@ -1544,7 +1544,7 @@ def _upgrade():
             return 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
-    
+
     # Try git pull (works if EPL was cloned from GitHub)
     epl_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     git_dir = os.path.join(epl_root, '.git')
@@ -1559,7 +1559,7 @@ def _upgrade():
                 return 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
-    
+
     print(f"  EPL is at v{__version__}. No update method available.")
     print("  To update manually: git pull  or  pip install --upgrade epl-lang")
     return 0
@@ -1800,7 +1800,7 @@ def _deploy(args):
         deploy_cli([])
         return 0
 
-    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi', 'all')
+    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s', 'all')
     if args[0] not in valid_targets:
         print(f"{_red('Error:')} Unknown deploy target '{args[0]}'")
         print(f"Valid targets: {', '.join(valid_targets)}")

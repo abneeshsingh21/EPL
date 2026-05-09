@@ -5,7 +5,7 @@ Provides production deployment adapters and config generators:
 - ASGI adapter (Uvicorn, Daphne, Hypercorn)
 - Nginx reverse proxy config generator
 - Gunicorn config generator
-- Tomcat AJP/HTTP proxy config generator  
+- Tomcat AJP/HTTP proxy config generator
 - Docker/docker-compose generator
 - Systemd service file generator
 - Production health monitoring
@@ -29,16 +29,16 @@ _logger = logging.getLogger('epl.deploy')
 
 class WSGIAdapter:
     """WSGI-compliant adapter wrapping an EPLWebApp.
-    
+
     Usage with Gunicorn:
         # wsgi.py
         from epl.web import EPLWebApp
         from epl.deploy import WSGIAdapter
-        
+
         app = EPLWebApp("MyApp")
         app.add_route("/", "page", [...])
         application = WSGIAdapter(app)
-        
+
         # Then: gunicorn wsgi:application -w 4 -b 0.0.0.0:8000
     """
 
@@ -82,7 +82,7 @@ class WSGIAdapter:
         method = environ.get('REQUEST_METHOD', 'GET')
         path = environ.get('PATH_INFO', '/')
         query_string = environ.get('QUERY_STRING', '')
-        
+
         # Update metrics
         if self.app:
             self.app._metrics['requests'] += 1
@@ -433,12 +433,12 @@ class WSGIAdapter:
             return self._error_response(start_response, 403, 'Forbidden')
         if not os.path.isfile(filepath):
             return self._error_response(start_response, 404, 'Not Found')
-        
+
         ctype, _ = mimetypes.guess_type(filepath)
         ctype = ctype or 'application/octet-stream'
         with open(filepath, 'rb') as f:
             data = f.read()
-        
+
         start_response('200 OK', [
             ('Content-Type', ctype),
             ('Content-Length', str(len(data))),
@@ -517,16 +517,16 @@ class WSGIAdapter:
 
 class ASGIAdapter:
     """ASGI-compliant adapter wrapping an EPLWebApp.
-    
+
     Usage with Uvicorn:
         # asgi.py
         from epl.web import EPLWebApp
         from epl.deploy import ASGIAdapter
-        
+
         app = EPLWebApp("MyApp")
         app.add_route("/", "page", [...])
         application = ASGIAdapter(app)
-        
+
         # Then: uvicorn asgi:application --host 0.0.0.0 --port 8000 --workers 4
     """
 
@@ -555,12 +555,12 @@ class ASGIAdapter:
         method = scope.get('method', 'GET')
         path = scope.get('path', '/')
         query_string = scope.get('query_string', b'').decode('utf-8')
-        
+
         # Build headers dict
         headers = {}
         for name, value in scope.get('headers', []):
             headers[name.decode('latin-1').title()] = value.decode('latin-1')
-        
+
         # Read body
         body = b''
         while True:
@@ -609,7 +609,7 @@ class ASGIAdapter:
 
         # Parse status code
         status_code = int(response_status.split(' ', 1)[0])
-        
+
         # Convert headers to ASGI format
         asgi_headers = [(k.lower().encode('latin-1'), v.encode('latin-1'))
                         for k, v in response_headers]
@@ -862,13 +862,13 @@ def _run_hypercorn(asgi_app, host, port, workers):
 
 def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engine=None, interpreter=None):
     """Start a production server using the best available EPL runtime adapter.
-    
+
     - Windows: Uses Waitress by default
     - Linux/macOS: Uses Gunicorn by default when available
     - ASGI engines (Uvicorn/Hypercorn): supported for in-process single-worker launch,
       and multi-worker deployment through generated import-string entrypoints.
     - reload=True: Enables hot-reload via EPL's file watcher
-    
+
     Args:
         app_or_wsgi: EPLWebApp, WSGIAdapter, ASGIAdapter, or WSGI callable
         host: Bind address
@@ -1018,10 +1018,10 @@ def generate_gunicorn_config(app_name='MyApp', port=8000, workers=None,
 
     config = textwrap.dedent(f'''\
         """Gunicorn configuration for EPL Web Application: {app_name}
-        
+
         Start with:
             gunicorn -c gunicorn_conf.py wsgi:application
-        
+
         Or directly:
             gunicorn wsgi:application -w {workers} -b {bind}:{port}
         """
@@ -1180,7 +1180,7 @@ def generate_wsgi_entry(app_module='app', app_var='app', app_file=None, project_
 
     return textwrap.dedent(f'''\
         """WSGI entry point for EPL web application.
-        
+
         Usage:
             gunicorn wsgi:application -w 4 -b 0.0.0.0:8000
             gunicorn -c gunicorn_conf.py wsgi:application
@@ -1531,10 +1531,10 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
                             ssl_cert=None, ssl_key=None,
                             context_path='/', app_name='epl'):
     """Generate Apache Tomcat configuration for proxying to EPL.
-    
+
     Generates:
     1. server.xml connector snippets
-    2. Apache mod_proxy/mod_jk configuration  
+    2. Apache mod_proxy/mod_jk configuration
     3. Tomcat valve configuration for logging
     """
     configs = {}
@@ -1544,7 +1544,7 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
         <!-- ═══════════════════════════════════════════════════════
              Tomcat Configuration for EPL Web Application
              Generated by EPL Deploy v4.0
-             
+
              Add these snippets to your Tomcat server.xml
              ($CATALINA_HOME/conf/server.xml)
              ═══════════════════════════════════════════════════════ -->
@@ -1562,7 +1562,7 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
                    compressibleMimeType="text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json"
                    server="EPL" />
 
-        <!-- AJP Connector (for Apache httpd fronting) -->  
+        <!-- AJP Connector (for Apache httpd fronting) -->
         <Connector port="{ajp_port}"
                    protocol="AJP/1.3"
                    redirectPort="8443"
@@ -1689,7 +1689,7 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
             ProxyPreserveHost On
             ProxyRequests Off
 
-            # AJP proxy to Tomcat  
+            # AJP proxy to Tomcat
             ProxyPass {context_path} ajp://127.0.0.1:{ajp_port}{context_path} secret=CHANGE_THIS_SECRET
             ProxyPassReverse {context_path} ajp://127.0.0.1:{ajp_port}{context_path}
 
@@ -1991,7 +1991,7 @@ def generate_asgi_entry(app_module='app', app_file=None, project_root='.'):
 
     return textwrap.dedent(f'''\
         """ASGI entry point for EPL web application.
-        
+
         Usage:
             uvicorn asgi:application --host 0.0.0.0 --port 8000 --workers 4
             hypercorn asgi:application -b 0.0.0.0:8000 -w 4
@@ -2089,7 +2089,7 @@ def generate_asgi_entry(app_module='app', app_file=None, project_root='.'):
 
 def deploy_generate(target, output_dir='.', **kwargs):
     """Generate deployment configuration files.
-    
+
     Args:
         target: 'gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'all'
         output_dir: Directory to write config files
@@ -2098,7 +2098,7 @@ def deploy_generate(target, output_dir='.', **kwargs):
     output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
     generated = []
-    
+
     app_name = kwargs.get('app_name', 'epl-app')
     port = kwargs.get('port', 8000)
     workers = kwargs.get('workers', None)
@@ -2229,6 +2229,21 @@ def deploy_generate(target, output_dir='.', **kwargs):
             f.write(asgi)
         generated.append(path)
 
+    if target in ('k8s', 'all'):
+        from epl.k8s_gen import generate_all as k8s_generate_all
+        k8s_dir = os.path.join(output_dir, 'k8s')
+        k8s_files = k8s_generate_all(
+            app_name=app_name,
+            image=kwargs.get('image', f'{app_name}:latest'),
+            host=kwargs.get('host', 'localhost'),
+            output_dir=k8s_dir,
+            port=port,
+            tls=kwargs.get('tls', False),
+            cert_secret=kwargs.get('cert_secret'),
+            service_type=kwargs.get('service_type', 'ClusterIP'),
+        )
+        generated.extend(k8s_files)
+
     return generated
 
 
@@ -2268,7 +2283,7 @@ def deploy_cli(args):
         return
 
     target = args[0]
-    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi', 'all')
+    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s', 'all')
     if target not in valid_targets:
         print(f"EPL Error: Unknown deploy target '{target}'")
         print(f"Valid targets: {', '.join(valid_targets)}")
@@ -2303,6 +2318,18 @@ def deploy_cli(args):
         elif args[i] == '--websocket':
             kwargs['websocket'] = True
             i += 1
+        elif args[i] == '--image' and i + 1 < len(args):
+            kwargs['image'] = args[i + 1]
+            i += 2
+        elif args[i] == '--host' and i + 1 < len(args):
+            kwargs['host'] = args[i + 1]
+            i += 2
+        elif args[i] == '--tls':
+            kwargs['tls'] = True
+            i += 1
+        elif args[i] == '--service-type' and i + 1 < len(args):
+            kwargs['service_type'] = args[i + 1]
+            i += 2
         else:
             print(f"EPL Warning: Unknown option '{args[i]}'")
             i += 1

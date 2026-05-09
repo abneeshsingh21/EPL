@@ -1,0 +1,14 @@
+Note: Example EPL web app for Kubernetes deployment
+
+Create WebApp called app
+
+Route "/" shows
+    Page "Hello from Kubernetes"
+        Heading "EPL on Kubernetes"
+        Text "This app was deployed using epl deploy k8s"
+    End
+End
+
+Route "/api/health" responds with
+    Send json Map with status = "ok" and runtime = "epl"
+End
