@@ -5,10 +5,12 @@ Transpiles EPL AST to clean, idiomatic Python 3 code.
 Usage:  epl export python myprogram.epl
 """
 
-from epl import ast_nodes as ast
 import re as _re
 
+from epl import ast_nodes as ast
+
 # ── Public API ───────────────────────────────────────────
+
 
 def transpile_to_python(program: ast.Program) -> str:
     """Transpile an EPL Program AST to Python 3 source code."""
@@ -17,11 +19,12 @@ def transpile_to_python(program: ast.Program) -> str:
 
 # ── Transpiler ───────────────────────────────────────────
 
+
 class PythonTranspiler:
     def __init__(self):
         self.indent = 0
         self.output: list[str] = []
-        self.imports: set[str] = set()       # 'import X' lines
+        self.imports: set[str] = set()  # 'import X' lines
         self.from_imports: dict[str, set] = {}  # 'from X import Y'
         self.in_class = False
         self.class_properties: set[str] = set()
@@ -76,9 +79,20 @@ class PythonTranspiler:
             result = s
             result = _re.sub(r'\$\{([^}]+)\}', r'{\1}', result)
             result = _re.sub(r'\$([A-Za-z_]\w*)', r'{\1}', result)
-            esc = result.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '\\r')
+            esc = (
+                result.replace('\\', '\\\\')
+                .replace("'", "\\'")
+                .replace('\n', '\\n')
+                .replace('\r', '\\r')
+            )
             return f"f'{esc}'"
-        esc = s.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+        esc = (
+            s.replace('\\', '\\\\')
+            .replace("'", "\\'")
+            .replace('\n', '\\n')
+            .replace('\r', '\\r')
+            .replace('\t', '\\t')
+        )
         return f"'{esc}'"
 
     # ── Statement dispatch ─────────────────────────────
@@ -341,7 +355,7 @@ class PythonTranspiler:
             self._line('def __init__(self):')
             self.indent += 1
             if node.parent:
-                self._line(f'super().__init__()')
+                self._line('super().__init__()')
             for f in fields:
                 self._line(f'self.{f.name} = {self._expr(f.value)}')
             self.indent -= 1
@@ -634,10 +648,25 @@ class PythonTranspiler:
 
     def _map_op(self, op: str) -> str:
         return {
-            'and': 'and', 'or': 'or', 'not': 'not',
-            '==': '==', '!=': '!=', '<': '<', '>': '>', '<=': '<=', '>=': '>=',
-            '+': '+', '-': '-', '*': '*', '/': '/', '//': '//', '%': '%', '**': '**',
-            '&': '&', '|': '|', '^': '^',
+            'and': 'and',
+            'or': 'or',
+            'not': 'not',
+            '==': '==',
+            '!=': '!=',
+            '<': '<',
+            '>': '>',
+            '<=': '<=',
+            '>=': '>=',
+            '+': '+',
+            '-': '-',
+            '*': '*',
+            '/': '/',
+            '//': '//',
+            '%': '%',
+            '**': '**',
+            '&': '&',
+            '|': '|',
+            '^': '^',
         }.get(op, op)
 
     def _expr_unary(self, node) -> str:
@@ -649,22 +678,44 @@ class PythonTranspiler:
         # Map EPL builtins to Python equivalents
         name = node.name
         builtin_map = {
-            'length': 'len', 'to_text': 'str', 'to_number': 'float',
-            'to_integer': 'int', 'to_decimal': 'float', 'type_of': 'type',
-            'round_number': 'round', 'absolute': 'abs', 'power': 'pow',
-            'square_root': 'math.sqrt', 'minimum': 'min', 'maximum': 'max',
-            'random_number': 'random.random', 'random_integer': 'random.randint',
-            'sorted': 'sorted', 'reversed': 'list(reversed',
-            'range': 'range', 'enumerate': 'enumerate', 'zip': 'zip',
-            'map': 'list(map', 'filter': 'list(filter',
-            'sum': 'sum', 'join': "', '.join",
-            'upper': 'str.upper', 'lower': 'str.lower',
-            'trim': 'str.strip', 'split': 'str.split',
-            'replace': 'str.replace', 'contains': 'operator.contains',
-            'starts_with': 'str.startswith', 'ends_with': 'str.endswith',
-            'floor': 'math.floor', 'ceil': 'math.ceil',
-            'log': 'math.log', 'sin': 'math.sin', 'cos': 'math.cos',
-            'keys': 'dict.keys', 'values': 'dict.values',
+            'length': 'len',
+            'to_text': 'str',
+            'to_number': 'float',
+            'to_integer': 'int',
+            'to_decimal': 'float',
+            'type_of': 'type',
+            'round_number': 'round',
+            'absolute': 'abs',
+            'power': 'pow',
+            'square_root': 'math.sqrt',
+            'minimum': 'min',
+            'maximum': 'max',
+            'random_number': 'random.random',
+            'random_integer': 'random.randint',
+            'sorted': 'sorted',
+            'reversed': 'list(reversed',
+            'range': 'range',
+            'enumerate': 'enumerate',
+            'zip': 'zip',
+            'map': 'list(map',
+            'filter': 'list(filter',
+            'sum': 'sum',
+            'join': "', '.join",
+            'upper': 'str.upper',
+            'lower': 'str.lower',
+            'trim': 'str.strip',
+            'split': 'str.split',
+            'replace': 'str.replace',
+            'contains': 'operator.contains',
+            'starts_with': 'str.startswith',
+            'ends_with': 'str.endswith',
+            'floor': 'math.floor',
+            'ceil': 'math.ceil',
+            'log': 'math.log',
+            'sin': 'math.sin',
+            'cos': 'math.cos',
+            'keys': 'dict.keys',
+            'values': 'dict.values',
         }
         if name in builtin_map:
             py_name = builtin_map[name]
@@ -684,14 +735,25 @@ class PythonTranspiler:
         method = node.method_name
         # Map EPL method names to Python
         method_map = {
-            'push': 'append', 'remove_at': 'pop',
-            'upper': 'upper', 'lower': 'lower', 'trim': 'strip',
-            'split': 'split', 'join': 'join', 'replace': 'replace',
-            'starts_with': 'startswith', 'ends_with': 'endswith',
-            'contains': '__contains__', 'index_of': 'index',
-            'reverse': 'reverse', 'sort': 'sort',
-            'keys': 'keys', 'values': 'values', 'items': 'items',
-            'get': 'get', 'has_key': '__contains__',
+            'push': 'append',
+            'remove_at': 'pop',
+            'upper': 'upper',
+            'lower': 'lower',
+            'trim': 'strip',
+            'split': 'split',
+            'join': 'join',
+            'replace': 'replace',
+            'starts_with': 'startswith',
+            'ends_with': 'endswith',
+            'contains': '__contains__',
+            'index_of': 'index',
+            'reverse': 'reverse',
+            'sort': 'sort',
+            'keys': 'keys',
+            'values': 'values',
+            'items': 'items',
+            'get': 'get',
+            'has_key': '__contains__',
         }
         py_method = method_map.get(method, method)
         if args:
@@ -724,9 +786,15 @@ class PythonTranspiler:
         if not epl_type:
             return ''
         type_map = {
-            'integer': 'int', 'decimal': 'float', 'text': 'str',
-            'boolean': 'bool', 'list': 'list', 'map': 'dict',
-            'any': 'Any', 'void': 'None',
-            'number': 'float', 'string': 'str',
+            'integer': 'int',
+            'decimal': 'float',
+            'text': 'str',
+            'boolean': 'bool',
+            'list': 'list',
+            'map': 'dict',
+            'any': 'Any',
+            'void': 'None',
+            'number': 'float',
+            'string': 'str',
         }
         return type_map.get(epl_type.lower(), epl_type)

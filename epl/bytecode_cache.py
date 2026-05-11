@@ -24,11 +24,13 @@ _FORMAT_VERSION = 2  # Bumped: v2 uses safe unpickler
 _HEADER_SIZE = 4 + 2 + 32  # magic + version + sha256
 
 # Modules allowed during deserialization — ONLY EPL AST nodes and builtins
-_SAFE_MODULES = frozenset({
-    'epl.ast_nodes',
-    'builtins',
-    'collections',
-})
+_SAFE_MODULES = frozenset(
+    {
+        'epl.ast_nodes',
+        'builtins',
+        'collections',
+    }
+)
 
 
 class _SafeUnpickler(pickle.Unpickler):
@@ -41,9 +43,9 @@ class _SafeUnpickler(pickle.Unpickler):
     def find_class(self, module: str, name: str):
         if module not in _SAFE_MODULES:
             raise pickle.UnpicklingError(
-                f"SECURITY: Blocked deserialization of {module}.{name}. "
-                f"Only EPL AST nodes are allowed in .eplc files. "
-                f"This file may be corrupted or malicious."
+                f'SECURITY: Blocked deserialization of {module}.{name}. '
+                f'Only EPL AST nodes are allowed in .eplc files. '
+                f'This file may be corrupted or malicious.'
             )
         return super().find_class(module, name)
 

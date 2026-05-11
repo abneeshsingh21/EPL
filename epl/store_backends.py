@@ -7,11 +7,12 @@ Pluggable session and data store backends:
 
 All backends implement the same interface so they are interchangeable.
 """
+
 import json
-import time
+import logging
 import secrets
 import threading
-import logging
+import time
 
 _logger = logging.getLogger('epl.store')
 
@@ -19,6 +20,7 @@ _logger = logging.getLogger('epl.store')
 # ═══════════════════════════════════════════════════════════
 # Abstract Interface
 # ═══════════════════════════════════════════════════════════
+
 
 class StoreBackend:
     """Base class for store backends."""
@@ -75,6 +77,7 @@ class SessionBackend:
 # ═══════════════════════════════════════════════════════════
 # Memory Backend (default — fast, single-process)
 # ═══════════════════════════════════════════════════════════
+
 
 class MemoryStoreBackend(StoreBackend):
     """In-memory data store. Fast but not shared across workers."""
@@ -180,11 +183,12 @@ class MemorySessionBackend(SessionBackend):
 # SQLite Backend (persistent, survives restarts)
 # ═══════════════════════════════════════════════════════════
 
+
 class SQLiteStoreBackend(StoreBackend):
     """SQLite-backed persistent data store. Survives restarts but not shared across processes."""
 
     def __init__(self, db_path='epl_store.db'):
-        import sqlite3
+
         self._path = db_path
         self._local = threading.local()
         self._lock = threading.Lock()
@@ -193,6 +197,7 @@ class SQLiteStoreBackend(StoreBackend):
 
     def _get_conn(self):
         import sqlite3
+
         conn = getattr(self._local, 'conn', None)
         if conn is None:
             conn = sqlite3.connect(self._path, check_same_thread=False, timeout=30)
@@ -207,31 +212,35 @@ class SQLiteStoreBackend(StoreBackend):
 
     def _init_db(self):
         conn = self._get_conn()
-        conn.execute('''CREATE TABLE IF NOT EXISTS epl_store (
+        conn.execute("""CREATE TABLE IF NOT EXISTS epl_store (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             collection TEXT NOT NULL,
             data TEXT NOT NULL,
             created_at REAL DEFAULT (strftime('%s','now'))
-        )''')
+        )""")
         conn.execute('CREATE INDEX IF NOT EXISTS idx_store_coll ON epl_store(collection)')
         conn.commit()
 
     def store_add(self, collection, item):
         conn = self._get_conn()
-        conn.execute('INSERT INTO epl_store (collection, data) VALUES (?, ?)',
-                     (collection, json.dumps(item, default=str)))
+        conn.execute(
+            'INSERT INTO epl_store (collection, data) VALUES (?, ?)',
+            (collection, json.dumps(item, default=str)),
+        )
         conn.commit()
 
     def store_get(self, collection):
         conn = self._get_conn()
-        rows = conn.execute('SELECT data FROM epl_store WHERE collection=? ORDER BY id',
-                            (collection,)).fetchall()
+        rows = conn.execute(
+            'SELECT data FROM epl_store WHERE collection=? ORDER BY id', (collection,)
+        ).fetchall()
         return [json.loads(r[0]) for r in rows]
 
     def store_remove(self, collection, index):
         conn = self._get_conn()
-        rows = conn.execute('SELECT id FROM epl_store WHERE collection=? ORDER BY id',
-                            (collection,)).fetchall()
+        rows = conn.execute(
+            'SELECT id FROM epl_store WHERE collection=? ORDER BY id', (collection,)
+        ).fetchall()
         if 0 <= index < len(rows):
             conn.execute('DELETE FROM epl_store WHERE id=?', (rows[index][0],))
             conn.commit()
@@ -243,8 +252,9 @@ class SQLiteStoreBackend(StoreBackend):
 
     def store_count(self, collection):
         conn = self._get_conn()
-        row = conn.execute('SELECT COUNT(*) FROM epl_store WHERE collection=?',
-                           (collection,)).fetchone()
+        row = conn.execute(
+            'SELECT COUNT(*) FROM epl_store WHERE collection=?', (collection,)
+        ).fetchone()
         return row[0]
 
     def all_collections(self):
@@ -275,7 +285,7 @@ class SQLiteSessionBackend(SessionBackend):
     """SQLite-backed session store. Survives restarts."""
 
     def __init__(self, db_path='epl_sessions.db'):
-        import sqlite3
+
         self._path = db_path
         self._local = threading.local()
         self._lock = threading.Lock()
@@ -284,6 +294,7 @@ class SQLiteSessionBackend(SessionBackend):
 
     def _get_conn(self):
         import sqlite3
+
         conn = getattr(self._local, 'conn', None)
         if conn is None:
             conn = sqlite3.connect(self._path, check_same_thread=False, timeout=30)
@@ -297,26 +308,29 @@ class SQLiteSessionBackend(SessionBackend):
 
     def _init_db(self):
         conn = self._get_conn()
-        conn.execute('''CREATE TABLE IF NOT EXISTS epl_sessions (
+        conn.execute("""CREATE TABLE IF NOT EXISTS epl_sessions (
             session_id TEXT PRIMARY KEY,
             data TEXT NOT NULL DEFAULT '{}',
             expires_at REAL NOT NULL
-        )''')
+        )""")
         conn.execute('CREATE INDEX IF NOT EXISTS idx_sess_exp ON epl_sessions(expires_at)')
         conn.commit()
 
     def create(self, timeout=3600):
         sid = secrets.token_hex(32)
         conn = self._get_conn()
-        conn.execute('INSERT INTO epl_sessions (session_id, data, expires_at) VALUES (?, ?, ?)',
-                     (sid, '{}', time.time() + timeout))
+        conn.execute(
+            'INSERT INTO epl_sessions (session_id, data, expires_at) VALUES (?, ?, ?)',
+            (sid, '{}', time.time() + timeout),
+        )
         conn.commit()
         return sid
 
     def get(self, session_id, key, default=None):
         conn = self._get_conn()
-        row = conn.execute('SELECT data, expires_at FROM epl_sessions WHERE session_id=?',
-                           (session_id,)).fetchone()
+        row = conn.execute(
+            'SELECT data, expires_at FROM epl_sessions WHERE session_id=?', (session_id,)
+        ).fetchone()
         if row and time.time() < row[1]:
             data = json.loads(row[0])
             return data.get(key, default)
@@ -327,16 +341,19 @@ class SQLiteSessionBackend(SessionBackend):
 
     def set(self, session_id, key, value, timeout=3600):
         conn = self._get_conn()
-        row = conn.execute('SELECT data FROM epl_sessions WHERE session_id=?',
-                           (session_id,)).fetchone()
+        row = conn.execute(
+            'SELECT data FROM epl_sessions WHERE session_id=?', (session_id,)
+        ).fetchone()
         if row:
             data = json.loads(row[0])
         else:
             data = {}
         data[key] = value
-        conn.execute('''INSERT OR REPLACE INTO epl_sessions (session_id, data, expires_at)
-                        VALUES (?, ?, ?)''',
-                     (session_id, json.dumps(data, default=str), time.time() + timeout))
+        conn.execute(
+            """INSERT OR REPLACE INTO epl_sessions (session_id, data, expires_at)
+                        VALUES (?, ?, ?)""",
+            (session_id, json.dumps(data, default=str), time.time() + timeout),
+        )
         conn.commit()
 
     def delete(self, session_id):
@@ -346,8 +363,9 @@ class SQLiteSessionBackend(SessionBackend):
 
     def exists(self, session_id):
         conn = self._get_conn()
-        row = conn.execute('SELECT expires_at FROM epl_sessions WHERE session_id=?',
-                           (session_id,)).fetchone()
+        row = conn.execute(
+            'SELECT expires_at FROM epl_sessions WHERE session_id=?', (session_id,)
+        ).fetchone()
         if row and time.time() < row[0]:
             return True
         elif row:
@@ -368,6 +386,7 @@ class SQLiteSessionBackend(SessionBackend):
 # ═══════════════════════════════════════════════════════════
 # Redis Backend (shared across workers + restarts)
 # ═══════════════════════════════════════════════════════════
+
 
 class RedisStoreBackend(StoreBackend):
     """Redis-backed data store. Shared across all workers and survives restarts.
@@ -414,7 +433,7 @@ class RedisStoreBackend(StoreBackend):
         keys = self._redis.keys(f'{self._prefix}*')
         result = []
         for k in keys:
-            name = k[len(self._prefix):]
+            name = k[len(self._prefix) :]
             items = self.store_get(name)
             result.append((name, items))
         return result
@@ -481,7 +500,7 @@ class RedisSessionBackend(SessionBackend):
 # Backend Registry — global access point
 # ═══════════════════════════════════════════════════════════
 
-_store_backend = None    # type: StoreBackend | None
+_store_backend = None  # type: StoreBackend | None
 _session_backend = None  # type: SessionBackend | None
 
 

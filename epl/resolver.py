@@ -20,14 +20,12 @@ Features:
   - Integration with PackageIndex for version listing
 """
 
-import re
-from typing import Dict, List, Optional, Set, Tuple, Any
-from collections import defaultdict
-
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # ═══════════════════════════════════════════════════════════
 #  Version Constraint System
 # ═══════════════════════════════════════════════════════════
+
 
 class VersionConstraint:
     """A version constraint (requirement) from one package on another.
@@ -44,6 +42,7 @@ class VersionConstraint:
     def matcher(self):
         if self._matcher is None:
             from epl.package_manager import parse_version_range
+
             self._matcher = parse_version_range(self.spec)
         return self._matcher
 
@@ -52,7 +51,7 @@ class VersionConstraint:
         return self.matcher(version)
 
     def __repr__(self):
-        return f"VersionConstraint({self.spec!r}, source={self.source!r})"
+        return f'VersionConstraint({self.spec!r}, source={self.source!r})'
 
     def __str__(self):
         return self.spec
@@ -90,29 +89,35 @@ class ConstraintSet:
     def explain_conflict(self, version) -> List[str]:
         """Return list of constraints that reject a version."""
         return [
-            f"  {c.source} requires {self.package_name} {c.spec}"
-            for c in self.constraints if not c.matches(version)
+            f'  {c.source} requires {self.package_name} {c.spec}'
+            for c in self.constraints
+            if not c.matches(version)
         ]
 
     def __repr__(self):
         specs = ', '.join(str(c) for c in self.constraints)
-        return f"ConstraintSet({self.package_name}: {specs})"
+        return f'ConstraintSet({self.package_name}: {specs})'
 
 
 # ═══════════════════════════════════════════════════════════
 #  Resolution Result
 # ═══════════════════════════════════════════════════════════
 
+
 class ResolvedPackage:
     """A successfully resolved package with its version."""
 
-    __slots__ = ('name', 'version', 'version_str', 'dependencies',
-                 'required_by', 'source')
+    __slots__ = ('name', 'version', 'version_str', 'dependencies', 'required_by', 'source')
 
-    def __init__(self, name: str, version, version_str: str = '',
-                 dependencies: Optional[Dict[str, str]] = None,
-                 required_by: Optional[List[str]] = None,
-                 source: str = ''):
+    def __init__(
+        self,
+        name: str,
+        version,
+        version_str: str = '',
+        dependencies: Optional[Dict[str, str]] = None,
+        required_by: Optional[List[str]] = None,
+        source: str = '',
+    ):
         self.name = name
         self.version = version
         self.version_str = version_str or str(version)
@@ -130,7 +135,7 @@ class ResolvedPackage:
         }
 
     def __repr__(self):
-        return f"ResolvedPackage({self.name}@{self.version_str})"
+        return f'ResolvedPackage({self.name}@{self.version_str})'
 
 
 class ResolutionResult:
@@ -184,6 +189,7 @@ class ResolutionResult:
 #  Version Provider — Abstract interface
 # ═══════════════════════════════════════════════════════════
 
+
 class VersionProvider:
     """Provides available versions and dependency info for packages.
 
@@ -210,6 +216,7 @@ class BuiltinVersionProvider(VersionProvider):
 
     def __init__(self):
         from epl.package_manager import BUILTIN_REGISTRY, SemVer
+
         self._registry = BUILTIN_REGISTRY
         self._SemVer = SemVer
 
@@ -230,9 +237,11 @@ class IndexVersionProvider(VersionProvider):
 
     def __init__(self, index=None):
         from epl.package_manager import SemVer
+
         self._SemVer = SemVer
         if index is None:
             from epl.package_index import PackageIndex
+
             self._index = PackageIndex(offline=True)
         else:
             self._index = index
@@ -286,8 +295,10 @@ class CompositeVersionProvider(VersionProvider):
 #  Backtracking Resolver
 # ═══════════════════════════════════════════════════════════
 
+
 class ResolutionError(Exception):
     """Raised when resolution fails and cannot be recovered."""
+
     pass
 
 
@@ -302,16 +313,14 @@ class DependencyResolver:
     5. If no, backtrack and try the next version
     """
 
-    def __init__(self, provider: Optional[VersionProvider] = None,
-                 max_iterations: int = 10000):
+    def __init__(self, provider: Optional[VersionProvider] = None, max_iterations: int = 10000):
         if provider is None:
             self._provider = BuiltinVersionProvider()
         else:
             self._provider = provider
         self._max_iterations = max_iterations
 
-    def resolve(self, root_deps: Dict[str, str],
-                root_name: str = 'root') -> ResolutionResult:
+    def resolve(self, root_deps: Dict[str, str], root_name: str = 'root') -> ResolutionResult:
         """Resolve dependencies starting from root_deps.
 
         Args:
@@ -345,8 +354,8 @@ class DependencyResolver:
             iterations += 1
             if iterations > self._max_iterations:
                 result.errors.append(
-                    f"Resolution exceeded {self._max_iterations} iterations. "
-                    "This may indicate circular or overly complex dependencies."
+                    f'Resolution exceeded {self._max_iterations} iterations. '
+                    'This may indicate circular or overly complex dependencies.'
                 )
                 return result
 
@@ -358,12 +367,11 @@ class DependencyResolver:
                 # Check if it's a builtin that we've already handled
                 if pkg_name not in resolved:
                     # Try backtracking
-                    if self._backtrack(backtrack_stack, resolved, resolved_deps,
-                                       constraints, unresolved):
+                    if self._backtrack(
+                        backtrack_stack, resolved, resolved_deps, constraints, unresolved
+                    ):
                         continue
-                    result.errors.append(
-                        f"Package '{pkg_name}' not found in any registry."
-                    )
+                    result.errors.append(f"Package '{pkg_name}' not found in any registry.")
                     return result
                 else:
                     unresolved.pop(0)
@@ -378,42 +386,42 @@ class DependencyResolver:
 
             if not candidates:
                 # No version satisfies all constraints
-                if self._backtrack(backtrack_stack, resolved, resolved_deps,
-                                   constraints, unresolved):
+                if self._backtrack(
+                    backtrack_stack, resolved, resolved_deps, constraints, unresolved
+                ):
                     continue
                 # Build error message
                 conflict_lines = []
                 for c in cs.constraints:
-                    conflict_lines.append(f"  {c.source} requires {pkg_name} {c.spec}")
+                    conflict_lines.append(f'  {c.source} requires {pkg_name} {c.spec}')
                 available = ', '.join(str(v) for v in all_versions[-5:])
                 result.errors.append(
                     f"No version of '{pkg_name}' satisfies all constraints:\n"
-                    + '\n'.join(conflict_lines) +
-                    f"\nAvailable versions: {available}"
+                    + '\n'.join(conflict_lines)
+                    + f'\nAvailable versions: {available}'
                 )
                 return result
 
             # Save state for backtracking
             snapshot_resolved = dict(resolved)
             snapshot_deps = {k: dict(v) for k, v in resolved_deps.items()}
-            snapshot_constraints = {
-                k: self._copy_constraint_set(v)
-                for k, v in constraints.items()
-            }
+            snapshot_constraints = {k: self._copy_constraint_set(v) for k, v in constraints.items()}
             snapshot_unresolved = list(unresolved)
 
             # Try the best candidate
             chosen = candidates[0]
             tried = {str(chosen)}
 
-            backtrack_stack.append((
-                pkg_name,
-                tried,
-                snapshot_resolved,
-                snapshot_deps,
-                snapshot_constraints,
-                snapshot_unresolved,
-            ))
+            backtrack_stack.append(
+                (
+                    pkg_name,
+                    tried,
+                    snapshot_resolved,
+                    snapshot_deps,
+                    snapshot_constraints,
+                    snapshot_unresolved,
+                )
+            )
 
             # Resolve this package
             resolved[pkg_name] = chosen
@@ -428,7 +436,7 @@ class DependencyResolver:
                 if dep_name not in constraints:
                     constraints[dep_name] = ConstraintSet(dep_name)
                 constraints[dep_name].add(
-                    VersionConstraint(dep_spec, source=f"{pkg_name}@{chosen}")
+                    VersionConstraint(dep_spec, source=f'{pkg_name}@{chosen}')
                 )
                 if dep_name not in resolved and dep_name not in unresolved:
                     unresolved.append(dep_name)
@@ -439,25 +447,27 @@ class DependencyResolver:
             required_by = []
             for cs in constraints.get(name, ConstraintSet(name)).constraints:
                 required_by.append(cs.source)
-            result.add_package(ResolvedPackage(
-                name=name,
-                version=version,
-                version_str=str(version),
-                dependencies=deps,
-                required_by=required_by,
-            ))
+            result.add_package(
+                ResolvedPackage(
+                    name=name,
+                    version=version,
+                    version_str=str(version),
+                    dependencies=deps,
+                    required_by=required_by,
+                )
+            )
 
         return result
 
-    def _backtrack(self, stack, resolved, resolved_deps,
-                   constraints, unresolved) -> bool:
+    def _backtrack(self, stack, resolved, resolved_deps, constraints, unresolved) -> bool:
         """Attempt to backtrack to a previous decision point.
 
         Returns True if backtracking was successful, False if no more options.
         """
         while stack:
-            (pkg_name, tried, snap_resolved, snap_deps,
-             snap_constraints, snap_unresolved) = stack[-1]
+            (pkg_name, tried, snap_resolved, snap_deps, snap_constraints, snap_unresolved) = stack[
+                -1
+            ]
 
             # Restore state
             resolved.clear()
@@ -500,7 +510,7 @@ class DependencyResolver:
                 if dep_name not in constraints:
                     constraints[dep_name] = ConstraintSet(dep_name)
                 constraints[dep_name].add(
-                    VersionConstraint(dep_spec, source=f"{pkg_name}@{next_candidate}")
+                    VersionConstraint(dep_spec, source=f'{pkg_name}@{next_candidate}')
                 )
                 if dep_name not in resolved and dep_name not in unresolved:
                     unresolved.append(dep_name)
@@ -521,16 +531,18 @@ class DependencyResolver:
 #  Convenience Functions
 # ═══════════════════════════════════════════════════════════
 
+
 def resolve_from_manifest(manifest_path: str = '.') -> ResolutionResult:
     """Resolve all dependencies from a project manifest.
 
     Uses the builtin registry + any configured indexes.
     """
     from epl.package_manager import load_manifest
+
     manifest = load_manifest(manifest_path)
     if not manifest:
         result = ResolutionResult()
-        result.errors.append("No epl.toml or epl.json found.")
+        result.errors.append('No epl.toml or epl.json found.')
         return result
 
     deps = manifest.get('dependencies', {})
@@ -544,6 +556,7 @@ def resolve_from_manifest(manifest_path: str = '.') -> ResolutionResult:
     # Try to add index provider
     try:
         from epl.package_index import PackageIndex
+
         idx = PackageIndex(offline=True)
         provider.add_provider(IndexVersionProvider(idx))
     except ImportError:
@@ -553,8 +566,9 @@ def resolve_from_manifest(manifest_path: str = '.') -> ResolutionResult:
     return resolver.resolve(deps, manifest.get('name', 'root'))
 
 
-def resolve_deps(dependencies: Dict[str, str],
-                 provider: Optional[VersionProvider] = None) -> ResolutionResult:
+def resolve_deps(
+    dependencies: Dict[str, str], provider: Optional[VersionProvider] = None
+) -> ResolutionResult:
     """Resolve a dependency map directly."""
     if provider is None:
         provider = BuiltinVersionProvider()
@@ -565,24 +579,24 @@ def resolve_deps(dependencies: Dict[str, str],
 def print_resolution(result: ResolutionResult):
     """Print the resolution result in a human-readable format."""
     if not result.success:
-        print("  Resolution failed:")
+        print('  Resolution failed:')
         for err in result.errors:
-            print(f"    {err}")
+            print(f'    {err}')
         return
 
     if result.warnings:
         for w in result.warnings:
-            print(f"  Warning: {w}")
+            print(f'  Warning: {w}')
 
     order = result.get_install_order()
     if not order:
-        print("  No dependencies to install.")
+        print('  No dependencies to install.')
         return
 
-    print(f"  Resolved {len(order)} packages:")
+    print(f'  Resolved {len(order)} packages:')
     for pkg in order:
         deps_str = ''
         if pkg.dependencies:
-            dep_list = ', '.join(f"{n}@{v}" for n, v in pkg.dependencies.items())
-            deps_str = f" (deps: {dep_list})"
-        print(f"    {pkg.name}@{pkg.version_str}{deps_str}")
+            dep_list = ', '.join(f'{n}@{v}' for n, v in pkg.dependencies.items())
+            deps_str = f' (deps: {dep_list})'
+        print(f'    {pkg.name}@{pkg.version_str}{deps_str}')

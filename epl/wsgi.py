@@ -10,31 +10,34 @@ Production-grade web server with:
   - WebSocket support via ASGI
 """
 
-import os
 import io
 import json
-import time
+import os
 import signal
-import socket
 import threading
-import traceback
+import time
 import urllib.parse
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
-
-from epl import ast_nodes as ast
-from epl.html_gen import generate_html
-
 
 # ═══════════════════════════════════════════════════════════
 #  Request / Response Objects
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLRequest:
     """Production request object with full HTTP support."""
 
-    def __init__(self, method, path, headers=None, body=b'', query_string='',
-                 remote_addr='', route_params=None):
+    def __init__(
+        self,
+        method,
+        path,
+        headers=None,
+        body=b'',
+        query_string='',
+        remote_addr='',
+        route_params=None,
+    ):
         self.method = method.upper()
         self.path = path
         self.headers = headers or {}
@@ -51,7 +54,11 @@ class EPLRequest:
 
     @property
     def text(self):
-        return self._body.decode('utf-8', errors='replace') if isinstance(self._body, bytes) else str(self._body)
+        return (
+            self._body.decode('utf-8', errors='replace')
+            if isinstance(self._body, bytes)
+            else str(self._body)
+        )
 
     @property
     def json(self):
@@ -95,7 +102,9 @@ class EPLResponse:
             return self._body.encode('utf-8')
         return self._body
 
-    def set_cookie(self, name, value, max_age=3600, path='/', httponly=True, secure=False, samesite='Lax'):
+    def set_cookie(
+        self, name, value, max_age=3600, path='/', httponly=True, secure=False, samesite='Lax'
+    ):
         parts = [f'{name}={value}', f'Path={path}', f'Max-Age={max_age}', f'SameSite={samesite}']
         if httponly:
             parts.append('HttpOnly')
@@ -134,12 +143,13 @@ class EPLResponse:
 #  WSGI Application
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLWSGIApp:
     """WSGI-compatible application wrapper for EPL web apps."""
 
     def __init__(self):
-        self.routes = []       # list of (method, pattern_re, param_names, handler)
-        self.middleware = []   # list of middleware functions
+        self.routes = []  # list of (method, pattern_re, param_names, handler)
+        self.middleware = []  # list of middleware functions
         self.error_handlers = {}  # status_code → handler
         self.static_dir = None
         self.static_prefix = '/static/'
@@ -147,11 +157,13 @@ class EPLWSGIApp:
     def route(self, path, methods=None):
         """Decorator to register a route handler."""
         methods = methods or ['GET']
+
         def decorator(handler):
             pattern, param_names = self._compile_route(path)
             for method in methods:
                 self.routes.append((method.upper(), pattern, param_names, handler))
             return handler
+
         return decorator
 
     def add_route(self, method, path, handler):
@@ -171,6 +183,7 @@ class EPLWSGIApp:
     def _compile_route(self, path):
         """Convert '/users/:id/posts' to regex with named groups."""
         import re
+
         param_names = []
         parts = path.split('/')
         regex_parts = []
@@ -263,7 +276,8 @@ class EPLWSGIApp:
     def _serve_static(self, path, environ, start_response):
         """Serve a static file with caching headers."""
         import mimetypes
-        relative = path[len(self.static_prefix):]
+
+        relative = path[len(self.static_prefix) :]
         # Prevent path traversal
         safe_path = os.path.normpath(relative)
         if safe_path.startswith('..') or os.path.isabs(safe_path):
@@ -289,18 +303,30 @@ class EPLWSGIApp:
     @staticmethod
     def _status_text(code):
         return {
-            200: 'OK', 201: 'Created', 204: 'No Content',
-            301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
-            400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
-            404: 'Not Found', 405: 'Method Not Allowed', 409: 'Conflict',
-            422: 'Unprocessable Entity', 429: 'Too Many Requests',
-            500: 'Internal Server Error', 502: 'Bad Gateway', 503: 'Service Unavailable',
+            200: 'OK',
+            201: 'Created',
+            204: 'No Content',
+            301: 'Moved Permanently',
+            302: 'Found',
+            304: 'Not Modified',
+            400: 'Bad Request',
+            401: 'Unauthorized',
+            403: 'Forbidden',
+            404: 'Not Found',
+            405: 'Method Not Allowed',
+            409: 'Conflict',
+            422: 'Unprocessable Entity',
+            429: 'Too Many Requests',
+            500: 'Internal Server Error',
+            502: 'Bad Gateway',
+            503: 'Service Unavailable',
         }.get(code, 'Unknown')
 
 
 # ═══════════════════════════════════════════════════════════
 #  ASGI Application
 # ═══════════════════════════════════════════════════════════
+
 
 class EPLASGIApp:
     """ASGI-compatible application for async request handling."""
@@ -311,9 +337,11 @@ class EPLASGIApp:
 
     def websocket(self, path):
         """Register a WebSocket handler."""
+
         def decorator(handler):
             self._ws_handlers[path] = handler
             return handler
+
         return decorator
 
     async def __call__(self, scope, receive, send):
@@ -345,7 +373,9 @@ class EPLASGIApp:
             key = 'HTTP_' + name.decode('latin-1').upper().replace('-', '_')
             environ[key] = value.decode('latin-1')
         if b'content-type' in dict(scope.get('headers', [])):
-            environ['CONTENT_TYPE'] = dict(scope.get('headers', []))[b'content-type'].decode('latin-1')
+            environ['CONTENT_TYPE'] = dict(scope.get('headers', []))[b'content-type'].decode(
+                'latin-1'
+            )
 
         # Call WSGI app
         response_started = False
@@ -360,16 +390,20 @@ class EPLASGIApp:
 
         body_parts = self._wsgi_app(environ, start_response)
 
-        await send({
-            'type': 'http.response.start',
-            'status': status_code,
-            'headers': [(k.encode(), v.encode()) for k, v in response_headers],
-        })
+        await send(
+            {
+                'type': 'http.response.start',
+                'status': status_code,
+                'headers': [(k.encode(), v.encode()) for k, v in response_headers],
+            }
+        )
         for chunk in body_parts:
-            await send({
-                'type': 'http.response.body',
-                'body': chunk,
-            })
+            await send(
+                {
+                    'type': 'http.response.body',
+                    'body': chunk,
+                }
+            )
 
     async def _handle_websocket(self, scope, receive, send):
         """Handle WebSocket connections."""
@@ -424,6 +458,7 @@ class ASGIWebSocket:
 #  Production Server (threaded, graceful shutdown)
 # ═══════════════════════════════════════════════════════════
 
+
 class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     allow_reuse_address = True
     daemon_threads = True
@@ -470,7 +505,9 @@ class _WSGIRequestHandler(BaseHTTPRequestHandler):
         for chunk in body_parts:
             self.wfile.write(chunk)
 
-    do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = do_OPTIONS = lambda self: self.do_request()
+    do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = do_OPTIONS = lambda self: (
+        self.do_request()
+    )
 
     def log_message(self, format, *args):
         pass  # suppress default logging
@@ -482,15 +519,15 @@ def serve(app, host='0.0.0.0', port=8000):
     server = _ThreadedHTTPServer((host, port), _WSGIRequestHandler)
 
     def shutdown_handler(sig, frame):
-        print(f"\n  Shutting down EPL server...")
+        print('\n  Shutting down EPL server...')
         server.shutdown()
 
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
 
-    print(f"  EPL Production Server v4.0")
-    print(f"  Listening on http://{host}:{port}")
-    print(f"  Press Ctrl+C to stop\n")
+    print('  EPL Production Server v4.0')
+    print(f'  Listening on http://{host}:{port}')
+    print('  Press Ctrl+C to stop\n')
 
     server.serve_forever()
 
@@ -499,19 +536,26 @@ def serve(app, host='0.0.0.0', port=8000):
 #  Built-in Middleware
 # ═══════════════════════════════════════════════════════════
 
+
 def cors_middleware(allowed_origins='*'):
     """CORS middleware factory."""
+
     def middleware(request, response):
         origin = request.get_header('origin', '')
         if allowed_origins == '*' or origin in allowed_origins:
-            response.headers['Access-Control-Allow-Origin'] = allowed_origins if isinstance(allowed_origins, str) else origin
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+            response.headers['Access-Control-Allow-Origin'] = (
+                allowed_origins if isinstance(allowed_origins, str) else origin
+            )
+            response.headers['Access-Control-Allow-Methods'] = (
+                'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+            )
             response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
             if request.method == 'OPTIONS':
                 response.status = 204
                 response._body = ''
                 return response
         return None
+
     return middleware
 
 
@@ -534,11 +578,13 @@ def rate_limit_middleware(max_requests=100, window_seconds=60):
                 return response
             _buckets[ip].append(now)
         return None
+
     return middleware
 
 
 def auth_middleware(token_validator):
     """Token-based auth middleware."""
+
     def middleware(request, response):
         auth_header = request.get_header('authorization', '')
         if not auth_header.startswith('Bearer '):
@@ -553,14 +599,17 @@ def auth_middleware(token_validator):
             return response
         request.user = user
         return None
+
     return middleware
 
 
 def logging_middleware():
     """Request logging middleware."""
+
     def middleware(request, response):
         start = time.time()
         # Store start time for post-processing
         request._start_time = start
         return None
+
     return middleware

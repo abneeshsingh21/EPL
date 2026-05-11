@@ -2,6 +2,44 @@
 
 All notable changes to EPL are documented in this file.
 
+## [7.5.1] — 2026-05-11
+
+### Added (PR Integrations)
+- **AI Error Explainer** (PR #3 by @imkoushal) — `epl fix <file>` command with 27-pattern error analysis, "Did you mean?" suggestions, Python/JS foreign keyword detection, and optional AI-powered deep analysis via Ollama/cloud backends.
+- **`--ai-errors` CLI flag** — Enable error explainer diagnostics during normal `epl run` execution.
+- **`to_context_dict()`** on `EPLError` — Structured error context with surrounding source lines for AI consumption.
+- **AWS Cloud Backend** (PR #4 by @D1v3shh) — `cloud_*` stdlib functions for S3 (upload/download/list/read/write/delete/exists/buckets), Lambda (invoke), and SQS (send/receive/delete) with lazy-loaded boto3, thread-safe client caching, and `pip install "eplang[cloud]"` optional dependency.
+- **`epl-cloud` Official Package** — Registry entry, EPL source, examples, and `epl.toml` manifest.
+- **44 new tests** covering error explainer patterns and cloud backend operations.
+
+### Fixed
+- **VS Code Terminal Command Injection** — Replaced unsafe string interpolation in `extension.js` with a safe `buildEplCommand()` builder that properly quotes file paths for both PowerShell and Unix shells.
+- **Syntax Reference Ternary Example** — Corrected `Set label = "big" if ...` to the canonical parser form `Set result to "big" if x > 10 otherwise "small"`.
+- **Playground Thinking-Block Rendering** — AI "Thinking Process" blocks are now extracted before markdown escaping and re-injected as styled HTML, preventing display corruption.
+
+### Changed
+- **Test Modernization** — Migrated CLI dispatcher tests from `main.py` file reads to direct `epl.cli.cli_main` source introspection, aligning with the authoritative CLI architecture.
+- **Landing Page Version** — Updated `docs/index.html` badge to `EPL v7.5.1 IS LIVE!`.
+- **Extension Version Logging** — `extension.js` now reads version dynamically from `package.json` instead of a hardcoded string.
+
+## [7.5.0] — 2026-04-28
+
+### Added
+- **Scientific Packages** — Merged PR #2 adding `epl-science`, `epl-plot`, `epl-learn`, `epl-dataframe`, and `epl-array` official packages with Python bridge backends.
+- **`Use` Syntax** — `Use python "json" as json_mod` for importing Python modules directly into EPL scope.
+- **Official `.epl` File Icon** — VS Code extension now contributes a dedicated file icon for `.epl` files in the explorer.
+- **Lint, Profile, and Build Commands** — `epl.lintFile`, `epl.profileFile`, and `epl.compileFile` commands added to the VS Code extension with editor title bar integration.
+- **`.vscodeignore`** — Marketplace package now excludes `node_modules`, `.vsix` artifacts, and large PDFs.
+
+### Fixed
+- **`epl.run` Not Found** — Commands are now registered before the LSP client starts, preventing the "command not found" error when the Language Server fails.
+- **Duplicate Dict Keys** — Removed duplicate keys in `epl/errors.py`.
+- **Deprecated `asyncio` Calls** — Updated to modern `asyncio` API patterns.
+
+### Changed
+- **AI Provider Hardening** — Strengthened cloud AI provider configuration and error handling.
+- **Extension Icon** — Updated to the new premium `epl_logo_minimal.png` design.
+
 ## [7.4.3] — 2026-04-17
 
 ### Added

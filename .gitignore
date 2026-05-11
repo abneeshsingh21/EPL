@@ -113,6 +113,7 @@ spark.db
 # AI workspace config (not part of EPL source)
 .agent/
 .gemini/
+.kilo/
 
 # AI config with API keys - never commit
 epl/.ai_config.json

@@ -11,19 +11,21 @@ from epl import playground
 def test_execute_epl_worker_payload_runs_simple_program() -> None:
     result = playground._execute_epl_worker_payload('Say "hello"')
 
-    assert result["error"] is None
-    assert result["output"].strip() == "hello"
+    assert result['error'] is None
+    assert result['output'].strip() == 'hello'
 
 
 def test_execute_epl_reports_timeout_when_worker_hangs() -> None:
     with mock.patch(
-        "epl.playground.subprocess.run",
-        side_effect=subprocess.TimeoutExpired(cmd="python -m epl.playground --worker-run", timeout=10),
+        'epl.playground.subprocess.run',
+        side_effect=subprocess.TimeoutExpired(
+            cmd='python -m epl.playground --worker-run', timeout=10
+        ),
     ):
-        result = playground._execute_epl("While True\n    Set x to 1\nEnd")
+        result = playground._execute_epl('While True\n    Set x to 1\nEnd')
 
-    assert result["output"] == ""
-    assert "timed out" in str(result["error"]).lower()
+    assert result['output'] == ''
+    assert 'timed out' in str(result['error']).lower()
 
 
 def test_start_playground_uses_threading_http_server() -> None:
@@ -31,17 +33,17 @@ def test_start_playground_uses_threading_http_server() -> None:
 
     class FakeServer:
         def __init__(self, address, handler):
-            captured["address"] = address
-            captured["handler"] = handler
+            captured['address'] = address
+            captured['handler'] = handler
 
         def serve_forever(self):
             raise KeyboardInterrupt
 
         def server_close(self):
-            captured["closed"] = True
+            captured['closed'] = True
 
-    with mock.patch("http.server.ThreadingHTTPServer", FakeServer):
+    with mock.patch('http.server.ThreadingHTTPServer', FakeServer):
         playground.start_playground(port=8765, open_browser=False)
 
-    assert captured["address"] == ("127.0.0.1", 8765)
-    assert captured["closed"] is True
+    assert captured['address'] == ('127.0.0.1', 8765)
+    assert captured['closed'] is True

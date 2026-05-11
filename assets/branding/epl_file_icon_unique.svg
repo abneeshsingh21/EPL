@@ -1,0 +1,41 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background Gradient: Deep Midnight Space -->
+    <linearGradient id="docBg" x1="128" y1="16" x2="128" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+
+    <!-- Vibrant Gradient for the Neon Slash -->
+    <linearGradient id="slashGradient" x1="80" y1="200" x2="180" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00F0FF"/>
+      <stop offset="1" stop-color="#7000FF"/>
+    </linearGradient>
+
+    <!-- Glowing Drop Shadow for the File -->
+    <filter id="glow" x="20" y="0" width="216" height="256" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- The Document Shape (Sleek Dark Mode File) -->
+  <path d="M52 32C52 23.1634 59.1634 16 68 16H144L204 76V224C204 232.837 196.837 240 188 240H68C59.1634 240 52 232.837 52 224V32Z" fill="url(#docBg)" filter="url(#glow)"/>
+  
+  <!-- Folded Corner Effect -->
+  <path d="M144 16L204 76H160C151.163 76 144 68.8366 144 60V16Z" fill="#1E293B"/>
+  
+  <!-- The Unique EPL Mark -->
+  <!-- A perfectly balanced "E" constructed from glowing overlapping geometric glass pieces -->
+  
+  <!-- Top Bar -->
+  <path d="M84 90H144C148.418 90 152 93.5817 152 98V106C152 110.418 148.418 114 144 114H84C79.5817 114 76 110.418 76 106V98C76 93.5817 79.5817 90 84 90Z" fill="#38BDF8"/>
+  
+  <!-- Middle Bar -->
+  <path d="M84 130H124C128.418 130 132 133.582 132 138V146C132 150.418 128.418 154 124 154H84C79.5817 154 76 150.418 76 146V138C76 133.582 79.5817 130 84 130Z" fill="#818CF8"/>
+
+  <!-- Bottom Bar -->
+  <path d="M84 170H144C148.418 170 152 173.582 152 178V186C152 190.418 148.418 194 144 194H84C79.5817 194 76 190.418 76 186V178C76 173.582 79.5817 170 84 170Z" fill="#C084FC"/>
+
+  <!-- The Dramatic Power Slash (Now with flawlessly rounded corners to perfectly match the E) -->
+  <path d="M164 86L112 198H128L180 86H164Z" fill="url(#slashGradient)" stroke="url(#slashGradient)" stroke-width="8" stroke-linejoin="round"/>
+</svg>

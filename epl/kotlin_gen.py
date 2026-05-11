@@ -10,13 +10,13 @@ type tracking, visibility modifiers, companion objects, and coroutines.
 import os
 import shutil
 from pathlib import Path
+
 from epl import ast_nodes as ast
 
-
-ANDROID_GRADLE_WRAPPER_VERSION = "8.2.1"
-ANDROID_GRADLE_PLUGIN_VERSION = "8.2.0"
-ANDROID_KOTLIN_VERSION = "1.9.22"
-ANDROID_TEMPLATE_ROOT = Path(__file__).resolve().parent / "templates" / "android"
+ANDROID_GRADLE_WRAPPER_VERSION = '8.2.1'
+ANDROID_GRADLE_PLUGIN_VERSION = '8.2.0'
+ANDROID_KOTLIN_VERSION = '1.9.22'
+ANDROID_TEMPLATE_ROOT = Path(__file__).resolve().parent / 'templates' / 'android'
 
 
 class SymbolTable:
@@ -24,9 +24,9 @@ class SymbolTable:
 
     def __init__(self, parent=None):
         self.parent = parent
-        self.symbols = {}      # name -> kotlin type string
-        self.functions = {}    # name -> {'params': [...], 'return': str}
-        self.classes = {}      # name -> {'properties': {name: type}, 'methods': {name: sig}, 'parent': str|None}
+        self.symbols = {}  # name -> kotlin type string
+        self.functions = {}  # name -> {'params': [...], 'return': str}
+        self.classes = {}  # name -> {'properties': {name: type}, 'methods': {name: sig}, 'parent': str|None}
 
     def define(self, name, kt_type):
         self.symbols[name] = kt_type
@@ -65,14 +65,14 @@ class SymbolTable:
 class KotlinGenerator:
     """Transpiles EPL AST to Kotlin source code with type-aware symbol table."""
 
-    def __init__(self, package_name="com.epl.app"):
+    def __init__(self, package_name='com.epl.app'):
         self.package = package_name
         self.indent = 0
         self.output = []
         self.in_class = None
         self.class_properties = {}  # name -> kotlin type (upgraded from set)
         self.imports = set()
-        self.widgets = []       # collected GUI widgets for layout XML generation
+        self.widgets = []  # collected GUI widgets for layout XML generation
         self.event_bindings = []  # collected event bindings
         self.widget_counter = 0
         self.symbols = SymbolTable()  # root symbol table
@@ -93,16 +93,22 @@ class KotlinGenerator:
         classes = [s for s in stmts if isinstance(s, ast.ClassDef)]
         functions = [s for s in stmts if isinstance(s, ast.FunctionDef)]
         enums = [s for s in stmts if isinstance(s, ast.EnumDef)]
-        other = [s for s in stmts if not isinstance(s, (ast.ClassDef, ast.FunctionDef, ast.EnumDef))]
+        other = [
+            s for s in stmts if not isinstance(s, (ast.ClassDef, ast.FunctionDef, ast.EnumDef))
+        ]
 
-        for e in enums: self._emit_enum(e)
-        for c in classes: self._emit_class(c)
-        for f in functions: self._emit_function(f)
+        for e in enums:
+            self._emit_enum(e)
+        for c in classes:
+            self._emit_class(c)
+        for f in functions:
+            self._emit_function(f)
 
         if other:
             self._line('fun main() {')
             self.indent += 1
-            for s in other: self._emit_stmt(s)
+            for s in other:
+                self._emit_stmt(s)
             self.indent -= 1
             self._line('}')
 
@@ -126,10 +132,9 @@ class KotlinGenerator:
                         props[item.name] = self._infer_kotlin_type(item.value)
                     elif isinstance(item, ast.FunctionDef) and item.name != 'init':
                         methods[item.name] = self._infer_return_type(item)
-                self.symbols.define_class(s.name, {
-                    'properties': props, 'methods': methods,
-                    'parent': s.parent
-                })
+                self.symbols.define_class(
+                    s.name, {'properties': props, 'methods': methods, 'parent': s.parent}
+                )
             elif isinstance(s, ast.EnumDef):
                 self.symbols.define(s.name, s.name)
             elif isinstance(s, ast.VarDeclaration):
@@ -137,22 +142,28 @@ class KotlinGenerator:
             elif isinstance(s, ast.ConstDeclaration):
                 self.symbols.define(s.name, self._infer_kotlin_type(s.value))
 
-    def generate_android_activity(self, program: ast.Program, activity_name="MainActivity") -> str:
+    def generate_android_activity(self, program: ast.Program, activity_name='MainActivity') -> str:
         """Generate an Android Activity from EPL AST with dynamic UI."""
         self.output = []
         self.widgets = []
         self.event_bindings = []
-        self.imports = {'android.os.Bundle', 'androidx.appcompat.app.AppCompatActivity',
-                        'android.widget.*', 'android.view.View', 'android.widget.Toast',
-                        'android.view.ViewGroup', 'android.widget.LinearLayout',
-                        'android.widget.ScrollView'}
+        self.imports = {
+            'android.os.Bundle',
+            'androidx.appcompat.app.AppCompatActivity',
+            'android.widget.*',
+            'android.view.View',
+            'android.widget.Toast',
+            'android.view.ViewGroup',
+            'android.widget.LinearLayout',
+            'android.widget.ScrollView',
+        }
 
         # First pass: collect GUI nodes for layout XML
         self._collect_gui_nodes(program.statements)
 
         self._line(f'class {activity_name} : AppCompatActivity() {{')
         self.indent += 1
-        
+
         # Declare widget member variables
         for w in self.widgets:
             widget_class = self._android_widget_class(w['type'])
@@ -162,7 +173,7 @@ class KotlinGenerator:
         self._line('override fun onCreate(savedInstanceState: Bundle?) {')
         self.indent += 1
         self._line('super.onCreate(savedInstanceState)')
-        
+
         if self.widgets:
             # Use programmatic layout for dynamic widgets
             self._line('val scrollView = ScrollView(this)')
@@ -200,7 +211,7 @@ class KotlinGenerator:
         header += '\n'.join(f'import {i}' for i in sorted(self.imports)) + '\n\n'
         return header + '\n'.join(self.output)
 
-    def generate_compose_activity(self, program: ast.Program, activity_name="MainActivity") -> str:
+    def generate_compose_activity(self, program: ast.Program, activity_name='MainActivity') -> str:
         """Generate a Jetpack Compose Activity from EPL AST."""
         self.output = []
         self.widgets = []
@@ -309,7 +320,9 @@ class KotlinGenerator:
         if wtype == 'button':
             handler = w.get('action')
             handler_str = f'{{ {self._expr(handler).strip(chr(34))}() }}' if handler else '{}'
-            text_str = self._expr(text) if text and hasattr(text, 'line') else f'"{text or "Button"}"'
+            text_str = (
+                self._expr(text) if text and hasattr(text, 'line') else f'"{text or "Button"}"'
+            )
             self._line(f'Button(onClick = {handler_str}) {{')
             self.indent += 1
             self._line(f'Text({text_str})')
@@ -328,9 +341,9 @@ class KotlinGenerator:
             placeholder = props.get('placeholder', '')
             self._line(f'var {var_name}Value by remember {{ mutableStateOf("") }}')
             if wtype == 'textarea':
-                self._line(f'OutlinedTextField(')
+                self._line('OutlinedTextField(')
             else:
-                self._line(f'TextField(')
+                self._line('TextField(')
             self.indent += 1
             self._line(f'value = {var_name}Value,')
             self._line(f'onValueChange = {{ {var_name}Value = it }},')
@@ -341,11 +354,15 @@ class KotlinGenerator:
             self._line(')')
         elif wtype == 'checkbox':
             var_name = w.get('id', 'checkbox')
-            text_str = self._expr(text) if text and hasattr(text, 'line') else f'"{text or "Check"}"'
+            text_str = (
+                self._expr(text) if text and hasattr(text, 'line') else f'"{text or "Check"}"'
+            )
             self._line(f'var {var_name}Checked by remember {{ mutableStateOf(false) }}')
             self._line('Row(verticalAlignment = Alignment.CenterVertically) {')
             self.indent += 1
-            self._line(f'Checkbox(checked = {var_name}Checked, onCheckedChange = {{ {var_name}Checked = it }})')
+            self._line(
+                f'Checkbox(checked = {var_name}Checked, onCheckedChange = {{ {var_name}Checked = it }})'
+            )
             self._line(f'Text({text_str})')
             self.indent -= 1
             self._line('}')
@@ -353,22 +370,36 @@ class KotlinGenerator:
             var_name = w.get('id', 'slider')
             max_val = props.get('max', 100)
             self._line(f'var {var_name}Value by remember {{ mutableStateOf(0f) }}')
-            self._line(f'Slider(value = {var_name}Value, onValueChange = {{ {var_name}Value = it }}, valueRange = 0f..{max_val}f)')
+            self._line(
+                f'Slider(value = {var_name}Value, onValueChange = {{ {var_name}Value = it }}, valueRange = 0f..{max_val}f)'
+            )
         elif wtype == 'progress':
             self._line('LinearProgressIndicator(modifier = Modifier.fillMaxWidth())')
         elif wtype == 'image':
             self.imports.add('androidx.compose.foundation.Image')
             self.imports.add('androidx.compose.ui.res.painterResource')
             self._line('// Image placeholder — replace R.drawable.placeholder with actual resource')
-            self._line('// Image(painter = painterResource(R.drawable.placeholder), contentDescription = null)')
+            self._line(
+                '// Image(painter = painterResource(R.drawable.placeholder), contentDescription = null)'
+            )
         else:
             text_str = self._expr(text) if text and hasattr(text, 'line') else f'"{text or wtype}"'
             self._line(f'Text(text = {text_str})')
 
     def _is_gui_node(self, node):
         """Check if a node is a GUI-related AST node."""
-        return isinstance(node, (ast.WindowCreate, ast.WidgetAdd, ast.LayoutBlock,
-                                 ast.BindEvent, ast.DialogShow, ast.MenuDef, ast.CanvasDraw))
+        return isinstance(
+            node,
+            (
+                ast.WindowCreate,
+                ast.WidgetAdd,
+                ast.LayoutBlock,
+                ast.BindEvent,
+                ast.DialogShow,
+                ast.MenuDef,
+                ast.CanvasDraw,
+            ),
+        )
 
     def _collect_gui_nodes(self, stmts):
         """First pass: collect all widgets and event bindings."""
@@ -378,29 +409,40 @@ class KotlinGenerator:
             elif isinstance(s, ast.WidgetAdd):
                 wid = s.name or f'widget_{self.widget_counter}'
                 self.widget_counter += 1
-                self.widgets.append({
-                    'id': wid,
-                    'type': s.widget_type.lower(),
-                    'text': s.text,
-                    'properties': s.properties,
-                    'action': s.action,
-                })
+                self.widgets.append(
+                    {
+                        'id': wid,
+                        'type': s.widget_type.lower(),
+                        'text': s.text,
+                        'properties': s.properties,
+                        'action': s.action,
+                    }
+                )
             elif isinstance(s, ast.LayoutBlock):
                 self._collect_gui_nodes(s.children)
             elif isinstance(s, ast.BindEvent):
-                self.event_bindings.append({
-                    'widget': s.widget_name,
-                    'event': s.event_type,
-                    'handler': s.handler,
-                })
+                self.event_bindings.append(
+                    {
+                        'widget': s.widget_name,
+                        'event': s.event_type,
+                        'handler': s.handler,
+                    }
+                )
 
     def _android_widget_class(self, wtype):
         """Map EPL widget type to Android widget class."""
         mapping = {
-            'button': 'Button', 'label': 'TextView', 'input': 'EditText',
-            'textarea': 'EditText', 'checkbox': 'CheckBox', 'dropdown': 'Spinner',
-            'slider': 'SeekBar', 'progress': 'ProgressBar', 'image': 'ImageView',
-            'listbox': 'ListView', 'canvas': 'View',
+            'button': 'Button',
+            'label': 'TextView',
+            'input': 'EditText',
+            'textarea': 'EditText',
+            'checkbox': 'CheckBox',
+            'dropdown': 'Spinner',
+            'slider': 'SeekBar',
+            'progress': 'ProgressBar',
+            'image': 'ImageView',
+            'listbox': 'ListView',
+            'canvas': 'View',
         }
         return mapping.get(wtype, 'TextView')
 
@@ -411,7 +453,7 @@ class KotlinGenerator:
             wid = w['id']
             self._line(f'{wid} = {wclass}(this).apply {{')
             self.indent += 1
-            
+
             # Set layout params
             self._line('layoutParams = LinearLayout.LayoutParams(')
             self.indent += 1
@@ -468,7 +510,9 @@ class KotlinGenerator:
 
             # Add click handler inline if action specified
             if w['action'] and w['type'] == 'button':
-                action_name = self._expr(w['action']) if hasattr(w['action'], 'line') else str(w['action'])
+                action_name = (
+                    self._expr(w['action']) if hasattr(w['action'], 'line') else str(w['action'])
+                )
                 self._line(f'{wid}.setOnClickListener {{ {action_name.strip(chr(34))}() }}')
 
             self._line(f'mainLayout.addView({wid})')
@@ -479,9 +523,13 @@ class KotlinGenerator:
         for binding in self.event_bindings:
             widget = binding['widget']
             event = binding['event']
-            handler_expr = self._expr(binding['handler']) if hasattr(binding['handler'], 'line') else str(binding['handler'])
+            handler_expr = (
+                self._expr(binding['handler'])
+                if hasattr(binding['handler'], 'line')
+                else str(binding['handler'])
+            )
             handler_name = handler_expr.strip('"')
-            
+
             if event in ('click', 'onClick'):
                 self._line(f'{widget}.setOnClickListener {{ {handler_name}() }}')
             elif event in ('change', 'onTextChanged'):
@@ -489,8 +537,12 @@ class KotlinGenerator:
                 self.imports.add('android.text.Editable')
                 self._line(f'{widget}.addTextChangedListener(object : TextWatcher {{')
                 self.indent += 1
-                self._line('override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}')
-                self._line('override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {')
+                self._line(
+                    'override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}'
+                )
+                self._line(
+                    'override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {'
+                )
                 self.indent += 1
                 self._line(f'{handler_name}()')
                 self.indent -= 1
@@ -518,58 +570,103 @@ class KotlinGenerator:
     # ─── Statement Dispatch ──────────────────────────────
 
     def _emit_stmt(self, node):
-        if node is None: return
-        if isinstance(node, ast.VarDeclaration): self._emit_var_decl(node)
-        elif isinstance(node, ast.VarAssignment): self._emit_var_assign(node)
-        elif isinstance(node, ast.PrintStatement): self._emit_print(node)
-        elif isinstance(node, ast.IfStatement): self._emit_if(node)
-        elif isinstance(node, ast.WhileLoop): self._emit_while(node)
-        elif isinstance(node, ast.RepeatLoop): self._emit_repeat(node)
-        elif isinstance(node, ast.ForRange): self._emit_for_range(node)
-        elif isinstance(node, ast.ForEachLoop): self._emit_for_each(node)
-        elif isinstance(node, ast.FunctionDef): self._emit_function(node)
-        elif isinstance(node, ast.FunctionCall): self._line(f'{self._expr(node)}')
-        elif isinstance(node, ast.ReturnStatement): self._emit_return(node)
-        elif isinstance(node, ast.BreakStatement): self._line('break')
-        elif isinstance(node, ast.ContinueStatement): self._line('continue')
-        elif isinstance(node, ast.ClassDef): self._emit_class(node)
-        elif isinstance(node, ast.MatchStatement): self._emit_match(node)
-        elif isinstance(node, ast.TryCatch): self._emit_try_catch(node)
-        elif isinstance(node, ast.MethodCall): self._line(f'{self._expr(node)}')
-        elif isinstance(node, ast.PropertySet): self._line(f'{self._expr(node.obj)}.{node.property_name} = {self._expr(node.value)}')
-        elif isinstance(node, ast.IndexSet): self._line(f'{self._expr(node.obj)}[{self._expr(node.index)}] = {self._expr(node.value)}')
-        elif isinstance(node, ast.AugmentedAssignment): self._line(f'{node.name} {node.operator} {self._expr(node.value)}')
-        elif isinstance(node, ast.ThrowStatement): self._line(f'throw Exception({self._expr(node.expression)})')
+        if node is None:
+            return
+        if isinstance(node, ast.VarDeclaration):
+            self._emit_var_decl(node)
+        elif isinstance(node, ast.VarAssignment):
+            self._emit_var_assign(node)
+        elif isinstance(node, ast.PrintStatement):
+            self._emit_print(node)
+        elif isinstance(node, ast.IfStatement):
+            self._emit_if(node)
+        elif isinstance(node, ast.WhileLoop):
+            self._emit_while(node)
+        elif isinstance(node, ast.RepeatLoop):
+            self._emit_repeat(node)
+        elif isinstance(node, ast.ForRange):
+            self._emit_for_range(node)
+        elif isinstance(node, ast.ForEachLoop):
+            self._emit_for_each(node)
+        elif isinstance(node, ast.FunctionDef):
+            self._emit_function(node)
+        elif isinstance(node, ast.FunctionCall):
+            self._line(f'{self._expr(node)}')
+        elif isinstance(node, ast.ReturnStatement):
+            self._emit_return(node)
+        elif isinstance(node, ast.BreakStatement):
+            self._line('break')
+        elif isinstance(node, ast.ContinueStatement):
+            self._line('continue')
+        elif isinstance(node, ast.ClassDef):
+            self._emit_class(node)
+        elif isinstance(node, ast.MatchStatement):
+            self._emit_match(node)
+        elif isinstance(node, ast.TryCatch):
+            self._emit_try_catch(node)
+        elif isinstance(node, ast.MethodCall):
+            self._line(f'{self._expr(node)}')
+        elif isinstance(node, ast.PropertySet):
+            self._line(f'{self._expr(node.obj)}.{node.property_name} = {self._expr(node.value)}')
+        elif isinstance(node, ast.IndexSet):
+            self._line(
+                f'{self._expr(node.obj)}[{self._expr(node.index)}] = {self._expr(node.value)}'
+            )
+        elif isinstance(node, ast.AugmentedAssignment):
+            self._line(f'{node.name} {node.operator} {self._expr(node.value)}')
+        elif isinstance(node, ast.ThrowStatement):
+            self._line(f'throw Exception({self._expr(node.expression)})')
         elif isinstance(node, ast.ConstDeclaration):
             kt_type = self._infer_kotlin_type(node.value)
             self.symbols.define(node.name, kt_type)
             self._line(f'val {node.name}: {kt_type} = {self._expr(node.value)}')
-        elif isinstance(node, ast.EnumDef): self._emit_enum(node)
-        elif isinstance(node, ast.InputStatement): self._emit_input(node)
+        elif isinstance(node, ast.EnumDef):
+            self._emit_enum(node)
+        elif isinstance(node, ast.InputStatement):
+            self._emit_input(node)
         elif isinstance(node, ast.ExitStatement):
             self.imports.add('kotlin.system.exitProcess')
             self._line('exitProcess(0)')
-        elif isinstance(node, ast.AssertStatement): self._line(f'assert({self._expr(node.expression)})')
+        elif isinstance(node, ast.AssertStatement):
+            self._line(f'assert({self._expr(node.expression)})')
         # GUI nodes - emit as comments in non-Android context
-        elif isinstance(node, ast.WindowCreate): self._emit_window_comment(node)
-        elif isinstance(node, ast.WidgetAdd): pass  # handled by Android activity generator
-        elif isinstance(node, ast.LayoutBlock): pass
-        elif isinstance(node, ast.BindEvent): pass
-        elif isinstance(node, ast.DialogShow): self._emit_dialog(node)
-        elif isinstance(node, ast.CanvasDraw): pass
-        elif isinstance(node, ast.AsyncFunctionDef): self._emit_async_function(node)
-        elif isinstance(node, ast.SuperCall): self._emit_super_call(node)
+        elif isinstance(node, ast.WindowCreate):
+            self._emit_window_comment(node)
+        elif isinstance(node, ast.WidgetAdd):
+            pass  # handled by Android activity generator
+        elif isinstance(node, ast.LayoutBlock):
+            pass
+        elif isinstance(node, ast.BindEvent):
+            pass
+        elif isinstance(node, ast.DialogShow):
+            self._emit_dialog(node)
+        elif isinstance(node, ast.CanvasDraw):
+            pass
+        elif isinstance(node, ast.AsyncFunctionDef):
+            self._emit_async_function(node)
+        elif isinstance(node, ast.SuperCall):
+            self._emit_super_call(node)
         # v4 AST node support
-        elif isinstance(node, ast.InterfaceDefNode): self._emit_interface(node)
-        elif isinstance(node, ast.ModuleDef): self._emit_module(node)
-        elif isinstance(node, ast.TryCatchFinally): self._emit_try_catch_finally(node)
-        elif isinstance(node, ast.ExportStatement): self._emit_stmt(node.statement)
-        elif isinstance(node, ast.VisibilityModifier): self._emit_visibility(node)
-        elif isinstance(node, ast.StaticMethodDef): self._emit_static_method(node)
-        elif isinstance(node, ast.AbstractMethodDef): self._emit_abstract_method(node)
-        elif isinstance(node, ast.YieldStatement): self._emit_yield(node)
-        elif isinstance(node, ast.DestructureAssignment): self._emit_destructure(node)
-        elif isinstance(node, ast.ModuleAccess): self._line(f'{self._expr(node)}')
+        elif isinstance(node, ast.InterfaceDefNode):
+            self._emit_interface(node)
+        elif isinstance(node, ast.ModuleDef):
+            self._emit_module(node)
+        elif isinstance(node, ast.TryCatchFinally):
+            self._emit_try_catch_finally(node)
+        elif isinstance(node, ast.ExportStatement):
+            self._emit_stmt(node.statement)
+        elif isinstance(node, ast.VisibilityModifier):
+            self._emit_visibility(node)
+        elif isinstance(node, ast.StaticMethodDef):
+            self._emit_static_method(node)
+        elif isinstance(node, ast.AbstractMethodDef):
+            self._emit_abstract_method(node)
+        elif isinstance(node, ast.YieldStatement):
+            self._emit_yield(node)
+        elif isinstance(node, ast.DestructureAssignment):
+            self._emit_destructure(node)
+        elif isinstance(node, ast.ModuleAccess):
+            self._line(f'{self._expr(node)}')
 
     # ─── v4 Statements ──────────────────────────────────
 
@@ -636,7 +733,7 @@ class KotlinGenerator:
         if kt_vis and len(self.output) > prev_len:
             line = self.output[prev_len]
             stripped = line.lstrip()
-            indent_str = line[:len(line) - len(stripped)]
+            indent_str = line[: len(line) - len(stripped)]
             # Don't double up visibility keywords
             if not stripped.startswith(('private ', 'protected ', 'public ')):
                 self.output[prev_len] = f'{indent_str}{kt_vis} {stripped}'
@@ -692,26 +789,30 @@ class KotlinGenerator:
     def _emit_if(self, node):
         self._line(f'if ({self._expr(node.condition)}) {{')
         self.indent += 1
-        for s in node.then_body: self._emit_stmt(s)
+        for s in node.then_body:
+            self._emit_stmt(s)
         self.indent -= 1
         if node.else_body:
             self._line('} else {')
             self.indent += 1
-            for s in node.else_body: self._emit_stmt(s)
+            for s in node.else_body:
+                self._emit_stmt(s)
             self.indent -= 1
         self._line('}')
 
     def _emit_while(self, node):
         self._line(f'while ({self._expr(node.condition)}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
     def _emit_repeat(self, node):
         self._line(f'repeat({self._expr(node.count)}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
@@ -727,7 +828,9 @@ class KotlinGenerator:
                     if abs_step == 1:
                         self._line(f'for ({node.var_name} in {start} downTo {end}) {{')
                     else:
-                        self._line(f'for ({node.var_name} in {start} downTo {end} step {abs_step}) {{')
+                        self._line(
+                            f'for ({node.var_name} in {start} downTo {end} step {abs_step}) {{'
+                        )
                 elif step_val != 1:
                     self._line(f'for ({node.var_name} in {start}..{end} step {step}) {{')
                 else:
@@ -737,14 +840,16 @@ class KotlinGenerator:
         else:
             self._line(f'for ({node.var_name} in {start}..{end}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
     def _emit_for_each(self, node):
         self._line(f'for ({node.var_name} in {self._expr(node.iterable)}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
@@ -762,7 +867,8 @@ class KotlinGenerator:
         self.symbols = self.symbols.child()
         for p in real_params:
             self.symbols.define(p[0], self._infer_param_type(p))
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
             pass  # Unit doesn't need explicit return
         elif not any(isinstance(s, ast.ReturnStatement) for s in node.body):
@@ -783,7 +889,8 @@ class KotlinGenerator:
         self.symbols = self.symbols.child()
         for p in real_params:
             self.symbols.define(p[0], self._infer_param_type(p))
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
             pass
         elif not any(isinstance(s, ast.ReturnStatement) for s in node.body):
@@ -794,13 +901,19 @@ class KotlinGenerator:
 
     def _infer_kotlin_type(self, node) -> str:
         """Infer Kotlin type from an AST value node using symbol table."""
-        if node is None: return 'Any?'
+        if node is None:
+            return 'Any?'
         if isinstance(node, ast.Literal):
-            if isinstance(node.value, bool): return 'Boolean'
-            if isinstance(node.value, int): return 'Int'
-            if isinstance(node.value, float): return 'Double'
-            if isinstance(node.value, str): return 'String'
-            if node.value is None: return 'Any?'
+            if isinstance(node.value, bool):
+                return 'Boolean'
+            if isinstance(node.value, int):
+                return 'Int'
+            if isinstance(node.value, float):
+                return 'Double'
+            if isinstance(node.value, str):
+                return 'String'
+            if node.value is None:
+                return 'Any?'
         if isinstance(node, ast.ListLiteral):
             if node.elements:
                 elem_type = self._infer_kotlin_type(node.elements[0])
@@ -809,13 +922,18 @@ class KotlinGenerator:
             return 'MutableList<Any>'
         if isinstance(node, ast.DictLiteral):
             if node.pairs:
-                key_type = self._infer_kotlin_type(ast.Literal(node.pairs[0][0], 0) if isinstance(node.pairs[0][0], (int, float, str, bool)) else node.pairs[0][0])
+                key_type = self._infer_kotlin_type(
+                    ast.Literal(node.pairs[0][0], 0)
+                    if isinstance(node.pairs[0][0], (int, float, str, bool))
+                    else node.pairs[0][0]
+                )
                 val_type = self._infer_kotlin_type(node.pairs[0][1])
                 return f'MutableMap<{key_type}, {val_type}>'
             return 'MutableMap<String, Any>'
         if isinstance(node, ast.Identifier):
             looked = self.symbols.lookup(node.name)
-            if looked: return looked
+            if looked:
+                return looked
             if self.in_class and node.name in self.class_properties:
                 return self.class_properties[node.name]
         if isinstance(node, ast.BinaryOp):
@@ -826,33 +944,58 @@ class KotlinGenerator:
             if node.operator in ('==', '!=', '<', '>', '<=', '>=', 'and', 'or'):
                 return 'Boolean'
             if node.operator in ('+', '-', '*', '%'):
-                if lt == 'Double' or rt == 'Double': return 'Double'
-                if lt == 'Int' and rt == 'Int': return 'Int'
-            if node.operator == '/': return 'Double'
-            if node.operator == '//': return 'Int'
-            if node.operator == '**': return 'Double'
+                if lt == 'Double' or rt == 'Double':
+                    return 'Double'
+                if lt == 'Int' and rt == 'Int':
+                    return 'Int'
+            if node.operator == '/':
+                return 'Double'
+            if node.operator == '//':
+                return 'Int'
+            if node.operator == '**':
+                return 'Double'
         if isinstance(node, ast.UnaryOp):
-            if node.operator == 'not': return 'Boolean'
+            if node.operator == 'not':
+                return 'Boolean'
             return self._infer_kotlin_type(node.operand)
         if isinstance(node, ast.FunctionCall):
             fn_info = self.symbols.lookup_function(node.name)
-            if fn_info: return fn_info['return']
+            if fn_info:
+                return fn_info['return']
             # Built-in return types
             builtin_types = {
-                'length': 'Int', 'to_integer': 'Int', 'to_text': 'String',
-                'to_decimal': 'Double', 'uppercase': 'String', 'lowercase': 'String',
-                'sqrt': 'Double', 'power': 'Double', 'floor': 'Int', 'ceil': 'Int',
-                'absolute': 'Int', 'max': 'Int', 'min': 'Int',
-                'random': 'Double', 'log': 'Double', 'sin': 'Double', 'cos': 'Double',
-                'type_of': 'String', 'is_integer': 'Boolean', 'is_decimal': 'Boolean',
-                'is_text': 'Boolean', 'is_boolean': 'Boolean', 'is_list': 'Boolean',
-                'is_nothing': 'Boolean', 'is_number': 'Boolean',
+                'length': 'Int',
+                'to_integer': 'Int',
+                'to_text': 'String',
+                'to_decimal': 'Double',
+                'uppercase': 'String',
+                'lowercase': 'String',
+                'sqrt': 'Double',
+                'power': 'Double',
+                'floor': 'Int',
+                'ceil': 'Int',
+                'absolute': 'Int',
+                'max': 'Int',
+                'min': 'Int',
+                'random': 'Double',
+                'log': 'Double',
+                'sin': 'Double',
+                'cos': 'Double',
+                'type_of': 'String',
+                'is_integer': 'Boolean',
+                'is_decimal': 'Boolean',
+                'is_text': 'Boolean',
+                'is_boolean': 'Boolean',
+                'is_list': 'Boolean',
+                'is_nothing': 'Boolean',
+                'is_number': 'Boolean',
             }
             return builtin_types.get(node.name, 'Any')
         if isinstance(node, ast.TernaryExpression):
             tt = self._infer_kotlin_type(node.true_expr)
             ft = self._infer_kotlin_type(node.false_expr)
-            if tt == ft: return tt
+            if tt == ft:
+                return tt
         if isinstance(node, ast.NewInstance):
             return node.class_name
         if isinstance(node, ast.LambdaExpression):
@@ -861,30 +1004,48 @@ class KotlinGenerator:
             return f'({params_part}) -> {ret_type}'
         if isinstance(node, ast.MethodCall):
             method_ret = {
-                'length': 'Int', 'size': 'Int', 'contains': 'Boolean',
-                'starts_with': 'Boolean', 'ends_with': 'Boolean',
-                'index_of': 'Int', 'find': 'Any?', 'count': 'Int',
-                'upper': 'String', 'uppercase': 'String',
-                'lower': 'String', 'lowercase': 'String',
-                'trim': 'String', 'replace': 'String', 'substring': 'String',
-                'split': 'MutableList<String>', 'join': 'String',
-                'sort': 'MutableList<Any>', 'sorted': 'MutableList<Any>',
-                'reverse': 'MutableList<Any>', 'reversed': 'MutableList<Any>',
-                'add': 'Unit', 'push': 'Unit', 'remove': 'Unit',
+                'length': 'Int',
+                'size': 'Int',
+                'contains': 'Boolean',
+                'starts_with': 'Boolean',
+                'ends_with': 'Boolean',
+                'index_of': 'Int',
+                'find': 'Any?',
+                'count': 'Int',
+                'upper': 'String',
+                'uppercase': 'String',
+                'lower': 'String',
+                'lowercase': 'String',
+                'trim': 'String',
+                'replace': 'String',
+                'substring': 'String',
+                'split': 'MutableList<String>',
+                'join': 'String',
+                'sort': 'MutableList<Any>',
+                'sorted': 'MutableList<Any>',
+                'reverse': 'MutableList<Any>',
+                'reversed': 'MutableList<Any>',
+                'add': 'Unit',
+                'push': 'Unit',
+                'remove': 'Unit',
                 'repeat': 'String',
             }
             return method_ret.get(node.method_name, 'Any')
         if isinstance(node, ast.IndexAccess):
             obj_type = self._infer_kotlin_type(node.obj)
-            if obj_type == 'String': return 'Char'
+            if obj_type == 'String':
+                return 'Char'
             if obj_type.startswith('MutableList<'):
-                inner = obj_type[len('MutableList<'):-1]
+                inner = obj_type[len('MutableList<') : -1]
                 return inner
             if obj_type.startswith('MutableMap<'):
-                parts = obj_type[len('MutableMap<'):-1].split(', ', 1)
-                if len(parts) == 2: return parts[1]
+                parts = obj_type[len('MutableMap<') : -1].split(', ', 1)
+                if len(parts) == 2:
+                    return parts[1]
         if isinstance(node, ast.PropertyAccess):
-            cls_info = self.symbols.lookup_class(self._infer_kotlin_type(node.obj) if hasattr(node.obj, 'name') else '')
+            cls_info = self.symbols.lookup_class(
+                self._infer_kotlin_type(node.obj) if hasattr(node.obj, 'name') else ''
+            )
             if cls_info and node.property_name in cls_info.get('properties', {}):
                 return cls_info['properties'][node.property_name]
         return 'Any'
@@ -892,10 +1053,18 @@ class KotlinGenerator:
     def _infer_param_type(self, param) -> str:
         """Infer Kotlin type for a function parameter."""
         if len(param) > 1 and param[1]:
-            type_map = {'integer': 'Int', 'int': 'Int', 'decimal': 'Double',
-                       'float': 'Double', 'text': 'String', 'string': 'String',
-                       'boolean': 'Boolean', 'bool': 'Boolean', 'list': 'MutableList<Any>',
-                       'map': 'MutableMap<String, Any>'}
+            type_map = {
+                'integer': 'Int',
+                'int': 'Int',
+                'decimal': 'Double',
+                'float': 'Double',
+                'text': 'String',
+                'string': 'String',
+                'boolean': 'Boolean',
+                'bool': 'Boolean',
+                'list': 'MutableList<Any>',
+                'map': 'MutableMap<String, Any>',
+            }
             return type_map.get(str(param[1]).lower(), 'Any')
         return 'Any'
 
@@ -910,10 +1079,18 @@ class KotlinGenerator:
         """Infer return type from function body by scanning all return paths."""
         # Check explicit return type annotation
         if hasattr(node, 'return_type') and node.return_type:
-            type_map = {'integer': 'Int', 'int': 'Int', 'decimal': 'Double',
-                       'float': 'Double', 'text': 'String', 'string': 'String',
-                       'boolean': 'Boolean', 'bool': 'Boolean', 'list': 'MutableList<Any>',
-                       'nothing': 'Unit'}
+            type_map = {
+                'integer': 'Int',
+                'int': 'Int',
+                'decimal': 'Double',
+                'float': 'Double',
+                'text': 'String',
+                'string': 'String',
+                'boolean': 'Boolean',
+                'bool': 'Boolean',
+                'list': 'MutableList<Any>',
+                'nothing': 'Unit',
+            }
             return type_map.get(str(node.return_type).lower(), 'Any')
 
         return_types = set()
@@ -1061,7 +1238,9 @@ class KotlinGenerator:
             self._emit_class_method(m)
 
         # Companion object for static methods + factory
-        has_companion = static_methods or (init_method and [p for p in init_method.params if p[0] != 'self'])
+        has_companion = static_methods or (
+            init_method and [p for p in init_method.params if p[0] != 'self']
+        )
         if has_companion:
             self._line('')
             self._line('companion object {')
@@ -1070,7 +1249,9 @@ class KotlinGenerator:
             if init_method:
                 init_params = [p for p in init_method.params if p[0] != 'self']
                 if init_params:
-                    params_sig = ', '.join(f'{p[0]}: {self._infer_param_type(p)}' for p in init_params)
+                    params_sig = ', '.join(
+                        f'{p[0]}: {self._infer_param_type(p)}' for p in init_params
+                    )
                     args_pass = ', '.join(p[0] for p in init_params)
                     self._line(f'fun create({params_sig}): {node.name} {{')
                     self.indent += 1
@@ -1105,13 +1286,15 @@ class KotlinGenerator:
             vals = ', '.join(self._expr(v) for v in clause.values)
             self._line(f'{vals} -> {{')
             self.indent += 1
-            for s in clause.body: self._emit_stmt(s)
+            for s in clause.body:
+                self._emit_stmt(s)
             self.indent -= 1
             self._line('}')
         if node.default_body:
             self._line('else -> {')
             self.indent += 1
-            for s in node.default_body: self._emit_stmt(s)
+            for s in node.default_body:
+                self._emit_stmt(s)
             self.indent -= 1
             self._line('}')
         self.indent -= 1
@@ -1120,16 +1303,19 @@ class KotlinGenerator:
     def _emit_try_catch(self, node):
         self._line('try {')
         self.indent += 1
-        for s in node.try_body: self._emit_stmt(s)
+        for s in node.try_body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line(f'}} catch ({node.error_var or "e"}: Exception) {{')
         self.indent += 1
-        for s in node.catch_body: self._emit_stmt(s)
+        for s in node.catch_body:
+            self._emit_stmt(s)
         self.indent -= 1
         if hasattr(node, 'finally_body') and node.finally_body:
             self._line('} finally {')
             self.indent += 1
-            for s in node.finally_body: self._emit_stmt(s)
+            for s in node.finally_body:
+                self._emit_stmt(s)
             self.indent -= 1
         self._line('}')
 
@@ -1146,7 +1332,9 @@ class KotlinGenerator:
         msg = self._expr(node.message)
         dtype = node.dialog_type.lower()
         if dtype == 'error':
-            self._line(f'AlertDialog.Builder(this).setTitle("Error").setMessage({msg}).setPositiveButton("OK", null).show()')
+            self._line(
+                f'AlertDialog.Builder(this).setTitle("Error").setMessage({msg}).setPositiveButton("OK", null).show()'
+            )
         elif dtype in ('yesno', 'confirm'):
             self._line(f'AlertDialog.Builder(this).setMessage({msg})')
             self.indent += 1
@@ -1156,10 +1344,12 @@ class KotlinGenerator:
             self.indent -= 1
         elif dtype == 'input':
             self.imports.add('android.widget.EditText')
-            self._line(f'val dialogInput = EditText(this)')
+            self._line('val dialogInput = EditText(this)')
             self._line(f'AlertDialog.Builder(this).setTitle({msg}).setView(dialogInput)')
             self.indent += 1
-            self._line('.setPositiveButton("OK") { _, _ -> val text = dialogInput.text.toString() }')
+            self._line(
+                '.setPositiveButton("OK") { _, _ -> val text = dialogInput.text.toString() }'
+            )
             self._line('.show()')
             self.indent -= 1
         else:
@@ -1182,6 +1372,7 @@ class KotlinGenerator:
             pass  # Unit return doesn't need explicit return
         self.indent -= 1
         self._line('}')
+
     def _emit_super_call(self, node):
         """Emit super method call."""
         args = ', '.join(self._expr(a) for a in node.arguments)
@@ -1193,21 +1384,31 @@ class KotlinGenerator:
     # ─── Expressions ─────────────────────────────────────
 
     def _expr(self, node) -> str:
-        if node is None: return 'null'
-        if isinstance(node, ast.Literal): return self._expr_literal(node)
+        if node is None:
+            return 'null'
+        if isinstance(node, ast.Literal):
+            return self._expr_literal(node)
         if isinstance(node, ast.Identifier):
             name = node.name
             if self.in_class and name in self.class_properties:
                 return f'this.{name}'
             return name
-        if isinstance(node, ast.BinaryOp): return self._expr_binary(node)
-        if isinstance(node, ast.UnaryOp): return self._expr_unary(node)
-        if isinstance(node, ast.FunctionCall): return self._expr_call(node)
-        if isinstance(node, ast.PropertyAccess): return f'{self._expr(node.obj)}.{node.property_name}'
-        if isinstance(node, ast.MethodCall): return self._expr_method(node)
-        if isinstance(node, ast.IndexAccess): return f'{self._expr(node.obj)}[{self._expr(node.index)}]'
-        if isinstance(node, ast.ListLiteral): return f'mutableListOf({", ".join(self._expr(e) for e in node.elements)})'
-        if isinstance(node, ast.DictLiteral): return self._expr_dict(node)
+        if isinstance(node, ast.BinaryOp):
+            return self._expr_binary(node)
+        if isinstance(node, ast.UnaryOp):
+            return self._expr_unary(node)
+        if isinstance(node, ast.FunctionCall):
+            return self._expr_call(node)
+        if isinstance(node, ast.PropertyAccess):
+            return f'{self._expr(node.obj)}.{node.property_name}'
+        if isinstance(node, ast.MethodCall):
+            return self._expr_method(node)
+        if isinstance(node, ast.IndexAccess):
+            return f'{self._expr(node.obj)}[{self._expr(node.index)}]'
+        if isinstance(node, ast.ListLiteral):
+            return f'mutableListOf({", ".join(self._expr(e) for e in node.elements)})'
+        if isinstance(node, ast.DictLiteral):
+            return self._expr_dict(node)
         if isinstance(node, ast.NewInstance):
             args = ', '.join(self._expr(a) for a in node.arguments)
             if node.arguments:
@@ -1222,7 +1423,8 @@ class KotlinGenerator:
             return f'{{ {param_str} -> {body_str} }}' if param_str else f'{{ {body_str} }}'
         if isinstance(node, ast.TernaryExpression):
             return f'if ({self._expr(node.condition)}) {self._expr(node.true_expr)} else {self._expr(node.false_expr)}'
-        if isinstance(node, ast.ModuleAccess): return f'{node.module_name}.{node.member_name}'
+        if isinstance(node, ast.ModuleAccess):
+            return f'{node.module_name}.{node.member_name}'
         # v4 expression types
         if isinstance(node, ast.AwaitExpression):
             return self._expr(node.expression)
@@ -1246,12 +1448,20 @@ class KotlinGenerator:
         return f'null /* unhandled: {type(node).__name__} */'
 
     def _expr_literal(self, node):
-        if isinstance(node.value, bool): return 'true' if node.value else 'false'
+        if isinstance(node.value, bool):
+            return 'true' if node.value else 'false'
         if isinstance(node.value, str):
-            escaped = node.value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\t', '\\t')
+            escaped = (
+                node.value.replace('\\', '\\\\')
+                .replace('"', '\\"')
+                .replace('\n', '\\n')
+                .replace('\t', '\\t')
+            )
             return f'"{escaped}"'
-        if node.value is None: return 'null'
-        if isinstance(node.value, float): return str(node.value)
+        if node.value is None:
+            return 'null'
+        if isinstance(node.value, float):
+            return str(node.value)
         return str(node.value)
 
     def _expr_binary(self, node):
@@ -1267,7 +1477,8 @@ class KotlinGenerator:
         return f'({l} {m.get(op, op)} {r})'
 
     def _expr_unary(self, node):
-        if node.operator == 'not': return f'!{self._expr(node.operand)}'
+        if node.operator == 'not':
+            return f'!{self._expr(node.operand)}'
         return f'{node.operator}{self._expr(node.operand)}'
 
     def _expr_call(self, node):
@@ -1280,13 +1491,15 @@ class KotlinGenerator:
             'uppercase': lambda: f'{self._expr(node.arguments[0])}.uppercase()',
             'lowercase': lambda: f'{self._expr(node.arguments[0])}.lowercase()',
             'sqrt': lambda: f'kotlin.math.sqrt({args}.toDouble())',
-            'power': lambda: f'{self._expr(node.arguments[0])}.toDouble().pow({self._expr(node.arguments[1])}.toDouble())',
+            'power': lambda: (
+                f'{self._expr(node.arguments[0])}.toDouble().pow({self._expr(node.arguments[1])}.toDouble())'
+            ),
             'floor': lambda: f'kotlin.math.floor({args}.toDouble()).toInt()',
             'ceil': lambda: f'kotlin.math.ceil({args}.toDouble()).toInt()',
             'absolute': lambda: f'kotlin.math.abs({args})',
             'max': lambda: f'maxOf({args})',
             'min': lambda: f'minOf({args})',
-            'random': lambda: f'kotlin.random.Random.nextDouble()',
+            'random': lambda: 'kotlin.random.Random.nextDouble()',
             'log': lambda: f'kotlin.math.ln({args}.toDouble())',
             'sin': lambda: f'kotlin.math.sin({args}.toDouble())',
             'cos': lambda: f'kotlin.math.cos({args}.toDouble())',
@@ -1302,17 +1515,30 @@ class KotlinGenerator:
         args = ', '.join(self._expr(a) for a in node.arguments)
         m = node.method_name
         km = {
-            'add': 'add', 'push': 'add', 'remove': 'removeAt',
-            'upper': 'uppercase', 'uppercase': 'uppercase',
-            'lower': 'lowercase', 'lowercase': 'lowercase',
-            'trim': 'trim', 'contains': 'contains', 'replace': 'replace',
-            'starts_with': 'startsWith', 'ends_with': 'endsWith',
-            'split': 'split', 'reverse': 'reversed', 'sort': 'sorted',
-            'substring': 'substring', 'length': 'length',
-            'join': 'joinToString', 'index_of': 'indexOf',
-            'find': 'find', 'repeat': 'repeat',
+            'add': 'add',
+            'push': 'add',
+            'remove': 'removeAt',
+            'upper': 'uppercase',
+            'uppercase': 'uppercase',
+            'lower': 'lowercase',
+            'lowercase': 'lowercase',
+            'trim': 'trim',
+            'contains': 'contains',
+            'replace': 'replace',
+            'starts_with': 'startsWith',
+            'ends_with': 'endsWith',
+            'split': 'split',
+            'reverse': 'reversed',
+            'sort': 'sorted',
+            'substring': 'substring',
+            'length': 'length',
+            'join': 'joinToString',
+            'index_of': 'indexOf',
+            'find': 'find',
+            'repeat': 'repeat',
         }
-        if m == 'length': return f'{obj}.size'
+        if m == 'length':
+            return f'{obj}.size'
         return f'{obj}.{km.get(m, m)}({args})'
 
     def _expr_dict(self, node):
@@ -1323,6 +1549,7 @@ class KotlinGenerator:
             if hasattr(k, 'line'):  # AST node
                 return self._expr(k)
             return str(k)
+
         pairs = ', '.join(f'{key_expr(k)} to {self._expr(v)}' for k, v in node.pairs)
         return f'mutableMapOf({pairs})'
 
@@ -1334,7 +1561,7 @@ class AndroidProjectGenerator:
     ANDROID_PLUGIN_VERSION = ANDROID_GRADLE_PLUGIN_VERSION
     KOTLIN_VERSION = ANDROID_KOTLIN_VERSION
 
-    def __init__(self, app_name="EPLApp", package_name="com.epl.app"):
+    def __init__(self, app_name='EPLApp', package_name='com.epl.app'):
         self.app_name = app_name
         self.package = package_name
         self.package_path = package_name.replace('.', '/')
@@ -1380,27 +1607,75 @@ class AndroidProjectGenerator:
             os.makedirs(d, exist_ok=True)
 
         # Write main files
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/MainActivity.kt', activity_code)
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/EPLRuntime.kt', self._epl_runtime_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/EPLApplication.kt', self._application_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/DetailActivity.kt', self._detail_activity_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/SettingsActivity.kt', self._settings_activity_kt())
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/MainActivity.kt', activity_code
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/EPLRuntime.kt',
+            self._epl_runtime_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/EPLApplication.kt',
+            self._application_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/DetailActivity.kt',
+            self._detail_activity_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/SettingsActivity.kt',
+            self._settings_activity_kt(),
+        )
         # Data layer: Room + Retrofit
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/data/Repository.kt', self._repository_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/data/model/EPLEntity.kt', self._room_entity_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/data/local/EPLDao.kt', self._room_dao_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/data/local/EPLDatabase.kt', self._room_database_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/data/remote/ApiService.kt', self._retrofit_api_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/data/remote/RetrofitClient.kt', self._retrofit_client_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/di/ServiceLocator.kt', self._service_locator_kt())
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/data/Repository.kt',
+            self._repository_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/data/model/EPLEntity.kt',
+            self._room_entity_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/data/local/EPLDao.kt',
+            self._room_dao_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/data/local/EPLDatabase.kt',
+            self._room_database_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/data/remote/ApiService.kt',
+            self._retrofit_api_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/data/remote/RetrofitClient.kt',
+            self._retrofit_client_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/di/ServiceLocator.kt',
+            self._service_locator_kt(),
+        )
         # UI layer
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/ui/MainViewModel.kt', self._viewmodel_kt())
-        self._write(f'{output_dir}/app/src/main/java/{self.package_path}/ui/ItemAdapter.kt', self._adapter_kt())
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/ui/MainViewModel.kt',
+            self._viewmodel_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/java/{self.package_path}/ui/ItemAdapter.kt',
+            self._adapter_kt(),
+        )
         # Resources
         self._write(f'{output_dir}/app/src/main/AndroidManifest.xml', self._manifest())
-        self._write(f'{output_dir}/app/src/main/res/layout/activity_main.xml', self._layout_from_widgets(gen.widgets))
-        self._write(f'{output_dir}/app/src/main/res/layout/activity_detail.xml', self._detail_layout())
-        self._write(f'{output_dir}/app/src/main/res/layout/activity_settings.xml', self._settings_layout())
+        self._write(
+            f'{output_dir}/app/src/main/res/layout/activity_main.xml',
+            self._layout_from_widgets(gen.widgets),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/res/layout/activity_detail.xml', self._detail_layout()
+        )
+        self._write(
+            f'{output_dir}/app/src/main/res/layout/activity_settings.xml', self._settings_layout()
+        )
         self._write(f'{output_dir}/app/src/main/res/layout/item_list.xml', self._item_layout())
         self._write(f'{output_dir}/app/src/main/res/menu/main_menu.xml', self._main_menu())
         self._write(f'{output_dir}/app/src/main/res/navigation/nav_graph.xml', self._nav_graph())
@@ -1409,23 +1684,43 @@ class AndroidProjectGenerator:
         self._write(f'{output_dir}/app/src/main/res/values/colors.xml', self._colors())
         self._write(f'{output_dir}/app/src/main/res/values/dimens.xml', self._dimens())
         self._write(f'{output_dir}/app/src/main/res/values-night/themes.xml', self._themes_night())
-        self._write(f'{output_dir}/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml', self._adaptive_icon())
-        self._write(f'{output_dir}/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml', self._adaptive_icon_round())
-        self._write(f'{output_dir}/app/src/main/res/drawable/ic_launcher_foreground.xml', self._icon_foreground())
-        self._write(f'{output_dir}/app/src/main/res/drawable/ic_launcher_background.xml', self._icon_background())
+        self._write(
+            f'{output_dir}/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml',
+            self._adaptive_icon(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml',
+            self._adaptive_icon_round(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/res/drawable/ic_launcher_foreground.xml',
+            self._icon_foreground(),
+        )
+        self._write(
+            f'{output_dir}/app/src/main/res/drawable/ic_launcher_background.xml',
+            self._icon_background(),
+        )
         self._write(f'{output_dir}/app/build.gradle.kts', self._app_gradle(use_compose=use_compose))
         self._write(f'{output_dir}/build.gradle.kts', self._root_gradle())
         self._write(f'{output_dir}/settings.gradle.kts', self._settings())
         self._write(f'{output_dir}/gradle.properties', self._gradle_props())
         self._copy_gradle_wrapper_assets(output_dir)
-        self._write(f'{output_dir}/gradle/wrapper/gradle-wrapper.properties', self._gradle_wrapper_props())
+        self._write(
+            f'{output_dir}/gradle/wrapper/gradle-wrapper.properties', self._gradle_wrapper_props()
+        )
         self._write(f'{output_dir}/app/proguard-rules.pro', self._proguard_rules())
         self._write(f'{output_dir}/.gitignore', self._gitignore())
         self._write(f'{output_dir}/local.properties', self._local_properties())
         self._write(f'{output_dir}/README.md', self._readme())
         # Test files
-        self._write(f'{output_dir}/app/src/test/java/{self.package_path}/EPLRuntimeTest.kt', self._unit_test_kt())
-        self._write(f'{output_dir}/app/src/androidTest/java/{self.package_path}/MainActivityTest.kt', self._instrumented_test_kt())
+        self._write(
+            f'{output_dir}/app/src/test/java/{self.package_path}/EPLRuntimeTest.kt',
+            self._unit_test_kt(),
+        )
+        self._write(
+            f'{output_dir}/app/src/androidTest/java/{self.package_path}/MainActivityTest.kt',
+            self._instrumented_test_kt(),
+        )
 
         # Make gradlew executable on Unix
         try:
@@ -1442,15 +1737,15 @@ class AndroidProjectGenerator:
     def _copy_gradle_wrapper_assets(self, output_dir):
         output_root = Path(output_dir)
         assets = (
-            ("gradlew", "gradlew"),
-            ("gradlew.bat", "gradlew.bat"),
-            ("gradle/wrapper/gradle-wrapper.jar", "gradle/wrapper/gradle-wrapper.jar"),
+            ('gradlew', 'gradlew'),
+            ('gradlew.bat', 'gradlew.bat'),
+            ('gradle/wrapper/gradle-wrapper.jar', 'gradle/wrapper/gradle-wrapper.jar'),
         )
         for source_rel, dest_rel in assets:
             source = ANDROID_TEMPLATE_ROOT / source_rel
             destination = output_root / dest_rel
             if not source.exists():
-                raise FileNotFoundError(f"Missing Android wrapper asset: {source}")
+                raise FileNotFoundError(f'Missing Android wrapper asset: {source}')
             shutil.copyfile(source, destination)
 
     def _manifest(self):
@@ -1491,13 +1786,13 @@ class AndroidProjectGenerator:
         """Generate dynamic layout XML from collected GUI widgets."""
         if not widgets:
             return self._layout_default()
-        
+
         xml_widgets = []
         for w in widgets:
             xml_widgets.append(self._widget_to_xml(w))
-        
+
         widget_xml = '\n\n'.join(xml_widgets)
-        return f'''<?xml version="1.0" encoding="utf-8"?>
+        return f"""<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -1511,13 +1806,13 @@ class AndroidProjectGenerator:
 {widget_xml}
 
 </LinearLayout>
-</ScrollView>'''
+</ScrollView>"""
 
     def _widget_to_xml(self, w):
         """Convert a widget dict to Android XML element."""
         wtype = w['type']
         wid = w['id']
-        
+
         type_map = {
             'button': 'Button',
             'label': 'TextView',
@@ -1530,25 +1825,27 @@ class AndroidProjectGenerator:
             'image': 'ImageView',
         }
         xml_type = type_map.get(wtype, 'TextView')
-        
+
         text_attr = ''
         if w.get('text') and wtype in ('button', 'label', 'checkbox'):
             text_val = w['text'].value if hasattr(w['text'], 'value') else str(w['text'])
             text_attr = f'\n        android:text="{text_val}"'
-        
+
         hint_attr = ''
         if wtype == 'input':
             placeholder = w['properties'].get('placeholder', 'Enter text...')
             if hasattr(placeholder, 'value'):
                 placeholder = placeholder.value
             hint_attr = f'\n        android:hint="{placeholder}"'
-        
+
         extra = ''
         if wtype == 'textarea':
             extra = '\n        android:minLines="4"\n        android:gravity="top"'
         elif wtype == 'image':
-            extra = '\n        android:scaleType="fitCenter"\n        android:adjustViewBounds="true"'
-        
+            extra = (
+                '\n        android:scaleType="fitCenter"\n        android:adjustViewBounds="true"'
+            )
+
         return f'''    <{xml_type}
         android:id="@+id/{wid}"
         android:layout_width="match_parent"
@@ -1556,7 +1853,7 @@ class AndroidProjectGenerator:
         android:layout_marginBottom="8dp" />'''
 
     def _layout_default(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -1594,10 +1891,10 @@ class AndroidProjectGenerator:
         android:text=""
         android:textSize="16sp" />
 
-</LinearLayout>'''
+</LinearLayout>"""
 
     def _strings(self):
-        return f'''<resources>
+        return f"""<resources>
     <string name="app_name">{self.app_name}</string>
     <string name="settings">Settings</string>
     <string name="about">About</string>
@@ -1608,10 +1905,10 @@ class AndroidProjectGenerator:
     <string name="error_network">Network error. Please check your connection.</string>
     <string name="error_generic">Something went wrong.</string>
     <string name="empty_state">No data available.</string>
-</resources>'''
+</resources>"""
 
     def _themes(self):
-        return '''<resources>
+        return """<resources>
     <style name="Theme.EPLApp" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
@@ -1619,10 +1916,10 @@ class AndroidProjectGenerator:
         <item name="colorSecondary">@color/accent</item>
         <item name="colorOnSecondary">@color/white</item>
     </style>
-</resources>'''
+</resources>"""
 
     def _themes_night(self):
-        return '''<resources>
+        return """<resources>
     <style name="Theme.EPLApp" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <item name="colorPrimary">@color/primary_night</item>
         <item name="colorPrimaryVariant">@color/primary_dark_night</item>
@@ -1632,10 +1929,10 @@ class AndroidProjectGenerator:
         <item name="android:statusBarColor">@color/primary_dark_night</item>
         <item name="android:navigationBarColor">@color/background_dark</item>
     </style>
-</resources>'''
+</resources>"""
 
     def _colors(self):
-        return '''<resources>
+        return """<resources>
     <color name="primary">#3b82f6</color>
     <color name="primary_dark">#1e40af</color>
     <color name="accent">#8b5cf6</color>
@@ -1651,22 +1948,27 @@ class AndroidProjectGenerator:
     <color name="background_dark">#121212</color>
     <color name="surface_dark">#1E1E1E</color>
     <color name="on_surface_dark">#E0E0E0</color>
-</resources>'''
+</resources>"""
 
     def _app_gradle(self, use_compose=False):
         compose_plugin = '\n    id("org.jetbrains.kotlin.plugin.compose")' if use_compose else ''
-        compose_build_features = '''
+        compose_build_features = (
+            """
     buildFeatures {
         compose = true
         viewBinding = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.8"
-    }''' if use_compose else '''
+    }"""
+            if use_compose
+            else """
     buildFeatures {
         viewBinding = true
-    }'''
-        compose_deps = '''
+    }"""
+        )
+        compose_deps = (
+            """
     // Jetpack Compose
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     implementation("androidx.compose.ui:ui")
@@ -1680,7 +1982,10 @@ class AndroidProjectGenerator:
     implementation("androidx.navigation:navigation-compose:2.7.6")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
-''' if use_compose else ''
+"""
+            if use_compose
+            else ''
+        )
         return f'''plugins {{
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -1799,30 +2104,30 @@ rootProject.name = "{self.app_name}"
 include(":app")'''
 
     def _gradle_props(self):
-        return '''android.useAndroidX=true
+        return """android.useAndroidX=true
 kotlin.code.style=official
 android.nonTransitiveRClass=true
 org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 org.gradle.parallel=true
-org.gradle.caching=true'''
+org.gradle.caching=true"""
 
     def _gradlew_unix(self):
-        return (ANDROID_TEMPLATE_ROOT / "gradlew").read_text(encoding="utf-8")
+        return (ANDROID_TEMPLATE_ROOT / 'gradlew').read_text(encoding='utf-8')
 
     def _gradlew_bat(self):
-        return (ANDROID_TEMPLATE_ROOT / "gradlew.bat").read_text(encoding="utf-8")
+        return (ANDROID_TEMPLATE_ROOT / 'gradlew.bat').read_text(encoding='utf-8')
 
     def _gradle_wrapper_props(self):
-        return f'''distributionBase=GRADLE_USER_HOME
+        return f"""distributionBase=GRADLE_USER_HOME
 distributionPath=wrapper/dists
 distributionUrl=https\\://services.gradle.org/distributions/gradle-{self.GRADLE_WRAPPER_VERSION}-bin.zip
 networkTimeout=120000
 validateDistributionUrl=true
 zipStoreBase=GRADLE_USER_HOME
-zipStorePath=wrapper/dists'''
+zipStorePath=wrapper/dists"""
 
     def _readme(self):
-        return f'''# {self.app_name}
+        return f"""# {self.app_name}
 
 Generated by EPL (Easy Programming Language) Kotlin Generator v2.0
 
@@ -1869,12 +2174,15 @@ app/
 build.gradle.kts                 # Root build config
 settings.gradle.kts              # Project settings
 gradle.properties                # Gradle config
-'''
+"""
 
     def _proguard_rules(self):
-        return '''# EPL Generated App ProGuard Rules
+        return (
+            """# EPL Generated App ProGuard Rules
 # Keep EPL runtime classes
--keep class ''' + self.package + '''.** { *; }
+-keep class """
+            + self.package
+            + """.** { *; }
 
 # Keep Material Components
 -keep class com.google.android.material.** { *; }
@@ -1886,10 +2194,11 @@ gradle.properties                # Gradle config
 -keepclassmembers class * implements java.io.Serializable {
     static final long serialVersionUID;
 }
-'''
+"""
+        )
 
     def _gitignore(self):
-        return '''*.iml
+        return """*.iml
 .gradle
 /local.properties
 /.idea
@@ -1900,10 +2209,10 @@ gradle.properties                # Gradle config
 .cxx
 local.properties
 /app/build
-'''
+"""
 
     def _epl_runtime_kt(self):
-        return f'''package {self.package}
+        return f"""package {self.package}
 
 /**
  * EPL Runtime Support for Android
@@ -1981,10 +2290,10 @@ object EPLRuntime {{
     fun endsWith(s: String, suffix: String): Boolean = s.endsWith(suffix)
     fun substring(s: String, start: Int, end: Int): String = s.substring(start, minOf(end, s.length))
 }}
-'''
+"""
 
     def _application_kt(self):
-        return f'''package {self.package}
+        return f"""package {self.package}
 
 import android.app.Application
 
@@ -1999,10 +2308,10 @@ class EPLApplication : Application() {{
             private set
     }}
 }}
-'''
+"""
 
     def _detail_activity_kt(self):
-        return f'''package {self.package}
+        return f"""package {self.package}
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -2028,10 +2337,10 @@ class DetailActivity : AppCompatActivity() {{
         return true
     }}
 }}
-'''
+"""
 
     def _settings_activity_kt(self):
-        return f'''package {self.package}
+        return f"""package {self.package}
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -2053,10 +2362,10 @@ class SettingsActivity : AppCompatActivity() {{
         return true
     }}
 }}
-'''
+"""
 
     def _repository_kt(self):
-        return f'''package {self.package}.data
+        return f"""package {self.package}.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -2091,10 +2400,10 @@ class Repository {{
         }}
     }}
 }}
-'''
+"""
 
     def _room_entity_kt(self):
-        return f'''package {self.package}.data.model
+        return f"""package {self.package}.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -2108,10 +2417,10 @@ data class EPLEntity(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
 )
-'''
+"""
 
     def _room_dao_kt(self):
-        return f'''package {self.package}.data.local
+        return f"""package {self.package}.data.local
 
 import androidx.room.*
 import {self.package}.data.model.EPLEntity
@@ -2146,10 +2455,10 @@ interface EPLDao {{
     @Query("SELECT COUNT(*) FROM epl_items")
     suspend fun getCount(): Int
 }}
-'''
+"""
 
     def _room_database_kt(self):
-        return f'''package {self.package}.data.local
+        return f"""package {self.package}.data.local
 
 import android.content.Context
 import androidx.room.Database
@@ -2177,10 +2486,10 @@ abstract class EPLDatabase : RoomDatabase() {{
         }}
     }}
 }}
-'''
+"""
 
     def _retrofit_api_kt(self):
-        return f'''package {self.package}.data.remote
+        return f"""package {self.package}.data.remote
 
 import retrofit2.Response
 import retrofit2.http.*
@@ -2208,10 +2517,10 @@ interface ApiService {{
     @GET("search")
     suspend fun search(@Query("q") query: String): Response<List<Map<String, Any?>>>
 }}
-'''
+"""
 
     def _retrofit_client_kt(self):
-        return f'''package {self.package}.data.remote
+        return f"""package {self.package}.data.remote
 
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -2250,10 +2559,10 @@ object RetrofitClient {{
             .create(ApiService::class.java)
     }}
 }}
-'''
+"""
 
     def _service_locator_kt(self):
-        return f'''package {self.package}.di
+        return f"""package {self.package}.di
 
 import android.content.Context
 import {self.package}.data.Repository
@@ -2282,7 +2591,7 @@ object ServiceLocator {{
 
     fun provideApiService() = RetrofitClient.apiService
 }}
-'''
+"""
 
     def _nav_graph(self):
         return f'''<?xml version="1.0" encoding="utf-8"?>
@@ -2328,7 +2637,7 @@ object ServiceLocator {{
 </navigation>'''
 
     def _viewmodel_kt(self):
-        return f'''package {self.package}.ui
+        return f"""package {self.package}.ui
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -2370,10 +2679,10 @@ class MainViewModel : ViewModel() {{
         }}
     }}
 }}
-'''
+"""
 
     def _adapter_kt(self):
-        return f'''package {self.package}.ui
+        return f"""package {self.package}.ui
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
@@ -2443,10 +2752,10 @@ class ItemAdapter(
         }}
     }}
 }}
-'''
+"""
 
     def _detail_layout(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -2463,10 +2772,10 @@ class ItemAdapter(
             android:textSize="16sp"
             android:lineSpacingExtra="4dp" />
     </LinearLayout>
-</ScrollView>'''
+</ScrollView>"""
 
     def _settings_layout(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -2494,10 +2803,10 @@ class ItemAdapter(
         android:layout_height="wrap_content"
         android:text="Notifications"
         android:checked="true" />
-</LinearLayout>'''
+</LinearLayout>"""
 
     def _item_layout(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -2529,10 +2838,10 @@ class ItemAdapter(
             android:textColor="?android:textColorSecondary"
             android:layout_marginTop="4dp" />
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>'''
+</com.google.android.material.card.MaterialCardView>"""
 
     def _main_menu(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
@@ -2543,10 +2852,10 @@ class ItemAdapter(
         android:id="@+id/action_about"
         android:title="@string/about"
         app:showAsAction="never" />
-</menu>'''
+</menu>"""
 
     def _dimens(self):
-        return '''<resources>
+        return """<resources>
     <dimen name="screen_padding">16dp</dimen>
     <dimen name="item_margin">8dp</dimen>
     <dimen name="text_title">24sp</dimen>
@@ -2554,24 +2863,24 @@ class ItemAdapter(
     <dimen name="text_caption">12sp</dimen>
     <dimen name="corner_radius">8dp</dimen>
     <dimen name="elevation_card">2dp</dimen>
-</resources>'''
+</resources>"""
 
     def _adaptive_icon(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background"/>
     <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>'''
+</adaptive-icon>"""
 
     def _adaptive_icon_round(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background"/>
     <foreground android:drawable="@drawable/ic_launcher_foreground"/>
-</adaptive-icon>'''
+</adaptive-icon>"""
 
     def _icon_foreground(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -2592,10 +2901,10 @@ class ItemAdapter(
         android:pathData="M66,40 L66,68 M72,40 L72,68"
         android:strokeWidth="3"
         android:strokeColor="#FFFFFF"/>
-</vector>'''
+</vector>"""
 
     def _icon_background(self):
-        return '''<?xml version="1.0" encoding="utf-8"?>
+        return """<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -2604,16 +2913,16 @@ class ItemAdapter(
     <path
         android:fillColor="#3b82f6"
         android:pathData="M0,0h108v108h-108z"/>
-</vector>'''
+</vector>"""
 
     def _local_properties(self):
-        return '''# This file should NOT be checked into version control.
+        return """# This file should NOT be checked into version control.
 # Set sdk.dir to point to your Android SDK installation.
 # sdk.dir=/path/to/android/sdk
-'''
+"""
 
     def _unit_test_kt(self):
-        return f'''package {self.package}
+        return f"""package {self.package}
 
 import org.junit.Assert.*
 import org.junit.Test
@@ -2668,10 +2977,10 @@ class EPLRuntimeTest {{
         assertTrue(EPLRuntime.endsWith("hello", "llo"))
     }}
 }}
-'''
+"""
 
     def _instrumented_test_kt(self):
-        return f'''package {self.package}
+        return f"""package {self.package}
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.ext.junit.rules.ActivityScenarioRule
@@ -2696,16 +3005,17 @@ class MainActivityTest {{
         }}
     }}
 }}
-'''
+"""
 
 
-def transpile_to_kotlin(program: ast.Program, package="com.epl.app") -> str:
+def transpile_to_kotlin(program: ast.Program, package='com.epl.app') -> str:
     """Convenience: transpile EPL AST to Kotlin."""
     return KotlinGenerator(package).generate(program)
 
 
-def generate_android_project(program: ast.Program, output_dir: str,
-                              app_name="EPLApp", package="com.epl.app"):
+def generate_android_project(
+    program: ast.Program, output_dir: str, app_name='EPLApp', package='com.epl.app'
+):
     """Convenience: generate a full Android project from EPL."""
     gen = AndroidProjectGenerator(app_name, package)
     return gen.generate(program, output_dir)

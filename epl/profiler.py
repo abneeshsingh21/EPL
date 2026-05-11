@@ -3,28 +3,26 @@ EPL Profiler & Debug Adapter Protocol (DAP) Server (v6.0)
 Production-ready performance profiling, memory tracking, tracing, and IDE debug integration.
 """
 
-import time
 import json
-import threading
-import sys
-import os
 import socket
-
+import threading
+import time
 
 # ═══════════════════════════════════════════════════════════
 #  Performance Profiler
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLProfiler:
     """Execution profiler for EPL programs."""
 
     def __init__(self):
-        self._timers = {}       # name → start_time
-        self._results = {}      # name → [elapsed_ms, ...]
+        self._timers = {}  # name → start_time
+        self._results = {}  # name → [elapsed_ms, ...]
         self._call_counts = {}  # name → count
-        self._call_stack = []   # stack of (name, start_time)
+        self._call_stack = []  # stack of (name, start_time)
         self._enabled = False
-        self._trace_log = []    # [(timestamp, event, name, duration)]
+        self._trace_log = []  # [(timestamp, event, name, duration)]
         self._memory_snapshots = []  # [(timestamp, bytes)]
 
     def enable(self):
@@ -78,18 +76,14 @@ class EPLProfiler:
     def report(self):
         """Generate a profiling report."""
         lines = []
-        lines.append("═" * 60)
-        lines.append("  EPL Profiler Report")
-        lines.append("═" * 60)
-        lines.append(f"  {'Function':<30} {'Calls':>6} {'Total ms':>10} {'Avg ms':>10}")
-        lines.append("  " + "─" * 56)
+        lines.append('═' * 60)
+        lines.append('  EPL Profiler Report')
+        lines.append('═' * 60)
+        lines.append(f'  {"Function":<30} {"Calls":>6} {"Total ms":>10} {"Avg ms":>10}')
+        lines.append('  ' + '─' * 56)
 
         # Sort by total time descending
-        sorted_funcs = sorted(
-            self._results.items(),
-            key=lambda x: sum(x[1]),
-            reverse=True
-        )
+        sorted_funcs = sorted(self._results.items(), key=lambda x: sum(x[1]), reverse=True)
         total_time = sum(sum(v) for v in self._results.values())
 
         for name, times in sorted_funcs:
@@ -97,12 +91,12 @@ class EPLProfiler:
             count = len(times)
             avg = total / count if count > 0 else 0
             pct = (total / total_time * 100) if total_time > 0 else 0
-            lines.append(f"  {name:<30} {count:>6} {total:>9.2f} {avg:>9.2f}  ({pct:.1f}%)")
+            lines.append(f'  {name:<30} {count:>6} {total:>9.2f} {avg:>9.2f}  ({pct:.1f}%)')
 
-        lines.append("  " + "─" * 56)
-        lines.append(f"  {'TOTAL':<30} {'':>6} {total_time:>9.2f}")
-        lines.append("═" * 60)
-        return "\n".join(lines)
+        lines.append('  ' + '─' * 56)
+        lines.append(f'  {"TOTAL":<30} {"":>6} {total_time:>9.2f}')
+        lines.append('═' * 60)
+        return '\n'.join(lines)
 
     def get_stats(self):
         """Get profiling stats as a dict."""
@@ -130,6 +124,7 @@ class EPLProfiler:
         """Take a memory usage snapshot."""
         try:
             import tracemalloc
+
             if not tracemalloc.is_tracing():
                 tracemalloc.start()
             current, peak = tracemalloc.get_traced_memory()
@@ -167,17 +162,19 @@ class EPLProfiler:
         """Export trace in Chrome Tracing format for chrome://tracing."""
         events = []
         for ts, event, name, duration in self._trace_log:
-            events.append({
-                "name": name,
-                "cat": "function",
-                "ph": "X",  # Complete event
-                "ts": int((ts * 1e6)),  # microseconds
-                "dur": int(duration * 1000),  # microseconds
-                "pid": 1,
-                "tid": 1,
-            })
+            events.append(
+                {
+                    'name': name,
+                    'cat': 'function',
+                    'ph': 'X',  # Complete event
+                    'ts': int((ts * 1e6)),  # microseconds
+                    'dur': int(duration * 1000),  # microseconds
+                    'pid': 1,
+                    'tid': 1,
+                }
+            )
         with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump({"traceEvents": events}, f)
+            json.dump({'traceEvents': events}, f)
         return filepath
 
 
@@ -193,6 +190,7 @@ def get_profiler():
 #  DAP (Debug Adapter Protocol) Server
 # ═══════════════════════════════════════════════════════════
 
+
 class DAPServer:
     """Debug Adapter Protocol server for EPL.
 
@@ -202,11 +200,11 @@ class DAPServer:
 
     def __init__(self, interpreter=None):
         self.interpreter = interpreter
-        self.breakpoints = {}   # file → set of line numbers
+        self.breakpoints = {}  # file → set of line numbers
         self.paused = False
         self.current_line = 0
-        self.current_file = ""
-        self.step_mode = None   # None, 'next', 'stepIn', 'stepOut'
+        self.current_file = ''
+        self.step_mode = None  # None, 'next', 'stepIn', 'stepOut'
         self.step_depth = 0
         self._seq = 0
         self._conn = None
@@ -224,8 +222,8 @@ class DAPServer:
         server.bind((host, port))
         server.listen(1)
         server.settimeout(1.0)
-        print(f"  EPL Debug Adapter listening on {host}:{port}")
-        print(f"  Connect your IDE debugger to this address.")
+        print(f'  EPL Debug Adapter listening on {host}:{port}')
+        print('  Connect your IDE debugger to this address.')
 
         try:
             while self._running:
@@ -245,7 +243,7 @@ class DAPServer:
 
     def _handle_client(self, conn):
         """Handle DAP client messages."""
-        buf = b""
+        buf = b''
         while self._running:
             try:
                 data = conn.recv(4096)
@@ -262,8 +260,8 @@ class DAPServer:
                     body_start = header_end + 4
                     if len(buf) < body_start + content_length:
                         break  # Wait for more data
-                    body = buf[body_start:body_start + content_length]
-                    buf = buf[body_start + content_length:]
+                    body = buf[body_start : body_start + content_length]
+                    buf = buf[body_start + content_length :]
                     msg = json.loads(body.decode('utf-8'))
                     self._dispatch(msg, conn)
             except (ConnectionError, json.JSONDecodeError):
@@ -277,14 +275,19 @@ class DAPServer:
         seq = msg.get('seq', 0)
 
         if cmd == 'initialize':
-            self._send_response(conn, seq, cmd, body={
-                'supportsConfigurationDoneRequest': True,
-                'supportsFunctionBreakpoints': True,
-                'supportsConditionalBreakpoints': False,
-                'supportsEvaluateForHovers': True,
-                'supportsStepBack': False,
-                'supportsSetVariable': True,
-            })
+            self._send_response(
+                conn,
+                seq,
+                cmd,
+                body={
+                    'supportsConfigurationDoneRequest': True,
+                    'supportsFunctionBreakpoints': True,
+                    'supportsConditionalBreakpoints': False,
+                    'supportsEvaluateForHovers': True,
+                    'supportsStepBack': False,
+                    'supportsSetVariable': True,
+                },
+            )
             self._send_event(conn, 'initialized')
 
         elif cmd == 'setBreakpoints':
@@ -296,15 +299,15 @@ class DAPServer:
             for bp in bps:
                 line = bp.get('line', 0)
                 line_set.add(line)
-                result_bps.append({
-                    'id': len(result_bps) + 1,
-                    'verified': True,
-                    'line': line,
-                })
+                result_bps.append(
+                    {
+                        'id': len(result_bps) + 1,
+                        'verified': True,
+                        'line': line,
+                    }
+                )
             self.breakpoints[source] = line_set
-            self._send_response(conn, seq, cmd, body={
-                'breakpoints': result_bps
-            })
+            self._send_response(conn, seq, cmd, body={'breakpoints': result_bps})
 
         elif cmd == 'configurationDone':
             self._send_response(conn, seq, cmd)
@@ -313,56 +316,82 @@ class DAPServer:
             self._send_response(conn, seq, cmd)
 
         elif cmd == 'threads':
-            self._send_response(conn, seq, cmd, body={
-                'threads': [{'id': 1, 'name': 'EPL Main Thread'}]
-            })
+            self._send_response(
+                conn, seq, cmd, body={'threads': [{'id': 1, 'name': 'EPL Main Thread'}]}
+            )
 
         elif cmd == 'stackTrace':
             frames = []
             for i, frame in enumerate(self._stack_frames):
-                frames.append({
-                    'id': i,
-                    'name': frame.get('name', '<unknown>'),
-                    'source': {'path': frame.get('file', '')},
-                    'line': frame.get('line', 0),
-                    'column': 1,
-                })
-            self._send_response(conn, seq, cmd, body={
-                'stackFrames': frames,
-                'totalFrames': len(frames),
-            })
+                frames.append(
+                    {
+                        'id': i,
+                        'name': frame.get('name', '<unknown>'),
+                        'source': {'path': frame.get('file', '')},
+                        'line': frame.get('line', 0),
+                        'column': 1,
+                    }
+                )
+            self._send_response(
+                conn,
+                seq,
+                cmd,
+                body={
+                    'stackFrames': frames,
+                    'totalFrames': len(frames),
+                },
+            )
 
         elif cmd == 'scopes':
             frame_id = msg.get('arguments', {}).get('frameId', 0)
-            self._send_response(conn, seq, cmd, body={
-                'scopes': [{
-                    'name': 'Locals',
-                    'variablesReference': frame_id + 1,
-                    'expensive': False,
-                }]
-            })
+            self._send_response(
+                conn,
+                seq,
+                cmd,
+                body={
+                    'scopes': [
+                        {
+                            'name': 'Locals',
+                            'variablesReference': frame_id + 1,
+                            'expensive': False,
+                        }
+                    ]
+                },
+            )
 
         elif cmd == 'variables':
             ref = msg.get('arguments', {}).get('variablesReference', 1)
             variables = []
             for name, value in self._variables.items():
-                variables.append({
-                    'name': name,
-                    'value': str(value),
-                    'type': type(value).__name__,
-                    'variablesReference': 0,
-                })
-            self._send_response(conn, seq, cmd, body={
-                'variables': variables,
-            })
+                variables.append(
+                    {
+                        'name': name,
+                        'value': str(value),
+                        'type': type(value).__name__,
+                        'variablesReference': 0,
+                    }
+                )
+            self._send_response(
+                conn,
+                seq,
+                cmd,
+                body={
+                    'variables': variables,
+                },
+            )
 
         elif cmd == 'continue':
             self.step_mode = None
             self.paused = False
             self._pause_event.set()
-            self._send_response(conn, seq, cmd, body={
-                'allThreadsContinued': True,
-            })
+            self._send_response(
+                conn,
+                seq,
+                cmd,
+                body={
+                    'allThreadsContinued': True,
+                },
+            )
 
         elif cmd == 'next':
             self.step_mode = 'next'
@@ -387,10 +416,15 @@ class DAPServer:
         elif cmd == 'evaluate':
             expr = msg.get('arguments', {}).get('expression', '')
             val = self._variables.get(expr, 'undefined')
-            self._send_response(conn, seq, cmd, body={
-                'result': str(val),
-                'variablesReference': 0,
-            })
+            self._send_response(
+                conn,
+                seq,
+                cmd,
+                body={
+                    'result': str(val),
+                    'variablesReference': 0,
+                },
+            )
 
         elif cmd == 'disconnect':
             self._send_response(conn, seq, cmd)
@@ -458,21 +492,27 @@ class DAPServer:
         if should_pause and self._conn:
             self.paused = True
             reason = 'breakpoint' if not self.step_mode else 'step'
-            self._send_event(self._conn, 'stopped', {
-                'reason': reason,
-                'threadId': 1,
-                'allThreadsStopped': True,
-            })
+            self._send_event(
+                self._conn,
+                'stopped',
+                {
+                    'reason': reason,
+                    'threadId': 1,
+                    'allThreadsStopped': True,
+                },
+            )
             self._pause_event.clear()
             self._pause_event.wait()  # Block until continue/step
 
     def on_function_enter(self, name, filename, line):
         """Called when entering a function."""
-        self._stack_frames.append({
-            'name': name,
-            'file': filename,
-            'line': line,
-        })
+        self._stack_frames.append(
+            {
+                'name': name,
+                'file': filename,
+                'line': line,
+            }
+        )
 
     def on_function_exit(self):
         """Called when exiting a function."""

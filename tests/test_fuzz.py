@@ -4,35 +4,38 @@ Tests that random/adversarial inputs don't crash the lexer, parser, or interpret
 with unhandled exceptions, segfaults, or infinite loops.
 """
 
-import sys
 import os
 import random
 import string
+import sys
 import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.errors import EPLError
+from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.interpreter import Interpreter
-from epl.errors import EPLError
-
 
 # ═══════════════════════════════════════════════════════════
 #  Fuzz Helpers
 # ═══════════════════════════════════════════════════════════
 
+
 def _run_with_timeout(fn, timeout=5):
     """Run fn in a thread with a timeout. Returns the result or 'TIMEOUT'."""
     result = [None]
+
     def wrapper():
         result[0] = fn()
+
     t = threading.Thread(target=wrapper, daemon=True)
     t.start()
     t.join(timeout)
     if t.is_alive():
         return 'TIMEOUT'
     return result[0]
+
 
 def fuzz_lexer(source):
     """Attempt to lex source. Should never crash with unhandled exception."""
@@ -45,7 +48,7 @@ def fuzz_lexer(source):
     except (RecursionError, MemoryError):
         return True  # Resource limits are acceptable
     except Exception as e:
-        return f"UNEXPECTED: {type(e).__name__}: {e}"
+        return f'UNEXPECTED: {type(e).__name__}: {e}'
 
 
 def fuzz_parser(source):
@@ -61,11 +64,12 @@ def fuzz_parser(source):
     except (RecursionError, MemoryError):
         return True
     except Exception as e:
-        return f"UNEXPECTED: {type(e).__name__}: {e}"
+        return f'UNEXPECTED: {type(e).__name__}: {e}'
 
 
 def fuzz_interpreter(source, timeout_seconds=5):
     """Attempt to run source through full pipeline. Should never crash."""
+
     def _inner():
         try:
             lexer = Lexer(source)
@@ -84,7 +88,8 @@ def fuzz_interpreter(source, timeout_seconds=5):
         except KeyboardInterrupt:
             return True
         except Exception as e:
-            return f"UNEXPECTED: {type(e).__name__}: {e}"
+            return f'UNEXPECTED: {type(e).__name__}: {e}'
+
     result = _run_with_timeout(_inner, timeout_seconds)
     if result == 'TIMEOUT':
         return True  # Timeouts are acceptable (infinite loops are caught)
@@ -95,6 +100,7 @@ def fuzz_interpreter(source, timeout_seconds=5):
 #  Fuzz Generators
 # ═══════════════════════════════════════════════════════════
 
+
 def random_string(min_len=0, max_len=100):
     length = random.randint(min_len, max_len)
     return ''.join(random.choice(string.printable) for _ in range(length))
@@ -102,14 +108,57 @@ def random_string(min_len=0, max_len=100):
 
 def random_epl_keyword():
     keywords = [
-        'Create', 'Set', 'Print', 'If', 'Else', 'End', 'While', 'For',
-        'Function', 'Return', 'Class', 'Method', 'Property', 'New',
-        'Try', 'Catch', 'Throw', 'Import', 'Export', 'Module',
-        'equal', 'to', 'plus', 'minus', 'times', 'divided', 'by',
-        'and', 'or', 'not', 'true', 'false', 'nothing',
-        'greater', 'less', 'than', 'each', 'in', 'Break', 'Continue',
-        'Private', 'Protected', 'Public', 'Const', 'Let', 'Async',
-        'Await', 'Yield', 'Switch', 'Case', 'Default',
+        'Create',
+        'Set',
+        'Print',
+        'If',
+        'Else',
+        'End',
+        'While',
+        'For',
+        'Function',
+        'Return',
+        'Class',
+        'Method',
+        'Property',
+        'New',
+        'Try',
+        'Catch',
+        'Throw',
+        'Import',
+        'Export',
+        'Module',
+        'equal',
+        'to',
+        'plus',
+        'minus',
+        'times',
+        'divided',
+        'by',
+        'and',
+        'or',
+        'not',
+        'true',
+        'false',
+        'nothing',
+        'greater',
+        'less',
+        'than',
+        'each',
+        'in',
+        'Break',
+        'Continue',
+        'Private',
+        'Protected',
+        'Public',
+        'Const',
+        'Let',
+        'Async',
+        'Await',
+        'Yield',
+        'Switch',
+        'Case',
+        'Default',
     ]
     return random.choice(keywords)
 
@@ -265,48 +314,49 @@ EDGE_CASES = [
 #  Test Runner
 # ═══════════════════════════════════════════════════════════
 
+
 def run_fuzz_tests():
     passed = 0
     failed = 0
     total = 0
 
-    print("=" * 60)
-    print("EPL Fuzz Testing Suite")
-    print("=" * 60)
+    print('=' * 60)
+    print('EPL Fuzz Testing Suite')
+    print('=' * 60)
 
     # Phase 1: Structured edge cases
-    print("\n--- Phase 1: Edge Case Inputs ---")
+    print('\n--- Phase 1: Edge Case Inputs ---')
     for i, source in enumerate(EDGE_CASES):
         total += 1
         display = source[:60].replace('\n', '\\n') if source else '<empty>'
-        
+
         result = fuzz_lexer(source)
         if result is not True:
-            print(f"  FAIL (lexer) #{i}: {display}")
-            print(f"    {result}")
+            print(f'  FAIL (lexer) #{i}: {display}')
+            print(f'    {result}')
             failed += 1
             continue
 
         result = fuzz_parser(source)
         if result is not True:
-            print(f"  FAIL (parser) #{i}: {display}")
-            print(f"    {result}")
+            print(f'  FAIL (parser) #{i}: {display}')
+            print(f'    {result}')
             failed += 1
             continue
 
         result = fuzz_interpreter(source)
         if result is not True:
-            print(f"  FAIL (interp) #{i}: {display}")
-            print(f"    {result}")
+            print(f'  FAIL (interp) #{i}: {display}')
+            print(f'    {result}')
             failed += 1
             continue
 
         passed += 1
 
-    print(f"  Edge cases: {passed}/{total}")
+    print(f'  Edge cases: {passed}/{total}')
 
     # Phase 2: Random EPL fragments
-    print("\n--- Phase 2: Random EPL Fragments (200 iterations) ---")
+    print('\n--- Phase 2: Random EPL Fragments (200 iterations) ---')
     frag_passed = 0
     frag_failed = 0
     for i in range(200):
@@ -316,30 +366,30 @@ def run_fuzz_tests():
         if result is not True:
             frag_failed += 1
             if frag_failed <= 5:
-                print(f"  FAIL (lexer): {source[:60]}")
-                print(f"    {result}")
+                print(f'  FAIL (lexer): {source[:60]}')
+                print(f'    {result}')
             continue
         result = fuzz_parser(source)
         if result is not True:
             frag_failed += 1
             if frag_failed <= 5:
-                print(f"  FAIL (parser): {source[:60]}")
-                print(f"    {result}")
+                print(f'  FAIL (parser): {source[:60]}')
+                print(f'    {result}')
             continue
         result = fuzz_interpreter(source)
         if result is not True:
             frag_failed += 1
             if frag_failed <= 5:
-                print(f"  FAIL (interp): {source[:60]}")
-                print(f"    {result}")
+                print(f'  FAIL (interp): {source[:60]}')
+                print(f'    {result}')
             continue
         frag_passed += 1
     passed += frag_passed
     failed += frag_failed
-    print(f"  Fragments: {frag_passed}/{frag_passed + frag_failed}")
+    print(f'  Fragments: {frag_passed}/{frag_passed + frag_failed}')
 
     # Phase 3: Random keyword soup
-    print("\n--- Phase 3: Random Keyword Soup (100 iterations) ---")
+    print('\n--- Phase 3: Random Keyword Soup (100 iterations) ---')
     soup_passed = 0
     soup_failed = 0
     for i in range(100):
@@ -349,22 +399,22 @@ def run_fuzz_tests():
         if result is not True:
             soup_failed += 1
             if soup_failed <= 3:
-                print(f"  FAIL (lexer): {source[:60]}")
+                print(f'  FAIL (lexer): {source[:60]}')
             continue
         result = fuzz_parser(source)
         if result is not True:
             soup_failed += 1
             if soup_failed <= 3:
-                print(f"  FAIL (parser): {source[:60]}")
-                print(f"    {result}")
+                print(f'  FAIL (parser): {source[:60]}')
+                print(f'    {result}')
             continue
         soup_passed += 1
     passed += soup_passed
     failed += soup_failed
-    print(f"  Keyword soup: {soup_passed}/{soup_passed + soup_failed}")
+    print(f'  Keyword soup: {soup_passed}/{soup_passed + soup_failed}')
 
     # Phase 4: Random byte strings (pure chaos)
-    print("\n--- Phase 4: Random Bytes (100 iterations) ---")
+    print('\n--- Phase 4: Random Bytes (100 iterations) ---')
     byte_passed = 0
     byte_failed = 0
     for i in range(100):
@@ -374,23 +424,23 @@ def run_fuzz_tests():
         if result is not True:
             byte_failed += 1
             if byte_failed <= 3:
-                print(f"  FAIL (lexer): {repr(source[:40])}")
-                print(f"    {result}")
+                print(f'  FAIL (lexer): {repr(source[:40])}')
+                print(f'    {result}')
             continue
         result = fuzz_parser(source)
         if result is not True:
             byte_failed += 1
             if byte_failed <= 3:
-                print(f"  FAIL (parser): {repr(source[:40])}")
-                print(f"    {result}")
+                print(f'  FAIL (parser): {repr(source[:40])}')
+                print(f'    {result}')
             continue
         byte_passed += 1
     passed += byte_passed
     failed += byte_failed
-    print(f"  Random bytes: {byte_passed}/{byte_passed + byte_failed}")
+    print(f'  Random bytes: {byte_passed}/{byte_passed + byte_failed}')
 
     # Phase 5: Deep nesting stress
-    print("\n--- Phase 5: Deep Nesting (20 iterations) ---")
+    print('\n--- Phase 5: Deep Nesting (20 iterations) ---')
     nest_passed = 0
     nest_failed = 0
     for i in range(20):
@@ -412,16 +462,16 @@ def run_fuzz_tests():
         nest_passed += 1
     passed += nest_passed
     failed += nest_failed
-    print(f"  Deep nesting: {nest_passed}/{nest_passed + nest_failed}")
+    print(f'  Deep nesting: {nest_passed}/{nest_passed + nest_failed}')
 
     # Summary
-    print("\n" + "=" * 60)
-    print(f"FUZZ RESULTS: {passed} passed, {failed} failed out of {total} total")
+    print('\n' + '=' * 60)
+    print(f'FUZZ RESULTS: {passed} passed, {failed} failed out of {total} total')
     if failed == 0:
-        print("All fuzz tests passed! No unhandled exceptions found.")
+        print('All fuzz tests passed! No unhandled exceptions found.')
     else:
-        print(f"WARNING: {failed} inputs caused unhandled exceptions.")
-    print("=" * 60)
+        print(f'WARNING: {failed} inputs caused unhandled exceptions.')
+    print('=' * 60)
     return failed
 
 

@@ -1,0 +1,43 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Soft premium gradient for the document body -->
+    <linearGradient id="docGradient" x1="128" y1="16" x2="128" y2="240" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F1F5F9"/>
+    </linearGradient>
+
+    <!-- Subtle gradient for the folded corner -->
+    <linearGradient id="foldGradient" x1="152" y1="16" x2="200" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+
+    <!-- Drop shadow for the folded corner to give depth -->
+    <filter id="foldShadow" x="148" y="16" width="60" height="60" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="-2" dy="2" stdDeviation="2" flood-color="#0F172A" flood-opacity="0.08"/>
+    </filter>
+
+    <!-- Drop shadow for the main document -->
+    <filter id="docShadow" x="30" y="10" width="190" height="240" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Main Document Body with Shadow -->
+  <path d="M48 24C48 15.1634 55.1634 8 64 8H152L208 64V232C208 240.837 200.837 248 192 248H64C55.1634 248 48 240.837 48 232V24Z" fill="url(#docGradient)" filter="url(#docShadow)"/>
+  
+  <!-- The Folded Corner with inner shadow -->
+  <path d="M152 8L208 64H168C159.163 64 152 56.8366 152 48V8Z" fill="url(#foldGradient)" filter="url(#foldShadow)"/>
+
+  <!-- EPL Branding Logo - Perfectly Centered and Scaled -->
+  <g transform="translate(62, 85) scale(0.9)">
+    <!-- The Dark Navy 'E' block (Premium deep color) -->
+    <path d="M10 10H70V30H40V55H60V75H40V100H10V10Z" fill="#0A192F"/>
+    
+    <!-- The Electric Blue Slash (Striking accent) -->
+    <path d="M110 10L40 100H70L140 10H110Z" fill="#007BFF"/>
+  </g>
+
+  <!-- Aesthetic Code Accent Line at the bottom -->
+  <rect x="78" y="210" width="100" height="6" rx="3" fill="#007BFF" opacity="0.8"/>
+</svg>

@@ -1,0 +1,18 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main Document Shape -->
+  <path d="M56 24C56 19.5817 59.5817 16 64 16H148.686C150.808 16 152.843 16.8429 154.343 18.3431L197.657 61.6569C199.157 63.1571 200 65.1924 200 67.3137V232C200 236.418 196.418 240 192 240H64C59.5817 240 56 236.418 56 232V24Z" fill="#F8FAFC"/>
+  
+  <!-- Subtle Drop Shadow / Border for the document -->
+  <path d="M56 24C56 19.5817 59.5817 16 64 16H148.686C150.808 16 152.843 16.8429 154.343 18.3431L197.657 61.6569C199.157 63.1571 200 65.1924 200 67.3137V232C200 236.418 196.418 240 192 240H64C59.5817 240 56 236.418 56 232V24Z" stroke="#E2E8F0" stroke-width="4"/>
+
+  <!-- Folded Corner -->
+  <path d="M148 16V56C148 60.4183 151.582 64 156 64H196L148 16Z" fill="#E2E8F0"/>
+
+  <!-- The Geometric 'E' Logo (Matching your uploaded image) -->
+  <g transform="translate(76, 100) scale(0.6)">
+    <!-- Dark Navy Part of the E -->
+    <path d="M20 20H80V40H40V70H70V90H40V140H20V20Z" fill="#0F172A"/>
+    <!-- Bright Blue Slash Part -->
+    <path d="M110 20L40 140H70L140 20H110Z" fill="#007BFF"/>
+  </g>
+</svg>

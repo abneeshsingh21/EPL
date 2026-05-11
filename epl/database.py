@@ -18,29 +18,29 @@ Features:
 
 Usage from EPL:
     Set db to Database("sqlite", "app.db")
-    
+
     Define Model "User"
         Field "name" as text
         Field "email" as text unique
         Field "age" as integer default 0
     End
-    
+
     db.migrate()
     db.create("User", {"name": "Alice", "age": 30})
     Set users to db.find("User", {"age": 30})
 """
 
+import queue
+import re as _re
 import sqlite3
 import threading
 import time
-import queue
-import os
-import re as _re
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 # SQL identifier validation regex
 _VALID_IDENTIFIER = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
 
 def _quote_identifier(name: str) -> str:
     """Quote a SQL identifier to prevent injection. Raises on invalid names."""
@@ -53,9 +53,11 @@ def _quote_identifier(name: str) -> str:
 # Field Definitions
 # ═══════════════════════════════════════════════════════════
 
+
 @dataclass
 class FieldDef:
     """Schema field definition."""
+
     name: str
     field_type: str  # 'text', 'integer', 'decimal', 'boolean', 'datetime', 'blob'
     primary_key: bool = False
@@ -70,25 +72,52 @@ class FieldDef:
         ft = self.field_type.lower()
         type_map = {
             'sqlite': {
-                'text': 'TEXT', 'string': 'TEXT', 'integer': 'INTEGER', 'int': 'INTEGER',
-                'decimal': 'REAL', 'float': 'REAL', 'double': 'REAL',
-                'boolean': 'INTEGER', 'bool': 'INTEGER',
-                'datetime': 'TEXT', 'date': 'TEXT', 'time': 'TEXT',
-                'blob': 'BLOB', 'json': 'TEXT',
+                'text': 'TEXT',
+                'string': 'TEXT',
+                'integer': 'INTEGER',
+                'int': 'INTEGER',
+                'decimal': 'REAL',
+                'float': 'REAL',
+                'double': 'REAL',
+                'boolean': 'INTEGER',
+                'bool': 'INTEGER',
+                'datetime': 'TEXT',
+                'date': 'TEXT',
+                'time': 'TEXT',
+                'blob': 'BLOB',
+                'json': 'TEXT',
             },
             'postgres': {
-                'text': 'TEXT', 'string': 'VARCHAR(255)', 'integer': 'INTEGER',
-                'int': 'INTEGER', 'decimal': 'DOUBLE PRECISION', 'float': 'REAL',
-                'double': 'DOUBLE PRECISION', 'boolean': 'BOOLEAN', 'bool': 'BOOLEAN',
-                'datetime': 'TIMESTAMP', 'date': 'DATE', 'time': 'TIME',
-                'blob': 'BYTEA', 'json': 'JSONB',
+                'text': 'TEXT',
+                'string': 'VARCHAR(255)',
+                'integer': 'INTEGER',
+                'int': 'INTEGER',
+                'decimal': 'DOUBLE PRECISION',
+                'float': 'REAL',
+                'double': 'DOUBLE PRECISION',
+                'boolean': 'BOOLEAN',
+                'bool': 'BOOLEAN',
+                'datetime': 'TIMESTAMP',
+                'date': 'DATE',
+                'time': 'TIME',
+                'blob': 'BYTEA',
+                'json': 'JSONB',
             },
             'mysql': {
-                'text': 'TEXT', 'string': 'VARCHAR(255)', 'integer': 'INT',
-                'int': 'INT', 'decimal': 'DOUBLE', 'float': 'FLOAT',
-                'double': 'DOUBLE', 'boolean': 'TINYINT(1)', 'bool': 'TINYINT(1)',
-                'datetime': 'DATETIME', 'date': 'DATE', 'time': 'TIME',
-                'blob': 'BLOB', 'json': 'JSON',
+                'text': 'TEXT',
+                'string': 'VARCHAR(255)',
+                'integer': 'INT',
+                'int': 'INT',
+                'decimal': 'DOUBLE',
+                'float': 'FLOAT',
+                'double': 'DOUBLE',
+                'boolean': 'TINYINT(1)',
+                'bool': 'TINYINT(1)',
+                'datetime': 'DATETIME',
+                'date': 'DATE',
+                'time': 'TIME',
+                'blob': 'BLOB',
+                'json': 'JSON',
             },
         }
         return type_map.get(dialect, type_map['sqlite']).get(ft, 'TEXT')
@@ -109,9 +138,9 @@ class FieldDef:
             if isinstance(self.default, str):
                 parts.append(f"DEFAULT '{self.default}'")
             elif isinstance(self.default, bool):
-                parts.append(f"DEFAULT {1 if self.default else 0}")
+                parts.append(f'DEFAULT {1 if self.default else 0}')
             else:
-                parts.append(f"DEFAULT {self.default}")
+                parts.append(f'DEFAULT {self.default}')
         if self.foreign_key:
             table, col = self.foreign_key.split('.')
             parts.append(f'REFERENCES {table}({col})')
@@ -121,6 +150,7 @@ class FieldDef:
 # ═══════════════════════════════════════════════════════════
 # Model Definition
 # ═══════════════════════════════════════════════════════════
+
 
 class Model:
     """ORM Model — represents a database table."""
@@ -143,7 +173,9 @@ class Model:
         """Define a one-to-many relationship."""
         fk = foreign_key or f'{self.name.lower()}_id'
         self.relationships[model_name] = {
-            'type': 'has_many', 'model': model_name, 'foreign_key': fk
+            'type': 'has_many',
+            'model': model_name,
+            'foreign_key': fk,
         }
         return self
 
@@ -153,7 +185,9 @@ class Model:
         # Add foreign key field
         self.add_field(fk, 'integer', foreign_key=f'{model_name.lower()}s.id')
         self.relationships[model_name] = {
-            'type': 'belongs_to', 'model': model_name, 'foreign_key': fk
+            'type': 'belongs_to',
+            'model': model_name,
+            'foreign_key': fk,
         }
         return self
 
@@ -173,14 +207,21 @@ class Model:
 # Connection Pool
 # ═══════════════════════════════════════════════════════════
 
+
 class ConnectionPool:
     """Thread-safe database connection pool."""
 
     _mem_counter = 0
     _mem_lock = threading.Lock()
 
-    def __init__(self, dialect: str, connect_args: dict, min_size: int = 2,
-                 max_size: int = 10, max_idle: float = 300):
+    def __init__(
+        self,
+        dialect: str,
+        connect_args: dict,
+        min_size: int = 2,
+        max_size: int = 10,
+        max_idle: float = 300,
+    ):
         self.dialect = dialect
         self.connect_args = connect_args
         self.min_size = min_size
@@ -223,6 +264,7 @@ class ConnectionPool:
             try:
                 import psycopg2  # type: ignore[reportMissingModuleSource]
                 import psycopg2.extras  # type: ignore[reportMissingModuleSource]
+
                 conn = psycopg2.connect(**self.connect_args)
                 conn.autocommit = False
                 return conn
@@ -231,10 +273,13 @@ class ConnectionPool:
         elif self.dialect == 'mysql':
             try:
                 import mysql.connector  # type: ignore[reportMissingImports]
+
                 conn = mysql.connector.connect(**self.connect_args)
                 return conn
             except ImportError:
-                raise RuntimeError('mysql-connector not installed. Run: pip install mysql-connector-python')
+                raise RuntimeError(
+                    'mysql-connector not installed. Run: pip install mysql-connector-python'
+                )
         else:
             raise ValueError(f'Unsupported dialect: {self.dialect}')
 
@@ -336,6 +381,7 @@ class ConnectionPool:
 # ═══════════════════════════════════════════════════════════
 # Query Builder
 # ═══════════════════════════════════════════════════════════
+
 
 class QueryBuilder:
     """Chainable SQL query builder."""
@@ -484,11 +530,13 @@ class QueryBuilder:
 # Database (ORM + Connection Pool)
 # ═══════════════════════════════════════════════════════════
 
+
 class Database:
     """Main database interface with ORM, query builder, and connection pooling."""
 
-    def __init__(self, dialect: str = 'sqlite', database: str = ':memory:',
-                 pool_size: int = 5, **kwargs):
+    def __init__(
+        self, dialect: str = 'sqlite', database: str = ':memory:', pool_size: int = 5, **kwargs
+    ):
         self.dialect = dialect
         self.database = database
         self.models: Dict[str, Model] = {}
@@ -535,7 +583,9 @@ class Database:
         model = self.get_model(model_name)
         # Filter out id and timestamps
         field_names = [f.name for f in model.fields if f.name != 'id']
-        columns = [k for k in data.keys() if k in field_names or k in [f.name for f in model.fields]]
+        columns = [
+            k for k in data.keys() if k in field_names or k in [f.name for f in model.fields]
+        ]
         values = [data[k] for k in columns]
         placeholders = ', '.join(['?' for _ in columns])
         quoted_cols = ', '.join(_quote_identifier(c) for c in columns)
@@ -668,8 +718,7 @@ class Database:
         """Check if a table exists."""
         if self.dialect == 'sqlite':
             results = self.raw_query(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                [table_name]
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", [table_name]
             )
             return len(results) > 0
         return False
@@ -712,11 +761,13 @@ class Transaction:
 # Networking Module
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLSocket:
     """TCP/UDP socket wrapper for EPL."""
 
     def __init__(self, protocol: str = 'tcp'):
         import socket
+
         self.protocol = protocol
         if protocol == 'tcp':
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -794,8 +845,9 @@ class HTTPClient:
     @staticmethod
     def get(url: str, headers: dict = None, timeout: float = 30) -> dict:
         """HTTP GET request."""
-        import urllib.request
         import urllib.error
+        import urllib.request
+
         req = urllib.request.Request(url, method='GET')
         if headers:
             for k, v in headers.items():
@@ -813,11 +865,17 @@ class HTTPClient:
             return {'status': 0, 'headers': {}, 'body': '', 'error': str(e)}
 
     @staticmethod
-    def post(url: str, body: str = '', headers: dict = None,
-             content_type: str = 'application/json', timeout: float = 30) -> dict:
+    def post(
+        url: str,
+        body: str = '',
+        headers: dict = None,
+        content_type: str = 'application/json',
+        timeout: float = 30,
+    ) -> dict:
         """HTTP POST request."""
-        import urllib.request
         import urllib.error
+        import urllib.request
+
         data = body.encode('utf-8') if isinstance(body, str) else body
         req = urllib.request.Request(url, data=data, method='POST')
         req.add_header('Content-Type', content_type)
@@ -840,6 +898,7 @@ class HTTPClient:
     def put(url: str, body: str = '', headers: dict = None, timeout: float = 30) -> dict:
         """HTTP PUT request."""
         import urllib.request
+
         data = body.encode('utf-8') if isinstance(body, str) else body
         req = urllib.request.Request(url, data=data, method='PUT')
         req.add_header('Content-Type', 'application/json')
@@ -856,6 +915,7 @@ class HTTPClient:
     def delete(url: str, headers: dict = None, timeout: float = 30) -> dict:
         """HTTP DELETE request."""
         import urllib.request
+
         req = urllib.request.Request(url, method='DELETE')
         if headers:
             for k, v in headers.items():
@@ -871,25 +931,31 @@ class HTTPClient:
 # Convenience Constructors (for EPL builtins)
 # ═══════════════════════════════════════════════════════════
 
+
 def create_database(dialect='sqlite', database=':memory:', **kwargs):
     """Create a database connection with ORM."""
     return Database(dialect, database, **kwargs)
+
 
 def create_socket(protocol='tcp'):
     """Create a network socket."""
     return EPLSocket(protocol)
 
+
 def http_get(url, headers=None):
     """Quick HTTP GET."""
     return HTTPClient.get(url, headers)
+
 
 def http_post(url, body='', headers=None):
     """Quick HTTP POST."""
     return HTTPClient.post(url, body, headers)
 
+
 def http_put(url, body='', headers=None):
     """Quick HTTP PUT."""
     return HTTPClient.put(url, body, headers)
+
 
 def http_delete(url, headers=None):
     """Quick HTTP DELETE."""

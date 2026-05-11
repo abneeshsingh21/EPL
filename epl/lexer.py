@@ -4,8 +4,8 @@ Converts EPL source code into a stream of tokens.
 Handles English keywords, multi-word phrases, symbolic operators, and literals.
 """
 
-from epl.tokens import Token, TokenType, KEYWORDS, MULTI_WORD_KEYWORDS
 from epl.errors import LexerError
+from epl.tokens import KEYWORDS, MULTI_WORD_KEYWORDS, Token, TokenType
 
 
 class Lexer:
@@ -52,7 +52,7 @@ class Lexer:
                 continue
 
             # Comments: Note: ...
-            if ch.lower() == 'n' and self._match_word("note"):
+            if ch.lower() == 'n' and self._match_word('note'):
                 if self.pos + 4 < len(self.source) and self.source[self.pos + 4] == ':':
                     self._skip_comment()
                     continue
@@ -75,7 +75,9 @@ class Lexer:
             # Symbolic operators
             if ch == '+':
                 if self._peek_next() == '=':
-                    self.tokens.append(Token(TokenType.OP_PLUS_ASSIGN, '+=', self.line, self.column))
+                    self.tokens.append(
+                        Token(TokenType.OP_PLUS_ASSIGN, '+=', self.line, self.column)
+                    )
                     self._advance()
                     self._advance()
                 else:
@@ -88,7 +90,9 @@ class Lexer:
                     self._advance()
                     self._advance()
                 elif self._peek_next() == '=':
-                    self.tokens.append(Token(TokenType.OP_MINUS_ASSIGN, '-=', self.line, self.column))
+                    self.tokens.append(
+                        Token(TokenType.OP_MINUS_ASSIGN, '-=', self.line, self.column)
+                    )
                     self._advance()
                     self._advance()
                 else:
@@ -147,7 +151,7 @@ class Lexer:
                     self._advance()
                     self._advance()
                 else:
-                    raise LexerError(f'Unexpected character "!"', self.line, self.column)
+                    raise LexerError('Unexpected character "!"', self.line, self.column)
                 continue
             if ch == '>':
                 if self._peek_next() == '=':
@@ -242,7 +246,7 @@ class Lexer:
         end = self.pos + len(word)
         if end > len(self.source):
             return False
-        if self.source[self.pos:end].lower() != word:
+        if self.source[self.pos : end].lower() != word:
             return False
         # Make sure it's a full word (not part of a larger identifier)
         if end < len(self.source) and (self.source[end].isalnum() or self.source[end] == '_'):
@@ -260,8 +264,7 @@ class Lexer:
         start_col = self.column
 
         # Check for triple-quote (multi-line string)
-        if (self.pos + 2 < len(self.source)
-                and self.source[self.pos:self.pos + 3] == '"""'):
+        if self.pos + 2 < len(self.source) and self.source[self.pos : self.pos + 3] == '"""':
             self._read_triple_string(start_line, start_col)
             return
 
@@ -287,7 +290,9 @@ class Lexer:
                     self._advance()
                 continue
             if ch == '\n':
-                raise LexerError('String literal not closed before end of line.', start_line, start_col)
+                raise LexerError(
+                    'String literal not closed before end of line.', start_line, start_col
+                )
             result.append(ch)
             self._advance()
 
@@ -303,9 +308,12 @@ class Lexer:
         while self.pos < len(self.source):
             ch = self.source[self.pos]
             # Check for closing triple-quote
-            if (ch == '"' and self.pos + 2 < len(self.source)
-                    and self.source[self.pos + 1] == '"'
-                    and self.source[self.pos + 2] == '"'):
+            if (
+                ch == '"'
+                and self.pos + 2 < len(self.source)
+                and self.source[self.pos + 1] == '"'
+                and self.source[self.pos + 2] == '"'
+            ):
                 self._advance()  # skip first "
                 self._advance()  # skip second "
                 self._advance()  # skip third "
@@ -329,16 +337,30 @@ class Lexer:
             result.append(ch)
             self._advance()
 
-        raise LexerError('Triple-quoted string not closed before end of file.', start_line, start_col)
+        raise LexerError(
+            'Triple-quoted string not closed before end of file.', start_line, start_col
+        )
 
     def _resolve_escape(self, escape_char: str, start_line: int, start_col: int) -> str:
         """Resolve an escape sequence character. Returns the resolved char or None for unknown."""
-        simple = {'n': '\n', 't': '\t', '"': '"', '\\': '\\', 'r': '\r', '0': '\0', '$': '$', 'a': '\a', 'b': '\b', 'f': '\f', 'v': '\v'}
+        simple = {
+            'n': '\n',
+            't': '\t',
+            '"': '"',
+            '\\': '\\',
+            'r': '\r',
+            '0': '\0',
+            '$': '$',
+            'a': '\a',
+            'b': '\b',
+            'f': '\f',
+            'v': '\v',
+        }
         if escape_char in simple:
             return simple[escape_char]
         # \xNN hex escape
         if escape_char == 'x':
-            hex_str = self.source[self.pos + 1:self.pos + 3]
+            hex_str = self.source[self.pos + 1 : self.pos + 3]
             if len(hex_str) == 2 and all(c in '0123456789abcdefABCDEF' for c in hex_str):
                 self._advance()  # skip first hex digit
                 self._advance()  # skip second hex digit
@@ -346,7 +368,7 @@ class Lexer:
             raise LexerError(f'Invalid hex escape "\\x{hex_str}".', start_line, start_col)
         # \uXXXX unicode escape
         if escape_char == 'u':
-            uni_str = self.source[self.pos + 1:self.pos + 5]
+            uni_str = self.source[self.pos + 1 : self.pos + 5]
             if len(uni_str) == 4 and all(c in '0123456789abcdefABCDEF' for c in uni_str):
                 for _ in range(4):
                     self._advance()
@@ -377,7 +399,12 @@ class Lexer:
             if ch.isdigit():
                 num_str.append(ch)
                 self._advance()
-            elif ch == '_' and num_str and self.pos + 1 < len(self.source) and self.source[self.pos + 1].isdigit():
+            elif (
+                ch == '_'
+                and num_str
+                and self.pos + 1 < len(self.source)
+                and self.source[self.pos + 1].isdigit()
+            ):
                 self._advance()  # skip underscore separator
             elif ch == '.' and not has_dot:
                 # Check if next char is a digit (decimal point vs statement dot)
@@ -406,13 +433,22 @@ class Lexer:
             if ch in valid_chars:
                 digits.append(ch)
                 self._advance()
-            elif ch == '_' and digits and self.pos + 1 < len(self.source) and self.source[self.pos + 1] in valid_chars:
+            elif (
+                ch == '_'
+                and digits
+                and self.pos + 1 < len(self.source)
+                and self.source[self.pos + 1] in valid_chars
+            ):
                 self._advance()  # skip underscore separator
             else:
                 break
         if not digits:
-            raise LexerError(f'Invalid {prefix} literal: no digits after prefix.', self.line, start_col)
-        self.tokens.append(Token(TokenType.NUMBER, int(''.join(digits), base), self.line, start_col))
+            raise LexerError(
+                f'Invalid {prefix} literal: no digits after prefix.', self.line, start_col
+            )
+        self.tokens.append(
+            Token(TokenType.NUMBER, int(''.join(digits), base), self.line, start_col)
+        )
 
     def _read_identifier(self):
         """Read an identifier or keyword."""
@@ -459,8 +495,10 @@ class Lexer:
                             break
                     if match:
                         # Merge into single token
-                        combined_value = ' '.join(str(t.value) for t in tokens[i:i + phrase_len])
-                        result.append(Token(token_type, combined_value, tokens[i].line, tokens[i].column))
+                        combined_value = ' '.join(str(t.value) for t in tokens[i : i + phrase_len])
+                        result.append(
+                            Token(token_type, combined_value, tokens[i].line, tokens[i].column)
+                        )
                         i += phrase_len
                         matched = True
                         break

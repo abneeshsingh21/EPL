@@ -15,6 +15,7 @@ from epl.syntax_reference import get_syntax_sections, get_syntax_text
 
 # ── Public API ───────────────────────────────────────────
 
+
 def generate_from_description(description: str) -> str:
     """Generate EPL code from an English description. Returns parse-checked EPL source."""
     return assist_request(description, mode='generate')['code']
@@ -65,7 +66,7 @@ def analyze_code(code: str, strict: bool = False) -> dict:
     }
 
 
-def assist_request(message: str, current_code: str = "", mode: str = "auto") -> dict:
+def assist_request(message: str, current_code: str = '', mode: str = 'auto') -> dict:
     """Generate, explain, fix, or improve EPL code with syntax-aware diagnostics."""
     prompt = message.strip()
     code = _normalize_code_block(current_code)
@@ -97,7 +98,9 @@ def assist_request(message: str, current_code: str = "", mode: str = "auto") -> 
                 'syntax_ok': repaired_analysis['syntax_ok'],
                 'diagnostics': repaired_analysis['diagnostics'],
                 'repair_notes': repair_notes,
-                'syntax_sections': _select_syntax_sections(prompt, repaired, repaired_analysis['diagnostics']),
+                'syntax_sections': _select_syntax_sections(
+                    prompt, repaired, repaired_analysis['diagnostics']
+                ),
             }
 
         analysis = analyze_code(code)
@@ -183,7 +186,9 @@ def _validate_generated_code(code: str, description: str):
 
     safe_fallback = _fallback(description.lower(), description.strip())
     fallback_analysis = analyze_code(safe_fallback)
-    notes = repair_notes + ['Fell back to a safe starter because the first draft did not parse cleanly.']
+    notes = repair_notes + [
+        'Fell back to a safe starter because the first draft did not parse cleanly.'
+    ]
     return safe_fallback, fallback_analysis, notes
 
 
@@ -200,11 +205,15 @@ def _repair_common_syntax_mistakes(code: str):
         notes.append('Converted // comments into EPL Note: comments.')
 
     if re.search(r'^\s*Else If\b', repaired, re.IGNORECASE | re.MULTILINE):
-        repaired = re.sub(r'^(\s*)Else If\b', r'\1Otherwise If', repaired, flags=re.IGNORECASE | re.MULTILINE)
+        repaired = re.sub(
+            r'^(\s*)Else If\b', r'\1Otherwise If', repaired, flags=re.IGNORECASE | re.MULTILINE
+        )
         notes.append('Replaced Else If with EPL Otherwise If.')
 
     if re.search(r'^\s*Else\b', repaired, re.IGNORECASE | re.MULTILINE):
-        repaired = re.sub(r'^(\s*)Else\b', r'\1Otherwise', repaired, flags=re.IGNORECASE | re.MULTILINE)
+        repaired = re.sub(
+            r'^(\s*)Else\b', r'\1Otherwise', repaired, flags=re.IGNORECASE | re.MULTILINE
+        )
         notes.append('Replaced Else with EPL Otherwise.')
 
     if ';' in repaired:
@@ -243,13 +252,15 @@ def _normalize_type_diagnostics(items):
     normalized = []
     for item in items:
         start = item.get('range', {}).get('start', {})
-        normalized.append({
-            'level': severity_map.get(item.get('severity', 2), 'warning'),
-            'source': item.get('source', 'typecheck'),
-            'message': item.get('message', ''),
-            'line': start.get('line', 0) + 1,
-            'code': item.get('code', ''),
-        })
+        normalized.append(
+            {
+                'level': severity_map.get(item.get('severity', 2), 'warning'),
+                'source': item.get('source', 'typecheck'),
+                'message': item.get('message', ''),
+                'line': start.get('line', 0) + 1,
+                'code': item.get('code', ''),
+            }
+        )
     return normalized
 
 
@@ -258,32 +269,36 @@ def _summarize_diagnostics(diagnostics, limit=3):
         return 'No syntax issues found.'
     parts = []
     for diag in diagnostics[:limit]:
-        line = f"line {diag['line']}" if diag.get('line') else 'unknown line'
-        parts.append(f"{line}: {diag['message']}")
+        line = f'line {diag["line"]}' if diag.get('line') else 'unknown line'
+        parts.append(f'{line}: {diag["message"]}')
     if len(diagnostics) > limit:
-        parts.append(f"... and {len(diagnostics) - limit} more issue(s)")
+        parts.append(f'... and {len(diagnostics) - limit} more issue(s)')
     return '; '.join(parts)
 
 
 def _build_generation_reply(prompt: str, analysis: dict, repair_notes):
     subject = _infer_subject(prompt)
-    status = 'The starter parses cleanly.' if analysis['syntax_ok'] else 'The starter still needs manual review.'
+    status = (
+        'The starter parses cleanly.'
+        if analysis['syntax_ok']
+        else 'The starter still needs manual review.'
+    )
     details = _summarize_diagnostics(analysis['diagnostics'], limit=2)
-    extra = f" Repairs applied: {' '.join(repair_notes)}" if repair_notes else ""
-    return f"Generated a syntax-aware EPL {subject} starter. {status} Diagnostics: {details}.{extra}".strip()
+    extra = f' Repairs applied: {" ".join(repair_notes)}' if repair_notes else ''
+    return f'Generated a syntax-aware EPL {subject} starter. {status} Diagnostics: {details}.{extra}'.strip()
 
 
 def _build_fix_reply(analysis: dict, repair_notes, auto_fixed: bool):
     if auto_fixed:
-        extra = f" Applied: {' '.join(repair_notes)}" if repair_notes else ""
-        return f"I repaired common EPL syntax issues and revalidated the code. Diagnostics: {_summarize_diagnostics(analysis['diagnostics'], limit=2)}.{extra}".strip()
+        extra = f' Applied: {" ".join(repair_notes)}' if repair_notes else ''
+        return f'I repaired common EPL syntax issues and revalidated the code. Diagnostics: {_summarize_diagnostics(analysis["diagnostics"], limit=2)}.{extra}'.strip()
     guidance = _summarize_diagnostics(analysis['diagnostics'], limit=3)
     syntax_text = get_syntax_text()
     return (
-        f"I could not safely auto-rewrite everything, but I found these issues: {guidance}. "
-        f"Use parser-supported forms such as Note: comments, Otherwise instead of Else, "
-        f"Function name takes arg, and Create WebApp called myApp for web starters.\n\n"
-        f"{syntax_text}"
+        f'I could not safely auto-rewrite everything, but I found these issues: {guidance}. '
+        f'Use parser-supported forms such as Note: comments, Otherwise instead of Else, '
+        f'Function name takes arg, and Create WebApp called myApp for web starters.\n\n'
+        f'{syntax_text}'
     )
 
 
@@ -303,18 +318,18 @@ def _build_explain_reply(code: str, analysis: dict):
     if not features:
         features.append('core EPL statements')
     return (
-        f"This code uses {', '.join(features)}. "
-        f"Syntax diagnostics: {_summarize_diagnostics(analysis['diagnostics'], limit=3)}"
+        f'This code uses {", ".join(features)}. '
+        f'Syntax diagnostics: {_summarize_diagnostics(analysis["diagnostics"], limit=3)}'
     )
 
 
 def _build_improve_reply(analysis: dict, repair_notes):
     if analysis['syntax_ok']:
-        base = "The code already parses. Keep using parser-safe forms like Note:, Otherwise, Map with, and Route ... shows/responds with."
+        base = 'The code already parses. Keep using parser-safe forms like Note:, Otherwise, Map with, and Route ... shows/responds with.'
     else:
-        base = f"The code needs syntax cleanup first. Diagnostics: {_summarize_diagnostics(analysis['diagnostics'], limit=3)}"
+        base = f'The code needs syntax cleanup first. Diagnostics: {_summarize_diagnostics(analysis["diagnostics"], limit=3)}'
     if repair_notes:
-        base += f" Applied: {' '.join(repair_notes)}"
+        base += f' Applied: {" ".join(repair_notes)}'
     return base
 
 
@@ -340,7 +355,16 @@ def _select_syntax_sections(message: str, code: str, diagnostics):
     section_keywords = {
         'web': ['webapp', 'route', '/api', 'send json', 'request_data', 'fetch '],
         'functions': ['function', 'return', 'call ', '(', 'lambda', '->'],
-        'control_flow': ['otherwise', 'else', 'while', 'repeat', 'for each', 'for ', 'match', 'when'],
+        'control_flow': [
+            'otherwise',
+            'else',
+            'while',
+            'repeat',
+            'for each',
+            'for ',
+            'match',
+            'when',
+        ],
         'collections': ['map with', '[', ']', 'keys(', 'values(', 'items'],
         'imports': ['import ', 'use python', 'json', 'module'],
         'oop': ['class', 'new ', 'this', 'super', '.'],
@@ -367,7 +391,7 @@ def _select_syntax_sections(message: str, code: str, diagnostics):
 def start_copilot_web(port: int = 8095, open_browser: bool = True):
     """Start the EPL Copilot web interface."""
     import json
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
     class CopilotHandler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -412,42 +436,44 @@ def start_copilot_web(port: int = 8095, open_browser: bool = True):
             pass
 
     server = HTTPServer(('127.0.0.1', port), CopilotHandler)
-    print(f"  EPL Copilot running at http://127.0.0.1:{port}")
-    print("  Press Ctrl+C to stop")
+    print(f'  EPL Copilot running at http://127.0.0.1:{port}')
+    print('  Press Ctrl+C to stop')
     if open_browser:
         try:
             import webbrowser
+
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
             pass
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n  Copilot stopped.")
+        print('\n  Copilot stopped.')
         server.server_close()
 
 
 def run_copilot_interactive():
     """Run the copilot in interactive CLI mode."""
-    print("  EPL AI Copilot (offline, template-based)")
+    print('  EPL AI Copilot (offline, template-based)')
     print("  Describe what you want in English. Type 'quit' to exit.\n")
     while True:
         try:
-            desc = input("  Describe: ").strip()
+            desc = input('  Describe: ').strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n  Bye!")
+            print('\n  Bye!')
             break
         if desc.lower() in ('quit', 'exit', 'q'):
             break
         if not desc:
             continue
         code = generate_from_description(desc)
-        print(f"\n{'─' * 50}")
+        print(f'\n{"─" * 50}')
         print(code)
-        print(f"{'─' * 50}\n")
+        print(f'{"─" * 50}\n')
 
 
 # ── Pattern Matchers ─────────────────────────────────────
+
 
 def _match_hello(desc, orig):
     if re.search(r'hello\s*world|greet|welcome|say\s+hi', desc):
@@ -455,9 +481,10 @@ def _match_hello(desc, orig):
 display "Welcome to EPL!"'''
     return None
 
+
 def _match_calculator(desc, orig):
     if re.search(r'calculator|calc|arithmetic|basic\s*math', desc):
-        return '''display "=== EPL Calculator ==="
+        return """display "=== EPL Calculator ==="
 
 function add takes a and b
     return a + b
@@ -482,13 +509,14 @@ end
 display "10 + 5 = " + add(10, 5)
 display "10 - 5 = " + subtract(10, 5)
 display "10 * 5 = " + multiply(10, 5)
-display "10 / 5 = " + divide(10, 5)'''
+display "10 / 5 = " + divide(10, 5)"""
     return None
+
 
 def _match_fibonacci(desc, orig):
     if re.search(r'fibonacci|fib\b', desc):
         n = _extract_number(desc, 10)
-        return f'''function fibonacci takes n
+        return f"""function fibonacci takes n
     if n <= 1 then
         return n
     end
@@ -498,13 +526,14 @@ end
 display "Fibonacci sequence:"
 for i from 0 to {n}
     display "fib(" + i + ") = " + fibonacci(i)
-end'''
+end"""
     return None
+
 
 def _match_factorial(desc, orig):
     if re.search(r'factorial', desc):
         n = _extract_number(desc, 10)
-        return f'''function factorial takes n
+        return f"""function factorial takes n
     if n <= 1 then
         return 1
     end
@@ -513,13 +542,14 @@ end
 
 for i from 1 to {n}
     display i + "! = " + factorial(i)
-end'''
+end"""
     return None
+
 
 def _match_fizzbuzz(desc, orig):
     if re.search(r'fizz\s*buzz', desc):
         n = _extract_number(desc, 100)
-        return f'''for i from 1 to {n}
+        return f"""for i from 1 to {n}
     if i % 15 == 0 then
         display "FizzBuzz"
     otherwise if i % 3 == 0 then
@@ -529,12 +559,13 @@ def _match_fizzbuzz(desc, orig):
     otherwise
         display i
     end
-end'''
+end"""
     return None
+
 
 def _match_sort(desc, orig):
     if re.search(r'sort|bubble\s*sort|sorting', desc):
-        return '''function bubbleSort takes arr
+        return """function bubbleSort takes arr
     set n to length(arr)
     for i from 0 to n - 1
         for j from 0 to n - i - 2
@@ -551,12 +582,13 @@ end
 set numbers to [64, 34, 25, 12, 22, 11, 90]
 display "Before: " + numbers
 set sorted to bubbleSort(numbers)
-display "After: " + sorted'''
+display "After: " + sorted"""
     return None
+
 
 def _match_search(desc, orig):
     if re.search(r'search|find|binary\s*search|linear\s*search', desc):
-        return '''function linearSearch takes arr and target
+        return """function linearSearch takes arr and target
     for i from 0 to length(arr) - 1
         if arr[i] == target then
             return i
@@ -584,12 +616,13 @@ end
 set data to [2, 5, 8, 12, 16, 23, 38, 45, 67, 91]
 display "Data: " + data
 display "Linear search for 23: index " + linearSearch(data, 23)
-display "Binary search for 23: index " + binarySearch(data, 23)'''
+display "Binary search for 23: index " + binarySearch(data, 23)"""
     return None
+
 
 def _match_guess_game(desc, orig):
     if re.search(r'guess|guessing\s*game|number\s*game', desc):
-        return '''display "=== Number Guessing Game ==="
+        return """display "=== Number Guessing Game ==="
 set secret to random(1, 100)
 set attempts to 0
 set found to false
@@ -607,12 +640,13 @@ while not found
     otherwise
         display "Too high! Try again."
     end
-end'''
+end"""
     return None
+
 
 def _match_list_ops(desc, orig):
     if re.search(r'list|array|collection|stack|queue', desc):
-        return '''display "=== List Operations ==="
+        return """display "=== List Operations ==="
 
 set fruits to ["apple", "banana", "cherry", "date"]
 display "Fruits: " + fruits
@@ -630,8 +664,9 @@ display "Updated: " + fruits
 
 display "\\nSorted:"
 set sorted to sorted(fruits)
-display sorted'''
+display sorted"""
     return None
+
 
 def _match_class(desc, orig):
     if re.search(r'\bclass\b|\bobject\b|\boop\b|\banimal\b|\bperson\b|\bstudent\b|\bcar\b', desc):
@@ -644,13 +679,20 @@ def _match_class(desc, orig):
             'Animal': ('name', '"Unknown"', 'sound', '"..."', 'speak', 'name + " says " + sound'),
             'Person': ('name', '"John"', 'age', '0', 'greet', '"Hello, I am " + name'),
             'Student': ('name', '"Alice"', 'grade', '"A"', 'info', 'name + " - Grade: " + grade'),
-            'Car': ('brand', '"Toyota"', 'speed', '0', 'describe', 'brand + " at " + speed + " mph"'),
+            'Car': (
+                'brand',
+                '"Toyota"',
+                'speed',
+                '0',
+                'describe',
+                'brand + " at " + speed + " mph"',
+            ),
             'Dog': ('name', '"Rex"', 'breed', '"Unknown"', 'bark', 'name + " says Woof!"'),
             'Cat': ('name', '"Whiskers"', 'color', '"gray"', 'meow', 'name + " says Meow!"'),
             'Player': ('name', '"Player1"', 'score', '0', 'status', 'name + ": " + score + " pts"'),
         }
         p = props.get(name, ('name', '"Unknown"', 'value', '0', 'info', 'name + ": " + value'))
-        return f'''class {name}
+        return f"""class {name}
     set {p[0]} to {p[1]}
     set {p[2]} to {p[3]}
 
@@ -661,8 +703,9 @@ end
 
 set obj to new {name}
 obj.{p[0]} = "Example"
-obj.{p[4]}()'''
+obj.{p[4]}()"""
     return None
+
 
 def _match_loop(desc, orig):
     if re.search(r'loop|count|iterate|repeat|for\b|while\b', desc):
@@ -688,9 +731,10 @@ end
 display "Done!"'''
     return None
 
+
 def _match_string(desc, orig):
     if re.search(r'string|text|reverse\s*(a\s+)?string|palindrome|char', desc):
-        return '''function reverseString takes s
+        return """function reverseString takes s
     set result to ""
     set i to length(s) - 1
     while i >= 0
@@ -711,13 +755,14 @@ display "Is palindrome: " + isPalindrome(word)
 
 set word2 to "hello"
 display "\\n" + word2 + " reversed: " + reverseString(word2)
-display "Is palindrome: " + isPalindrome(word2)'''
+display "Is palindrome: " + isPalindrome(word2)"""
     return None
+
 
 def _match_prime(desc, orig):
     if re.search(r'prime|primes|sieve', desc):
         n = _extract_number(desc, 50)
-        return f'''function isPrime takes n
+        return f"""function isPrime takes n
     if n < 2 then
         return false
     end
@@ -736,8 +781,9 @@ for i from 2 to {n}
     if isPrime(i) then
         display i
     end
-end'''
+end"""
     return None
+
 
 def _match_error_handling(desc, orig):
     if re.search(r'try|catch|error|exception|handle', desc):
@@ -761,9 +807,10 @@ end
 display "\\nProgram continues safely!"'''
     return None
 
+
 def _match_dictionary(desc, orig):
     if re.search(r'dict|map|hash|key.*value|phone\s*book|contacts', desc):
-        return '''display "=== Dictionary Operations ==="
+        return """display "=== Dictionary Operations ==="
 
 set person to map with name = "Alice" and age = 30 and city = "NYC"
 display "Person: " + person
@@ -776,12 +823,13 @@ display "Updated: " + person
 display "\\nAll keys:"
 for each key in keys(person)
     display "  " + key
-end'''
+end"""
     return None
+
 
 def _match_file(desc, orig):
     if re.search(r'file|read|write|save|load|io\b', desc):
-        return '''display "=== File Operations ==="
+        return """display "=== File Operations ==="
 
 set content to "Hello from EPL!\\nThis is line 2.\\nThis is line 3."
 write content to file "output.txt"
@@ -794,12 +842,13 @@ append "\\nAppended line!" to file "output.txt"
 display "Appended to file"
 
 set updated to read file "output.txt"
-display "Updated content: " + updated'''
+display "Updated content: " + updated"""
     return None
+
 
 def _match_math_ops(desc, orig):
     if re.search(r'\bmath\b|square\s*root|\bpower\b|\babs\b|\blog\b|\bpi\b|trigonometry', desc):
-        return '''display "=== Math Operations ==="
+        return """display "=== Math Operations ==="
 
 display "Square root of 144: " + sqrt(144)
 display "Power: 2^10 = " + power(2, 10)
@@ -808,13 +857,14 @@ display "Round 3.7: " + round(3.7)
 display "Min(5,3): " + min(5, 3)
 display "Max(5,3): " + max(5, 3)
 
-display "\\nRandom 1-100: " + random(1, 100)'''
+display "\\nRandom 1-100: " + random(1, 100)"""
     return None
+
 
 def _match_pattern(desc, orig):
     if re.search(r'pattern|star|triangle|pyramid|diamond', desc):
         n = _extract_number(desc, 5)
-        return f'''display "=== Star Patterns ==="
+        return f"""display "=== Star Patterns ==="
 
 display "Right Triangle:"
 for i from 1 to {n}
@@ -836,12 +886,13 @@ for i from 1 to {n}
         set stars to stars + "*"
     end
     display spaces + stars
-end'''
+end"""
     return None
+
 
 def _match_todo(desc, orig):
     if re.search(r'todo|task|to.do|checklist', desc):
-        return '''display "=== Todo List ==="
+        return """display "=== Todo List ==="
 
 set todos to []
 set running to true
@@ -874,12 +925,15 @@ while running
         set running to false
         display "Goodbye!"
     end
-end'''
+end"""
     return None
 
+
 def _match_frontend(desc, orig):
-    if re.search(r'frontend|landing\s*page|dashboard|creative\s*ui|creative\s*ux|hero\s*section', desc):
-        return '''Create WebApp called studioApp
+    if re.search(
+        r'frontend|landing\s*page|dashboard|creative\s*ui|creative\s*ux|hero\s*section', desc
+    ):
+        return """Create WebApp called studioApp
 
 Route "/" shows
     Create hero_title = "Neon Studio"
@@ -904,12 +958,13 @@ Route "/api/theme" responds with
     Send json Map with accent = "#58a6ff" and mode = "creative"
 End
 
-Start studioApp on port 8080'''
+Start studioApp on port 8080"""
     return None
+
 
 def _match_auth(desc, orig):
     if re.search(r'auth|login|register|signup|sign\s*in|sign\s*up', desc):
-        return '''Import "epl-db"
+        return """Import "epl-db"
 
 Create db equal to open(":memory:")
 Call create_table(db, "users", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and username = "TEXT UNIQUE NOT NULL" and password_hash = "TEXT NOT NULL")
@@ -957,12 +1012,13 @@ Route "/api/login" responds with
     Send json response
 End
 
-Start authApp on port 8080'''
+Start authApp on port 8080"""
     return None
+
 
 def _match_chatbot(desc, orig):
     if re.search(r'chatbot|chat\s*bot|ai\s*assistant|assistant\s*api|chat\s*api', desc):
-        return '''Use python "epl.ai" as ai
+        return """Use python "epl.ai" as ai
 
 Create WebApp called chatApp
 
@@ -993,12 +1049,13 @@ Route "/api/chat" responds with
     Send json reply
 End
 
-Start chatApp on port 8080'''
+Start chatApp on port 8080"""
     return None
+
 
 def _match_api_web(desc, orig):
     if re.search(r'api|web\s*app|server|route|http|rest', desc):
-        return '''Create WebApp called myApp
+        return """Create WebApp called myApp
 
 Route "/" shows
     Page "Welcome"
@@ -1020,8 +1077,9 @@ Route "/api/hello" responds with
     Send json Map with message = "Hello from EPL API!" and status = "ok"
 End
 
-Start myApp on port 8080'''
+Start myApp on port 8080"""
     return None
+
 
 def _match_timer(desc, orig):
     if re.search(r'timer|stopwatch|countdown|clock', desc):
@@ -1041,6 +1099,7 @@ display "Time is up!"'''
 
 # ── Helpers ──────────────────────────────────────────────
 
+
 def _extract_number(desc, default):
     """Extract a number from description, or return default."""
     m = re.search(r'\b(\d+)\b', desc)
@@ -1051,14 +1110,61 @@ def _fallback(desc, orig):
     """Generate a best-effort template when no specific pattern matches."""
     # Extract potential variable names from description
     words = re.findall(r'\b[a-z]+\b', desc)
-    nouns = [w for w in words if w not in {
-        'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been',
-        'that', 'this', 'with', 'from', 'for', 'and', 'or', 'but',
-        'in', 'on', 'at', 'to', 'of', 'it', 'do', 'does', 'did',
-        'make', 'create', 'write', 'build', 'program', 'code',
-        'generate', 'me', 'my', 'i', 'can', 'you', 'should', 'would',
-        'could', 'will', 'shall', 'may', 'might', 'have', 'has', 'had',
-    }]
+    nouns = [
+        w
+        for w in words
+        if w
+        not in {
+            'a',
+            'an',
+            'the',
+            'is',
+            'are',
+            'was',
+            'were',
+            'be',
+            'been',
+            'that',
+            'this',
+            'with',
+            'from',
+            'for',
+            'and',
+            'or',
+            'but',
+            'in',
+            'on',
+            'at',
+            'to',
+            'of',
+            'it',
+            'do',
+            'does',
+            'did',
+            'make',
+            'create',
+            'write',
+            'build',
+            'program',
+            'code',
+            'generate',
+            'me',
+            'my',
+            'i',
+            'can',
+            'you',
+            'should',
+            'would',
+            'could',
+            'will',
+            'shall',
+            'may',
+            'might',
+            'have',
+            'has',
+            'had',
+        }
+    ]
     topic = nouns[0] if nouns else 'program'
 
     return f'''Note: Generated from: "{orig}"
@@ -1112,7 +1218,7 @@ _MATCHERS = [
 
 # ── Web UI Template ──────────────────────────────────────
 
-_COPILOT_HTML = r'''<!DOCTYPE html>
+_COPILOT_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1403,4 +1509,4 @@ function escapeHtml(s) {
 </script>
 </body>
 </html>
-'''
+"""

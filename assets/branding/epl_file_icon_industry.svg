@@ -1,0 +1,16 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Perfect Mathematical Geometric E -->
+  <g>
+    <!-- Vertical Stem -->
+    <rect x="36" y="40" width="48" height="176" fill="#0A192F"/>
+    <!-- Top Bar -->
+    <rect x="84" y="40" width="96" height="48" fill="#0A192F"/>
+    <!-- Middle Bar -->
+    <rect x="84" y="104" width="60" height="48" fill="#0A192F"/>
+    <!-- Bottom Bar -->
+    <rect x="84" y="168" width="96" height="48" fill="#0A192F"/>
+  </g>
+
+  <!-- Sharp, Dynamic Electric Blue Slash -->
+  <polygon points="56,236 184,20 232,20 104,236" fill="#007BFF"/>
+</svg>

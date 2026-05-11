@@ -6,6 +6,7 @@ from epl.copilot import analyze_code, assist_request
 from epl.lexer import Lexer
 from epl.parser import Parser
 from epl.playground import _PLAYGROUND_HTML, _assist_playground, _get_syntax_reference
+from epl.syntax_reference import get_syntax_sections
 
 
 def _assert_parses(source: str) -> None:
@@ -14,62 +15,88 @@ def _assert_parses(source: str) -> None:
 
 def test_syntax_reference_exposes_authoritative_sections():
     payload = _get_syntax_reference()
-    section_ids = {section["id"] for section in payload["sections"]}
+    section_ids = {section['id'] for section in payload['sections']}
 
-    assert "Authoritative EPL syntax reference" in payload["text"]
-    assert {"variables", "functions", "web"} <= section_ids
+    assert 'Authoritative EPL syntax reference' in payload['text']
+    assert {'variables', 'functions', 'web'} <= section_ids
+
+
+def test_syntax_reference_examples_are_parseable():
+    for section in get_syntax_sections():
+        for example in section['examples']:
+            _assert_parses(example)
 
 
 def test_analyze_code_reports_parser_diagnostics():
     analysis = analyze_code('If True Then\n    Say "ok"\nElse\n    Say "bad"\nEnd\n')
 
-    assert analysis["syntax_ok"] is False
-    assert analysis["diagnostics"]
-    assert any(diag["level"] == "error" for diag in analysis["diagnostics"])
+    assert analysis['syntax_ok'] is False
+    assert analysis['diagnostics']
+    assert any(diag['level'] == 'error' for diag in analysis['diagnostics'])
 
 
 def test_assist_request_generates_parseable_chatbot_starter():
-    result = assist_request("build a chatbot api assistant", mode="generate")
+    result = assist_request('build a chatbot api assistant', mode='generate')
 
-    assert result["mode"] == "generate"
-    assert result["syntax_ok"] is True
-    assert 'Route "/api/chat" responds with' in result["code"]
-    assert any(section["id"] == "web" for section in result["syntax_sections"])
-    _assert_parses(result["code"])
+    assert result['mode'] == 'generate'
+    assert result['syntax_ok'] is True
+    assert 'Route "/api/chat" responds with' in result['code']
+    assert any(section['id'] == 'web' for section in result['syntax_sections'])
+    _assert_parses(result['code'])
 
 
 def test_assist_request_repairs_common_else_syntax():
     broken = 'If True Then\n    Say "A"\nElse\n    Say "B"\nEnd\n'
 
-    result = assist_request("fix this code", current_code=broken, mode="fix")
+    result = assist_request('fix this code', current_code=broken, mode='fix')
 
-    assert result["mode"] == "fix"
-    assert result["syntax_ok"] is True
-    assert "Otherwise" in result["code"]
-    _assert_parses(result["code"])
+    assert result['mode'] == 'fix'
+    assert result['syntax_ok'] is True
+    assert 'Otherwise' in result['code']
+    _assert_parses(result['code'])
 
 
 def test_playground_assistant_uses_syntax_aware_generation():
-    result = _assist_playground("creative frontend landing page", mode="generate")
+    result = _assist_playground('creative frontend landing page', mode='generate')
 
-    assert result["syntax_ok"] is True
-    assert "Create WebApp called" in result["code"]
-    assert result["syntax_sections"]
-    _assert_parses(result["code"])
+    assert result['syntax_ok'] is True
+    assert 'Create WebApp called' in result['code']
+    assert result['syntax_sections']
+    _assert_parses(result['code'])
 
 
 def test_playground_html_exposes_assistant_ui():
-    assert "/api/assist" in _PLAYGROUND_HTML
-    assert "Real EPL Syntax" in _PLAYGROUND_HTML
-    assert "Apply To Editor" in _PLAYGROUND_HTML
+    assert '/api/assist' in _PLAYGROUND_HTML
+    assert 'Real EPL Syntax' in _PLAYGROUND_HTML
+    assert 'Apply To Editor' in _PLAYGROUND_HTML
 
 
 def test_docs_playground_routes_only_to_explicit_ai_providers():
-    html = Path("docs/playground.html").read_text(encoding="utf-8")
+    html = Path('docs/playground.html').read_text(encoding='utf-8')
 
     assert 'value="groq"' in html
     assert 'value="gemini"' in html
-    assert "requestGroqAssistant" in html
-    assert "requestGeminiAssistant" in html
-    assert "requestProxyAssistant" in html
-    assert "text.pollinations.ai" not in html
+    assert 'requestGroqAssistant' in html
+    assert 'requestGeminiAssistant' in html
+    assert 'requestProxyAssistant' in html
+    assert 'text.pollinations.ai' not in html
+
+
+def test_docs_playground_matches_current_runtime_contract():
+    html = Path('docs/playground.html').read_text(encoding='utf-8')
+
+    assert 'eplang latest' in html
+    assert 'v7.4.4' not in html
+    assert 'epl.type_system' not in html
+    assert 'Monkeypatch' not in html
+    assert 'mode: "epl"' in html
+    assert 'JSON.stringify(eplCode)' in html
+    assert 'JSON.stringify(code)' in html
+    assert 'Installing eplang from PyPI' in html
+
+
+def test_docs_landing_page_advertises_current_playground_version():
+    html = Path('docs/index.html').read_text(encoding='utf-8')
+
+    assert 'EPL v7.5.1 IS LIVE!' in html
+    assert 'EPL v7.4.4 IS LIVE!' not in html

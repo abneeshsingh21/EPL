@@ -6,47 +6,68 @@ match/when, dictionaries, index access, for-range, import, python bridge,
 wait, exit, constants, assert.
 """
 
+import concurrent.futures as _futures
+import importlib as _importlib
+import os as _os
 import random as _random
 import re as _re
-import time as _time
-import sys as _sys
-import os as _os
-import importlib as _importlib
 import subprocess as _subprocess
-import concurrent.futures as _futures
+import sys as _sys
 import threading as _threading
-import functools as _functools
+import time as _time
 
 from epl import ast_nodes as ast
 from epl.environment import Environment
 from epl.errors import (
-    RuntimeError as EPLRuntimeError,
-    TypeError as EPLTypeError,
-    NameError as EPLNameError,
     EPLError,
     _did_you_mean,
+)
+from epl.errors import (
+    NameError as EPLNameError,
+)
+from epl.errors import (
+    RuntimeError as EPLRuntimeError,
+)
+from epl.errors import (
+    TypeError as EPLTypeError,
 )
 from epl.stdlib import STDLIB_FUNCTIONS, call_stdlib
 
 # Builtins disabled in safe/sandbox mode
-_UNSAFE_BUILTINS = frozenset({
-    'exec', 'exec_output', 'file_write', 'file_delete', 'file_append',
-    'dir_delete', 'dir_create', 'chdir', 'env_set', 'env_get',
-    'download', 'http_get', 'http_post',
-})
+_UNSAFE_BUILTINS = frozenset(
+    {
+        'exec',
+        'exec_output',
+        'file_write',
+        'file_delete',
+        'file_append',
+        'dir_delete',
+        'dir_create',
+        'chdir',
+        'env_set',
+        'env_get',
+        'download',
+        'http_get',
+        'http_post',
+    }
+)
 
 
 # ─── Signals ─────────────────────────────────────────────
+
 
 class ReturnSignal(Exception):
     def __init__(self, value):
         self.value = value
 
+
 class BreakSignal(Exception):
     pass
 
+
 class ContinueSignal(Exception):
     pass
+
 
 class ExitSignal(Exception):
     pass
@@ -59,12 +80,14 @@ import asyncio as _asyncio
 # Lazy thread pool — created on first use to avoid wasting threads on import
 _thread_pool = None
 
+
 def _get_thread_pool():
     """Get or create the shared thread pool (lazy initialization)."""
     global _thread_pool
     if _thread_pool is None:
         _thread_pool = _futures.ThreadPoolExecutor(max_workers=16)
     return _thread_pool
+
 
 # Dedicated event loop running in a background thread for true async I/O
 _async_loop = None
@@ -92,6 +115,7 @@ def _get_async_loop():
 
 class EPLFuture:
     """Wraps a concurrent.futures.Future or asyncio.Future for EPL async/await."""
+
     def __init__(self, future, name='<async>'):
         self.future = future
         self.name = name
@@ -99,9 +123,7 @@ class EPLFuture:
     def result(self, timeout=None):
         if isinstance(self.future, _asyncio.Task):
             loop = _get_async_loop()
-            concurrent_future = _asyncio.run_coroutine_threadsafe(
-                self._await_task(), loop
-            )
+            concurrent_future = _asyncio.run_coroutine_threadsafe(self._await_task(), loop)
             return concurrent_future.result(timeout=timeout)
         return self.future.result(timeout=timeout)
 
@@ -114,7 +136,7 @@ class EPLFuture:
         return self.future.done()
 
     def __repr__(self):
-        return f"<future:{self.name}>"
+        return f'<future:{self.name}>'
 
 
 class EPLGenerator:
@@ -123,6 +145,7 @@ class EPLGenerator:
     Uses a background thread with synchronization events to implement
     cooperative suspend/resume at yield points.
     """
+
     _active_generators = []
     _gen_lock = _threading.Lock()
 
@@ -238,11 +261,12 @@ class EPLGenerator:
             g.close()
 
     def __repr__(self):
-        return f"<generator:{self.name}>"
+        return f'<generator:{self.name}>'
 
 
 class _GeneratorClose(BaseException):
     """Signal to terminate a generator thread cleanly."""
+
     pass
 
 
@@ -255,6 +279,7 @@ class RouteResponseSignal(Exception):
 
 
 # ─── OOP Runtime ─────────────────────────────────────────
+
 
 class EPLClass:
     def __init__(self, name, defaults, methods, parent=None, visibility_map=None):
@@ -273,7 +298,7 @@ class EPLClass:
         return 'public'  # default is public
 
     def __repr__(self):
-        return f"<class {self.name}>"
+        return f'<class {self.name}>'
 
 
 class EPLInstance:
@@ -296,10 +321,11 @@ class EPLInstance:
         return None
 
     def __repr__(self):
-        return f"<{self.klass.name} instance>"
+        return f'<{self.klass.name} instance>'
 
 
 # ─── Dictionary Runtime ──────────────────────────────────
+
 
 class EPLDict:
     def __init__(self, data=None):
@@ -311,8 +337,10 @@ class EPLDict:
 
 # ─── Python Bridge Wrapper ───────────────────────────────
 
+
 class PythonModule:
     """Wraps a Python module/class/namespace for use in EPL with deep attribute chaining."""
+
     def __init__(self, module, name):
         self.module = module
         self.name = name
@@ -321,28 +349,29 @@ class PythonModule:
         """Get attribute, wrapping sub-modules and classes for chaining.
         Raises AttributeError for missing attributes instead of returning None."""
         if not hasattr(self.module, attr_name):
-            raise AttributeError(
-                f'{self.name} has no attribute "{attr_name}".'
-            )
+            raise AttributeError(f'{self.name} has no attribute "{attr_name}".')
         attr = getattr(self.module, attr_name)
         # Wrap sub-modules and classes so chaining works: mod.sub.func()
-        if isinstance(attr, type) or (hasattr(attr, '__module__') and hasattr(attr, '__dict__') and not callable(attr)):
-            return PythonModule(attr, f"{self.name}.{attr_name}")
+        if isinstance(attr, type) or (
+            hasattr(attr, '__module__') and hasattr(attr, '__dict__') and not callable(attr)
+        ):
+            return PythonModule(attr, f'{self.name}.{attr_name}')
         return attr
 
     def __repr__(self):
-        return f"<python module {self.name}>"
+        return f'<python module {self.name}>'
 
 
 class EPLLambda:
     """Runtime representation of a lambda expression."""
+
     def __init__(self, params, body_node, closure_env):
         self.params = params
         self.body_node = body_node
         self.closure_env = closure_env
 
     def __repr__(self):
-        return f"<lambda({', '.join(self.params)})>"
+        return f'<lambda({", ".join(self.params)})>'
 
 
 # ─── Deprecation Registry ────────────────────────────────
@@ -365,8 +394,9 @@ def _check_deprecation(name: str, line: int = None):
         return
     _deprecation_warned.add(name)
     replacement, version_removed, message = DEPRECATED_FUNCTIONS[name]
-    loc = f" (line {line})" if line else ""
+    loc = f' (line {line})' if line else ''
     import sys
+
     print(
         f"  DeprecationWarning{loc}: '{name}()' is deprecated and will be removed in v{version_removed}. {message}",
         file=sys.stderr,
@@ -381,22 +411,58 @@ def reset_deprecation_warnings():
 # ─── Built-in Functions ──────────────────────────────────
 
 BUILTINS = {
-    'length', 'type_of',
-    'to_integer', 'to_text', 'to_decimal', 'to_boolean',
-    'absolute', 'round', 'max', 'min', 'random', 'random_seed',
-    'uppercase', 'lowercase',
+    'length',
+    'type_of',
+    'to_integer',
+    'to_text',
+    'to_decimal',
+    'to_boolean',
+    'absolute',
+    'round',
+    'max',
+    'min',
+    'random',
+    'random_seed',
+    'uppercase',
+    'lowercase',
     # v0.6: Math
-    'sqrt', 'power', 'floor', 'ceil', 'log', 'sin', 'cos', 'tan',
+    'sqrt',
+    'power',
+    'floor',
+    'ceil',
+    'log',
+    'sin',
+    'cos',
+    'tan',
     # v0.6: Collections
-    'range', 'sum', 'sorted', 'reversed', 'keys', 'values',
+    'range',
+    'sum',
+    'sorted',
+    'reversed',
+    'keys',
+    'values',
     # v0.6: Type checking
-    'is_integer', 'is_decimal', 'is_text', 'is_boolean',
-    'is_list', 'is_map', 'is_nothing', 'is_number',
+    'is_integer',
+    'is_decimal',
+    'is_text',
+    'is_boolean',
+    'is_list',
+    'is_map',
+    'is_nothing',
+    'is_number',
     # v0.6: Utility
-    'json_parse', 'json_stringify', 'char_code', 'from_char_code',
-    'timestamp', 'typeof',
+    'json_parse',
+    'json_stringify',
+    'char_code',
+    'from_char_code',
+    'timestamp',
+    'typeof',
     # v5.0: C FFI
-    'ffi_open', 'ffi_call', 'ffi_close', 'ffi_find', 'ffi_types',
+    'ffi_open',
+    'ffi_call',
+    'ffi_close',
+    'ffi_find',
+    'ffi_types',
 } | STDLIB_FUNCTIONS  # Merge standard library functions
 
 
@@ -404,13 +470,25 @@ _TEMPLATE_RE = _re.compile(r'\$\{([^}]+)\}|\$([a-zA-Z_][a-zA-Z0-9_]*)')
 
 # Module-level operator dispatch tables (avoid re-creating per call)
 _OP_DUNDER = {
-    '+': '__add__', '-': '__sub__', '*': '__mul__', '/': '__div__',
-    '%': '__mod__', '**': '__pow__', '//': '__floordiv__',
-    '==': '__eq__', '!=': '__ne__', '<': '__lt__', '>': '__gt__',
-    '<=': '__le__', '>=': '__ge__',
+    '+': '__add__',
+    '-': '__sub__',
+    '*': '__mul__',
+    '/': '__div__',
+    '%': '__mod__',
+    '**': '__pow__',
+    '//': '__floordiv__',
+    '==': '__eq__',
+    '!=': '__ne__',
+    '<': '__lt__',
+    '>': '__gt__',
+    '<=': '__le__',
+    '>=': '__ge__',
 }
 _OP_REFLECTED = {
-    '+': '__radd__', '-': '__rsub__', '*': '__rmul__', '/': '__rdiv__',
+    '+': '__radd__',
+    '-': '__rsub__',
+    '*': '__rmul__',
+    '/': '__rdiv__',
 }
 
 
@@ -423,10 +501,16 @@ class Interpreter:
     MAX_INSTRUCTIONS = 50_000_000  # maximum executed statements (0 = unlimited)
     EXECUTION_TIMEOUT = 0  # maximum execution time in seconds (0 = unlimited)
 
-    def __init__(self, safe_mode=False, block_scoping=False,
-                 max_instructions=0, execution_timeout=0, max_output_lines=0,
-                 debug_interactive=True):
-        self.global_env = Environment(name="global")
+    def __init__(
+        self,
+        safe_mode=False,
+        block_scoping=False,
+        max_instructions=0,
+        execution_timeout=0,
+        max_output_lines=0,
+        debug_interactive=True,
+    ):
+        self.global_env = Environment(name='global')
         self.output_lines = []
         self._constants = set()  # track constant names
         self._imported_files = set()  # prevent circular imports
@@ -565,12 +649,14 @@ class Interpreter:
                 raise EPLRuntimeError(
                     f'Execution limit exceeded: {self._max_instructions} statements. '
                     'Program may contain an infinite loop.',
-                    getattr(node, 'line', None))
+                    getattr(node, 'line', None),
+                )
         if self._execution_timeout > 0 and (self._instruction_count & 0x3FF) == 0:
             if _time.time() - self._start_time > self._execution_timeout:
                 raise EPLRuntimeError(
                     f'Execution timeout: exceeded {self._execution_timeout}s limit.',
-                    getattr(node, 'line', None))
+                    getattr(node, 'line', None),
+                )
         # O(1) dispatch table lookup
         handler = self._stmt_dispatch.get(type(node))
         if handler is not None:
@@ -600,9 +686,18 @@ class Interpreter:
             return
 
         # No-ops by design (handled in specific contexts)
-        if isinstance(node, (ast.PageDef, ast.ScriptBlock,
-                             ast.StoreStatement, ast.DeleteStatement,
-                             ast.HtmlElement, ast.ExportStatement, ast.AbstractMethodDef)):
+        if isinstance(
+            node,
+            (
+                ast.PageDef,
+                ast.ScriptBlock,
+                ast.StoreStatement,
+                ast.DeleteStatement,
+                ast.HtmlElement,
+                ast.ExportStatement,
+                ast.AbstractMethodDef,
+            ),
+        ):
             return
 
         if isinstance(node, ast.VisibilityModifier):
@@ -610,13 +705,16 @@ class Interpreter:
         if isinstance(node, ast.StaticMethodDef):
             return self._exec_function_def(node, env)
 
-        raise EPLRuntimeError(f"Unknown statement: {type(node).__name__}", getattr(node, 'line', None))
+        raise EPLRuntimeError(
+            f'Unknown statement: {type(node).__name__}', getattr(node, 'line', None)
+        )
 
     # ─── String Template ──────────────────────────────────
 
     def _resolve_template(self, text: str, env: Environment) -> str:
         if '$' not in text:
             return text
+
         def replacer(match):
             # ${expression} group
             expr_text = match.group(1)
@@ -635,6 +733,7 @@ class Interpreter:
                 if env.has_variable(var_name):
                     return self._format_value(env.get_variable(var_name))
             return match.group(0)
+
         return _TEMPLATE_RE.sub(replacer, text)
 
     def _parse_template_expr(self, expr_text: str):
@@ -643,6 +742,7 @@ class Interpreter:
             return self._template_cache[expr_text]
         from epl.lexer import Lexer
         from epl.parser import Parser
+
         lexer = Lexer(expr_text)
         tokens = lexer.tokenize()
         parser = Parser(tokens)
@@ -679,14 +779,15 @@ class Interpreter:
             raise EPLRuntimeError(
                 f'Output limit exceeded: {self._max_output_lines} lines. '
                 'Program may be producing excessive output.',
-                node.line)
+                node.line,
+            )
         print(output)
         self.output_lines.append(output)
 
     # ─── Input ────────────────────────────────────────────
 
     def _exec_input(self, node: ast.InputStatement, env: Environment):
-        prompt = node.prompt or ""
+        prompt = node.prompt or ''
         user_input = input(prompt)
         if env.has_variable(node.variable_name):
             existing = env.get_variable(node.variable_name)
@@ -694,28 +795,28 @@ class Interpreter:
                 try:
                     user_input = int(user_input)
                 except ValueError:
-                    raise EPLRuntimeError(f'Expected integer.', node.line)
+                    raise EPLRuntimeError('Expected integer.', node.line)
             elif isinstance(existing, float):
                 try:
                     user_input = float(user_input)
                 except ValueError:
-                    raise EPLRuntimeError(f'Expected decimal.', node.line)
+                    raise EPLRuntimeError('Expected decimal.', node.line)
         env.set_variable(node.variable_name, user_input)
 
     # ─── Control Flow ─────────────────────────────────────
 
     def _exec_if(self, node: ast.IfStatement, env: Environment):
         if self._is_truthy(self._eval(node.condition, env)):
-            block_env = env.create_child(name="if-block") if self.block_scoping else env
+            block_env = env.create_child(name='if-block') if self.block_scoping else env
             self._exec_block(node.then_body, block_env)
         elif node.else_body:
-            block_env = env.create_child(name="else-block") if self.block_scoping else env
+            block_env = env.create_child(name='else-block') if self.block_scoping else env
             self._exec_block(node.else_body, block_env)
 
     def _exec_while(self, node: ast.WhileLoop, env: Environment):
         limit = self.MAX_LOOP_ITERATIONS
         count = 0
-        loop_env = env.create_child(name="while-block") if self.block_scoping else env
+        loop_env = env.create_child(name='while-block') if self.block_scoping else env
         while self._is_truthy(self._eval(node.condition, loop_env)):
             try:
                 self._exec_block(node.body, loop_env)
@@ -726,17 +827,18 @@ class Interpreter:
             count += 1
             if count > limit:
                 raise EPLRuntimeError(
-                    f"Loop exceeded maximum iterations ({limit}). "
-                    f"Set interpreter.MAX_LOOP_ITERATIONS to increase.",
-                    node.line)
+                    f'Loop exceeded maximum iterations ({limit}). '
+                    f'Set interpreter.MAX_LOOP_ITERATIONS to increase.',
+                    node.line,
+                )
 
     def _exec_repeat(self, node: ast.RepeatLoop, env: Environment):
         count = self._eval(node.count, env)
         if not isinstance(count, int):
-            raise EPLTypeError(f"Repeat count must be integer.", node.line)
+            raise EPLTypeError('Repeat count must be integer.', node.line)
         if count < 0:
-            raise EPLRuntimeError(f"Repeat count cannot be negative (got {count}).", node.line)
-        loop_env = env.create_child(name="repeat-block") if self.block_scoping else env
+            raise EPLRuntimeError(f'Repeat count cannot be negative (got {count}).', node.line)
+        loop_env = env.create_child(name='repeat-block') if self.block_scoping else env
         for _ in range(count):
             try:
                 self._exec_block(node.body, loop_env)
@@ -752,8 +854,8 @@ class Interpreter:
         elif isinstance(iterable, EPLGenerator):
             iterable = iterable.to_list()
         elif not isinstance(iterable, (list, str)):
-            raise EPLTypeError(f"For each requires list, text, map, or generator.", node.line)
-        loop_env = env.create_child(name="for-each-block") if self.block_scoping else env
+            raise EPLTypeError('For each requires list, text, map, or generator.', node.line)
+        loop_env = env.create_child(name='for-each-block') if self.block_scoping else env
         var_name = node.var_name
         first = True
         for item in iterable:
@@ -761,7 +863,7 @@ class Interpreter:
                 loop_env.define_variable(var_name, item)
                 first = False
             else:
-                loop_env.variables[var_name]["value"] = item
+                loop_env.variables[var_name]['value'] = item
             try:
                 self._exec_block(node.body, loop_env)
             except BreakSignal:
@@ -773,13 +875,13 @@ class Interpreter:
         start = self._eval(node.start, env)
         end = self._eval(node.end, env)
         if not isinstance(start, int) or not isinstance(end, int):
-            raise EPLTypeError("For range requires integer values.", node.line)
+            raise EPLTypeError('For range requires integer values.', node.line)
         step = 1
         if node.step is not None:
             step = self._eval(node.step, env)
             if not isinstance(step, int) or step == 0:
-                raise EPLTypeError("For range step must be a non-zero integer.", node.line)
-        loop_env = env.create_child(name="for-range-block") if self.block_scoping else env
+                raise EPLTypeError('For range step must be a non-zero integer.', node.line)
+        loop_env = env.create_child(name='for-range-block') if self.block_scoping else env
         var_name = node.var_name
         first = True
         if step > 0:
@@ -789,7 +891,7 @@ class Interpreter:
                     loop_env.define_variable(var_name, i)
                     first = False
                 else:
-                    loop_env.variables[var_name]["value"] = i
+                    loop_env.variables[var_name]['value'] = i
                 try:
                     self._exec_block(node.body, loop_env)
                 except BreakSignal:
@@ -804,7 +906,7 @@ class Interpreter:
                     loop_env.define_variable(var_name, i)
                     first = False
                 else:
-                    loop_env.variables[var_name]["value"] = i
+                    loop_env.variables[var_name]['value'] = i
                 try:
                     self._exec_block(node.body, loop_env)
                 except BreakSignal:
@@ -831,9 +933,12 @@ class Interpreter:
             # Maybe it's a variable holding a callable (lambda, python func, async dict, etc.)
             if env.has_variable(node.name):
                 val = env.get_variable(node.name)
-                if (isinstance(val, EPLLambda) or callable(val)
-                        or isinstance(val, ast.FunctionDef)
-                        or (isinstance(val, dict) and val.get('is_async'))):
+                if (
+                    isinstance(val, EPLLambda)
+                    or callable(val)
+                    or isinstance(val, ast.FunctionDef)
+                    or (isinstance(val, dict) and val.get('is_async'))
+                ):
                     arg_values = [self._eval(arg, env) for arg in node.arguments]
                     return self._call_callable(val, arg_values, env, node.line)
             hint = _did_you_mean(node.name, list(env.get_all_names()))
@@ -843,7 +948,7 @@ class Interpreter:
 
         # Generator detection: if the function contains yield, return a generator
         if self._func_contains_yield(func_def):
-            func_env = env.create_child(name=f"generator:{node.name}")
+            func_env = env.create_child(name=f'generator:{node.name}')
             regular_params = func_def.params
             rest_param = None
             if func_def.params and isinstance(func_def.params[-1], ast.RestParameter):
@@ -863,7 +968,7 @@ class Interpreter:
                     value = self._coerce_type(value, param_type, node.line)
                 func_env.define_variable(param_name, value, param_type)
             if rest_param:
-                rest_values = list(arg_values[len(regular_params):])
+                rest_values = list(arg_values[len(regular_params) :])
                 func_env.define_variable(rest_param.name, rest_values)
             return EPLGenerator(self, func_def.body, func_env, node.name)
 
@@ -880,14 +985,18 @@ class Interpreter:
             if len(arg_values) < required:
                 raise EPLRuntimeError(
                     f'Function "{node.name}" expects at least {required} argument(s), '
-                    f'but got {len(arg_values)}.', node.line)
+                    f'but got {len(arg_values)}.',
+                    node.line,
+                )
         else:
             if len(arg_values) < required or len(arg_values) > len(regular_params):
                 raise EPLRuntimeError(
                     f'Function "{node.name}" expects {required}-{len(regular_params)} argument(s), '
-                    f'but got {len(arg_values)}.', node.line)
+                    f'but got {len(arg_values)}.',
+                    node.line,
+                )
 
-        func_env = env.create_child(name=f"function:{node.name}")
+        func_env = env.create_child(name=f'function:{node.name}')
 
         for i, param in enumerate(regular_params):
             param_name = param[0]
@@ -904,13 +1013,15 @@ class Interpreter:
             func_env.define_variable(param_name, value, param_type)
         # Bind rest parameter
         if rest_param:
-            rest_values = list(arg_values[len(regular_params):])
+            rest_values = list(arg_values[len(regular_params) :])
             func_env.define_variable(rest_param.name, rest_values)
 
         self._call_depth += 1
         if self._call_depth > self.MAX_CALL_DEPTH:
             raise EPLRuntimeError(
-                f'Maximum recursion depth ({self.MAX_CALL_DEPTH}) exceeded in function "{node.name}".', node.line)
+                f'Maximum recursion depth ({self.MAX_CALL_DEPTH}) exceeded in function "{node.name}".',
+                node.line,
+            )
         try:
             self._exec_block(func_def.body, func_env)
         except ReturnSignal as ret:
@@ -941,7 +1052,7 @@ class Interpreter:
                 return len(val)
             if isinstance(val, EPLDict):
                 return len(val.data)
-            raise EPLTypeError(f'length() expects text, list, or map.', line)
+            raise EPLTypeError('length() expects text, list, or map.', line)
 
         if name == 'type_of':
             return self._type_name(args[0]) if len(args) == 1 else None
@@ -950,15 +1061,19 @@ class Interpreter:
             return self._type_name(args[0]) if len(args) == 1 else None
 
         if name == 'to_integer':
-            try: return int(args[0])
-            except (ValueError, TypeError): raise EPLRuntimeError(f'Cannot convert to integer.', line)
+            try:
+                return int(args[0])
+            except (ValueError, TypeError):
+                raise EPLRuntimeError('Cannot convert to integer.', line)
 
         if name == 'to_decimal':
-            try: return float(args[0])
-            except (ValueError, TypeError): raise EPLRuntimeError(f'Cannot convert to decimal.', line)
+            try:
+                return float(args[0])
+            except (ValueError, TypeError):
+                raise EPLRuntimeError('Cannot convert to decimal.', line)
 
         if name == 'to_text':
-            return self._format_value(args[0]) if len(args) == 1 else ""
+            return self._format_value(args[0]) if len(args) == 1 else ''
 
         if name == 'to_boolean':
             return self._is_truthy(args[0]) if len(args) == 1 else False
@@ -1014,7 +1129,8 @@ class Interpreter:
         import math as _math
 
         if name == 'sqrt':
-            if len(args) != 1: raise EPLRuntimeError('sqrt() takes 1 argument.', line)
+            if len(args) != 1:
+                raise EPLRuntimeError('sqrt() takes 1 argument.', line)
             if not isinstance(args[0], (int, float)):
                 raise EPLTypeError('sqrt() expects a number.', line)
             if args[0] < 0:
@@ -1022,16 +1138,23 @@ class Interpreter:
             return _math.sqrt(args[0])
 
         if name == 'power':
-            if len(args) != 2: raise EPLRuntimeError('power() takes 2 arguments.', line)
+            if len(args) != 2:
+                raise EPLRuntimeError('power() takes 2 arguments.', line)
             result = args[0] ** args[1]
-            return int(result) if isinstance(args[0], int) and isinstance(args[1], int) and args[1] >= 0 else result
+            return (
+                int(result)
+                if isinstance(args[0], int) and isinstance(args[1], int) and args[1] >= 0
+                else result
+            )
 
         if name == 'floor':
-            if len(args) != 1: raise EPLRuntimeError('floor() takes 1 argument.', line)
+            if len(args) != 1:
+                raise EPLRuntimeError('floor() takes 1 argument.', line)
             return _math.floor(args[0])
 
         if name == 'ceil':
-            if len(args) != 1: raise EPLRuntimeError('ceil() takes 1 argument.', line)
+            if len(args) != 1:
+                raise EPLRuntimeError('ceil() takes 1 argument.', line)
             return _math.ceil(args[0])
 
         if name == 'log':
@@ -1041,7 +1164,8 @@ class Interpreter:
                 raise EPLTypeError('log() expects a number.', line)
             if args[0] <= 0:
                 raise EPLRuntimeError('log() requires a positive number.', line)
-            if len(args) == 1: return _math.log(args[0])
+            if len(args) == 1:
+                return _math.log(args[0])
             return _math.log(args[0], args[1])
 
         if name == 'sin':
@@ -1056,9 +1180,12 @@ class Interpreter:
         # ── v0.6: Collections ──
 
         if name == 'range':
-            if len(args) == 1: return list(range(int(args[0])))
-            if len(args) == 2: return list(range(int(args[0]), int(args[1])))
-            if len(args) == 3: return list(range(int(args[0]), int(args[1]), int(args[2])))
+            if len(args) == 1:
+                return list(range(int(args[0])))
+            if len(args) == 2:
+                return list(range(int(args[0]), int(args[1])))
+            if len(args) == 3:
+                return list(range(int(args[0]), int(args[1]), int(args[2])))
             raise EPLRuntimeError('range() takes 1-3 arguments.', line)
 
         if name == 'sum':
@@ -1098,20 +1225,34 @@ class Interpreter:
 
         # ── v0.6: Type checking ──
 
-        if name == 'is_integer': return isinstance(args[0], int) and not isinstance(args[0], bool) if args else False
-        if name == 'is_decimal': return isinstance(args[0], float) if args else False
-        if name == 'is_text': return isinstance(args[0], str) if args else False
-        if name == 'is_boolean': return isinstance(args[0], bool) if args else False
-        if name == 'is_list': return isinstance(args[0], list) if args else False
-        if name == 'is_map': return isinstance(args[0], EPLDict) if args else False
-        if name == 'is_nothing': return args[0] is None if args else False
-        if name == 'is_number': return isinstance(args[0], (int, float)) and not isinstance(args[0], bool) if args else False
+        if name == 'is_integer':
+            return isinstance(args[0], int) and not isinstance(args[0], bool) if args else False
+        if name == 'is_decimal':
+            return isinstance(args[0], float) if args else False
+        if name == 'is_text':
+            return isinstance(args[0], str) if args else False
+        if name == 'is_boolean':
+            return isinstance(args[0], bool) if args else False
+        if name == 'is_list':
+            return isinstance(args[0], list) if args else False
+        if name == 'is_map':
+            return isinstance(args[0], EPLDict) if args else False
+        if name == 'is_nothing':
+            return args[0] is None if args else False
+        if name == 'is_number':
+            return (
+                isinstance(args[0], (int, float)) and not isinstance(args[0], bool)
+                if args
+                else False
+            )
 
         # ── v0.6: Utility ──
 
         if name == 'json_parse':
             import json as _json
-            if len(args) != 1: raise EPLRuntimeError('json_parse() takes 1 argument.', line)
+
+            if len(args) != 1:
+                raise EPLRuntimeError('json_parse() takes 1 argument.', line)
             try:
                 result = _json.loads(args[0])
                 return self._python_to_epl(result)
@@ -1120,7 +1261,9 @@ class Interpreter:
 
         if name == 'json_stringify':
             import json as _json
-            if len(args) != 1: raise EPLRuntimeError('json_stringify() takes 1 argument.', line)
+
+            if len(args) != 1:
+                raise EPLRuntimeError('json_stringify() takes 1 argument.', line)
             try:
                 return _json.dumps(self._epl_to_python(args[0]))
             except Exception as e:
@@ -1142,15 +1285,24 @@ class Interpreter:
         # ── C FFI builtins ──
         if name in ('ffi_open', 'ffi_call', 'ffi_close', 'ffi_find', 'ffi_types'):
             if self.safe_mode:
-                raise EPLRuntimeError(
-                    f"'{name}' is not available in safe mode (--sandbox).", line
-                )
-            from epl.ffi import ffi_open, ffi_call, ffi_close, ffi_find, ffi_types
-            _ffi = {'ffi_open': ffi_open, 'ffi_call': ffi_call,
-                    'ffi_close': ffi_close, 'ffi_find': ffi_find,
-                    'ffi_types': ffi_types}
+                raise EPLRuntimeError(f"'{name}' is not available in safe mode (--sandbox).", line)
+            from epl.ffi import ffi_call, ffi_close, ffi_find, ffi_open, ffi_types
+
+            _ffi = {
+                'ffi_open': ffi_open,
+                'ffi_call': ffi_call,
+                'ffi_close': ffi_close,
+                'ffi_find': ffi_find,
+                'ffi_types': ffi_types,
+            }
             # Validate minimum argument counts
-            _min_args = {'ffi_open': 1, 'ffi_call': 2, 'ffi_close': 1, 'ffi_find': 1, 'ffi_types': 0}
+            _min_args = {
+                'ffi_open': 1,
+                'ffi_call': 2,
+                'ffi_close': 1,
+                'ffi_find': 1,
+                'ffi_types': 0,
+            }
             required = _min_args[name]
             if len(args) < required:
                 raise EPLRuntimeError(
@@ -1161,9 +1313,7 @@ class Interpreter:
         # ── Delegate to stdlib ──
         if name in STDLIB_FUNCTIONS:
             if self.safe_mode and name in _UNSAFE_BUILTINS:
-                raise EPLRuntimeError(
-                    f"'{name}' is not available in safe mode (--sandbox).", line
-                )
+                raise EPLRuntimeError(f"'{name}' is not available in safe mode (--sandbox).", line)
             return call_stdlib(name, args, line)
 
         raise EPLRuntimeError(f'Unknown built-in: {name}', line)
@@ -1212,7 +1362,7 @@ class Interpreter:
         filepath = self._eval(node.filepath, env)
         try:
             with open(filepath, 'a', encoding='utf-8') as f:
-                f.write(content + "\n")
+                f.write(content + '\n')
         except OSError as e:
             raise EPLRuntimeError(f'Cannot append to file: {e}', node.line)
 
@@ -1273,7 +1423,7 @@ class Interpreter:
 
     def _exec_generic_class_def(self, node: ast.GenericClassDef, env: Environment):
         """Execute a generic class definition using type erasure.
-        
+
         Type params are recorded on the class for documentation/introspection
         but not enforced at runtime — EPL uses structural typing.
         """
@@ -1325,10 +1475,12 @@ class Interpreter:
     def _exec_spawn(self, node: ast.SpawnStatement, env: Environment):
         """Spawn a function call on a background thread, store future in variable."""
         expr = node.expression
+
         # Build a callable that evaluates the expression in a child env
         def _task():
             child_env = env.create_child()
             return self._eval(expr, child_env)
+
         future = _get_thread_pool().submit(_task)
         epl_future = EPLFuture(future, name=node.var_name)
         env.define_variable(node.var_name, epl_future)
@@ -1341,6 +1493,7 @@ class Interpreter:
         max_w = node.max_workers or min(len(items), 16)
         results = [None] * len(items)
         errors = []
+
         def _run_item(idx, item):
             try:
                 child_env = env.create_child()
@@ -1348,6 +1501,7 @@ class Interpreter:
                 self._exec_block(node.body, child_env)
             except Exception as e:
                 errors.append((idx, e))
+
         with _futures.ThreadPoolExecutor(max_workers=max_w) as pool:
             futures = {pool.submit(_run_item, i, itm): i for i, itm in enumerate(items)}
             for f in _futures.as_completed(futures):
@@ -1362,13 +1516,13 @@ class Interpreter:
         if node.condition is not None:
             should_break = bool(self._eval(node.condition, env))
         if should_break:
-            print(f"\n*** BREAKPOINT hit at line {node.line} ***")
-            print(f"Variables: {sorted(env.get_all_names())}")
+            print(f'\n*** BREAKPOINT hit at line {node.line} ***')
+            print(f'Variables: {sorted(env.get_all_names())}')
             # If interactive mode enabled and sys.stdin is a TTY, drop into interactive mode
             if self._debug_interactive and _sys.stdin.isatty():
                 while True:
                     try:
-                        cmd = input("(epl-debug) ").strip()
+                        cmd = input('(epl-debug) ').strip()
                     except (EOFError, KeyboardInterrupt):
                         print()
                         break
@@ -1378,37 +1532,47 @@ class Interpreter:
                         raise ExitSignal()
                     elif cmd == 'locals':
                         for name in sorted(env.get_all_names()):
-                            print(f"  {name} = {env.get_variable(name)}")
+                            print(f'  {name} = {env.get_variable(name)}')
                     elif cmd.startswith('p '):
                         try:
                             from epl.lexer import Lexer as _Lex
                             from epl.parser import Parser as _Par
+
                             expr_src = cmd[2:]
                             tokens = _Lex(expr_src).tokenize()
                             expr_ast = _Par(tokens).parse().statements
                             if expr_ast:
-                                val = self._eval(expr_ast[0], env) if hasattr(expr_ast[0], 'value') else self._exec_statement(expr_ast[0], env)
-                                print(f"  = {val}")
+                                val = (
+                                    self._eval(expr_ast[0], env)
+                                    if hasattr(expr_ast[0], 'value')
+                                    else self._exec_statement(expr_ast[0], env)
+                                )
+                                print(f'  = {val}')
                         except Exception as e:
-                            print(f"  Error: {e}")
+                            print(f'  Error: {e}')
                     else:
-                        print("  Commands: c(ontinue), q(uit), locals, p <expr>")
+                        print('  Commands: c(ontinue), q(uit), locals, p <expr>')
 
     # ─── v5.2: Triple Ecosystem — C FFI Language Syntax ────────────────
 
     def _exec_load_library(self, node: ast.LoadLibrary, env: Environment):
         """Load library \"path\" as name — loads a shared library into a variable."""
         if self.safe_mode:
-            raise EPLRuntimeError('"Load library" is not allowed in safe mode (--sandbox).', node.line)
+            raise EPLRuntimeError(
+                '"Load library" is not allowed in safe mode (--sandbox).', node.line
+            )
         from epl.ffi import ffi_open
+
         lib = ffi_open(node.path)
         env.define_variable(node.alias, lib)
 
     def _exec_external_function_def(self, node: ast.ExternalFunctionDef, env: Environment):
         """External function declaration — registers a callable that invokes C FFI."""
         if self.safe_mode:
-            raise EPLRuntimeError('"External function" is not allowed in safe mode (--sandbox).', node.line)
-        from epl.ffi import ffi_open, ffi_call
+            raise EPLRuntimeError(
+                '"External function" is not allowed in safe mode (--sandbox).', node.line
+            )
+        from epl.ffi import ffi_call, ffi_open
 
         # Capture the C library path and function signature
         lib_path = node.library
@@ -1447,7 +1611,9 @@ class Interpreter:
             self._call_instance_method(instance, 'init', args, env, node.line)
         elif node.arguments:
             raise EPLRuntimeError(
-                f'Class "{node.class_name}" has no init() constructor but was given arguments.', node.line)
+                f'Class "{node.class_name}" has no init() constructor but was given arguments.',
+                node.line,
+            )
         return instance
 
     def _exec_property_set(self, node: ast.PropertySet, env: Environment):
@@ -1473,7 +1639,9 @@ class Interpreter:
             if not isinstance(index, int):
                 raise EPLTypeError('List index must be integer.', node.line)
             if index < 0 or index >= len(obj):
-                raise EPLRuntimeError(f'Index {index} out of range (list has {len(obj)} items).', node.line)
+                raise EPLRuntimeError(
+                    f'Index {index} out of range (list has {len(obj)} items).', node.line
+                )
             obj[index] = value
         elif isinstance(obj, EPLDict):
             obj.data[str(index)] = value
@@ -1487,7 +1655,9 @@ class Interpreter:
             if not isinstance(index, int):
                 raise EPLTypeError('List index must be integer.', node.line)
             if index < 0 or index >= len(obj):
-                raise EPLRuntimeError(f'Index {index} out of range (list has {len(obj)} items).', node.line)
+                raise EPLRuntimeError(
+                    f'Index {index} out of range (list has {len(obj)} items).', node.line
+                )
             return obj[index]
         elif isinstance(obj, str):
             if not isinstance(index, int):
@@ -1542,6 +1712,7 @@ class Interpreter:
     def _error_matches(self, error, type_name):
         """Check if an error matches a named type."""
         from epl.errors import ERROR_CLASSES
+
         cls = ERROR_CLASSES.get(type_name)
         if cls:
             return isinstance(error, cls)
@@ -1554,11 +1725,11 @@ class Interpreter:
         for clause in node.when_clauses:
             for val_expr in clause.values:
                 if match_value == self._eval(val_expr, env):
-                    block_env = env.create_child(name="match-block") if self.block_scoping else env
+                    block_env = env.create_child(name='match-block') if self.block_scoping else env
                     self._exec_block(clause.body, block_env)
                     return
         if node.default_body:
-            block_env = env.create_child(name="match-default") if self.block_scoping else env
+            block_env = env.create_child(name='match-default') if self.block_scoping else env
             self._exec_block(node.default_body, block_env)
 
     # ─── Import EPL Module ────────────────────────────────
@@ -1600,6 +1771,7 @@ class Interpreter:
         # Try package manager resolution
         try:
             from epl.package_manager import find_package_module
+
             pkg_path = find_package_module(filepath)
             if pkg_path and _os.path.exists(pkg_path):
                 return pkg_path
@@ -1609,6 +1781,7 @@ class Interpreter:
         # Auto-install: if a matching package exists in the registry, install it
         try:
             from epl.package_manager import auto_install_package
+
             auto_path = auto_install_package(filepath)
             if auto_path and _os.path.exists(auto_path):
                 return auto_path
@@ -1619,7 +1792,7 @@ class Interpreter:
             f'Cannot find module "{filepath}". '
             f'Searched: local files, stdlib, epl_modules/, ~/.epl/packages/. '
             f'Install with: epl install {filepath}',
-            node_line
+            node_line,
         )
 
     def _exec_import(self, node: ast.ImportStatement, env: Environment):
@@ -1631,7 +1804,8 @@ class Interpreter:
             cwd = _os.path.abspath('.')
             if not _os.path.abspath(abs_path).startswith(cwd):
                 raise EPLRuntimeError(
-                    'Import from outside working directory is not allowed in safe mode.', node.line)
+                    'Import from outside working directory is not allowed in safe mode.', node.line
+                )
 
         if abs_path in self._imported_files and not node.alias:
             return  # already imported, skip (unless aliased - need the env)
@@ -1656,6 +1830,7 @@ class Interpreter:
             raise EPLRuntimeError(f'Cannot read file "{abs_path}": {e}', line)
         from epl.lexer import Lexer
         from epl.parser import Parser
+
         lexer = Lexer(source)
         tokens = lexer.tokenize()
         parser = Parser(tokens)
@@ -1700,60 +1875,172 @@ class Interpreter:
     # ─── Use Python Library ───────────────────────────────
 
     # Allowlist of known-safe packages that can be auto-installed
-    _SAFE_AUTO_INSTALL = frozenset({
-        # --- Web Frameworks & HTTP ---
-        'flask', 'fastapi', 'django', 'bottle', 'tornado', 'sanic',
-        'starlette', 'uvicorn', 'gunicorn', 'hypercorn', 'waitress',
-        'requests', 'httpx', 'aiohttp', 'urllib3', 'httplib2',
-        # --- Data & Science ---
-        'numpy', 'pandas', 'scipy', 'sympy', 'statsmodels',
-        'scikit-learn', 'joblib', 'xgboost', 'lightgbm',
-        # --- ML & AI ---
-        'tensorflow', 'torch', 'keras', 'transformers', 'diffusers',
-        'openai', 'langchain', 'huggingface-hub', 'onnx', 'onnxruntime',
-        # --- Visualization ---
-        'matplotlib', 'seaborn', 'plotly', 'bokeh', 'altair', 'dash',
-        # --- Database ---
-        'sqlalchemy', 'peewee', 'pymongo', 'redis', 'psycopg2',
-        'mysql-connector-python', 'pymysql', 'aiosqlite', 'databases',
-        # --- Image & Media ---
-        'pillow', 'opencv-python', 'imageio', 'scikit-image',
-        # --- CLI & Terminal ---
-        'rich', 'click', 'typer', 'colorama', 'tqdm', 'prompt-toolkit',
-        # --- Serialization & Parsing ---
-        'pyyaml', 'toml', 'tomli', 'lxml', 'beautifulsoup4', 'html5lib',
-        'msgpack', 'protobuf', 'orjson', 'ujson',
-        # --- Testing ---
-        'pytest', 'hypothesis', 'faker', 'factory-boy', 'coverage',
-        # --- Dev Tools ---
-        'black', 'ruff', 'mypy', 'pylint', 'isort', 'autopep8',
-        # --- Crypto & Security ---
-        'cryptography', 'bcrypt', 'passlib', 'pyjwt', 'jwt',
-        'pynacl', 'paramiko', 'certifi',
-        # --- Cloud & DevOps ---
-        'boto3', 'google-cloud-storage', 'azure-storage-blob',
-        'docker', 'fabric', 'ansible',
-        # --- Async & Networking ---
-        'celery', 'kombu', 'websockets', 'python-socketio', 'grpcio',
-        # --- Templating & Docs ---
-        'jinja2', 'mako', 'markdown', 'sphinx', 'mkdocs',
-        # --- Office & Files ---
-        'openpyxl', 'xlsxwriter', 'python-docx', 'reportlab',
-        'python-pptx', 'pypdf2', 'tabulate',
-        # --- Env & Config ---
-        'python-dotenv', 'pydantic', 'pydantic-settings', 'dynaconf',
-        # --- GUI & Desktop ---
-        'toga', 'briefcase', 'tkinter', 'pyqt5', 'pyside6', 'kivy',
-        'dearpygui', 'wxpython', 'flet',
-        # --- Game Dev ---
-        'pygame', 'pyglet', 'arcade', 'ursina', 'panda3d',
-        # --- Networking & Email ---
-        'dnspython', 'scapy', 'netifaces', 'pyopenssl',
-        # --- Data Validation ---
-        'marshmallow', 'cerberus', 'voluptuous', 'attrs',
-        # --- Scheduling ---
-        'schedule', 'apscheduler', 'rq',
-    })
+    _SAFE_AUTO_INSTALL = frozenset(
+        {
+            # --- Web Frameworks & HTTP ---
+            'flask',
+            'fastapi',
+            'django',
+            'bottle',
+            'tornado',
+            'sanic',
+            'starlette',
+            'uvicorn',
+            'gunicorn',
+            'hypercorn',
+            'waitress',
+            'requests',
+            'httpx',
+            'aiohttp',
+            'urllib3',
+            'httplib2',
+            # --- Data & Science ---
+            'numpy',
+            'pandas',
+            'scipy',
+            'sympy',
+            'statsmodels',
+            'scikit-learn',
+            'joblib',
+            'xgboost',
+            'lightgbm',
+            # --- ML & AI ---
+            'tensorflow',
+            'torch',
+            'keras',
+            'transformers',
+            'diffusers',
+            'openai',
+            'langchain',
+            'huggingface-hub',
+            'onnx',
+            'onnxruntime',
+            # --- Visualization ---
+            'matplotlib',
+            'seaborn',
+            'plotly',
+            'bokeh',
+            'altair',
+            'dash',
+            # --- Database ---
+            'sqlalchemy',
+            'peewee',
+            'pymongo',
+            'redis',
+            'psycopg2',
+            'mysql-connector-python',
+            'pymysql',
+            'aiosqlite',
+            'databases',
+            # --- Image & Media ---
+            'pillow',
+            'opencv-python',
+            'imageio',
+            'scikit-image',
+            # --- CLI & Terminal ---
+            'rich',
+            'click',
+            'typer',
+            'colorama',
+            'tqdm',
+            'prompt-toolkit',
+            # --- Serialization & Parsing ---
+            'pyyaml',
+            'toml',
+            'tomli',
+            'lxml',
+            'beautifulsoup4',
+            'html5lib',
+            'msgpack',
+            'protobuf',
+            'orjson',
+            'ujson',
+            # --- Testing ---
+            'pytest',
+            'hypothesis',
+            'faker',
+            'factory-boy',
+            'coverage',
+            # --- Dev Tools ---
+            'black',
+            'ruff',
+            'mypy',
+            'pylint',
+            'isort',
+            'autopep8',
+            # --- Crypto & Security ---
+            'cryptography',
+            'bcrypt',
+            'passlib',
+            'pyjwt',
+            'jwt',
+            'pynacl',
+            'paramiko',
+            'certifi',
+            # --- Cloud & DevOps ---
+            'boto3',
+            'google-cloud-storage',
+            'azure-storage-blob',
+            'docker',
+            'fabric',
+            'ansible',
+            # --- Async & Networking ---
+            'celery',
+            'kombu',
+            'websockets',
+            'python-socketio',
+            'grpcio',
+            # --- Templating & Docs ---
+            'jinja2',
+            'mako',
+            'markdown',
+            'sphinx',
+            'mkdocs',
+            # --- Office & Files ---
+            'openpyxl',
+            'xlsxwriter',
+            'python-docx',
+            'reportlab',
+            'python-pptx',
+            'pypdf2',
+            'tabulate',
+            # --- Env & Config ---
+            'python-dotenv',
+            'pydantic',
+            'pydantic-settings',
+            'dynaconf',
+            # --- GUI & Desktop ---
+            'toga',
+            'briefcase',
+            'tkinter',
+            'pyqt5',
+            'pyside6',
+            'kivy',
+            'dearpygui',
+            'wxpython',
+            'flet',
+            # --- Game Dev ---
+            'pygame',
+            'pyglet',
+            'arcade',
+            'ursina',
+            'panda3d',
+            # --- Networking & Email ---
+            'dnspython',
+            'scapy',
+            'netifaces',
+            'pyopenssl',
+            # --- Data Validation ---
+            'marshmallow',
+            'cerberus',
+            'voluptuous',
+            'attrs',
+            # --- Scheduling ---
+            'schedule',
+            'apscheduler',
+            'rq',
+        }
+    )
 
     def _project_lookup_paths(self):
         """Candidate paths for resolving the active project's manifest."""
@@ -1790,11 +2077,13 @@ class Interpreter:
         if self.safe_mode:
             raise EPLRuntimeError(
                 '"Use python" is not allowed in safe mode (--sandbox). '
-                'Python FFI provides unrestricted system access.', node.line)
+                'Python FFI provides unrestricted system access.',
+                node.line,
+            )
         try:
             module = _importlib.import_module(node.library)
         except ImportError:
-            pkg_name = node.library.split(".")[0]
+            pkg_name = node.library.split('.')[0]
             declared_requirement = self._resolve_declared_python_requirement(node.library)
             install_target = declared_requirement or pkg_name
             allowlisted = pkg_name.lower() in self._SAFE_AUTO_INSTALL
@@ -1804,11 +2093,13 @@ class Interpreter:
                     f'Python library "{node.library}" is not installed. '
                     f'Add it to [python-dependencies] in epl.toml or run '
                     f'"epl pyinstall {pkg_name}" (optionally with a pip requirement).',
-                    node.line
+                    node.line,
                 )
 
             if declared_requirement:
-                print(f'[EPL] Python dependency "{node.library}" not found. Installing declared requirement: {install_target}')
+                print(
+                    f'[EPL] Python dependency "{node.library}" not found. Installing declared requirement: {install_target}'
+                )
             else:
                 print(f'[EPL] Package "{pkg_name}" not found. Auto-installing (allowlisted)...')
             try:
@@ -1824,13 +2115,13 @@ class Interpreter:
                 raise EPLRuntimeError(
                     f'Python library "{node.library}" not found and auto-install failed. '
                     f'Install manually with: pip install {install_target}',
-                    node.line
+                    node.line,
                 )
             except ImportError:
                 raise EPLRuntimeError(
                     f'Package "{install_target}" was installed but "{node.library}" could not be imported. '
                     f'Check the correct import name or update [python-dependencies].',
-                    node.line
+                    node.line,
                 )
         wrapped = PythonModule(module, node.library)
         env.define_variable(node.alias, wrapped)
@@ -1889,17 +2180,17 @@ class Interpreter:
         elif op == '/=':
             self._ensure_numeric(current, rhs, '/=', node.line)
             if rhs == 0:
-                raise EPLRuntimeError("Cannot divide by zero.", node.line)
+                raise EPLRuntimeError('Cannot divide by zero.', node.line)
             result = current / rhs
             if isinstance(current, int) and isinstance(rhs, int) and current % rhs == 0:
                 result = int(result)
         elif op == '%=':
             self._ensure_numeric(current, rhs, '%=', node.line)
             if rhs == 0:
-                raise EPLRuntimeError("Cannot modulo by zero.", node.line)
+                raise EPLRuntimeError('Cannot modulo by zero.', node.line)
             result = current % rhs
         else:
-            raise EPLRuntimeError(f"Unknown operator: {op}", node.line)
+            raise EPLRuntimeError(f'Unknown operator: {op}', node.line)
         env.set_variable(node.name, result)
 
     # ─── v0.6: Enum ──────────────────────────────────────
@@ -1940,7 +2231,7 @@ class Interpreter:
 
         if isinstance(obj, (list, str)):
             return obj[start_idx:end_idx:step_idx]
-        raise EPLTypeError(f"Cannot slice {self._type_name(obj)}.", getattr(node, 'line', 0))
+        raise EPLTypeError(f'Cannot slice {self._type_name(obj)}.', getattr(node, 'line', 0))
 
     # ─── v0.6: Callable Helper ───────────────────────────
 
@@ -1954,24 +2245,28 @@ class Interpreter:
             # Check if this is a generator function (contains yield)
             if self._func_contains_yield(func):
                 return self._call_generator_function(func, args, env, line)
-            
+
             # Separate rest parameter from regular params
             regular_params = func.params
             rest_param = None
             if func.params and isinstance(func.params[-1], ast.RestParameter):
                 regular_params = func.params[:-1]
                 rest_param = func.params[-1]
-            
+
             required = sum(1 for p in regular_params if (p[2] if len(p) > 2 else None) is None)
             if rest_param:
                 if len(args) < required:
                     raise EPLRuntimeError(
-                        f'Function expects at least {required} argument(s), but got {len(args)}.', line)
+                        f'Function expects at least {required} argument(s), but got {len(args)}.',
+                        line,
+                    )
             else:
                 if len(args) < required or len(args) > len(regular_params):
                     raise EPLRuntimeError(
-                        f'Function expects {required}-{len(regular_params)} argument(s), but got {len(args)}.', line)
-            func_env = env.create_child(name="function:anonymous")
+                        f'Function expects {required}-{len(regular_params)} argument(s), but got {len(args)}.',
+                        line,
+                    )
+            func_env = env.create_child(name='function:anonymous')
             for i, param in enumerate(regular_params):
                 param_name = param[0]
                 param_type = param[1] if len(param) > 1 else None
@@ -1987,12 +2282,13 @@ class Interpreter:
                 func_env.define_variable(param_name, value, param_type)
             # Bind rest parameter
             if rest_param:
-                rest_values = list(args[len(regular_params):])
+                rest_values = list(args[len(regular_params) :])
                 func_env.define_variable(rest_param.name, rest_values)
             self._call_depth += 1
             if self._call_depth > self.MAX_CALL_DEPTH:
                 raise EPLRuntimeError(
-                    f'Maximum recursion depth ({self.MAX_CALL_DEPTH}) exceeded.', line)
+                    f'Maximum recursion depth ({self.MAX_CALL_DEPTH}) exceeded.', line
+                )
             try:
                 self._exec_block(func.body, func_env)
             except ReturnSignal as ret:
@@ -2004,8 +2300,9 @@ class Interpreter:
         if isinstance(func, EPLLambda):
             if len(args) != len(func.params):
                 raise EPLRuntimeError(
-                    f'Lambda expects {len(func.params)} argument(s), but got {len(args)}.', line)
-            lambda_env = func.closure_env.create_child(name="lambda")
+                    f'Lambda expects {len(func.params)} argument(s), but got {len(args)}.', line
+                )
+            lambda_env = func.closure_env.create_child(name='lambda')
             for i, param_name in enumerate(func.params):
                 lambda_env.define_variable(param_name, args[i])
             return self._eval(func.body_node, lambda_env)
@@ -2046,14 +2343,18 @@ class Interpreter:
                 if node.name in BUILTINS:
                     return node.name  # return name as string for builtin reference
                 hint = _did_you_mean(node.name, list(env.get_all_names()) + list(BUILTINS))
-                raise EPLNameError(f'Variable "{node.name}" has not been created yet.{hint}', node.line)
+                raise EPLNameError(
+                    f'Variable "{node.name}" has not been created yet.{hint}', node.line
+                )
 
         # O(1) dispatch table for all other expression types
         handler = self._expr_dispatch.get(type(node))
         if handler is not None:
             return handler(node, env)
 
-        raise EPLRuntimeError(f"Cannot evaluate: {type(node).__name__}", getattr(node, 'line', None))
+        raise EPLRuntimeError(
+            f'Cannot evaluate: {type(node).__name__}', getattr(node, 'line', None)
+        )
 
     # ─── Dict Literal ─────────────────────────────────────
 
@@ -2084,9 +2385,10 @@ class Interpreter:
             member = obj.get(method)
             if member is None:
                 raise EPLRuntimeError(
-                    f'Module "{obj.get("__name__", "?")}" has no member "{method}".', line)
+                    f'Module "{obj.get("__name__", "?")}" has no member "{method}".', line
+                )
             if hasattr(member, 'body'):
-                call_env = env.create_child(f"{obj.get('__name__', '?')}.{method}")
+                call_env = env.create_child(f'{obj.get("__name__", "?")}.{method}')
                 # Register all module functions so recursive/cross calls work
                 for mname, mval in obj.items():
                     if mname.startswith('__'):
@@ -2097,8 +2399,14 @@ class Interpreter:
                         call_env.define_variable(mname, mval)
                 params = member.params if hasattr(member, 'params') else []
                 for i, param in enumerate(params):
-                    p_name = param[0] if isinstance(param, (tuple, list)) else getattr(param, 'name', str(param))
-                    p_type = param[1] if isinstance(param, (tuple, list)) and len(param) > 1 else None
+                    p_name = (
+                        param[0]
+                        if isinstance(param, (tuple, list))
+                        else getattr(param, 'name', str(param))
+                    )
+                    p_type = (
+                        param[1] if isinstance(param, (tuple, list)) and len(param) > 1 else None
+                    )
                     val = args[i] if i < len(args) else None
                     if p_type:
                         val = self._coerce_type(val, p_type, line)
@@ -2118,11 +2426,17 @@ class Interpreter:
         if isinstance(obj, EPLClass):
             if hasattr(obj, 'static_methods') and method in obj.static_methods:
                 func_node = obj.static_methods[method]
-                call_env = env.create_child(f"{obj.name}.{method}")
+                call_env = env.create_child(f'{obj.name}.{method}')
                 params = func_node.params if hasattr(func_node, 'params') else []
                 for i, param in enumerate(params):
-                    p_name = param[0] if isinstance(param, (tuple, list)) else getattr(param, 'name', str(param))
-                    p_type = param[1] if isinstance(param, (tuple, list)) and len(param) > 1 else None
+                    p_name = (
+                        param[0]
+                        if isinstance(param, (tuple, list))
+                        else getattr(param, 'name', str(param))
+                    )
+                    p_type = (
+                        param[1] if isinstance(param, (tuple, list)) and len(param) > 1 else None
+                    )
                     val = args[i] if i < len(args) else None
                     if p_type:
                         val = self._coerce_type(val, p_type, node.line)
@@ -2138,17 +2452,27 @@ class Interpreter:
         raise EPLTypeError(f'Cannot call method on {self._type_name(obj)}.', line)
 
     def _call_string_method(self, s, method, args, line, env=None):
-        if method == 'uppercase': return s.upper()
-        if method == 'lowercase': return s.lower()
-        if method == 'trim': return s.strip()
-        if method == 'contains': return str(args[0]) in s if args else False
-        if method == 'replace': return s.replace(str(args[0]), str(args[1])) if len(args) == 2 else s
-        if method == 'split': return s.split(str(args[0])) if args else s.split()
-        if method == 'starts_with': return s.startswith(str(args[0])) if args else False
-        if method == 'ends_with': return s.endswith(str(args[0])) if args else False
+        if method == 'uppercase':
+            return s.upper()
+        if method == 'lowercase':
+            return s.lower()
+        if method == 'trim':
+            return s.strip()
+        if method == 'contains':
+            return str(args[0]) in s if args else False
+        if method == 'replace':
+            return s.replace(str(args[0]), str(args[1])) if len(args) == 2 else s
+        if method == 'split':
+            return s.split(str(args[0])) if args else s.split()
+        if method == 'starts_with':
+            return s.startswith(str(args[0])) if args else False
+        if method == 'ends_with':
+            return s.endswith(str(args[0])) if args else False
         if method == 'substring':
-            if len(args) == 1: return s[int(args[0]):]
-            if len(args) == 2: return s[int(args[0]):int(args[1])]
+            if len(args) == 1:
+                return s[int(args[0]) :]
+            if len(args) == 2:
+                return s[int(args[0]) : int(args[1])]
         # v0.6: New string methods
         if method == 'find':
             return s.find(str(args[0])) if args else -1
@@ -2180,16 +2504,21 @@ class Interpreter:
             return len(s) == 0
         if method == 'char_at':
             idx = int(args[0]) if args else 0
-            if 0 <= idx < len(s): return s[idx]
+            if 0 <= idx < len(s):
+                return s[idx]
             raise EPLRuntimeError(f'Index {idx} out of range.', line)
         if method == 'to_list':
             return list(s)
         if method == 'to_integer':
-            try: return int(s)
-            except (ValueError, TypeError): raise EPLRuntimeError(f'Cannot convert text to integer.', line)
+            try:
+                return int(s)
+            except (ValueError, TypeError):
+                raise EPLRuntimeError('Cannot convert text to integer.', line)
         if method == 'to_decimal':
-            try: return float(s)
-            except (ValueError, TypeError): raise EPLRuntimeError(f'Cannot convert text to decimal.', line)
+            try:
+                return float(s)
+            except (ValueError, TypeError):
+                raise EPLRuntimeError('Cannot convert text to decimal.', line)
         if method == 'format':
             # Simple positional format: "Hello {} and {}".format(a, b)
             result = s
@@ -2199,25 +2528,40 @@ class Interpreter:
         raise EPLRuntimeError(f'Text has no method "{method}".', line)
 
     def _call_list_method(self, lst, method, args, line, env=None):
-        if method == 'add': lst.append(args[0]); return None
-        if method == 'remove':
-            if args[0] in lst: lst.remove(args[0])
+        if method == 'add':
+            lst.append(args[0])
             return None
-        if method == 'contains': return args[0] in lst if args else False
-        if method == 'sort': lst.sort(); return None
-        if method == 'reverse': lst.reverse(); return None
+        if method == 'remove':
+            if args[0] in lst:
+                lst.remove(args[0])
+            return None
+        if method == 'contains':
+            return args[0] in lst if args else False
+        if method == 'sort':
+            lst.sort()
+            return None
+        if method == 'reverse':
+            lst.reverse()
+            return None
         if method == 'join':
-            sep = str(args[0]) if args else ""
+            sep = str(args[0]) if args else ''
             return sep.join(self._format_value(v) for v in lst)
-        if method == 'pop': return lst.pop() if lst else None
-        if method == 'clear': lst.clear(); return None
+        if method == 'pop':
+            return lst.pop() if lst else None
+        if method == 'clear':
+            lst.clear()
+            return None
         # v0.6: New list methods
         if method == 'map' and args and env:
             func = args[0]
             return [self._call_callable(func, [item], env, line) for item in lst]
         if method == 'filter' and args and env:
             func = args[0]
-            return [item for item in lst if self._is_truthy(self._call_callable(func, [item], env, line))]
+            return [
+                item
+                for item in lst
+                if self._is_truthy(self._call_callable(func, [item], env, line))
+            ]
         if method == 'reduce' and args and env:
             func = args[0]
             if not lst and len(args) <= 1:
@@ -2262,10 +2606,14 @@ class Interpreter:
             return result
         if method == 'every' and args and env:
             func = args[0]
-            return all(self._is_truthy(self._call_callable(func, [item], env, line)) for item in lst)
+            return all(
+                self._is_truthy(self._call_callable(func, [item], env, line)) for item in lst
+            )
         if method == 'some' and args and env:
             func = args[0]
-            return any(self._is_truthy(self._call_callable(func, [item], env, line)) for item in lst)
+            return any(
+                self._is_truthy(self._call_callable(func, [item], env, line)) for item in lst
+            )
         if method == 'sum':
             return sum(lst)
         if method == 'min':
@@ -2285,12 +2633,16 @@ class Interpreter:
         raise EPLRuntimeError(f'List has no method "{method}".', line)
 
     def _call_dict_method(self, d, method, args, line, env=None):
-        if method == 'keys': return list(d.data.keys())
-        if method == 'values': return list(d.data.values())
-        if method == 'has': return str(args[0]) in d.data if args else False
+        if method == 'keys':
+            return list(d.data.keys())
+        if method == 'values':
+            return list(d.data.values())
+        if method == 'has':
+            return str(args[0]) in d.data if args else False
         if method == 'remove':
-            key = str(args[0]) if args else ""
-            if key in d.data: del d.data[key]
+            key = str(args[0]) if args else ''
+            if key in d.data:
+                del d.data[key]
             return None
         # v0.6: New map methods
         if method == 'entries':
@@ -2302,7 +2654,7 @@ class Interpreter:
                 return merged
             raise EPLTypeError('merge() expects a map argument.', line)
         if method == 'get':
-            key = str(args[0]) if args else ""
+            key = str(args[0]) if args else ''
             default = args[1] if len(args) > 1 else None
             return d.data.get(key, default)
         if method == 'set':
@@ -2319,15 +2671,16 @@ class Interpreter:
     def _call_python_method(self, py_mod, method, args, line):
         """Call a function or access attribute on a Python module."""
         if not hasattr(py_mod.module, method):
-            raise EPLRuntimeError(f'Python module "{py_mod.name}" has no function "{method}".', line)
+            raise EPLRuntimeError(
+                f'Python module "{py_mod.name}" has no function "{method}".', line
+            )
         attr = getattr(py_mod.module, method)
         if callable(attr):
             try:
                 result = attr(*[self._unwrap_python_argument(arg) for arg in args])
                 return self._wrap_python_result(result)
             except TypeError as e:
-                raise EPLRuntimeError(
-                    f'{py_mod.name}.{method}() argument error: {e}', line)
+                raise EPLRuntimeError(f'{py_mod.name}.{method}() argument error: {e}', line)
             except Exception as e:
                 raise EPLRuntimeError(f'Python error in {py_mod.name}.{method}(): {e}', line)
         return self._wrap_python_result(attr)
@@ -2397,8 +2750,7 @@ class Interpreter:
                 if 'value' in value and 'type' in value and len(value) == 2:
                     return self._unwrap_python_argument(value['value'], _seen)
                 return {
-                    key: self._unwrap_python_argument(item, _seen)
-                    for key, item in value.items()
+                    key: self._unwrap_python_argument(item, _seen) for key, item in value.items()
                 }
             if isinstance(value, list):
                 return [self._unwrap_python_argument(item, _seen) for item in value]
@@ -2421,10 +2773,12 @@ class Interpreter:
         if len(args) < required or len(args) > len(func_def.params):
             raise EPLRuntimeError(
                 f'Method "{method_name}" expects {required}-{len(func_def.params)} argument(s), '
-                f'but got {len(args)}.', line)
+                f'but got {len(args)}.',
+                line,
+            )
 
-        method_env = env.create_child(name=f"method:{instance.klass.name}.{method_name}")
-        method_env.define_variable("this", instance)
+        method_env = env.create_child(name=f'method:{instance.klass.name}.{method_name}')
+        method_env.define_variable('this', instance)
         for prop_name, prop_val in instance.properties.items():
             method_env.define_variable(prop_name, prop_val)
 
@@ -2450,7 +2804,7 @@ class Interpreter:
                     instance.properties[prop_name] = method_env.get_variable(prop_name)
             return ret.value
         except EPLError as e:
-            e.add_frame(f"{instance.klass.name}.{method_name}", line)
+            e.add_frame(f'{instance.klass.name}.{method_name}', line)
             raise
 
         for prop_name in instance.properties:
@@ -2465,9 +2819,9 @@ class Interpreter:
         """Walk up the environment chain to find if we're inside a class method."""
         e = env
         while e:
-            if e.name.startswith("method:"):
+            if e.name.startswith('method:'):
                 # Format: "method:ClassName.methodName"
-                return e.name.split(":")[1].split(".")[0]
+                return e.name.split(':')[1].split('.')[0]
             e = e.parent
         return None
 
@@ -2480,11 +2834,15 @@ class Interpreter:
         if vis == 'private':
             if caller_class != klass.name:
                 raise EPLRuntimeError(
-                    f'Cannot access private member "{member_name}" of {klass.name} from outside the class.', line)
+                    f'Cannot access private member "{member_name}" of {klass.name} from outside the class.',
+                    line,
+                )
         elif vis == 'protected':
             if caller_class is None:
                 raise EPLRuntimeError(
-                    f'Cannot access protected member "{member_name}" of {klass.name} from outside a class.', line)
+                    f'Cannot access protected member "{member_name}" of {klass.name} from outside a class.',
+                    line,
+                )
             # Check if caller is the same class or a subclass
             caller_klass = None
             try:
@@ -2493,7 +2851,9 @@ class Interpreter:
                 pass
             if caller_class != klass.name and not self._is_subclass_of(caller_klass, klass):
                 raise EPLRuntimeError(
-                    f'Cannot access protected member "{member_name}" of {klass.name} from {caller_class}.', line)
+                    f'Cannot access protected member "{member_name}" of {klass.name} from {caller_class}.',
+                    line,
+                )
 
     def _is_subclass_of(self, child_klass, parent_klass):
         """Check if child_klass inherits from parent_klass."""
@@ -2511,13 +2871,18 @@ class Interpreter:
         prop = node.property_name
 
         if prop == 'length':
-            if isinstance(obj, (str, list)): return len(obj)
-            if isinstance(obj, EPLDict): return len(obj.data)
+            if isinstance(obj, (str, list)):
+                return len(obj)
+            if isinstance(obj, EPLDict):
+                return len(obj.data)
 
         if isinstance(obj, str):
-            if prop == 'uppercase': return obj.upper()
-            if prop == 'lowercase': return obj.lower()
-            if prop == 'trim': return obj.strip()
+            if prop == 'uppercase':
+                return obj.upper()
+            if prop == 'lowercase':
+                return obj.lower()
+            if prop == 'trim':
+                return obj.strip()
             raise EPLRuntimeError(f'Text has no property "{prop}".', node.line)
 
         if isinstance(obj, EPLInstance):
@@ -2527,18 +2892,25 @@ class Interpreter:
             raise EPLRuntimeError(f'{obj.klass.name} has no property "{prop}".', node.line)
 
         if isinstance(obj, EPLDict):
-            if prop in obj.data: return obj.data[prop]
+            if prop in obj.data:
+                return obj.data[prop]
             raise EPLRuntimeError(f'Map has no key "{prop}".', node.line)
 
         if isinstance(obj, dict) and obj.get('__is_module__'):
             member = obj.get(prop)
             if member is not None:
                 # Unwrap constants (stored as {'value': x, 'type': y})
-                if isinstance(member, dict) and 'value' in member and 'type' in member and len(member) == 2:
+                if (
+                    isinstance(member, dict)
+                    and 'value' in member
+                    and 'type' in member
+                    and len(member) == 2
+                ):
                     return member['value']
                 return member
             raise EPLRuntimeError(
-                f'Module "{obj.get("__name__", "?")}" has no member "{prop}".', node.line)
+                f'Module "{obj.get("__name__", "?")}" has no member "{prop}".', node.line
+            )
 
         if isinstance(obj, PythonModule):
             if hasattr(obj.module, prop):
@@ -2546,10 +2918,14 @@ class Interpreter:
                 if callable(attr):
                     return attr  # return callable for later use
                 # Wrap sub-modules, classes, and complex objects for chaining
-                if isinstance(attr, type) or (hasattr(attr, '__dict__') and not isinstance(attr, (int, float, str, bool))):
-                    return PythonModule(attr, f"{obj.name}.{prop}")
+                if isinstance(attr, type) or (
+                    hasattr(attr, '__dict__') and not isinstance(attr, (int, float, str, bool))
+                ):
+                    return PythonModule(attr, f'{obj.name}.{prop}')
                 return self._wrap_python_result(attr)
-            raise EPLRuntimeError(f'Python module "{obj.name}" has no attribute "{prop}".', node.line)
+            raise EPLRuntimeError(
+                f'Python module "{obj.name}" has no attribute "{prop}".', node.line
+            )
 
         raise EPLTypeError(f'{self._type_name(obj)} has no property "{prop}".', node.line)
 
@@ -2584,7 +2960,9 @@ class Interpreter:
             if op in _OP_REFLECTED:
                 method = right.get_method(_OP_REFLECTED[op])
                 if method:
-                    return self._call_instance_method(right, _OP_REFLECTED[op], [left], env, node.line)
+                    return self._call_instance_method(
+                        right, _OP_REFLECTED[op], [left], env, node.line
+                    )
 
         if op == '+':
             if isinstance(left, str) or isinstance(right, str):
@@ -2592,7 +2970,9 @@ class Interpreter:
             if isinstance(left, (int, float)) and isinstance(right, (int, float)):
                 result = left + right
                 return int(result) if isinstance(left, int) and isinstance(right, int) else result
-            raise EPLTypeError(f"Cannot add {self._type_name(left)} and {self._type_name(right)}.", node.line)
+            raise EPLTypeError(
+                f'Cannot add {self._type_name(left)} and {self._type_name(right)}.', node.line
+            )
 
         if op == '-':
             self._ensure_numeric(left, right, '-', node.line)
@@ -2600,8 +2980,10 @@ class Interpreter:
             return int(result) if isinstance(left, int) and isinstance(right, int) else result
 
         if op == '*':
-            if isinstance(left, str) and isinstance(right, int): return left * right
-            if isinstance(left, int) and isinstance(right, str): return right * left
+            if isinstance(left, str) and isinstance(right, int):
+                return left * right
+            if isinstance(left, int) and isinstance(right, str):
+                return right * left
             self._ensure_numeric(left, right, '*', node.line)
             result = left * right
             return int(result) if isinstance(left, int) and isinstance(right, int) else result
@@ -2609,7 +2991,7 @@ class Interpreter:
         if op == '/':
             self._ensure_numeric(left, right, '/', node.line)
             if right == 0:
-                raise EPLRuntimeError("Cannot divide by zero.", node.line)
+                raise EPLRuntimeError('Cannot divide by zero.', node.line)
             result = left / right
             if isinstance(left, int) and isinstance(right, int) and left % right == 0:
                 return int(result)
@@ -2618,30 +3000,44 @@ class Interpreter:
         if op == '%':
             self._ensure_numeric(left, right, '%', node.line)
             if right == 0:
-                raise EPLRuntimeError("Cannot modulo by zero.", node.line)
+                raise EPLRuntimeError('Cannot modulo by zero.', node.line)
             return left % right
 
         if op == '**':
             self._ensure_numeric(left, right, '**', node.line)
             if isinstance(right, int) and right > 10000:
                 raise EPLRuntimeError(f'Exponent too large ({right}). Maximum is 10000.', node.line)
-            result = left ** right
-            return int(result) if isinstance(left, int) and isinstance(right, int) and right >= 0 else result
+            result = left**right
+            return (
+                int(result)
+                if isinstance(left, int) and isinstance(right, int) and right >= 0
+                else result
+            )
 
         if op == '//':
             self._ensure_numeric(left, right, '//', node.line)
             if right == 0:
-                raise EPLRuntimeError("Cannot divide by zero.", node.line)
+                raise EPLRuntimeError('Cannot divide by zero.', node.line)
             return left // right
 
-        if op == '>': self._ensure_comparable(left, right, node.line); return left > right
-        if op == '<': self._ensure_comparable(left, right, node.line); return left < right
-        if op == '>=': self._ensure_comparable(left, right, node.line); return left >= right
-        if op == '<=': self._ensure_comparable(left, right, node.line); return left <= right
-        if op == '==': return left == right
-        if op == '!=': return left != right
+        if op == '>':
+            self._ensure_comparable(left, right, node.line)
+            return left > right
+        if op == '<':
+            self._ensure_comparable(left, right, node.line)
+            return left < right
+        if op == '>=':
+            self._ensure_comparable(left, right, node.line)
+            return left >= right
+        if op == '<=':
+            self._ensure_comparable(left, right, node.line)
+            return left <= right
+        if op == '==':
+            return left == right
+        if op == '!=':
+            return left != right
 
-        raise EPLRuntimeError(f"Unknown operator: {op}", node.line)
+        raise EPLRuntimeError(f'Unknown operator: {op}', node.line)
 
     def _eval_unary(self, node: ast.UnaryOp, env: Environment):
         operand = self._eval(node.operand, env)
@@ -2649,80 +3045,120 @@ class Interpreter:
             return not self._is_truthy(operand)
         if node.operator == '-':
             if not isinstance(operand, (int, float)):
-                raise EPLTypeError(f"Cannot negate {self._type_name(operand)}.", getattr(node, 'line', None))
+                raise EPLTypeError(
+                    f'Cannot negate {self._type_name(operand)}.', getattr(node, 'line', None)
+                )
             return -operand
-        raise EPLRuntimeError(f"Unknown operator: {node.operator}", getattr(node, 'line', None))
+        raise EPLRuntimeError(f'Unknown operator: {node.operator}', getattr(node, 'line', None))
 
     # ─── Helpers ──────────────────────────────────────────
 
     def _is_truthy(self, value) -> bool:
-        if value is None: return False
-        if isinstance(value, bool): return value
-        if isinstance(value, int): return value != 0
-        if isinstance(value, float): return value != 0.0
-        if isinstance(value, str): return len(value) > 0
-        if isinstance(value, list): return len(value) > 0
+        if value is None:
+            return False
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int):
+            return value != 0
+        if isinstance(value, float):
+            return value != 0.0
+        if isinstance(value, str):
+            return len(value) > 0
+        if isinstance(value, list):
+            return len(value) > 0
         return True
 
     def _type_name(self, value) -> str:
-        if isinstance(value, bool): return "boolean"
-        if isinstance(value, int): return "integer"
-        if isinstance(value, float): return "decimal"
-        if isinstance(value, str): return "text"
-        if isinstance(value, list): return "list"
-        if isinstance(value, EPLDict): return "map"
-        if isinstance(value, EPLClass): return "class"
-        if isinstance(value, EPLInstance): return value.klass.name
-        if isinstance(value, PythonModule): return "python module"
-        if isinstance(value, EPLLambda): return "lambda"
-        if isinstance(value, ast.FunctionDef): return "function"
-        if isinstance(value, EPLFuture): return "future"
-        if isinstance(value, EPLGenerator): return "generator"
-        if isinstance(value, dict) and value.get('is_async'): return "async function"
-        if value is None: return "nothing"
-        return "unknown"
+        if isinstance(value, bool):
+            return 'boolean'
+        if isinstance(value, int):
+            return 'integer'
+        if isinstance(value, float):
+            return 'decimal'
+        if isinstance(value, str):
+            return 'text'
+        if isinstance(value, list):
+            return 'list'
+        if isinstance(value, EPLDict):
+            return 'map'
+        if isinstance(value, EPLClass):
+            return 'class'
+        if isinstance(value, EPLInstance):
+            return value.klass.name
+        if isinstance(value, PythonModule):
+            return 'python module'
+        if isinstance(value, EPLLambda):
+            return 'lambda'
+        if isinstance(value, ast.FunctionDef):
+            return 'function'
+        if isinstance(value, EPLFuture):
+            return 'future'
+        if isinstance(value, EPLGenerator):
+            return 'generator'
+        if isinstance(value, dict) and value.get('is_async'):
+            return 'async function'
+        if value is None:
+            return 'nothing'
+        return 'unknown'
 
     def _format_value(self, value) -> str:
-        if value is None: return "nothing"
-        if isinstance(value, bool): return "true" if value else "false"
+        if value is None:
+            return 'nothing'
+        if isinstance(value, bool):
+            return 'true' if value else 'false'
         if isinstance(value, list):
-            return "[" + ", ".join(self._format_value(v) for v in value) + "]"
+            return '[' + ', '.join(self._format_value(v) for v in value) + ']'
         if isinstance(value, EPLDict):
-            pairs = [f"{k}: {self._format_value(v)}" for k, v in value.data.items()]
-            return "{" + ", ".join(pairs) + "}"
+            pairs = [f'{k}: {self._format_value(v)}' for k, v in value.data.items()]
+            return '{' + ', '.join(pairs) + '}'
         if isinstance(value, EPLInstance):
             str_method = value.get_method('__str__')
             if str_method:
                 try:
-                    return str(self._call_instance_method(value, '__str__', [], Environment(name="__str__"), 0))
+                    return str(
+                        self._call_instance_method(
+                            value, '__str__', [], Environment(name='__str__'), 0
+                        )
+                    )
                 except Exception:
                     pass
-            return f"<{value.klass.name} instance>"
-        if isinstance(value, EPLClass): return f"<class {value.name}>"
-        if isinstance(value, PythonModule): return f"<python module {value.name}>"
-        if isinstance(value, EPLLambda): return repr(value)
-        if isinstance(value, ast.FunctionDef): return f"<function {value.name}>"
-        if isinstance(value, EPLFuture): return repr(value)
+            return f'<{value.klass.name} instance>'
+        if isinstance(value, EPLClass):
+            return f'<class {value.name}>'
+        if isinstance(value, PythonModule):
+            return f'<python module {value.name}>'
+        if isinstance(value, EPLLambda):
+            return repr(value)
+        if isinstance(value, ast.FunctionDef):
+            return f'<function {value.name}>'
+        if isinstance(value, EPLFuture):
+            return repr(value)
         return str(value)
 
     def _coerce_type(self, value, target_type, line):
         actual = self._type_name(value)
-        if target_type == "integer":
-            if isinstance(value, int) and not isinstance(value, bool): return value
-            if isinstance(value, float) and value == int(value): return int(value)
-            raise EPLTypeError(f"Expected integer, got {actual}.", line)
-        if target_type == "decimal":
-            if isinstance(value, (int, float)) and not isinstance(value, bool): return float(value)
-            raise EPLTypeError(f"Expected decimal, got {actual}.", line)
-        if target_type == "text":
-            if isinstance(value, str): return value
-            raise EPLTypeError(f"Expected text, got {actual}.", line)
-        if target_type == "boolean":
-            if isinstance(value, bool): return value
-            raise EPLTypeError(f"Expected boolean, got {actual}.", line)
-        if target_type == "list":
-            if isinstance(value, list): return value
-            raise EPLTypeError(f"Expected list, got {actual}.", line)
+        if target_type == 'integer':
+            if isinstance(value, int) and not isinstance(value, bool):
+                return value
+            if isinstance(value, float) and value == int(value):
+                return int(value)
+            raise EPLTypeError(f'Expected integer, got {actual}.', line)
+        if target_type == 'decimal':
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return float(value)
+            raise EPLTypeError(f'Expected decimal, got {actual}.', line)
+        if target_type == 'text':
+            if isinstance(value, str):
+                return value
+            raise EPLTypeError(f'Expected text, got {actual}.', line)
+        if target_type == 'boolean':
+            if isinstance(value, bool):
+                return value
+            raise EPLTypeError(f'Expected boolean, got {actual}.', line)
+        if target_type == 'list':
+            if isinstance(value, list):
+                return value
+            raise EPLTypeError(f'Expected list, got {actual}.', line)
         return value
 
     def _ensure_numeric(self, left, right, op, line):
@@ -2735,13 +3171,16 @@ class Interpreter:
         if type(left) != type(right):
             if isinstance(left, (int, float)) and isinstance(right, (int, float)):
                 return
-            raise EPLTypeError(f"Cannot compare {self._type_name(left)} with {self._type_name(right)}.", line)
+            raise EPLTypeError(
+                f'Cannot compare {self._type_name(left)} with {self._type_name(right)}.', line
+            )
 
     # ─── v0.5: Web Framework ─────────────────────────────
 
     def _exec_webapp(self, node: ast.WebApp, env: Environment):
         """Create WebApp called myApp"""
         from epl.web import EPLWebApp
+
         app = EPLWebApp(node.name)
         env.define_variable(node.name, app)
         self._web_app = app
@@ -2751,12 +3190,13 @@ class Interpreter:
         # Find the active web app in the environment
         app = self._find_webapp(env)
         if app is None:
-            raise EPLRuntimeError("No WebApp created. Use: Create WebApp called myApp", node.line)
+            raise EPLRuntimeError('No WebApp created. Use: Create WebApp called myApp', node.line)
         app.add_route(node.path, node.response_type, node.body)
 
     def _exec_start_server(self, node: ast.StartServer, env: Environment):
         """Start myApp on port 3000"""
         from epl.web import start_server
+
         app = env.get_variable(node.app_name)
         if app is None:
             raise EPLRuntimeError(f"WebApp '{node.app_name}' not found.", node.line)
@@ -2767,6 +3207,7 @@ class Interpreter:
     def _find_webapp(self, env):
         """Find the first EPLWebApp in the environment."""
         from epl.web import EPLWebApp
+
         # Search all variables in the environment chain
         current = env
         while current:
@@ -2782,17 +3223,18 @@ class Interpreter:
     def _get_gui_window(self):
         """Get or lazily import the GUI module and current window."""
         try:
-            from epl.gui import get_window, create_window, gui_available
+            from epl.gui import create_window, get_window, gui_available
+
             if not gui_available():
-                raise EPLRuntimeError("GUI is not available (tkinter not installed).")
+                raise EPLRuntimeError('GUI is not available (tkinter not installed).')
             return get_window, create_window
         except ImportError:
-            raise EPLRuntimeError("GUI module not available.")
+            raise EPLRuntimeError('GUI module not available.')
 
     def _exec_window_create(self, node: ast.WindowCreate, env: Environment):
         """Window "My App" ... End"""
         get_window, create_window = self._get_gui_window()
-        title = self._eval(node.title, env) if node.title else "EPL Application"
+        title = self._eval(node.title, env) if node.title else 'EPL Application'
         title = str(title)
         width = int(self._eval(node.width, env)) if node.width else 800
         height = int(self._eval(node.height, env)) if node.height else 600
@@ -2807,11 +3249,12 @@ class Interpreter:
     def _exec_widget_add(self, node: ast.WidgetAdd, env: Environment):
         """Add a widget to the current window."""
         from epl.gui import get_window
+
         win = get_window()
         if win is None:
-            raise EPLRuntimeError("No window created. Use: Window \"Title\" ... End", node.line)
-        text_val = self._eval(node.text, env) if node.text else ""
-        name = node.name or f"_widget_{id(node)}"
+            raise EPLRuntimeError('No window created. Use: Window "Title" ... End', node.line)
+        text_val = self._eval(node.text, env) if node.text else ''
+        name = node.name or f'_widget_{id(node)}'
         # Evaluate properties
         props = {}
         for k, v in node.properties.items():
@@ -2853,15 +3296,15 @@ class Interpreter:
         elif wtype == 'slider':
             from_val = int(text_val) if text_val else 0
             to_val = int(props.get('max', 100))
-            win.add_input(name, f"Slider {from_val}-{to_val}")
+            win.add_input(name, f'Slider {from_val}-{to_val}')
         elif wtype == 'progress':
             val = int(text_val) if text_val else 0
-            win.add_label(f"[{'#' * (val // 10)}{' ' * (10 - val // 10)}] {val}%", name)
+            win.add_label(f'[{"#" * (val // 10)}{" " * (10 - val // 10)}] {val}%', name)
         elif wtype == 'image':
             try:
                 win.add_image(str(text_val), name)
             except Exception:
-                win.add_label(f"[Image: {text_val}]", name)
+                win.add_label(f'[Image: {text_val}]', name)
         elif wtype == 'listbox':
             items = text_val if isinstance(text_val, list) else []
             win.add_listbox(items, name)
@@ -2875,9 +3318,10 @@ class Interpreter:
     def _exec_layout_block(self, node: ast.LayoutBlock, env: Environment):
         """Row/Column layout container."""
         from epl.gui import get_window
+
         win = get_window()
         if win is None:
-            raise EPLRuntimeError("No window created.", node.line)
+            raise EPLRuntimeError('No window created.', node.line)
         if node.direction == 'row':
             frame = win.add_row()
         else:
@@ -2888,10 +3332,15 @@ class Interpreter:
     def _exec_bind_event(self, node: ast.BindEvent, env: Environment):
         """Bind widgetName "click" to handler"""
         from epl.gui import get_window
+
         win = get_window()
         if win is None:
-            raise EPLRuntimeError("No window created.", node.line)
-        event_type = self._eval(node.event_type, env) if hasattr(node.event_type, 'line') else str(node.event_type)
+            raise EPLRuntimeError('No window created.', node.line)
+        event_type = (
+            self._eval(node.event_type, env)
+            if hasattr(node.event_type, 'line')
+            else str(node.event_type)
+        )
         handler_val = self._eval(node.handler, env)
         callback = None
         if isinstance(handler_val, EPLLambda):
@@ -2908,9 +3357,10 @@ class Interpreter:
     def _exec_dialog_show(self, node: ast.DialogShow, env: Environment):
         """Show dialog."""
         from epl.gui import get_window
+
         win = get_window()
         if win is None:
-            raise EPLRuntimeError("No window created.", node.line)
+            raise EPLRuntimeError('No window created.', node.line)
         msg = str(self._eval(node.message, env))
         dtype = node.dialog_type.lower()
         if dtype == 'error':
@@ -2927,14 +3377,15 @@ class Interpreter:
     def _exec_menu_def(self, node: ast.MenuDef, env: Environment):
         """Define menu."""
         from epl.gui import get_window
+
         win = get_window()
         if win is None:
-            raise EPLRuntimeError("No window created.", node.line)
+            raise EPLRuntimeError('No window created.', node.line)
         # Menu items are button-like statements
         menu_items = []
         for item in node.items:
             if isinstance(item, ast.WidgetAdd) and item.widget_type == 'button':
-                text_val = self._eval(item.text, env) if item.text else "Item"
+                text_val = self._eval(item.text, env) if item.text else 'Item'
                 action = None
                 if item.action:
                     action = self._eval(item.action, env)
@@ -2945,9 +3396,10 @@ class Interpreter:
     def _exec_canvas_draw(self, node: ast.CanvasDraw, env: Environment):
         """Draw on canvas."""
         from epl.gui import get_window
+
         win = get_window()
         if win is None:
-            raise EPLRuntimeError("No window created.", node.line)
+            raise EPLRuntimeError('No window created.', node.line)
         props = {}
         for k, v in node.properties.items():
             props[k] = self._eval(v, env) if hasattr(v, 'line') else v
@@ -2976,7 +3428,7 @@ class Interpreter:
         if fn is None:
             return
         if isinstance(fn, dict) and 'body' in fn:
-            child = env.create_child(f"call_{func_name}")
+            child = env.create_child(f'call_{func_name}')
             params = fn.get('params', [])
             for i, (pname, ptype, pdefault) in enumerate(params):
                 if i < len(args):
@@ -2992,7 +3444,7 @@ class Interpreter:
 
     def _call_lambda(self, lam, args, env):
         """Helper to call an EPL lambda from event handlers."""
-        child = lam.closure_env.create_child("lambda_call")
+        child = lam.closure_env.create_child('lambda_call')
         for i, p in enumerate(lam.params):
             child.define_variable(p, args[i] if i < len(args) else None)
         return self._eval(lam.body_node, child)
@@ -3018,9 +3470,9 @@ class Interpreter:
             try:
                 return val.result(timeout=60)
             except _futures.TimeoutError:
-                raise EPLRuntimeError(f"Await timed out for {val.name}.", node.line)
+                raise EPLRuntimeError(f'Await timed out for {val.name}.', node.line)
             except Exception as e:
-                raise EPLRuntimeError(f"Async error in {val.name}: {e}", node.line)
+                raise EPLRuntimeError(f'Async error in {val.name}: {e}', node.line)
         # If it's not a future, just return the value (already resolved)
         return val
 
@@ -3035,10 +3487,12 @@ class Interpreter:
         if len(args) < required or len(args) > len(params):
             raise EPLRuntimeError(
                 f'Async function "{name}" expects {required}-{len(params)} argument(s), '
-                f'but got {len(args)}.', line)
+                f'but got {len(args)}.',
+                line,
+            )
 
         def run_async():
-            func_env = closure_env.create_child(name=f"async:{name}")
+            func_env = closure_env.create_child(name=f'async:{name}')
             for i, param in enumerate(params):
                 param_name = param[0]
                 param_type = param[1] if len(param) > 1 else None
@@ -3066,16 +3520,18 @@ class Interpreter:
         # Find 'this' in env
         this = env.get_variable('this')
         if this is None or not isinstance(this, EPLInstance):
-            raise EPLRuntimeError("Super can only be used inside a class method.", node.line)
+            raise EPLRuntimeError('Super can only be used inside a class method.', node.line)
         parent = this.klass.parent
         if parent is None:
-            raise EPLRuntimeError(f"Class {this.klass.name} has no parent class.", node.line)
+            raise EPLRuntimeError(f'Class {this.klass.name} has no parent class.', node.line)
         if node.method_name:
             method = parent.methods.get(node.method_name)
             if method is None:
-                raise EPLRuntimeError(f"Parent class {parent.name} has no method '{node.method_name}'.", node.line)
+                raise EPLRuntimeError(
+                    f"Parent class {parent.name} has no method '{node.method_name}'.", node.line
+                )
             args = [self._eval(a, env) for a in node.arguments]
-            child = env.create_child(f"super.{node.method_name}")
+            child = env.create_child(f'super.{node.method_name}')
             child.define_variable('this', this)
             # Copy instance properties into method env
             for prop_name, prop_val in this.properties.items():
@@ -3135,7 +3591,9 @@ class Interpreter:
             if method_name not in klass.methods:
                 raise EPLRuntimeError(
                     f'Class "{klass.name}" does not implement method "{method_name}" '
-                    f'required by interface "{iface_name}".', line)
+                    f'required by interface "{iface_name}".',
+                    line,
+                )
 
         # Check parent interfaces recursively
         for parent_iface in iface.get('extends', []):
@@ -3147,7 +3605,7 @@ class Interpreter:
 
     def _exec_module_def(self, node, env: Environment):
         """Execute a module definition and register its namespace."""
-        mod_env = env.create_child(f"module:{node.name}")
+        mod_env = env.create_child(f'module:{node.name}')
 
         # Execute module body in isolated scope
         self._exec_block(node.body, mod_env)
@@ -3182,11 +3640,17 @@ class Interpreter:
         member = mod.get(node.member_name)
         if member is None:
             raise EPLRuntimeError(
-                f'Module "{node.module_name}" has no member "{node.member_name}".', node.line)
+                f'Module "{node.module_name}" has no member "{node.member_name}".', node.line
+            )
 
         # Unwrap constants (stored as {'value': x, 'type': y})
-        if (isinstance(member, dict) and 'value' in member and 'type' in member
-                and len(member) == 2 and node.arguments is None):
+        if (
+            isinstance(member, dict)
+            and 'value' in member
+            and 'type' in member
+            and len(member) == 2
+            and node.arguments is None
+        ):
             return member['value']
 
         if node.arguments is not None:
@@ -3196,7 +3660,7 @@ class Interpreter:
             elif hasattr(member, 'body'):
                 # It's a FunctionDef AST node — execute directly
                 func_node = member
-                call_env = env.create_child(f"{node.module_name}::{node.member_name}")
+                call_env = env.create_child(f'{node.module_name}::{node.member_name}')
                 # Register all module functions so recursive/cross calls work
                 for mname, mval in mod.items():
                     if mname.startswith('__'):
@@ -3208,8 +3672,14 @@ class Interpreter:
                 args = [self._eval(a, env) for a in node.arguments]
                 params = func_node.params if hasattr(func_node, 'params') else []
                 for i, param in enumerate(params):
-                    p_name = param[0] if isinstance(param, (tuple, list)) else getattr(param, 'name', str(param))
-                    p_type = param[1] if isinstance(param, (tuple, list)) and len(param) > 1 else None
+                    p_name = (
+                        param[0]
+                        if isinstance(param, (tuple, list))
+                        else getattr(param, 'name', str(param))
+                    )
+                    p_type = (
+                        param[1] if isinstance(param, (tuple, list)) and len(param) > 1 else None
+                    )
                     val = args[i] if i < len(args) else None
                     if p_type:
                         val = self._coerce_type(val, p_type, node.line)
@@ -3229,6 +3699,7 @@ class Interpreter:
 
     class _YieldSignal(Exception):
         """Internal signal for yielded values."""
+
         def __init__(self, value):
             self.value = value
 
@@ -3257,7 +3728,7 @@ class Interpreter:
 
     def _call_generator_function(self, func, args, env, line):
         """Call a function that contains yield — returns an EPLGenerator."""
-        func_env = env.create_child(name=f"generator:{func.name}")
+        func_env = env.create_child(name=f'generator:{func.name}')
         for i, param in enumerate(func.params):
             param_name = param[0]
             param_type = param[1] if len(param) > 1 else None
@@ -3307,7 +3778,8 @@ class Interpreter:
             raise EPLRuntimeError('Destructuring requires a list value.', node.line)
         if len(node.names) > len(value):
             raise EPLRuntimeError(
-                f'Not enough values to unpack: expected {len(node.names)}, got {len(value)}.', node.line)
+                f'Not enough values to unpack: expected {len(node.names)}, got {len(value)}.',
+                node.line,
+            )
         for i, name in enumerate(node.names):
             env.define_variable(name, value[i])
-

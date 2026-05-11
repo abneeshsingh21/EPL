@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import unittest
 
+from epl import ast_nodes as ast
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl import ast_nodes as ast
 
 
 def _parse(source: str):
@@ -45,9 +45,9 @@ class TestSyntaxCompatibility(unittest.TestCase):
         route = next(node for node in program.statements if isinstance(node, ast.Route))
         page = next(stmt for stmt in route.body if isinstance(stmt, ast.PageDef))
 
-        self.assertEqual(page.elements[0].tag, "store_list")
-        self.assertEqual(page.elements[0].attributes["collection"], "tasks")
-        self.assertEqual(page.elements[0].attributes["delete_action"], "/delete")
+        self.assertEqual(page.elements[0].tag, 'store_list')
+        self.assertEqual(page.elements[0].attributes['collection'], 'tasks')
+        self.assertEqual(page.elements[0].attributes['delete_action'], '/delete')
 
     def test_page_say_string_alias_parses_as_text(self):
         program = _parse(
@@ -62,9 +62,9 @@ class TestSyntaxCompatibility(unittest.TestCase):
         route = next(node for node in program.statements if isinstance(node, ast.Route))
         page = next(stmt for stmt in route.body if isinstance(stmt, ast.PageDef))
 
-        self.assertEqual(page.elements[0].tag, "text")
-        self.assertEqual(page.elements[0].content, "Creative UI")
+        self.assertEqual(page.elements[0].tag, 'text')
+        self.assertEqual(page.elements[0].content, 'Creative UI')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

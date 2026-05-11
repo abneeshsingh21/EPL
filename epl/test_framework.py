@@ -36,35 +36,35 @@ Usage from Python:
     runner.run_directory("tests/")
 """
 
-import sys
 import os
 import re
+import sys
 import time
 import traceback
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Optional, Tuple, Any, Callable
 from dataclasses import dataclass, field
+from typing import List, Tuple
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from epl import ast_nodes as ast
+from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.interpreter import Interpreter
-from epl import ast_nodes as ast
-
 
 # ═══════════════════════════════════════════════════════════
 # Code Coverage Tracker
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLCoverageTracker:
     """Tracks line-level code coverage during EPL test execution.
-    
+
     Records which source lines are executed and generates
     a coverage summary report.
     """
 
     def __init__(self):
-        self._files = {}          # filepath -> {total_lines: int, executable: set, hit: set}
+        self._files = {}  # filepath -> {total_lines: int, executable: set, hit: set}
         self.enabled = False
 
     def register_file(self, filepath, source):
@@ -112,27 +112,29 @@ class EPLCoverageTracker:
         """Print coverage summary."""
         if not self._files:
             return
-        print(f"\n{'─' * 50}")
-        print(f"  Code Coverage Report")
-        print(f"{'─' * 50}")
+        print(f'\n{"─" * 50}')
+        print('  Code Coverage Report')
+        print(f'{"─" * 50}')
         for filepath, info in sorted(self._files.items()):
             pct = self.get_file_coverage(filepath)
             name = os.path.basename(filepath)
             bar = '█' * int(pct / 5) + '░' * (20 - int(pct / 5))
-            print(f"  {name:30s}  {bar}  {pct:5.1f}%")
+            print(f'  {name:30s}  {bar}  {pct:5.1f}%')
         total = self.get_total_coverage()
-        print(f"{'─' * 50}")
-        print(f"  {'Total':30s}  {'':20s}  {total:5.1f}%")
-        print(f"{'─' * 50}")
+        print(f'{"─" * 50}')
+        print(f'  {"Total":30s}  {"":20s}  {total:5.1f}%')
+        print(f'{"─" * 50}')
 
 
 # ═══════════════════════════════════════════════════════════
 # Test Result Data
 # ═══════════════════════════════════════════════════════════
 
+
 @dataclass
 class TestResult:
     """Result of a single test execution."""
+
     name: str
     group: str = ''
     status: str = 'pending'  # pending, passed, failed, error, skipped
@@ -147,6 +149,7 @@ class TestResult:
 @dataclass
 class TestSuiteResult:
     """Aggregated results from a test suite."""
+
     name: str
     tests: List[TestResult] = field(default_factory=list)
     duration: float = 0.0
@@ -177,8 +180,10 @@ class TestSuiteResult:
 # Assertion Functions (registered as EPL builtins)
 # ═══════════════════════════════════════════════════════════
 
+
 class AssertionError(Exception):
     """Custom assertion error with detailed message."""
+
     pass
 
 
@@ -284,7 +289,7 @@ class TestAssertions:
         """Assert value is not None/null."""
         self.count += 1
         if value is None:
-            msg = message or f'Expected non-null value'
+            msg = message or 'Expected non-null value'
             raise AssertionError(msg)
         return True
 
@@ -315,6 +320,7 @@ class TestAssertions:
     def expect_match(self, text, pattern, message=''):
         """Assert text matches regex pattern."""
         import re
+
         self.count += 1
         if not re.search(pattern, text):
             msg = message or f'Expected {repr(text)} to match pattern {repr(pattern)}'
@@ -325,6 +331,7 @@ class TestAssertions:
 # ═══════════════════════════════════════════════════════════
 # Mock Support
 # ═══════════════════════════════════════════════════════════
+
 
 class Mock:
     """Simple mock object for testing."""
@@ -363,6 +370,7 @@ class Mock:
 # Test Runner Engine
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLTestRunner:
     """Runs EPL test files and collects results."""
 
@@ -378,12 +386,23 @@ class EPLTestRunner:
 
     # ─── Colors ─────────────────────────────────────
 
-    def _green(self, text): return f'\033[32m{text}\033[0m' if self.color else text
-    def _red(self, text): return f'\033[31m{text}\033[0m' if self.color else text
-    def _yellow(self, text): return f'\033[33m{text}\033[0m' if self.color else text
-    def _cyan(self, text): return f'\033[36m{text}\033[0m' if self.color else text
-    def _gray(self, text): return f'\033[90m{text}\033[0m' if self.color else text
-    def _bold(self, text): return f'\033[1m{text}\033[0m' if self.color else text
+    def _green(self, text):
+        return f'\033[32m{text}\033[0m' if self.color else text
+
+    def _red(self, text):
+        return f'\033[31m{text}\033[0m' if self.color else text
+
+    def _yellow(self, text):
+        return f'\033[33m{text}\033[0m' if self.color else text
+
+    def _cyan(self, text):
+        return f'\033[36m{text}\033[0m' if self.color else text
+
+    def _gray(self, text):
+        return f'\033[90m{text}\033[0m' if self.color else text
+
+    def _bold(self, text):
+        return f'\033[1m{text}\033[0m' if self.color else text
 
     # ─── Public API ─────────────────────────────────
 
@@ -419,6 +438,7 @@ class EPLTestRunner:
     def run_directory(self, dir_path: str, pattern: str = 'test_*.epl') -> List[TestSuiteResult]:
         """Run all test files in a directory."""
         import glob
+
         results = []
         files = sorted(glob.glob(os.path.join(dir_path, pattern)))
         if not files:
@@ -439,10 +459,12 @@ class EPLTestRunner:
 
         print(f'\n{"=" * 60}')
         print(self._bold(f'Test Results: {passed}/{total} passed'))
-        print(f'  {self._green(f"✓ {passed} passed")}  '
-              f'{self._red(f"✗ {failed} failed") if failed else ""}'
-              f'{"  " + self._red(f"! {errors} errors") if errors else ""}'
-              f'{"  " + self._yellow(f"⊘ {skipped} skipped") if skipped else ""}')
+        print(
+            f'  {self._green(f"✓ {passed} passed")}  '
+            f'{self._red(f"✗ {failed} failed") if failed else ""}'
+            f'{"  " + self._red(f"! {errors} errors") if errors else ""}'
+            f'{"  " + self._yellow(f"⊘ {skipped} skipped") if skipped else ""}'
+        )
         print(f'  Duration: {duration:.3f}s')
         print(f'{"=" * 60}')
 
@@ -521,8 +543,14 @@ class EPLTestRunner:
             i += 1
         return tests
 
-    def _run_single_test(self, interp: Interpreter, func_name: str,
-                         suite: TestSuiteResult, setup_func: str, teardown_func: str):
+    def _run_single_test(
+        self,
+        interp: Interpreter,
+        func_name: str,
+        suite: TestSuiteResult,
+        setup_func: str,
+        teardown_func: str,
+    ):
         """Run a single test function with isolation (fresh state per test)."""
         result = TestResult(name=func_name)
         self.assertions.reset()
@@ -538,6 +566,7 @@ class EPLTestRunner:
             value = binding.get('value') if isinstance(binding, dict) else binding
             var_type = binding.get('type') if isinstance(binding, dict) else None
             from epl.interpreter import EPLClass
+
             # Copy the resolved value, not the environment metadata wrapper.
             if isinstance(value, EPLClass):
                 test_interp.global_env.define_variable(k, value, var_type)
@@ -586,8 +615,9 @@ class EPLTestRunner:
             suite.tests.append(result)
             self._print_result(result)
 
-    def _run_inline_test(self, test_name: str, test_source: str,
-                         suite: TestSuiteResult, base_interp: Interpreter):
+    def _run_inline_test(
+        self, test_name: str, test_source: str, suite: TestSuiteResult, base_interp: Interpreter
+    ):
         """Run an inline test block."""
         result = TestResult(name=test_name)
         self.assertions.reset()
@@ -675,28 +705,34 @@ class EPLTestRunner:
         testsuites = ET.Element('testsuites')
 
         for suite in self.suites:
-            ts = ET.SubElement(testsuites, 'testsuite',
-                              name=suite.name,
-                              tests=str(suite.total),
-                              failures=str(suite.failed),
-                              errors=str(suite.errors),
-                              skipped=str(suite.skipped),
-                              time=f'{suite.duration:.3f}')
+            ts = ET.SubElement(
+                testsuites,
+                'testsuite',
+                name=suite.name,
+                tests=str(suite.total),
+                failures=str(suite.failed),
+                errors=str(suite.errors),
+                skipped=str(suite.skipped),
+                time=f'{suite.duration:.3f}',
+            )
 
             for test in suite.tests:
-                tc = ET.SubElement(ts, 'testcase',
-                                  name=test.name,
-                                  classname=suite.name,
-                                  time=f'{test.duration:.3f}')
+                tc = ET.SubElement(
+                    ts,
+                    'testcase',
+                    name=test.name,
+                    classname=suite.name,
+                    time=f'{test.duration:.3f}',
+                )
                 if test.status == 'failed':
-                    fail = ET.SubElement(tc, 'failure',
-                                       message=test.error_message,
-                                       type='AssertionError')
+                    fail = ET.SubElement(
+                        tc, 'failure', message=test.error_message, type='AssertionError'
+                    )
                     fail.text = test.error_message
                 elif test.status == 'error':
-                    err = ET.SubElement(tc, 'error',
-                                      message=test.error_message,
-                                      type='RuntimeError')
+                    err = ET.SubElement(
+                        tc, 'error', message=test.error_message, type='RuntimeError'
+                    )
                     err.text = test.error_traceback or test.error_message
                 elif test.status == 'skipped':
                     ET.SubElement(tc, 'skipped')
@@ -711,29 +747,22 @@ class EPLTestRunner:
 # CLI Entry Point
 # ═══════════════════════════════════════════════════════════
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description='EPL Test Runner')
-    parser.add_argument('paths', nargs='*', default=['.'],
-                       help='Test files or directories to run')
-    parser.add_argument('-v', '--verbose', action='store_true', default=True,
-                       help='Verbose output')
-    parser.add_argument('-q', '--quiet', action='store_true',
-                       help='Quiet output')
+    parser.add_argument('paths', nargs='*', default=['.'], help='Test files or directories to run')
+    parser.add_argument('-v', '--verbose', action='store_true', default=True, help='Verbose output')
+    parser.add_argument('-q', '--quiet', action='store_true', help='Quiet output')
     parser.add_argument('--junit-xml', help='Write JUnit XML report')
-    parser.add_argument('--tag', action='append', default=[],
-                       help='Run only tests with this tag')
-    parser.add_argument('--coverage', action='store_true',
-                       help='Enable code coverage tracking')
-    parser.add_argument('--no-color', action='store_true',
-                       help='Disable colored output')
+    parser.add_argument('--tag', action='append', default=[], help='Run only tests with this tag')
+    parser.add_argument('--coverage', action='store_true', help='Enable code coverage tracking')
+    parser.add_argument('--no-color', action='store_true', help='Disable colored output')
     args = parser.parse_args()
 
     runner = EPLTestRunner(
-        verbose=not args.quiet,
-        color=not args.no_color,
-        tags=args.tag,
-        junit_xml=args.junit_xml
+        verbose=not args.quiet, color=not args.no_color, tags=args.tag, junit_xml=args.junit_xml
     )
 
     for path in args.paths:

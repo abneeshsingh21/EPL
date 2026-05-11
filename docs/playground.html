@@ -13,9 +13,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/monokai.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
 
-    <!-- Pyodide (Python WebAssembly) -->
+    <!-- Pyodide (Python WebAssembly runtime for the static browser playground) -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js"></script>
 
     <style>
@@ -598,10 +597,10 @@
         <div class="panel editor-container">
             <div class="panel-header">
                 <span><i class="fa-solid fa-code"></i> INPUT.EPL</span>
-                <span style="color:var(--text-dim); font-size:0.7rem">v7.4.4</span>
+                <span style="color:var(--text-dim); font-size:0.7rem">eplang latest</span>
             </div>
             <textarea id="code-editor">Note: Welcome to the EPL Interactive Playground!
-Note: This runs a full compiled interpreter directly in your browser.
+Note: This loads the published EPL runtime from PyPI inside Pyodide.
 
 name = "Developer"
 Say "Hello, " + name + "!"
@@ -623,7 +622,7 @@ Say greet("Abneesh")
                 <span><i class="fa-solid fa-terminal"></i> OUTPUT</span>
                 <i class="fa-solid fa-trash" style="cursor:pointer; color:var(--text-dim);" onclick="clearTerminal()" title="Clear"></i>
             </div>
-            <div id="terminal" class="terminal"><span class="system-msg">> Downloading LLVM/WASM boundaries. Please wait ~10s...</span><br></div>
+            <div id="terminal" class="terminal"><span class="system-msg">> Loading Pyodide and the EPL runtime. First load can take ~10s...</span><br></div>
         </div>
     </div>
 
@@ -673,9 +672,27 @@ Say greet("Abneesh")
     </div>
 
     <script>
+        // Lightweight EPL mode for the static playground editor.
+        CodeMirror.defineMode("epl", function() {
+            const keywordPattern = /^(Note:|Create|Set|Remember|Constant|Increase|Decrease|Say|Display|Print|Show|Ask|Input|If|Then|Otherwise|While|Repeat|For|each|from|to|step|Function|Define|Return|Call|Class|End|Try|Catch|Finally|Throw|Import|Use|python|as|WebApp|Route|shows|responds|with|Page|Heading|Text|Store|Fetch|Delete|Send|json|Start|Async|Await|Spawn|Parallel|Window|Column|Label|TextBox|Button|Map|Enum|Assert|Wait|Exit)\b/i;
+            return {
+                token: function(stream) {
+                    if (stream.sol() && stream.match(/\s*Note:.*/)) return "comment";
+                    if (stream.match(/#.*/)) return "comment";
+                    if (stream.match(/"""[\s\S]*?"""/)) return "string";
+                    if (stream.match(/"([^"\\]|\\.)*"/)) return "string";
+                    if (stream.match(/\d+(\.\d+)?/)) return "number";
+                    if (stream.match(keywordPattern)) return "keyword";
+                    if (stream.match(/[+\-*\/%=<>!]+/)) return "operator";
+                    stream.next();
+                    return null;
+                }
+            };
+        });
+
         // Initialize CodeMirror Editor
         const editor = CodeMirror.fromTextArea(document.getElementById("code-editor"), {
-            mode: "python",
+            mode: "epl",
             theme: "monokai",
             lineNumbers: true,
             indentUnit: 4,
@@ -718,7 +735,7 @@ Say greet("Abneesh")
                 await pyodide.loadPackage("ssl");
                 const micropip = pyodide.pyimport("micropip");
                 
-                printToTerminal("> Installing standard EPL Compiler (v7.4.4)...", "system");
+                printToTerminal("> Installing eplang from PyPI...", "system");
                 
                 // 3. Install EPL from PyPI
                 await micropip.install("eplang");
@@ -744,19 +761,14 @@ Say greet("Abneesh")
             
             clearTerminal();
             const eplCode = editor.getValue();
+            const pythonCodeLiteral = JSON.stringify(eplCode);
             
             // Core EPL Python Execution Bridge
             const pythonRunner = `
 import sys
 import io
-
-# Monkeypatch to avoid old PyPI parser import bugs
-if "epl.type_system" not in sys.modules:
-    import types
-    sys.modules["epl.type_system"] = types.ModuleType("epl.type_system")
-sys.modules["epl.type_system"].EPLTypeChecker = None
-
-from epl.cli import _parse_epl_program
+from epl.lexer import Lexer
+from epl.parser import Parser
 from epl.interpreter import Interpreter
 import builtins
 import js
@@ -781,9 +793,10 @@ sys.stdout = stdout
 
 output_res = ""
 try:
-    code = """${eplCode.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"""
-    
-    program = _parse_epl_program(code, "playground.epl")
+    code = ${pythonCodeLiteral}
+    tokens = Lexer(code).tokenize()
+    parser = Parser(tokens)
+    program = parser.parse()
     
     interpreter = Interpreter(safe_mode=True)
     interpreter.execute(program)
@@ -848,19 +861,15 @@ output_res
                 return lastASTResult;
             }
 
-            const escapedCode = code.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+            const pythonCodeLiteral = JSON.stringify(code);
             const analyzerScript = `
 import sys, json
-if "epl.type_system" not in sys.modules:
-    import types
-    sys.modules["epl.type_system"] = types.ModuleType("epl.type_system")
-sys.modules["epl.type_system"].EPLTypeChecker = None
 
 from epl.lexer import Lexer
 from epl.parser import Parser
 from epl.errors import EPLError
 
-code = """${escapedCode}"""
+code = ${pythonCodeLiteral}
 result = {"ok": True, "syntax_ok": True, "diagnostics": [], "statement_count": 0, "features": []}
 
 try:
@@ -1391,11 +1400,15 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
                 chatHistory.push({ role: "assistant", content: replyText });
                 
                 // Auto-Typer Agentic Logic:
-                const codeBlockRegex = /```(?:epl|[a-z]*)\n([\s\S]*?)```/gi;
+                const codeBlockRegex = /```([a-zA-Z0-9_-]*)\s*\n([\s\S]*?)```/g;
                 let codeChunks = [];
                 
-                // Filter out the code blocks from conversational text
-                let conversationalText = replyText.replace(codeBlockRegex, (match, code) => {
+                // Only auto-inject EPL code blocks. Other fenced blocks remain in chat.
+                let conversationalText = replyText.replace(codeBlockRegex, (match, lang, code) => {
+                    const normalizedLang = (lang || '').toLowerCase();
+                    if (normalizedLang && !['epl', 'eplang', 'english-programming-language'].includes(normalizedLang)) {
+                        return match;
+                    }
                     codeChunks.push(code.trim());
                     return `[[AI_AUTO_TYPED_CODE]]`;
                 });
@@ -1416,14 +1429,23 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
                     conversationalText += validationMsg;
                 }
                 
-                // Render Thinking Mode blocks
-                conversationalText = conversationalText.replace(/&gt; \*Thinking Process:\*([\s\S]*?)(?=\n[^&]|$)/g, (match, thinking) => {
-                    return `<div class="thinking-block"><strong>Thinking Process:</strong>${thinking.replace(/&gt;/g, '').trim()}</div>`;
+                const thinkingBlocks = [];
+                // Preserve Thinking Mode blocks before markdown escaping.
+                conversationalText = conversationalText.replace(/^> \*Thinking Process:\*([\s\S]*?)(?=\n(?!>)|$)/gm, (match, thinking) => {
+                    const id = thinkingBlocks.length;
+                    thinkingBlocks.push(thinking.replace(/^>\s?/gm, '').trim());
+                    return `[[AI_THINKING_BLOCK_${id}]]`;
                 });
 
                 // Render ONLY conversational text inside chatbot UI
                 if (conversationalText.trim()) {
                     let finalHtml = parseMarkdown(conversationalText);
+                    thinkingBlocks.forEach((thinking, idx) => {
+                        finalHtml = finalHtml.replace(
+                            `[[AI_THINKING_BLOCK_${idx}]]`,
+                            `<div class="thinking-block"><strong>Thinking Process:</strong>${parseMarkdown(thinking)}</div>`
+                        );
+                    });
                     finalHtml = finalHtml.replace(/\[\[AI_AUTO_TYPED_CODE\]\]/g, `<div class="ai-block" style="border-left: 3px solid #0f0; margin-top: 10px; margin-bottom: 10px;">
                         <div class="ai-actions" style="background: rgba(0, 255, 0, 0.05); color: #0f0; padding: 0.6rem; text-align: center; font-weight: bold; border-radius: 4px;">
                             <i class="fa-solid fa-bolt"></i> Code Extracted & Typed into Workspace

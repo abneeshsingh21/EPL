@@ -7,6 +7,7 @@ super calls, proper constructor mapping, and target-aware output.
 """
 
 import re
+
 from epl import ast_nodes as ast
 
 
@@ -25,14 +26,14 @@ class JSTranspiler:
         self.indent = 0
         self.output = []
         self.in_class = None
-        self.in_async = False          # True when inside async function
+        self.in_async = False  # True when inside async function
         self.class_properties = set()  # Property names of current class
         self.user_functions = set()
-        self.async_functions = set()   # Track which functions are async
-        self.esm_imports = set()       # ESM import specifiers
-        self.requires = set()          # Node.js require() modules (CJS fallback)
-        self.imports = []              # EPL import statements collected
-        self.exported_names = set()    # Names to export
+        self.async_functions = set()  # Track which functions are async
+        self.esm_imports = set()  # ESM import specifiers
+        self.requires = set()  # Node.js require() modules (CJS fallback)
+        self.imports = []  # EPL import statements collected
+        self.exported_names = set()  # Names to export
 
     def transpile(self, program: ast.Program) -> str:
         self.output = []
@@ -82,53 +83,100 @@ class JSTranspiler:
     # ─── Statement Dispatch ─────────────────────────────
 
     def _emit_stmt(self, node):
-        if node is None: return
-        if isinstance(node, ast.VarDeclaration): self._emit_var_decl(node)
-        elif isinstance(node, ast.VarAssignment): self._emit_var_assign(node)
-        elif isinstance(node, ast.PrintStatement): self._emit_print(node)
-        elif isinstance(node, ast.InputStatement): self._emit_input(node)
-        elif isinstance(node, ast.IfStatement): self._emit_if(node)
-        elif isinstance(node, ast.WhileLoop): self._emit_while(node)
-        elif isinstance(node, ast.RepeatLoop): self._emit_repeat(node)
-        elif isinstance(node, ast.ForRange): self._emit_for_range(node)
-        elif isinstance(node, ast.ForEachLoop): self._emit_for_each(node)
-        elif isinstance(node, ast.AsyncFunctionDef): self._emit_async_function(node)
-        elif isinstance(node, ast.FunctionDef): self._emit_function(node)
-        elif isinstance(node, ast.FunctionCall): self._line(f'{self._expr(node)};')
-        elif isinstance(node, ast.ReturnStatement): self._emit_return(node)
-        elif isinstance(node, ast.BreakStatement): self._line('break;')
-        elif isinstance(node, ast.ContinueStatement): self._line('continue;')
-        elif isinstance(node, ast.ClassDef): self._emit_class(node)
-        elif isinstance(node, ast.MatchStatement): self._emit_match(node)
-        elif isinstance(node, ast.TryCatch): self._emit_try_catch(node)
-        elif isinstance(node, ast.MethodCall): self._line(f'{self._expr(node)};')
-        elif isinstance(node, ast.PropertySet): self._emit_prop_set(node)
-        elif isinstance(node, ast.IndexSet): self._emit_index_set(node)
-        elif isinstance(node, ast.AugmentedAssignment): self._emit_aug_assign(node)
-        elif isinstance(node, ast.ThrowStatement): self._emit_throw(node)
-        elif isinstance(node, ast.FileWrite): self._emit_file_write(node)
-        elif isinstance(node, ast.FileAppend): self._emit_file_append(node)
-        elif isinstance(node, ast.ConstDeclaration): self._emit_const(node)
-        elif isinstance(node, ast.AssertStatement): self._emit_assert(node)
-        elif isinstance(node, ast.ExitStatement): self._emit_exit(node)
-        elif isinstance(node, ast.WaitStatement): self._emit_wait(node)
-        elif isinstance(node, ast.EnumDef): self._emit_enum(node)
-        elif isinstance(node, ast.ImportStatement): self._emit_import(node)
-        elif isinstance(node, ast.SuperCall): self._emit_super_call(node)
+        if node is None:
+            return
+        if isinstance(node, ast.VarDeclaration):
+            self._emit_var_decl(node)
+        elif isinstance(node, ast.VarAssignment):
+            self._emit_var_assign(node)
+        elif isinstance(node, ast.PrintStatement):
+            self._emit_print(node)
+        elif isinstance(node, ast.InputStatement):
+            self._emit_input(node)
+        elif isinstance(node, ast.IfStatement):
+            self._emit_if(node)
+        elif isinstance(node, ast.WhileLoop):
+            self._emit_while(node)
+        elif isinstance(node, ast.RepeatLoop):
+            self._emit_repeat(node)
+        elif isinstance(node, ast.ForRange):
+            self._emit_for_range(node)
+        elif isinstance(node, ast.ForEachLoop):
+            self._emit_for_each(node)
+        elif isinstance(node, ast.AsyncFunctionDef):
+            self._emit_async_function(node)
+        elif isinstance(node, ast.FunctionDef):
+            self._emit_function(node)
+        elif isinstance(node, ast.FunctionCall):
+            self._line(f'{self._expr(node)};')
+        elif isinstance(node, ast.ReturnStatement):
+            self._emit_return(node)
+        elif isinstance(node, ast.BreakStatement):
+            self._line('break;')
+        elif isinstance(node, ast.ContinueStatement):
+            self._line('continue;')
+        elif isinstance(node, ast.ClassDef):
+            self._emit_class(node)
+        elif isinstance(node, ast.MatchStatement):
+            self._emit_match(node)
+        elif isinstance(node, ast.TryCatch):
+            self._emit_try_catch(node)
+        elif isinstance(node, ast.MethodCall):
+            self._line(f'{self._expr(node)};')
+        elif isinstance(node, ast.PropertySet):
+            self._emit_prop_set(node)
+        elif isinstance(node, ast.IndexSet):
+            self._emit_index_set(node)
+        elif isinstance(node, ast.AugmentedAssignment):
+            self._emit_aug_assign(node)
+        elif isinstance(node, ast.ThrowStatement):
+            self._emit_throw(node)
+        elif isinstance(node, ast.FileWrite):
+            self._emit_file_write(node)
+        elif isinstance(node, ast.FileAppend):
+            self._emit_file_append(node)
+        elif isinstance(node, ast.ConstDeclaration):
+            self._emit_const(node)
+        elif isinstance(node, ast.AssertStatement):
+            self._emit_assert(node)
+        elif isinstance(node, ast.ExitStatement):
+            self._emit_exit(node)
+        elif isinstance(node, ast.WaitStatement):
+            self._emit_wait(node)
+        elif isinstance(node, ast.EnumDef):
+            self._emit_enum(node)
+        elif isinstance(node, ast.ImportStatement):
+            self._emit_import(node)
+        elif isinstance(node, ast.SuperCall):
+            self._emit_super_call(node)
         # v4 AST node support
-        elif isinstance(node, ast.InterfaceDefNode): self._emit_interface(node)
-        elif isinstance(node, ast.ModuleDef): self._emit_module(node)
-        elif isinstance(node, ast.TryCatchFinally): self._emit_try_catch_finally(node)
-        elif isinstance(node, ast.ExportStatement): self._emit_export(node)
-        elif isinstance(node, ast.VisibilityModifier): self._emit_stmt(node.statement)
-        elif isinstance(node, ast.StaticMethodDef): self._emit_static_method(node)
-        elif isinstance(node, ast.AbstractMethodDef): pass  # abstract methods are interface-only
-        elif isinstance(node, ast.YieldStatement): self._emit_yield(node)
-        elif isinstance(node, ast.DestructureAssignment): self._emit_destructure(node)
-        elif isinstance(node, ast.ModuleAccess): self._line(f'{self._expr(node)};')
+        elif isinstance(node, ast.InterfaceDefNode):
+            self._emit_interface(node)
+        elif isinstance(node, ast.ModuleDef):
+            self._emit_module(node)
+        elif isinstance(node, ast.TryCatchFinally):
+            self._emit_try_catch_finally(node)
+        elif isinstance(node, ast.ExportStatement):
+            self._emit_export(node)
+        elif isinstance(node, ast.VisibilityModifier):
+            self._emit_stmt(node.statement)
+        elif isinstance(node, ast.StaticMethodDef):
+            self._emit_static_method(node)
+        elif isinstance(node, ast.AbstractMethodDef):
+            pass  # abstract methods are interface-only
+        elif isinstance(node, ast.YieldStatement):
+            self._emit_yield(node)
+        elif isinstance(node, ast.DestructureAssignment):
+            self._emit_destructure(node)
+        elif isinstance(node, ast.ModuleAccess):
+            self._line(f'{self._expr(node)};')
         else:
             import sys
-            print(f'Warning: JS transpiler skipping unsupported statement: {type(node).__name__}', file=sys.stderr)
+
+            print(
+                f'Warning: JS transpiler skipping unsupported statement: {type(node).__name__}',
+                file=sys.stderr,
+            )
             self._line(f'/* unsupported: {type(node).__name__} */')
 
     # ─── Statements ─────────────────────────────────────
@@ -151,8 +199,12 @@ class JSTranspiler:
             prompt_expr = self._expr(node.prompt) if node.prompt else '""'
             self._line('{')
             self.indent += 1
-            self._line(f'const _rl = readline.createInterface({{ input: process.stdin, output: process.stdout }});')
-            self._line(f'let {node.variable_name} = await new Promise(resolve => _rl.question({prompt_expr}, ans => {{ _rl.close(); resolve(ans); }}));')
+            self._line(
+                'const _rl = readline.createInterface({ input: process.stdin, output: process.stdout });'
+            )
+            self._line(
+                f'let {node.variable_name} = await new Promise(resolve => _rl.question({prompt_expr}, ans => {{ _rl.close(); resolve(ans); }}));'
+            )
             self.indent -= 1
             self._line('}')
         else:
@@ -164,19 +216,22 @@ class JSTranspiler:
     def _emit_if(self, node):
         self._line(f'if ({self._expr(node.condition)}) {{')
         self.indent += 1
-        for s in node.then_body: self._emit_stmt(s)
+        for s in node.then_body:
+            self._emit_stmt(s)
         self.indent -= 1
         if node.else_body:
             self._line('} else {')
             self.indent += 1
-            for s in node.else_body: self._emit_stmt(s)
+            for s in node.else_body:
+                self._emit_stmt(s)
             self.indent -= 1
         self._line('}')
 
     def _emit_while(self, node):
         self._line(f'while ({self._expr(node.condition)}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
@@ -188,7 +243,8 @@ class JSTranspiler:
         self._repeat_counter += 1
         self._line(f'for (let {var} = 0; {var} < {self._expr(node.count)}; {var}++) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
@@ -204,24 +260,33 @@ class JSTranspiler:
             except (ValueError, TypeError):
                 # Dynamic step: use runtime direction check
                 cmp = f'({step} > 0 ? {node.var_name} <= {end} : {node.var_name} >= {end})'
-                self._line(f'for (let {node.var_name} = {start}; {cmp}; {node.var_name} += {step}) {{')
+                self._line(
+                    f'for (let {node.var_name} = {start}; {cmp}; {node.var_name} += {step}) {{'
+                )
                 self.indent += 1
-                for s in node.body: self._emit_stmt(s)
+                for s in node.body:
+                    self._emit_stmt(s)
                 self.indent -= 1
                 self._line('}')
                 return
-            self._line(f'for (let {node.var_name} = {start}; {node.var_name} {cmp} {end}; {node.var_name} += {step}) {{')
+            self._line(
+                f'for (let {node.var_name} = {start}; {node.var_name} {cmp} {end}; {node.var_name} += {step}) {{'
+            )
         else:
-            self._line(f'for (let {node.var_name} = {start}; {node.var_name} <= {end}; {node.var_name} += 1) {{')
+            self._line(
+                f'for (let {node.var_name} = {start}; {node.var_name} <= {end}; {node.var_name} += 1) {{'
+            )
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
     def _emit_for_each(self, node):
         self._line(f'for (let {node.var_name} of {self._expr(node.iterable)}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
@@ -232,7 +297,8 @@ class JSTranspiler:
         prefix = 'function* ' if is_gen else 'function '
         self._line(f'{prefix}{node.name}({params}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
@@ -254,7 +320,8 @@ class JSTranspiler:
         self.indent += 1
         prev_async = self.in_async
         self.in_async = True
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.in_async = prev_async
         self.indent -= 1
         self._line('}')
@@ -286,8 +353,12 @@ class JSTranspiler:
         self._line(f'class {node.name}{parent} {{')
         self.indent += 1
         # Separate properties, init method, and other methods
-        props = [(item.name, item.value) for item in node.body if isinstance(item, ast.VarDeclaration)]
-        methods = [item for item in node.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))]
+        props = [
+            (item.name, item.value) for item in node.body if isinstance(item, ast.VarDeclaration)
+        ]
+        methods = [
+            item for item in node.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
         init_method = None
         other_methods = []
         for m in methods:
@@ -338,7 +409,8 @@ class JSTranspiler:
             prev_async = self.in_async
             if is_async:
                 self.in_async = True
-            for s in m.body: self._emit_stmt(s)
+            for s in m.body:
+                self._emit_stmt(s)
             self.in_async = prev_async
             self.in_class = None
             self.indent -= 1
@@ -354,13 +426,15 @@ class JSTranspiler:
             for v in clause.values:
                 self._line(f'case {self._expr(v)}:')
             self.indent += 1
-            for s in clause.body: self._emit_stmt(s)
+            for s in clause.body:
+                self._emit_stmt(s)
             self._line('break;')
             self.indent -= 1
         if node.default_body:
             self._line('default:')
             self.indent += 1
-            for s in node.default_body: self._emit_stmt(s)
+            for s in node.default_body:
+                self._emit_stmt(s)
             self.indent -= 1
         self.indent -= 1
         self._line('}')
@@ -368,17 +442,20 @@ class JSTranspiler:
     def _emit_try_catch(self, node):
         self._line('try {')
         self.indent += 1
-        for s in node.try_body: self._emit_stmt(s)
+        for s in node.try_body:
+            self._emit_stmt(s)
         self.indent -= 1
         vn = node.error_var or '_err'
         self._line(f'}} catch ({vn}) {{')
         self.indent += 1
-        for s in node.catch_body: self._emit_stmt(s)
+        for s in node.catch_body:
+            self._emit_stmt(s)
         self.indent -= 1
         if hasattr(node, 'finally_body') and node.finally_body:
             self._line('} finally {')
             self.indent += 1
-            for s in node.finally_body: self._emit_stmt(s)
+            for s in node.finally_body:
+                self._emit_stmt(s)
             self.indent -= 1
         self._line('}')
 
@@ -386,7 +463,7 @@ class JSTranspiler:
 
     def _emit_interface(self, node):
         """Emit interface as a JSDoc comment + empty class (structural typing in JS)."""
-        self._line(f'/** @interface */')
+        self._line('/** @interface */')
         self._line(f'class {node.name} {{')
         self.indent += 1
         for sig in node.methods:
@@ -396,8 +473,9 @@ class JSTranspiler:
             else:
                 name = sig.get('name', 'unknown')
                 params_list = sig.get('params', [])
-            params = ', '.join(p[0] if isinstance(p, (list, tuple)) else str(p)
-                             for p in params_list)
+            params = ', '.join(
+                p[0] if isinstance(p, (list, tuple)) else str(p) for p in params_list
+            )
             self._line(f'{name}({params}) {{ throw new Error("Not implemented"); }}')
         self.indent -= 1
         self._line('}')
@@ -426,7 +504,8 @@ class JSTranspiler:
     def _emit_try_catch_finally(self, node):
         self._line('try {')
         self.indent += 1
-        for s in node.try_body: self._emit_stmt(s)
+        for s in node.try_body:
+            self._emit_stmt(s)
         self.indent -= 1
         for clause in node.catch_clauses:
             # clause is (error_type, error_var, body) tuple
@@ -435,9 +514,17 @@ class JSTranspiler:
             self._line(f'}} catch ({var_name}) {{')
             self.indent += 1
             if err_type:
-                safe_err_type = err_type.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r')
-                self._line(f'if (!({var_name} instanceof Error) || !{var_name}.message.includes("{safe_err_type}")) throw {var_name};')
-            for s in body: self._emit_stmt(s)
+                safe_err_type = (
+                    err_type.replace('\\', '\\\\')
+                    .replace('"', '\\"')
+                    .replace('\n', '\\n')
+                    .replace('\r', '\\r')
+                )
+                self._line(
+                    f'if (!({var_name} instanceof Error) || !{var_name}.message.includes("{safe_err_type}")) throw {var_name};'
+                )
+            for s in body:
+                self._emit_stmt(s)
             self.indent -= 1
         if not node.catch_clauses:
             self._line('} catch (_err) {')
@@ -447,7 +534,8 @@ class JSTranspiler:
         if node.finally_body:
             self._line('} finally {')
             self.indent += 1
-            for s in node.finally_body: self._emit_stmt(s)
+            for s in node.finally_body:
+                self._emit_stmt(s)
             self.indent -= 1
         self._line('}')
 
@@ -459,7 +547,8 @@ class JSTranspiler:
         params = ', '.join(self._format_param(p) for p in node.params)
         self._line(f'static {node.name}({params}) {{')
         self.indent += 1
-        for s in node.body: self._emit_stmt(s)
+        for s in node.body:
+            self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
 
@@ -491,9 +580,11 @@ class JSTranspiler:
                 self.esm_imports.add('fs')
             else:
                 self.requires.add('fs')
-            self._line(f'fs.writeFileSync({self._expr(node.filepath)}, {self._expr(node.content)});')
+            self._line(
+                f'fs.writeFileSync({self._expr(node.filepath)}, {self._expr(node.content)});'
+            )
         else:
-            self._line(f'console.warn("File I/O not available in browser");')
+            self._line('console.warn("File I/O not available in browser");')
 
     def _emit_file_append(self, node):
         if self.target == 'node':
@@ -501,9 +592,11 @@ class JSTranspiler:
                 self.esm_imports.add('fs')
             else:
                 self.requires.add('fs')
-            self._line(f'fs.appendFileSync({self._expr(node.filepath)}, {self._expr(node.content)} + "\\n");')
+            self._line(
+                f'fs.appendFileSync({self._expr(node.filepath)}, {self._expr(node.content)} + "\\n");'
+            )
         else:
-            self._line(f'console.warn("File I/O not available in browser");')
+            self._line('console.warn("File I/O not available in browser");')
 
     def _emit_const(self, node):
         self._line(f'const {node.name} = {self._expr(node.value)};')
@@ -519,10 +612,14 @@ class JSTranspiler:
 
     def _emit_wait(self, node):
         if self.in_async:
-            self._line(f'await new Promise(r => setTimeout(r, {self._expr(node.duration)} * 1000));')
+            self._line(
+                f'await new Promise(r => setTimeout(r, {self._expr(node.duration)} * 1000));'
+            )
         else:
             # In non-async context, use setTimeout wrapper (await is illegal)
-            self._line(f'setTimeout(() => {{ /* wait {self._expr(node.duration)}s */ }}, {self._expr(node.duration)} * 1000);')
+            self._line(
+                f'setTimeout(() => {{ /* wait {self._expr(node.duration)}s */ }}, {self._expr(node.duration)} * 1000);'
+            )
 
     def _emit_enum(self, node):
         self._line(f'const {node.name} = Object.freeze({{')
@@ -535,7 +632,14 @@ class JSTranspiler:
     def _emit_import(self, node):
         filepath = node.filepath
         # Strip .epl extension for JS module name
-        mod_name = filepath.replace('.epl', '').replace('/', '_').replace('\\', '_').replace('\\\\', '_').replace('.', '_').replace('-', '_')
+        mod_name = (
+            filepath.replace('.epl', '')
+            .replace('/', '_')
+            .replace('\\', '_')
+            .replace('\\\\', '_')
+            .replace('.', '_')
+            .replace('-', '_')
+        )
         if mod_name and mod_name[0].isdigit():
             mod_name = '_' + mod_name
         js_path = './' + filepath.replace('.epl', '.js')
@@ -547,25 +651,40 @@ class JSTranspiler:
     # ─── Expression Rendering ───────────────────────────
 
     def _expr(self, node) -> str:
-        if node is None: return 'null'
-        if isinstance(node, ast.Literal): return self._expr_literal(node)
+        if node is None:
+            return 'null'
+        if isinstance(node, ast.Literal):
+            return self._expr_literal(node)
         if isinstance(node, ast.Identifier):
             if self.in_class and node.name in self.class_properties:
                 return f'this.{node.name}'
             return node.name
-        if isinstance(node, ast.BinaryOp): return self._expr_binary(node)
-        if isinstance(node, ast.UnaryOp): return self._expr_unary(node)
-        if isinstance(node, ast.FunctionCall): return self._expr_call(node)
-        if isinstance(node, ast.PropertyAccess): return f'{self._expr(node.obj)}.{node.property_name}'
-        if isinstance(node, ast.MethodCall): return self._expr_method(node)
-        if isinstance(node, ast.IndexAccess): return f'{self._expr(node.obj)}[{self._expr(node.index)}]'
-        if isinstance(node, ast.SliceAccess): return self._expr_slice(node)
-        if isinstance(node, ast.ListLiteral): return f'[{", ".join(self._expr(e) for e in node.elements)}]'
-        if isinstance(node, ast.DictLiteral): return self._expr_dict(node)
-        if isinstance(node, ast.NewInstance): return f'new {node.class_name}({", ".join(self._expr(a) for a in node.arguments)})'
-        if isinstance(node, ast.LambdaExpression): return f'({", ".join(p[0] if isinstance(p, (list, tuple)) else p for p in node.params)}) => {self._expr(node.body)}'
-        if isinstance(node, ast.TernaryExpression): return f'({self._expr(node.condition)} ? {self._expr(node.true_expr)} : {self._expr(node.false_expr)})'
-        if isinstance(node, ast.AwaitExpression): return f'await {self._expr(node.expression)}'
+        if isinstance(node, ast.BinaryOp):
+            return self._expr_binary(node)
+        if isinstance(node, ast.UnaryOp):
+            return self._expr_unary(node)
+        if isinstance(node, ast.FunctionCall):
+            return self._expr_call(node)
+        if isinstance(node, ast.PropertyAccess):
+            return f'{self._expr(node.obj)}.{node.property_name}'
+        if isinstance(node, ast.MethodCall):
+            return self._expr_method(node)
+        if isinstance(node, ast.IndexAccess):
+            return f'{self._expr(node.obj)}[{self._expr(node.index)}]'
+        if isinstance(node, ast.SliceAccess):
+            return self._expr_slice(node)
+        if isinstance(node, ast.ListLiteral):
+            return f'[{", ".join(self._expr(e) for e in node.elements)}]'
+        if isinstance(node, ast.DictLiteral):
+            return self._expr_dict(node)
+        if isinstance(node, ast.NewInstance):
+            return f'new {node.class_name}({", ".join(self._expr(a) for a in node.arguments)})'
+        if isinstance(node, ast.LambdaExpression):
+            return f'({", ".join(p[0] if isinstance(p, (list, tuple)) else p for p in node.params)}) => {self._expr(node.body)}'
+        if isinstance(node, ast.TernaryExpression):
+            return f'({self._expr(node.condition)} ? {self._expr(node.true_expr)} : {self._expr(node.false_expr)})'
+        if isinstance(node, ast.AwaitExpression):
+            return f'await {self._expr(node.expression)}'
         if isinstance(node, ast.SuperCall):
             args = ', '.join(self._expr(a) for a in node.arguments)
             if node.method_name:
@@ -578,8 +697,9 @@ class JSTranspiler:
                 else:
                     self.requires.add('fs')
                 return f'fs.readFileSync({self._expr(node.filepath)}, "utf-8")'
-            return f'null /* File I/O not available in browser */'
-        if isinstance(node, ast.ModuleAccess): return f'{node.module_name}.{node.member_name}'
+            return 'null /* File I/O not available in browser */'
+        if isinstance(node, ast.ModuleAccess):
+            return f'{node.module_name}.{node.member_name}'
         if isinstance(node, ast.SpreadExpression) if hasattr(ast, 'SpreadExpression') else False:
             return f'...{self._expr(node.expression)}'
         if isinstance(node, ast.ChainedComparison) if hasattr(ast, 'ChainedComparison') else False:
@@ -593,13 +713,20 @@ class JSTranspiler:
                 parts.append(f'({l} {js_op} {r})')
             return ' && '.join(parts)
         import sys
-        print(f'Warning: JS transpiler skipping unsupported expression: {type(node).__name__}', file=sys.stderr)
+
+        print(
+            f'Warning: JS transpiler skipping unsupported expression: {type(node).__name__}',
+            file=sys.stderr,
+        )
         return f'null /* unsupported expr: {type(node).__name__} */'
 
     def _expr_literal(self, node):
-        if isinstance(node.value, bool): return 'true' if node.value else 'false'
-        if isinstance(node.value, str): return self._js_string(node.value)
-        if node.value is None: return 'null'
+        if isinstance(node.value, bool):
+            return 'true' if node.value else 'false'
+        if isinstance(node.value, str):
+            return self._js_string(node.value)
+        if node.value is None:
+            return 'null'
         return str(node.value)
 
     def _js_string(self, s):
@@ -614,7 +741,7 @@ class JSTranspiler:
             # First handle ${expr} patterns from original string
             for m in self._TEMPLATE_RE.finditer(s):
                 expr_braced = m.group(1)  # From ${expr}
-                expr_bare = m.group(2)    # From $var
+                expr_bare = m.group(2)  # From $var
                 if expr_braced:
                     old = '\\${' + expr_braced + '}'
                     new = '${' + expr_braced + '}'
@@ -625,7 +752,13 @@ class JSTranspiler:
                     escaped = escaped.replace(old, new, 1)
             return f'`{escaped}`'
         # Regular string — escape special chars
-        escaped = s.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+        escaped = (
+            s.replace('\\', '\\\\')
+            .replace('"', '\\"')
+            .replace('\n', '\\n')
+            .replace('\r', '\\r')
+            .replace('\t', '\\t')
+        )
         return f'"{escaped}"'
 
     def _expr_binary(self, node):
@@ -633,8 +766,12 @@ class JSTranspiler:
         right = self._expr(node.right)
         op = node.operator
         op_map = {
-            'and': '&&', 'or': '||', '==': '===', '!=': '!==',
-            '**': '**', '//': 'Math.floor(/'
+            'and': '&&',
+            'or': '||',
+            '==': '===',
+            '!=': '!==',
+            '**': '**',
+            '//': 'Math.floor(/',
         }
         if op == '//':
             return f'Math.floor({left} / {right})'
@@ -642,7 +779,8 @@ class JSTranspiler:
         return f'({left} {js_op} {right})'
 
     def _expr_unary(self, node):
-        if node.operator == 'not': return f'!{self._expr(node.operand)}'
+        if node.operator == 'not':
+            return f'!{self._expr(node.operand)}'
         return f'{node.operator}{self._expr(node.operand)}'
 
     def _expr_call(self, node):
@@ -669,8 +807,10 @@ class JSTranspiler:
             'log': lambda: f'Math.log({args})',
             'sin': lambda: f'Math.sin({args})',
             'cos': lambda: f'Math.cos({args})',
-            'random': lambda: f'Math.random()',
-            'sorted': lambda: f'[...{self._expr(node.arguments[0])}].sort((a, b) => typeof a === "number" ? a - b : String(a).localeCompare(String(b)))',
+            'random': lambda: 'Math.random()',
+            'sorted': lambda: (
+                f'[...{self._expr(node.arguments[0])}].sort((a, b) => typeof a === "number" ? a - b : String(a).localeCompare(String(b)))'
+            ),
             'reversed': lambda: f'[...{self._expr(node.arguments[0])}].reverse()',
             'range': lambda: self._js_range(node.arguments),
             'sum': lambda: f'{self._expr(node.arguments[0])}.reduce((a, b) => a + b, 0)',
@@ -679,7 +819,11 @@ class JSTranspiler:
             # Stdlib: DateTime
             'now': lambda: 'new Date().toISOString()',
             'today': lambda: 'new Date().toISOString().slice(0, 10)',
-            'sleep': lambda: f'await new Promise(r => setTimeout(r, {self._expr(node.arguments[0])} * 1000))' if self.in_async else f'/* sync sleep not supported */ void 0',
+            'sleep': lambda: (
+                f'await new Promise(r => setTimeout(r, {self._expr(node.arguments[0])} * 1000))'
+                if self.in_async
+                else '/* sync sleep not supported */ void 0'
+            ),
             'year': lambda: f'new Date({self._expr(node.arguments[0])}).getFullYear()',
             'month': lambda: f'(new Date({self._expr(node.arguments[0])}).getMonth() + 1)',
             'day': lambda: f'new Date({self._expr(node.arguments[0])}).getDate()',
@@ -693,11 +837,21 @@ class JSTranspiler:
             'base64_encode': lambda: f'btoa({args})',
             'base64_decode': lambda: f'atob({args})',
             # Stdlib: Regex
-            'regex_test': lambda: f'new RegExp({self._expr(node.arguments[0])}).test({self._expr(node.arguments[1])})',
-            'regex_match': lambda: f'{self._expr(node.arguments[1])}.match(new RegExp({self._expr(node.arguments[0])}))',
-            'regex_find_all': lambda: f'[...{self._expr(node.arguments[1])}.matchAll(new RegExp({self._expr(node.arguments[0])}, "g"))]',
-            'regex_replace': lambda: f'{self._expr(node.arguments[2])}.replace(new RegExp({self._expr(node.arguments[0])}, "g"), {self._expr(node.arguments[1])})',
-            'regex_split': lambda: f'{self._expr(node.arguments[1])}.split(new RegExp({self._expr(node.arguments[0])}))',
+            'regex_test': lambda: (
+                f'new RegExp({self._expr(node.arguments[0])}).test({self._expr(node.arguments[1])})'
+            ),
+            'regex_match': lambda: (
+                f'{self._expr(node.arguments[1])}.match(new RegExp({self._expr(node.arguments[0])}))'
+            ),
+            'regex_find_all': lambda: (
+                f'[...{self._expr(node.arguments[1])}.matchAll(new RegExp({self._expr(node.arguments[0])}, "g"))]'
+            ),
+            'regex_replace': lambda: (
+                f'{self._expr(node.arguments[2])}.replace(new RegExp({self._expr(node.arguments[0])}, "g"), {self._expr(node.arguments[1])})'
+            ),
+            'regex_split': lambda: (
+                f'{self._expr(node.arguments[1])}.split(new RegExp({self._expr(node.arguments[0])}))'
+            ),
             # Stdlib: Advanced Math
             'pi': lambda: 'Math.PI',
             'euler': lambda: 'Math.E',
@@ -709,19 +863,31 @@ class JSTranspiler:
             'degrees': lambda: f'({self._expr(node.arguments[0])} * 180 / Math.PI)',
             'radians': lambda: f'({self._expr(node.arguments[0])} * Math.PI / 180)',
             'sign': lambda: f'Math.sign({args})',
-            'clamp': lambda: f'Math.max({self._expr(node.arguments[1])}, Math.min({self._expr(node.arguments[2])}, {self._expr(node.arguments[0])}))',
+            'clamp': lambda: (
+                f'Math.max({self._expr(node.arguments[1])}, Math.min({self._expr(node.arguments[2])}, {self._expr(node.arguments[0])}))'
+            ),
             'is_finite': lambda: f'Number.isFinite({args})',
             'is_nan': lambda: f'Number.isNaN({args})',
-            'lerp': lambda: f'({self._expr(node.arguments[0])} + ({self._expr(node.arguments[1])} - {self._expr(node.arguments[0])}) * {self._expr(node.arguments[2])})',
+            'lerp': lambda: (
+                f'({self._expr(node.arguments[0])} + ({self._expr(node.arguments[1])} - {self._expr(node.arguments[0])}) * {self._expr(node.arguments[2])})'
+            ),
             # Stdlib: Collections
-            'zip_lists': lambda: f'{self._expr(node.arguments[0])}.map((v, i) => [v, {self._expr(node.arguments[1])}[i]])',
+            'zip_lists': lambda: (
+                f'{self._expr(node.arguments[0])}.map((v, i) => [v, {self._expr(node.arguments[1])}[i]])'
+            ),
             'enumerate_list': lambda: f'{self._expr(node.arguments[0])}.map((v, i) => [i, v])',
             # Stdlib: OS / System
-            'platform': lambda: '(typeof process !== "undefined" ? process.platform : navigator.platform)',
+            'platform': lambda: (
+                '(typeof process !== "undefined" ? process.platform : navigator.platform)'
+            ),
             'args': lambda: '(typeof process !== "undefined" ? process.argv.slice(2) : [])',
             'env_get': lambda: f'(typeof process !== "undefined" ? process.env[{args}] || "" : "")',
             'print_error': lambda: f'console.error({args})',
-            'exit_code': lambda: f'process.exit({args})' if self.target == 'node' else f'(() => {{ throw new Error("EPL exit: " + {args}); }})()',
+            'exit_code': lambda: (
+                f'process.exit({args})'
+                if self.target == 'node'
+                else f'(() => {{ throw new Error("EPL exit: " + {args}); }})()'
+            ),
             # Stdlib: URL
             'url_encode': lambda: f'encodeURIComponent({args})',
             'url_decode': lambda: f'decodeURIComponent({args})',
@@ -733,8 +899,12 @@ class JSTranspiler:
             'json_parse': lambda: f'JSON.parse({args})',
             'json_stringify': lambda: f'JSON.stringify({args})',
             # Stdlib: Timers
-            'set_timeout': lambda: f'setTimeout({self._expr(node.arguments[0])}, {self._expr(node.arguments[1])} * 1000)',
-            'set_interval': lambda: f'setInterval({self._expr(node.arguments[0])}, {self._expr(node.arguments[1])} * 1000)',
+            'set_timeout': lambda: (
+                f'setTimeout({self._expr(node.arguments[0])}, {self._expr(node.arguments[1])} * 1000)'
+            ),
+            'set_interval': lambda: (
+                f'setInterval({self._expr(node.arguments[0])}, {self._expr(node.arguments[1])} * 1000)'
+            ),
             'clear_timeout': lambda: f'clearTimeout({args})',
             'clear_interval': lambda: f'clearInterval({args})',
             # Stdlib: Type checking
@@ -773,7 +943,7 @@ class JSTranspiler:
         """Generate JS fetch POST call."""
         url = self._expr(arguments[0])
         body = self._expr(arguments[1]) if len(arguments) > 1 else '""'
-        fetch_call = f'fetch({url}, {{method: "POST", headers: {{"Content-Type": "application/json"}}, body: JSON.stringify({body})}})'  
+        fetch_call = f'fetch({url}, {{method: "POST", headers: {{"Content-Type": "application/json"}}, body: JSON.stringify({body})}})'
         if self.in_async:
             return f'await {fetch_call}.then(r => r.text())'
         return f'{fetch_call}.then(r => r.text())'
@@ -798,15 +968,28 @@ class JSTranspiler:
         obj = self._expr(node.obj)
         args = ', '.join(self._expr(a) for a in node.arguments)
         method_map = {
-            'add': 'push', 'push': 'push', 'remove': 'splice',
-            'upper': 'toUpperCase', 'uppercase': 'toUpperCase',
-            'lower': 'toLowerCase', 'lowercase': 'toLowerCase',
-            'trim': 'trim', 'contains': 'includes', 'replace': 'replace',
-            'starts_with': 'startsWith', 'ends_with': 'endsWith',
-            'split': 'split', 'reverse': 'reverse', 'sort': 'sort',
-            'substring': 'substring', 'index_of': 'indexOf',
-            'join': 'join', 'find': 'find', 'repeat': 'repeat',
-            'char_at': 'charAt', 'to_list': 'split',
+            'add': 'push',
+            'push': 'push',
+            'remove': 'splice',
+            'upper': 'toUpperCase',
+            'uppercase': 'toUpperCase',
+            'lower': 'toLowerCase',
+            'lowercase': 'toLowerCase',
+            'trim': 'trim',
+            'contains': 'includes',
+            'replace': 'replace',
+            'starts_with': 'startsWith',
+            'ends_with': 'endsWith',
+            'split': 'split',
+            'reverse': 'reverse',
+            'sort': 'sort',
+            'substring': 'substring',
+            'index_of': 'indexOf',
+            'join': 'join',
+            'find': 'find',
+            'repeat': 'repeat',
+            'char_at': 'charAt',
+            'to_list': 'split',
         }
         m = node.method_name
         if m == 'remove':

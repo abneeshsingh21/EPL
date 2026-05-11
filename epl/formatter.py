@@ -15,19 +15,16 @@ Features:
 - Configurable style via FormatterConfig
 """
 
-import os
 import difflib
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
 from pathlib import Path
-
-from epl.lexer import Lexer
-from epl.parser import Parser
+from typing import List
 
 
 @dataclass
 class FormatterConfig:
     """Formatter configuration."""
+
     tab_size: int = 4
     normalize_keywords: bool = True
     max_consecutive_blanks: int = 2
@@ -40,8 +37,17 @@ class FormatterConfig:
 
 # Block-opening keywords (case-insensitive match on stripped line start)
 _BLOCK_OPENERS = (
-    'If ', 'While ', 'For ', 'Repeat ', 'Function ', 'Async Function ',
-    'Class ', 'Try', 'Match ', 'Module ', 'Interface ',
+    'If ',
+    'While ',
+    'For ',
+    'Repeat ',
+    'Function ',
+    'Async Function ',
+    'Class ',
+    'Try',
+    'Match ',
+    'Module ',
+    'Interface ',
 )
 
 # Keywords that close-and-reopen a block (same indent as their parent)
@@ -52,23 +58,50 @@ _SUB_BLOCK_OPENERS = ('When ', 'Default')
 
 # Statement keywords that should start with uppercase
 _KEYWORD_CAPS = {
-    'create': 'Create', 'set': 'Set', 'print': 'Print', 'display': 'Display',
-    'if': 'If', 'else': 'Else', 'end': 'End', 'while': 'While', 'for': 'For',
-    'each': 'Each', 'repeat': 'Repeat', 'function': 'Function', 'return': 'Return',
-    'class': 'Class', 'extends': 'Extends', 'try': 'Try', 'catch': 'Catch',
-    'finally': 'Finally', 'throw': 'Throw', 'match': 'Match', 'when': 'When',
-    'default': 'Default', 'import': 'Import', 'from': 'From', 'module': 'Module',
-    'async': 'Async', 'await': 'Await', 'yield': 'Yield', 'assert': 'Assert',
-    'constant': 'Constant', 'enum': 'Enum', 'interface': 'Interface',
-    'implements': 'Implements', 'remember': 'Remember', 'append': 'Append',
+    'create': 'Create',
+    'set': 'Set',
+    'print': 'Print',
+    'display': 'Display',
+    'if': 'If',
+    'else': 'Else',
+    'end': 'End',
+    'while': 'While',
+    'for': 'For',
+    'each': 'Each',
+    'repeat': 'Repeat',
+    'function': 'Function',
+    'return': 'Return',
+    'class': 'Class',
+    'extends': 'Extends',
+    'try': 'Try',
+    'catch': 'Catch',
+    'finally': 'Finally',
+    'throw': 'Throw',
+    'match': 'Match',
+    'when': 'When',
+    'default': 'Default',
+    'import': 'Import',
+    'from': 'From',
+    'module': 'Module',
+    'async': 'Async',
+    'await': 'Await',
+    'yield': 'Yield',
+    'assert': 'Assert',
+    'constant': 'Constant',
+    'enum': 'Enum',
+    'interface': 'Interface',
+    'implements': 'Implements',
+    'remember': 'Remember',
+    'append': 'Append',
     'remove': 'Remove',
 }
 
 
-def format_source(source: str, tab_size: int = 4, normalize_keywords: bool = True,
-                   config: FormatterConfig = None) -> str:
+def format_source(
+    source: str, tab_size: int = 4, normalize_keywords: bool = True, config: FormatterConfig = None
+) -> str:
     """Format EPL source code with proper indentation and optional keyword normalization.
-    
+
     Uses stack-based analysis for correct handling of nested blocks including
     Match/When/Default. Features:
     - Trailing whitespace removal
@@ -192,7 +225,7 @@ def _normalize_keyword_case(line: str) -> str:
 
 def check_formatting(source: str, tab_size: int = 4) -> list:
     """Check source formatting and return a list of issues found.
-    
+
     Returns list of dicts with keys: line, message, severity.
     """
     issues = []
@@ -201,19 +234,23 @@ def check_formatting(source: str, tab_size: int = 4) -> list:
     for i, line in enumerate(lines, 1):
         # Trailing whitespace
         if line != line.rstrip():
-            issues.append({
-                'line': i,
-                'message': 'Trailing whitespace',
-                'severity': 'warning',
-            })
+            issues.append(
+                {
+                    'line': i,
+                    'message': 'Trailing whitespace',
+                    'severity': 'warning',
+                }
+            )
 
         # Tabs mixed with spaces
-        if '\t' in line and ' ' in line[:len(line) - len(line.lstrip())]:
-            issues.append({
-                'line': i,
-                'message': 'Mixed tabs and spaces in indentation',
-                'severity': 'warning',
-            })
+        if '\t' in line and ' ' in line[: len(line) - len(line.lstrip())]:
+            issues.append(
+                {
+                    'line': i,
+                    'message': 'Mixed tabs and spaces in indentation',
+                    'severity': 'warning',
+                }
+            )
 
         # Leading keyword case
         stripped = line.strip()
@@ -223,11 +260,13 @@ def check_formatting(source: str, tab_size: int = 4) -> list:
                 first = parts[0].rstrip('.')
                 lower_first = first.lower()
                 if lower_first in _KEYWORD_CAPS and first != _KEYWORD_CAPS[lower_first]:
-                    issues.append({
-                        'line': i,
-                        'message': f"Keyword '{first}' should be '{_KEYWORD_CAPS[lower_first]}'",
-                        'severity': 'style',
-                    })
+                    issues.append(
+                        {
+                            'line': i,
+                            'message': f"Keyword '{first}' should be '{_KEYWORD_CAPS[lower_first]}'",
+                            'severity': 'style',
+                        }
+                    )
 
     # Check for more than 2 consecutive blank lines
     consecutive = 0
@@ -235,11 +274,13 @@ def check_formatting(source: str, tab_size: int = 4) -> list:
         if line.strip() == '':
             consecutive += 1
             if consecutive > 2:
-                issues.append({
-                    'line': i,
-                    'message': 'More than 2 consecutive blank lines',
-                    'severity': 'style',
-                })
+                issues.append(
+                    {
+                        'line': i,
+                        'message': 'More than 2 consecutive blank lines',
+                        'severity': 'style',
+                    }
+                )
         else:
             consecutive = 0
 
@@ -252,17 +293,21 @@ def format_file(filepath: str, config: FormatterConfig = None, in_place: bool = 
     config = config or FormatterConfig()
     with open(filepath, 'r', encoding='utf-8') as f:
         source = f.read()
-    formatted = format_source(source, tab_size=config.tab_size,
-                               normalize_keywords=config.normalize_keywords,
-                               config=config)
+    formatted = format_source(
+        source,
+        tab_size=config.tab_size,
+        normalize_keywords=config.normalize_keywords,
+        config=config,
+    )
     if in_place and formatted != source:
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(formatted)
     return formatted
 
 
-def format_directory(dirpath: str, config: FormatterConfig = None,
-                     in_place: bool = False, recursive: bool = True) -> List[dict]:
+def format_directory(
+    dirpath: str, config: FormatterConfig = None, in_place: bool = False, recursive: bool = True
+) -> List[dict]:
     """Format all .epl files in a directory. Returns list of {file, changed} dicts."""
     config = config or FormatterConfig()
     results = []
@@ -271,9 +316,12 @@ def format_directory(dirpath: str, config: FormatterConfig = None,
         filepath = str(fpath)
         with open(filepath, 'r', encoding='utf-8') as f:
             original = f.read()
-        formatted = format_source(original, tab_size=config.tab_size,
-                                   normalize_keywords=config.normalize_keywords,
-                                   config=config)
+        formatted = format_source(
+            original,
+            tab_size=config.tab_size,
+            normalize_keywords=config.normalize_keywords,
+            config=config,
+        )
         changed = formatted != original
         if in_place and changed:
             with open(filepath, 'w', encoding='utf-8') as f:
@@ -285,22 +333,26 @@ def format_directory(dirpath: str, config: FormatterConfig = None,
 def diff_format(source: str, config: FormatterConfig = None, filepath: str = '<stdin>') -> str:
     """Return a unified diff between original and formatted source."""
     config = config or FormatterConfig()
-    formatted = format_source(source, tab_size=config.tab_size,
-                               normalize_keywords=config.normalize_keywords,
-                               config=config)
+    formatted = format_source(
+        source,
+        tab_size=config.tab_size,
+        normalize_keywords=config.normalize_keywords,
+        config=config,
+    )
     if formatted == source:
         return ''
     original_lines = source.splitlines(keepends=True)
     formatted_lines = formatted.splitlines(keepends=True)
-    diff = difflib.unified_diff(original_lines, formatted_lines,
-                                 fromfile=f'a/{filepath}',
-                                 tofile=f'b/{filepath}')
+    diff = difflib.unified_diff(
+        original_lines, formatted_lines, fromfile=f'a/{filepath}', tofile=f'b/{filepath}'
+    )
     return ''.join(diff)
 
 
 def _normalize_operators(line: str) -> str:
     """Normalize spacing around operators."""
     import re
+
     # Don't modify comment lines or string-heavy lines
     stripped = line.lstrip()
     if stripped.startswith('//') or stripped.startswith('#'):

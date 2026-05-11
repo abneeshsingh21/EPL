@@ -9,9 +9,9 @@ Simplifications in v0.2:
   - Simpler functions: "Function add takes a and b" works
 """
 
-from epl.tokens import Token, TokenType
-from epl.errors import ParserError
 from epl import ast_nodes as ast
+from epl.errors import ParserError
+from epl.tokens import Token, TokenType
 
 
 class Parser:
@@ -23,8 +23,8 @@ class Parser:
         self.tokens = tokens
         self.pos = 0
         self._depth = 0
-        self.errors = []       # collected parse errors for recovery mode
-        self.max_errors = 20   # stop collecting after this many
+        self.errors = []  # collected parse errors for recovery mode
+        self.max_errors = 20  # stop collecting after this many
 
     # ─── Helpers ──────────────────────────────────────────
 
@@ -47,7 +47,10 @@ class Parser:
     def _expect(self, token_type: TokenType, error_msg: str = None) -> Token:
         tok = self._current()
         if tok.type != token_type:
-            msg = error_msg or f'Expected {token_type.name} but found {tok.type.name} ("{tok.value}").'
+            msg = (
+                error_msg
+                or f'Expected {token_type.name} but found {tok.type.name} ("{tok.value}").'
+            )
             raise ParserError(msg, tok.line)
         return self._advance()
 
@@ -72,26 +75,56 @@ class Parser:
 
     # Soft keywords that can also serve as identifiers in name positions
     _SOFT_KEYWORDS = (
-        TokenType.A, TokenType.AN, TokenType.THE,
-        TokenType.TO, TokenType.OF, TokenType.BY, TokenType.AS,
-        TokenType.TYPE, TokenType.VARIABLE, TokenType.NAMED,
-        TokenType.FROM, TokenType.THAT, TokenType.WITH,
+        TokenType.A,
+        TokenType.AN,
+        TokenType.THE,
+        TokenType.TO,
+        TokenType.OF,
+        TokenType.BY,
+        TokenType.AS,
+        TokenType.TYPE,
+        TokenType.VARIABLE,
+        TokenType.NAMED,
+        TokenType.FROM,
+        TokenType.THAT,
+        TokenType.WITH,
         # v0.6: Allow these keywords as method/property names
-        TokenType.MAP, TokenType.REPEAT, TokenType.STEP,
-        TokenType.TYPEOF, TokenType.SET,
+        TokenType.MAP,
+        TokenType.REPEAT,
+        TokenType.STEP,
+        TokenType.TYPEOF,
+        TokenType.SET,
         # v0.7: English aliases
-        TokenType.SAY, TokenType.ASK, TokenType.REMEMBER,
-        TokenType.RAISED, TokenType.BETWEEN,
-        TokenType.ADD_KW, TokenType.SORT_KW, TokenType.REVERSE_KW,
+        TokenType.SAY,
+        TokenType.ASK,
+        TokenType.REMEMBER,
+        TokenType.RAISED,
+        TokenType.BETWEEN,
+        TokenType.ADD_KW,
+        TokenType.SORT_KW,
+        TokenType.REVERSE_KW,
         # v0.7.1: Simplified operators
-        TokenType.MOD_KW, TokenType.EQUALS_KW,
-        TokenType.MULTIPLY_KW, TokenType.DIVIDE_KW, TokenType.GIVEN,
+        TokenType.MOD_KW,
+        TokenType.EQUALS_KW,
+        TokenType.MULTIPLY_KW,
+        TokenType.DIVIDE_KW,
+        TokenType.GIVEN,
         # v1.4: GUI/web/async keywords usable as identifiers in context
-        TokenType.ROW, TokenType.COLUMN, TokenType.LABEL,
-        TokenType.TAB, TokenType.TREE, TokenType.MENU_KW,
-        TokenType.START, TokenType.PORT, TokenType.ROUTE,
-        TokenType.ON, TokenType.BUTTON, TokenType.CALLED,
-        TokenType.DOES, TokenType.ACTION, TokenType.NOTHING,
+        TokenType.ROW,
+        TokenType.COLUMN,
+        TokenType.LABEL,
+        TokenType.TAB,
+        TokenType.TREE,
+        TokenType.MENU_KW,
+        TokenType.START,
+        TokenType.PORT,
+        TokenType.ROUTE,
+        TokenType.ON,
+        TokenType.BUTTON,
+        TokenType.CALLED,
+        TokenType.DOES,
+        TokenType.ACTION,
+        TokenType.NOTHING,
     )
 
     def _expect_identifier(self, error_msg: str = None) -> Token:
@@ -105,42 +138,71 @@ class Parser:
         raise ParserError(msg, tok.line)
 
     def _match_identifier(self) -> bool:
-        return self._current().type == TokenType.IDENTIFIER or self._current().type in self._SOFT_KEYWORDS
+        return (
+            self._current().type == TokenType.IDENTIFIER
+            or self._current().type in self._SOFT_KEYWORDS
+        )
 
     def _is_block_end(self) -> bool:
         """Check if current token is any kind of block terminator."""
         return self._match(
-            TokenType.END, TokenType.END_IF, TokenType.END_WHILE,
-            TokenType.END_REPEAT, TokenType.END_FOR, TokenType.END_FUNCTION,
-            TokenType.OTHERWISE, TokenType.EOF,
-            TokenType.CATCH, TokenType.WHEN, TokenType.DEFAULT
+            TokenType.END,
+            TokenType.END_IF,
+            TokenType.END_WHILE,
+            TokenType.END_REPEAT,
+            TokenType.END_FOR,
+            TokenType.END_FUNCTION,
+            TokenType.OTHERWISE,
+            TokenType.EOF,
+            TokenType.CATCH,
+            TokenType.WHEN,
+            TokenType.DEFAULT,
         )
 
     def _consume_block_end(self):
         """Consume any block ending: End, End if, End while, End repeat, End for, End function."""
         if self._match(TokenType.END):
             self._advance()
-        elif self._match(TokenType.END_IF, TokenType.END_WHILE, TokenType.END_REPEAT,
-                         TokenType.END_FOR, TokenType.END_FUNCTION):
+        elif self._match(
+            TokenType.END_IF,
+            TokenType.END_WHILE,
+            TokenType.END_REPEAT,
+            TokenType.END_FOR,
+            TokenType.END_FUNCTION,
+        ):
             self._advance()
         else:
-            raise ParserError(
-                'Expected "End" to close this block.',
-                self._current().line
-            )
+            raise ParserError('Expected "End" to close this block.', self._current().line)
         self._end_statement()
 
     # ─── Error Recovery ────────────────────────────────────
 
     # Token types that begin a new statement (synchronization points)
-    _SYNC_TOKENS = frozenset({
-        TokenType.CREATE, TokenType.SET, TokenType.PRINT, TokenType.DISPLAY,
-        TokenType.SHOW, TokenType.SAY, TokenType.IF, TokenType.WHILE,
-        TokenType.FOR, TokenType.REPEAT, TokenType.FUNCTION, TokenType.CLASS,
-        TokenType.RETURN, TokenType.IMPORT, TokenType.TRY, TokenType.THROW,
-        TokenType.ASSERT, TokenType.BREAK, TokenType.CONTINUE, TokenType.END,
-        TokenType.EOF,
-    })
+    _SYNC_TOKENS = frozenset(
+        {
+            TokenType.CREATE,
+            TokenType.SET,
+            TokenType.PRINT,
+            TokenType.DISPLAY,
+            TokenType.SHOW,
+            TokenType.SAY,
+            TokenType.IF,
+            TokenType.WHILE,
+            TokenType.FOR,
+            TokenType.REPEAT,
+            TokenType.FUNCTION,
+            TokenType.CLASS,
+            TokenType.RETURN,
+            TokenType.IMPORT,
+            TokenType.TRY,
+            TokenType.THROW,
+            TokenType.ASSERT,
+            TokenType.BREAK,
+            TokenType.CONTINUE,
+            TokenType.END,
+            TokenType.EOF,
+        }
+    )
 
     def _synchronize(self):
         """Advance past tokens until we reach a likely statement boundary.
@@ -182,7 +244,7 @@ class Parser:
             if len(self.errors) == 1:
                 raise self.errors[0]
             first = self.errors[0]
-            msg = f"{first.message}\n  ... and {len(self.errors) - 1} more error(s). Fix the above and re-run."
+            msg = f'{first.message}\n  ... and {len(self.errors) - 1} more error(s). Fix the above and re-run.'
             raise ParserError(msg, first.line)
 
         return ast.Program(statements)
@@ -261,9 +323,14 @@ class Parser:
             return self._parse_decrease()
 
         # Shared tuple for peek-ahead assignment detection (used by keyword-as-statement dispatch)
-        _assign_types = (TokenType.OP_ASSIGN, TokenType.OP_PLUS_ASSIGN,
-                         TokenType.OP_MINUS_ASSIGN, TokenType.OP_MUL_ASSIGN,
-                         TokenType.OP_DIV_ASSIGN, TokenType.OP_MOD_ASSIGN)
+        _assign_types = (
+            TokenType.OP_ASSIGN,
+            TokenType.OP_PLUS_ASSIGN,
+            TokenType.OP_MINUS_ASSIGN,
+            TokenType.OP_MUL_ASSIGN,
+            TokenType.OP_DIV_ASSIGN,
+            TokenType.OP_MOD_ASSIGN,
+        )
 
         # v0.7.1: Multiply/Divide English statements
         if tok.type == TokenType.MULTIPLY_KW:
@@ -514,7 +581,7 @@ class Parser:
 
         raise ParserError(
             f'Unexpected token "{tok.value}". Expected a statement like Create, Set, Print, If, etc.',
-            tok.line
+            tok.line,
         )
 
     # ─── Shorthand Assignment: "age = 20" ─────────────────
@@ -631,7 +698,7 @@ class Parser:
 
         raise ParserError(
             f'Unexpected token after "{var_name}". Did you mean "{var_name} = ..."?',
-            self._current().line
+            self._current().line,
         )
 
     # ─── Variable Declaration ─────────────────────────────
@@ -651,8 +718,13 @@ class Parser:
 
         # Try to parse type
         var_type = None
-        if self._match(TokenType.TYPE_INTEGER, TokenType.TYPE_DECIMAL,
-                       TokenType.TYPE_TEXT, TokenType.TYPE_BOOLEAN, TokenType.TYPE_LIST):
+        if self._match(
+            TokenType.TYPE_INTEGER,
+            TokenType.TYPE_DECIMAL,
+            TokenType.TYPE_TEXT,
+            TokenType.TYPE_BOOLEAN,
+            TokenType.TYPE_LIST,
+        ):
             var_type = self._advance().value.lower()
 
         # Skip optional "variable" keyword
@@ -678,7 +750,7 @@ class Parser:
         else:
             raise ParserError(
                 f'Expected "equal to", "as", or "=" after variable name "{var_name}".',
-                self._current().line
+                self._current().line,
             )
 
         value = self._parse_expression()
@@ -728,7 +800,10 @@ class Parser:
         prompt = None
         if self._match(TokenType.WITH):
             self._advance()
-            if self._current().type == TokenType.IDENTIFIER and self._current().value.lower() == "prompt":
+            if (
+                self._current().type == TokenType.IDENTIFIER
+                and self._current().value.lower() == 'prompt'
+            ):
                 self._advance()
             prompt_tok = self._expect(TokenType.STRING, 'Expected a prompt string after "with".')
             prompt = prompt_tok.value
@@ -959,9 +1034,14 @@ class Parser:
         if self._match(TokenType.AND):
             self._advance()
             self._expect(TokenType.RETURNS, 'Expected "returns" after "and".')
-            if self._match(TokenType.TYPE_INTEGER, TokenType.TYPE_DECIMAL,
-                           TokenType.TYPE_TEXT, TokenType.TYPE_BOOLEAN, TokenType.TYPE_LIST,
-                           TokenType.NOTHING):
+            if self._match(
+                TokenType.TYPE_INTEGER,
+                TokenType.TYPE_DECIMAL,
+                TokenType.TYPE_TEXT,
+                TokenType.TYPE_BOOLEAN,
+                TokenType.TYPE_LIST,
+                TokenType.NOTHING,
+            ):
                 return_type = self._advance().value.lower()
 
         self._end_statement()
@@ -1006,9 +1086,14 @@ class Parser:
         if self._match(TokenType.AND):
             self._advance()
             self._expect(TokenType.RETURNS, 'Expected "returns" after "and".')
-            if self._match(TokenType.TYPE_INTEGER, TokenType.TYPE_DECIMAL,
-                           TokenType.TYPE_TEXT, TokenType.TYPE_BOOLEAN, TokenType.TYPE_LIST,
-                           TokenType.NOTHING):
+            if self._match(
+                TokenType.TYPE_INTEGER,
+                TokenType.TYPE_DECIMAL,
+                TokenType.TYPE_TEXT,
+                TokenType.TYPE_BOOLEAN,
+                TokenType.TYPE_LIST,
+                TokenType.NOTHING,
+            ):
                 return_type = self._advance().value.lower()
 
         self._end_statement()
@@ -1034,8 +1119,14 @@ class Parser:
         if self._match(TokenType.NOTHING):
             # Only consume if followed by AND/RETURNS/newline/End (not another identifier)
             nxt = self._peek()
-            if nxt and nxt.type in (TokenType.AND, TokenType.RETURNS, TokenType.NEWLINE,
-                                     TokenType.END, TokenType.EOF, TokenType.DOT):
+            if nxt and nxt.type in (
+                TokenType.AND,
+                TokenType.RETURNS,
+                TokenType.NEWLINE,
+                TokenType.END,
+                TokenType.EOF,
+                TokenType.DOT,
+            ):
                 self._advance()  # consume "nothing"
                 return params
 
@@ -1050,8 +1141,13 @@ class Parser:
                 break  # rest must be last
 
             param_type = None
-            if self._match(TokenType.TYPE_INTEGER, TokenType.TYPE_DECIMAL,
-                           TokenType.TYPE_TEXT, TokenType.TYPE_BOOLEAN, TokenType.TYPE_LIST):
+            if self._match(
+                TokenType.TYPE_INTEGER,
+                TokenType.TYPE_DECIMAL,
+                TokenType.TYPE_TEXT,
+                TokenType.TYPE_BOOLEAN,
+                TokenType.TYPE_LIST,
+            ):
                 param_type = self._advance().value.lower()
 
             if not self._match_identifier():
@@ -1065,7 +1161,9 @@ class Parser:
                 default_expr = self._parse_expression()
                 has_default = True
             elif has_default:
-                raise self._error(f'Parameter "{param_name}" must have a default value (parameters with defaults must come last).')
+                raise self._error(
+                    f'Parameter "{param_name}" must have a default value (parameters with defaults must come last).'
+                )
 
             params.append((param_name, param_type, default_expr))
 
@@ -1161,9 +1259,7 @@ class Parser:
         self._end_statement()
 
         return ast.VarAssignment(
-            var_name,
-            ast.BinaryOp(ast.Identifier(var_name, line), '+', amount, line),
-            line
+            var_name, ast.BinaryOp(ast.Identifier(var_name, line), '+', amount, line), line
         )
 
     def _parse_decrease(self):
@@ -1180,9 +1276,7 @@ class Parser:
         self._end_statement()
 
         return ast.VarAssignment(
-            var_name,
-            ast.BinaryOp(ast.Identifier(var_name, line), '-', amount, line),
-            line
+            var_name, ast.BinaryOp(ast.Identifier(var_name, line), '-', amount, line), line
         )
 
     def _parse_multiply_by(self):
@@ -1199,9 +1293,7 @@ class Parser:
         self._end_statement()
 
         return ast.VarAssignment(
-            var_name,
-            ast.BinaryOp(ast.Identifier(var_name, line), '*', amount, line),
-            line
+            var_name, ast.BinaryOp(ast.Identifier(var_name, line), '*', amount, line), line
         )
 
     def _parse_divide_by(self):
@@ -1218,9 +1310,7 @@ class Parser:
         self._end_statement()
 
         return ast.VarAssignment(
-            var_name,
-            ast.BinaryOp(ast.Identifier(var_name, line), '/', amount, line),
-            line
+            var_name, ast.BinaryOp(ast.Identifier(var_name, line), '/', amount, line), line
         )
 
     # ─── Expression Parsing ───────────────────────────────
@@ -1228,7 +1318,9 @@ class Parser:
     def _parse_expression(self):
         self._depth += 1
         if self._depth > self.MAX_DEPTH:
-            raise ParserError('Expression nesting too deep (maximum 200 levels).', self._current().line)
+            raise ParserError(
+                'Expression nesting too deep (maximum 200 levels).', self._current().line
+            )
         try:
             expr = self._parse_or()
             # v0.6: Ternary expression: expr if condition otherwise other
@@ -1307,7 +1399,7 @@ class Parser:
                 ast.BinaryOp(left, '>=', low, line),
                 'and',
                 ast.BinaryOp(left, '<=', high, line),
-                line
+                line,
             )
 
         return left
@@ -1329,7 +1421,13 @@ class Parser:
     def _parse_multiplication(self):
         left = self._parse_power()
 
-        while self._match(TokenType.OP_MULTIPLY, TokenType.OP_DIVIDE, TokenType.OP_MODULO, TokenType.OP_FLOOR_DIV, TokenType.MOD_KW):
+        while self._match(
+            TokenType.OP_MULTIPLY,
+            TokenType.OP_DIVIDE,
+            TokenType.OP_MODULO,
+            TokenType.OP_FLOOR_DIV,
+            TokenType.MOD_KW,
+        ):
             tok = self._advance()
             if tok.type == TokenType.OP_MULTIPLY:
                 op = '*'
@@ -1374,7 +1472,10 @@ class Parser:
             if self._match(TokenType.DOT):
                 # Peek ahead: is this dot notation or a period?
                 next_tok = self._peek()
-                if next_tok.type != TokenType.IDENTIFIER and next_tok.type not in self._SOFT_KEYWORDS:
+                if (
+                    next_tok.type != TokenType.IDENTIFIER
+                    and next_tok.type not in self._SOFT_KEYWORDS
+                ):
                     break  # It's a period, don't consume
 
                 self._advance()  # consume .
@@ -1437,7 +1538,9 @@ class Parser:
                             self._advance()
                             step_expr = self._parse_expression()
                     self._expect(TokenType.RBRACKET, 'Expected "]".')
-                    expr = ast.SliceAccess(expr, start_expr, end_expr, step_expr, getattr(expr, 'line', 0))
+                    expr = ast.SliceAccess(
+                        expr, start_expr, end_expr, step_expr, getattr(expr, 'line', 0)
+                    )
                 else:
                     index_expr = self._parse_expression()
                     # Check if this is a slice
@@ -1457,7 +1560,9 @@ class Parser:
                                 self._advance()
                                 step_expr = self._parse_expression()
                         self._expect(TokenType.RBRACKET, 'Expected "]".')
-                        expr = ast.SliceAccess(expr, index_expr, end_expr, step_expr, getattr(expr, 'line', 0))
+                        expr = ast.SliceAccess(
+                            expr, index_expr, end_expr, step_expr, getattr(expr, 'line', 0)
+                        )
                     else:
                         self._expect(TokenType.RBRACKET, 'Expected "]".')
                         expr = ast.IndexAccess(expr, index_expr, getattr(expr, 'line', 0))
@@ -1477,8 +1582,12 @@ class Parser:
         if tok.type == TokenType.GIVEN:
             # Peek ahead: only treat as lambda if followed by identifier, RETURN, or ARROW
             nxt = self._peek()
-            if nxt and (nxt.type == TokenType.RETURN or nxt.type == TokenType.ARROW
-                        or nxt.type == TokenType.IDENTIFIER or nxt.type in self._SOFT_KEYWORDS):
+            if nxt and (
+                nxt.type == TokenType.RETURN
+                or nxt.type == TokenType.ARROW
+                or nxt.type == TokenType.IDENTIFIER
+                or nxt.type in self._SOFT_KEYWORDS
+            ):
                 return self._parse_given()
 
         if tok.type == TokenType.NUMBER:
@@ -1528,7 +1637,7 @@ class Parser:
         # v0.2: "this" keyword for class methods
         if tok.type == TokenType.THIS:
             self._advance()
-            return ast.Identifier("this", tok.line)
+            return ast.Identifier('this', tok.line)
 
         # v1.4: Await as expression: Await func()
         if tok.type == TokenType.AWAIT:
@@ -1582,8 +1691,7 @@ class Parser:
             return ast.Identifier(tok.value, tok.line)
 
         raise ParserError(
-            f'Expected a value or expression, but found "{tok.value}" ({tok.type.name}).',
-            tok.line
+            f'Expected a value or expression, but found "{tok.value}" ({tok.type.name}).', tok.line
         )
 
     def _parse_list_literal(self):
@@ -1665,7 +1773,7 @@ class Parser:
                 tp = self._expect_identifier('Expected type parameter name.')
                 type_params.append(tp.value)
             self._expect(TokenType.OP_GREATER, 'Expected ">" to close type parameters.')
-        
+
         # v0.3: Optional inheritance
         parent_name = None
         if self._match(TokenType.EXTENDS):
@@ -1698,8 +1806,9 @@ class Parser:
 
         # Return GenericClassDef if type params present, otherwise regular ClassDef
         if type_params:
-            return ast.GenericClassDef(class_name, type_params, body,
-                                       parent=parent_name, implements=implements, line=line)
+            return ast.GenericClassDef(
+                class_name, type_params, body, parent=parent_name, implements=implements, line=line
+            )
         return ast.ClassDef(class_name, body, parent=parent_name, implements=implements, line=line)
 
     def _parse_new_instance(self):
@@ -1740,7 +1849,7 @@ class Parser:
             self._skip_newlines()
 
         # Parse Catch clause (optional if Finally present)
-        error_var = "error"
+        error_var = 'error'
         catch_body = []
         if self._match(TokenType.CATCH):
             self._advance()  # consume CATCH
@@ -1801,7 +1910,9 @@ class Parser:
                 self._skip_newlines()
 
                 body = []
-                while not self._match(TokenType.WHEN, TokenType.DEFAULT, TokenType.END, TokenType.EOF):
+                while not self._match(
+                    TokenType.WHEN, TokenType.DEFAULT, TokenType.END, TokenType.EOF
+                ):
                     stmt = self._parse_statement()
                     if stmt:
                         body.append(stmt)
@@ -1996,7 +2107,7 @@ class Parser:
         self._advance()  # consume CREATE
         self._expect(TokenType.WEBAPP)  # consume WEBAPP
         self._optional(TokenType.CALLED)  # optional "called"
-        name_tok = self._expect_identifier("Expected app name")
+        name_tok = self._expect_identifier('Expected app name')
         self._end_statement()
         return ast.WebApp(name_tok.value, line)
 
@@ -2006,7 +2117,7 @@ class Parser:
         self._advance()  # consume ROUTE
 
         # Path
-        path_tok = self._expect(TokenType.STRING, "Expected route path string")
+        path_tok = self._expect(TokenType.STRING, 'Expected route path string')
         path = path_tok.value
 
         # Response type: "shows" (page) or "responds with" (json/api)
@@ -2038,7 +2149,7 @@ class Parser:
         line = self._current().line
         self._advance()  # consume START
 
-        name_tok = self._expect_identifier("Expected app name")
+        name_tok = self._expect_identifier('Expected app name')
 
         self._optional(TokenType.ON)
         self._optional(TokenType.PORT)
@@ -2052,7 +2163,7 @@ class Parser:
         line = self._current().line
         self._advance()  # consume PAGE
 
-        title_tok = self._expect(TokenType.STRING, "Expected page title string")
+        title_tok = self._expect(TokenType.STRING, 'Expected page title string')
         self._end_statement()
         self._skip_newlines()
 
@@ -2073,25 +2184,22 @@ class Parser:
 
         if tok.type == TokenType.HEADING:
             self._advance()
-            content = self._expect(TokenType.STRING, "Expected heading text").value
+            content = self._expect(TokenType.STRING, 'Expected heading text').value
             self._end_statement()
             return ast.HtmlElement('heading', content, line=tok.line)
 
         if tok.type == TokenType.SUBHEADING:
             self._advance()
-            content = self._expect(TokenType.STRING, "Expected subheading text").value
+            content = self._expect(TokenType.STRING, 'Expected subheading text').value
             self._end_statement()
             return ast.HtmlElement('subheading', content, line=tok.line)
 
         if tok.type in (TokenType.TYPE_TEXT, TokenType.SAY, TokenType.DISPLAY, TokenType.SHOW):
-            is_store_list = (
-                tok.type in (TokenType.SAY, TokenType.DISPLAY, TokenType.SHOW)
-                and (
-                    (hasattr(TokenType, 'ITEMS') and self._peek().type == TokenType.ITEMS)
-                    or (
-                        self._peek().type in (TokenType.IDENTIFIER,) + self._SOFT_KEYWORDS
-                        and str(self._peek().value).lower() == 'items'
-                    )
+            is_store_list = tok.type in (TokenType.SAY, TokenType.DISPLAY, TokenType.SHOW) and (
+                (hasattr(TokenType, 'ITEMS') and self._peek().type == TokenType.ITEMS)
+                or (
+                    self._peek().type in (TokenType.IDENTIFIER,) + self._SOFT_KEYWORDS
+                    and str(self._peek().value).lower() == 'items'
                 )
             )
             if is_store_list:
@@ -2101,7 +2209,9 @@ class Parser:
                 if self._match_identifier() and str(self._current().value).lower() == 'items':
                     self._advance()
                 self._optional(TokenType.FROM)
-                collection_tok = self._expect(TokenType.STRING, 'Expected collection name after list output keyword.')
+                collection_tok = self._expect(
+                    TokenType.STRING, 'Expected collection name after list output keyword.'
+                )
                 attrs = {'collection': collection_tok.value}
                 if self._match(TokenType.DELETE_KW):
                     self._advance()
@@ -2112,29 +2222,29 @@ class Parser:
 
             if tok.type == TokenType.TYPE_TEXT or self._peek().type == TokenType.STRING:
                 self._advance()
-                content = self._expect(TokenType.STRING, "Expected text content").value
+                content = self._expect(TokenType.STRING, 'Expected text content').value
                 self._end_statement()
                 return ast.HtmlElement('text', content, line=tok.line)
 
         if tok.type == TokenType.LINK:
             self._advance()
-            content = self._expect(TokenType.STRING, "Expected link text").value
+            content = self._expect(TokenType.STRING, 'Expected link text').value
             attrs = {}
             if self._match(TokenType.TO):
                 self._advance()
-                attrs['href'] = self._expect(TokenType.STRING, "Expected link URL").value
+                attrs['href'] = self._expect(TokenType.STRING, 'Expected link URL').value
             self._end_statement()
             return ast.HtmlElement('link', content, attrs, line=tok.line)
 
         if tok.type == TokenType.IMAGE:
             self._advance()
-            src = self._expect(TokenType.STRING, "Expected image source").value
+            src = self._expect(TokenType.STRING, 'Expected image source').value
             self._end_statement()
             return ast.HtmlElement('image', None, {'src': src}, line=tok.line)
 
         if tok.type == TokenType.BUTTON:
             self._advance()
-            content = self._expect(TokenType.STRING, "Expected button text").value
+            content = self._expect(TokenType.STRING, 'Expected button text').value
             attrs = {}
             if self._match(TokenType.DOES):
                 self._advance()
@@ -2149,7 +2259,7 @@ class Parser:
 
         if tok.type == TokenType.INPUT:
             self._advance()
-            name = self._expect(TokenType.STRING, "Expected input name").value
+            name = self._expect(TokenType.STRING, 'Expected input name').value
             attrs = {'name': name}
             if self._match(TokenType.PLACEHOLDER):
                 self._advance()
@@ -2250,14 +2360,18 @@ class Parser:
         value = None
         if self._match(TokenType.FORM):
             self._advance()  # consume FORM
-            field_tok = self._expect(TokenType.STRING, 'Expected field name string after "Store form".')
+            field_tok = self._expect(
+                TokenType.STRING, 'Expected field name string after "Store form".'
+            )
             field_name = field_tok.value
         else:
             value = self._parse_expression()
 
         self._expect(TokenType.IN, 'Expected "in" after Store value.')
 
-        collection_tok = self._expect(TokenType.STRING, 'Expected collection name string after "in".')
+        collection_tok = self._expect(
+            TokenType.STRING, 'Expected collection name string after "in".'
+        )
         collection = collection_tok.value
 
         self._end_statement()
@@ -2268,7 +2382,9 @@ class Parser:
         line = self._current().line
         self._advance()  # consume FETCH
 
-        collection_tok = self._expect(TokenType.STRING, 'Expected collection name string after "Fetch".')
+        collection_tok = self._expect(
+            TokenType.STRING, 'Expected collection name string after "Fetch".'
+        )
         collection = collection_tok.value
 
         self._end_statement()
@@ -2281,7 +2397,9 @@ class Parser:
 
         self._expect(TokenType.FROM, 'Expected "from" after "Delete".')
 
-        collection_tok = self._expect(TokenType.STRING, 'Expected collection name string after "Delete from".')
+        collection_tok = self._expect(
+            TokenType.STRING, 'Expected collection name string after "Delete from".'
+        )
         collection = collection_tok.value
 
         index = None
@@ -2348,7 +2466,7 @@ class Parser:
         else:
             raise ParserError(
                 'Expected "return" or "->" after parameter names in given expression.',
-                self._current().line
+                self._current().line,
             )
 
         body = self._parse_expression()
@@ -2400,9 +2518,7 @@ class Parser:
         list_name = list_name_tok.value
 
         self._end_statement()
-        return ast.MethodCall(
-            ast.Identifier(list_name, line), 'add', [value], line
-        )
+        return ast.MethodCall(ast.Identifier(list_name, line), 'add', [value], line)
 
     def _parse_sort_statement(self):
         """Sort myList"""
@@ -2413,9 +2529,7 @@ class Parser:
         list_name = list_name_tok.value
 
         self._end_statement()
-        return ast.MethodCall(
-            ast.Identifier(list_name, line), 'sort', [], line
-        )
+        return ast.MethodCall(ast.Identifier(list_name, line), 'sort', [], line)
 
     def _parse_reverse_statement(self):
         """Reverse myList"""
@@ -2426,9 +2540,7 @@ class Parser:
         list_name = list_name_tok.value
 
         self._end_statement()
-        return ast.MethodCall(
-            ast.Identifier(list_name, line), 'reverse', [], line
-        )
+        return ast.MethodCall(ast.Identifier(list_name, line), 'reverse', [], line)
 
     # ─── v1.4: GUI Framework Parsing ─────────────────────
 
@@ -2442,7 +2554,9 @@ class Parser:
         # Optional size: number "by" number or number "x" number
         if self._match(TokenType.NUMBER):
             width = self._parse_expression()
-            if self._match(TokenType.BY) or (self._match_identifier() and self._current().value.lower() == 'x'):
+            if self._match(TokenType.BY) or (
+                self._match_identifier() and self._current().value.lower() == 'x'
+            ):
                 self._advance()
                 height = self._parse_expression()
         self._skip_newlines()
@@ -2459,11 +2573,11 @@ class Parser:
 
     def _parse_widget_add(self, widget_type):
         """Button "Click Me" called btn1 does handleClick.
-           Label "Hello" called lbl1.
-           TextBox called input1 placeholder "Enter text".
-           Dropdown ["a", "b"] called dd1.
-           Slider 0 to 100 called sl1.
-           Progress 50 called pb1."""
+        Label "Hello" called lbl1.
+        TextBox called input1 placeholder "Enter text".
+        Dropdown ["a", "b"] called dd1.
+        Slider 0 to 100 called sl1.
+        Progress 50 called pb1."""
         line = self._current().line
         self._advance()  # consume widget keyword
         text = None
@@ -2472,7 +2586,11 @@ class Parser:
         props = {}
 
         # Parse text/value (optional for some widgets)
-        if self._match(TokenType.STRING) or self._match(TokenType.NUMBER) or self._match(TokenType.LBRACKET):
+        if (
+            self._match(TokenType.STRING)
+            or self._match(TokenType.NUMBER)
+            or self._match(TokenType.LBRACKET)
+        ):
             text = self._parse_expression()
 
         # "called name" or "as name"
@@ -2576,7 +2694,11 @@ class Parser:
         shape = shape_tok.value.lower()
         props = {}
         # Parse property pairs: x 10 y 20 width 100 height 50 color "red"
-        while not self._match(TokenType.DOT) and not self._match(TokenType.NEWLINE) and not self._match(TokenType.EOF):
+        while (
+            not self._match(TokenType.DOT)
+            and not self._match(TokenType.NEWLINE)
+            and not self._match(TokenType.EOF)
+        ):
             if self._match_identifier():
                 key = self._current().value
                 self._advance()
@@ -2615,9 +2737,14 @@ class Parser:
         if self._match(TokenType.AND):
             self._advance()
             self._expect(TokenType.RETURNS, 'Expected "returns" after "and".')
-            if self._match(TokenType.TYPE_INTEGER, TokenType.TYPE_DECIMAL,
-                           TokenType.TYPE_TEXT, TokenType.TYPE_BOOLEAN, TokenType.TYPE_LIST,
-                           TokenType.NOTHING):
+            if self._match(
+                TokenType.TYPE_INTEGER,
+                TokenType.TYPE_DECIMAL,
+                TokenType.TYPE_TEXT,
+                TokenType.TYPE_BOOLEAN,
+                TokenType.TYPE_LIST,
+                TokenType.NOTHING,
+            ):
                 return_type = self._advance().value.lower()
         elif self._match(TokenType.RETURNS):
             self._advance()
@@ -2643,7 +2770,9 @@ class Parser:
         if self._match_identifier():
             saved = self.pos
             name_tok = self._advance()
-            if self._match(TokenType.CALLED) or (self._match_identifier() and self._current().value.lower() == 'calling'):
+            if self._match(TokenType.CALLED) or (
+                self._match_identifier() and self._current().value.lower() == 'calling'
+            ):
                 var_name = name_tok.value
                 self._advance()  # consume 'calling'/'called'
             else:
@@ -2688,7 +2817,9 @@ class Parser:
         if self._match(TokenType.WITH):
             self._advance()
             max_workers_expr = self._parse_expression()
-            if isinstance(max_workers_expr, ast.Literal) and isinstance(max_workers_expr.value, (int, float)):
+            if isinstance(max_workers_expr, ast.Literal) and isinstance(
+                max_workers_expr.value, (int, float)
+            ):
                 max_workers = int(max_workers_expr.value)
             if self._match_identifier() and self._current().value.lower() == 'workers':
                 self._advance()
@@ -2902,9 +3033,14 @@ class Parser:
         if self._match(TokenType.AND):
             self._advance()
             self._expect(TokenType.RETURNS, 'Expected "returns".')
-            if self._match(TokenType.TYPE_INTEGER, TokenType.TYPE_DECIMAL,
-                           TokenType.TYPE_TEXT, TokenType.TYPE_BOOLEAN, TokenType.TYPE_LIST,
-                           TokenType.NOTHING):
+            if self._match(
+                TokenType.TYPE_INTEGER,
+                TokenType.TYPE_DECIMAL,
+                TokenType.TYPE_TEXT,
+                TokenType.TYPE_BOOLEAN,
+                TokenType.TYPE_LIST,
+                TokenType.NOTHING,
+            ):
                 return_type = self._advance().value.lower()
 
         self._end_statement()
@@ -3003,9 +3139,14 @@ class Parser:
         if self._match(TokenType.AND):
             self._advance()
             self._expect(TokenType.RETURNS, 'Expected "returns".')
-            if self._match(TokenType.TYPE_INTEGER, TokenType.TYPE_DECIMAL,
-                           TokenType.TYPE_TEXT, TokenType.TYPE_BOOLEAN, TokenType.TYPE_LIST,
-                           TokenType.NOTHING):
+            if self._match(
+                TokenType.TYPE_INTEGER,
+                TokenType.TYPE_DECIMAL,
+                TokenType.TYPE_TEXT,
+                TokenType.TYPE_BOOLEAN,
+                TokenType.TYPE_LIST,
+                TokenType.NOTHING,
+            ):
                 return_type = self._advance().value.lower()
 
         self._end_statement()

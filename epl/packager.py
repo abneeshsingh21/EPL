@@ -11,23 +11,21 @@ Supports:
   - Dependency auto-detection and bundling
 """
 
-import os
-import sys
 import json
-import shutil
-import tempfile
-import subprocess
+import os
 import platform
-import struct
+import shutil
+import subprocess
+import sys
+import tempfile
 import zipfile
-import hashlib
 from pathlib import Path
-from typing import Optional, Dict, List, Any
-
+from typing import List, Optional
 
 # ═══════════════════════════════════════════════════════════
 #  Build Configuration
 # ═══════════════════════════════════════════════════════════
+
 
 class BuildConfig:
     """Configuration for building a distributable package."""
@@ -65,16 +63,16 @@ class BuildConfig:
     def from_epl_project(cls, project_dir: str = '.') -> 'BuildConfig':
         """Load config from an EPL project manifest (epl.toml preferred, epl.json legacy)."""
         from epl.package_manager import (
-            load_manifest,
-            get_manifest_format,
-            TOML_MANIFEST_NAME,
             MANIFEST_NAME,
+            TOML_MANIFEST_NAME,
             _parse_toml,
+            get_manifest_format,
+            load_manifest,
         )
 
         manifest = load_manifest(project_dir)
         if not manifest:
-            raise FileNotFoundError(f"No epl.toml or epl.json found in {project_dir}")
+            raise FileNotFoundError(f'No epl.toml or epl.json found in {project_dir}')
 
         build_cfg = {}
         manifest_format = get_manifest_format(project_dir)
@@ -91,17 +89,20 @@ class BuildConfig:
 
         main_file = manifest.get('entry') or manifest.get('main') or 'main.epl'
         src = os.path.join(project_dir, main_file)
-        return cls(src,
-                   name=manifest.get('name', Path(src).stem),
-                   version=manifest.get('version', '1.0.0'),
-                   author=manifest.get('author', ''),
-                   description=manifest.get('description', ''),
-                   **build_cfg)
+        return cls(
+            src,
+            name=manifest.get('name', Path(src).stem),
+            version=manifest.get('version', '1.0.0'),
+            author=manifest.get('author', ''),
+            description=manifest.get('description', ''),
+            **build_cfg,
+        )
 
 
 # ═══════════════════════════════════════════════════════════
 #  Dependency Scanner
 # ═══════════════════════════════════════════════════════════
+
 
 class DependencyScanner:
     """Scans EPL source for import/use dependencies."""
@@ -132,6 +133,7 @@ class DependencyScanner:
             source = f.read()
 
         import re
+
         # Match: import "file.epl"
         for m in re.finditer(r'import\s+"([^"]+)"', source):
             dep_path = os.path.join(self.base_dir, m.group(1))
@@ -155,6 +157,7 @@ class DependencyScanner:
 # ═══════════════════════════════════════════════════════════
 #  Launcher Script Generator
 # ═══════════════════════════════════════════════════════════
+
 
 def _generate_launcher_script(config: BuildConfig, epl_files: List[str]) -> str:
     """Generate a Python launcher that embeds the EPL interpreter and runs the program."""
@@ -220,6 +223,7 @@ if __name__ == '__main__':
 #  PyInstaller Packager
 # ═══════════════════════════════════════════════════════════
 
+
 class PyInstallerPackager:
     """Package EPL programs using PyInstaller."""
 
@@ -231,6 +235,7 @@ class PyInstallerPackager:
         """Check if PyInstaller is installed."""
         try:
             import PyInstaller  # type: ignore[reportMissingModuleSource]
+
             return True
         except ImportError:
             return False
@@ -241,7 +246,7 @@ class PyInstallerPackager:
             subprocess.check_call(
                 [sys.executable, '-m', 'pip', 'install', 'pyinstaller'],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
             return True
         except subprocess.CalledProcessError:
@@ -250,22 +255,24 @@ class PyInstallerPackager:
     def build(self) -> Optional[str]:
         """Build the distributable package. Returns path to output."""
         if not os.path.exists(self.config.source_file):
-            print(f"Error: Source file not found: {self.config.source_file}")
+            print(f'Error: Source file not found: {self.config.source_file}')
             return None
 
         # Check/install PyInstaller
         if not self._check_pyinstaller():
-            print("PyInstaller not found. Installing...")
+            print('PyInstaller not found. Installing...')
             if not self._install_pyinstaller():
-                print("Error: Failed to install PyInstaller. Install manually: pip install pyinstaller")
+                print(
+                    'Error: Failed to install PyInstaller. Install manually: pip install pyinstaller'
+                )
                 return None
 
         # Scan dependencies
         scanner = DependencyScanner(self.config.source_file)
         epl_files = scanner.scan()
-        print(f"  Found {len(epl_files)} EPL file(s)")
+        print(f'  Found {len(epl_files)} EPL file(s)')
         if scanner.epl_packages:
-            print(f"  Packages: {', '.join(scanner.epl_packages)}")
+            print(f'  Packages: {", ".join(scanner.epl_packages)}')
 
         # Create temp directory
         self.temp_dir = tempfile.mkdtemp(prefix='epl_build_')
@@ -285,19 +292,25 @@ class PyInstallerPackager:
             for py_file in os.listdir(epl_src_dir):
                 if py_file.endswith('.py'):
                     shutil.copy2(
-                        os.path.join(epl_src_dir, py_file),
-                        os.path.join(epl_runtime_dir, py_file)
+                        os.path.join(epl_src_dir, py_file), os.path.join(epl_runtime_dir, py_file)
                     )
 
             # Build PyInstaller command
             cmd = [
-                sys.executable, '-m', 'PyInstaller',
+                sys.executable,
+                '-m',
+                'PyInstaller',
                 '--noconfirm',
-                '--name', self.config.output_name,
-                '--distpath', self.config.output_dir,
-                '--workpath', os.path.join(self.temp_dir, 'build'),
-                '--specpath', self.temp_dir,
-                '--add-data', f'{os.path.join(self.temp_dir, "epl_runtime")}{os.pathsep}epl_runtime',
+                '--name',
+                self.config.output_name,
+                '--distpath',
+                self.config.output_dir,
+                '--workpath',
+                os.path.join(self.temp_dir, 'build'),
+                '--specpath',
+                self.temp_dir,
+                '--add-data',
+                f'{os.path.join(self.temp_dir, "epl_runtime")}{os.pathsep}epl_runtime',
             ]
 
             if self.config.one_file:
@@ -335,18 +348,13 @@ class PyInstallerPackager:
             cmd.append(launcher_path)
 
             # Run PyInstaller
-            print(f"  Building {self.config.output_name}...")
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                cwd=self.temp_dir
-            )
+            print(f'  Building {self.config.output_name}...')
+            result = subprocess.run(cmd, capture_output=True, text=True, cwd=self.temp_dir)
 
             if result.returncode != 0:
-                print(f"Build failed:\n{result.stderr}")
+                print(f'Build failed:\n{result.stderr}')
                 if self.config.debug:
-                    print(f"STDOUT:\n{result.stdout}")
+                    print(f'STDOUT:\n{result.stdout}')
                 return None
 
             # Determine output path
@@ -358,10 +366,10 @@ class PyInstallerPackager:
 
             if os.path.exists(output):
                 size = os.path.getsize(output) if os.path.isfile(output) else _dir_size(output)
-                print(f"  Built: {output} ({_human_size(size)})")
+                print(f'  Built: {output} ({_human_size(size)})')
                 return output
             else:
-                print("Build completed but output not found.")
+                print('Build completed but output not found.')
                 return None
 
         finally:
@@ -412,6 +420,7 @@ VSVersionInfo(
 #  Standalone Zip Packager (no external deps)
 # ═══════════════════════════════════════════════════════════
 
+
 class ZipPackager:
     """Create a portable zip bundle with Python launcher."""
 
@@ -421,7 +430,7 @@ class ZipPackager:
     def build(self) -> Optional[str]:
         """Build a zip package with embedded EPL source and runtime."""
         if not os.path.exists(self.config.source_file):
-            print(f"Error: Source file not found: {self.config.source_file}")
+            print(f'Error: Source file not found: {self.config.source_file}')
             return None
 
         os.makedirs(self.config.output_dir, exist_ok=True)
@@ -445,10 +454,10 @@ class ZipPackager:
 
             # Add batch/shell scripts
             if platform.system() == 'Windows':
-                bat = f'@echo off\npython "%~dp0run.py" %*\n'
+                bat = '@echo off\npython "%~dp0run.py" %*\n'
                 zf.writestr(f'{self.config.output_name}/run.bat', bat)
             else:
-                sh = f'#!/bin/sh\npython3 "$(dirname "$0")/run.py" "$@"\n'
+                sh = '#!/bin/sh\npython3 "$(dirname "$0")/run.py" "$@"\n'
                 zf.writestr(f'{self.config.output_name}/run.sh', sh)
 
             # Add README
@@ -478,13 +487,14 @@ Or directly:
                     zf.write(ef, f'{self.config.output_name}/{os.path.basename(ef)}')
 
         size = os.path.getsize(zip_path)
-        print(f"  Built: {zip_path} ({_human_size(size)})")
+        print(f'  Built: {zip_path} ({_human_size(size)})')
         return zip_path
 
 
 # ═══════════════════════════════════════════════════════════
 #  Native LLVM Packager
 # ═══════════════════════════════════════════════════════════
+
 
 class NativePackager:
     """Compile EPL to native executable via LLVM."""
@@ -495,17 +505,18 @@ class NativePackager:
     def build(self) -> Optional[str]:
         """Compile EPL source to native binary."""
         if not os.path.exists(self.config.source_file):
-            print(f"Error: Source file not found: {self.config.source_file}")
+            print(f'Error: Source file not found: {self.config.source_file}')
             return None
 
         try:
-            from epl.compiler import Compiler, HAS_LLVM
+            from epl.compiler import HAS_LLVM, Compiler
+
             if not HAS_LLVM:
-                print("Error: llvmlite required for native compilation.")
-                print("  Install: pip install llvmlite")
+                print('Error: llvmlite required for native compilation.')
+                print('  Install: pip install llvmlite')
                 return None
         except ImportError:
-            print("Error: LLVM compiler not available.")
+            print('Error: LLVM compiler not available.')
             return None
 
         with open(self.config.source_file, 'r', encoding='utf-8') as f:
@@ -518,16 +529,16 @@ class NativePackager:
             tokens = Lexer(source).tokenize()
             program = Parser(tokens).parse()
         except Exception as e:
-            print(f"Parse error: {e}")
+            print(f'Parse error: {e}')
             return None
 
         compiler = Compiler()
         try:
             compiler.compile(program)
         except Exception as e:
-            print(f"Compilation error: {e}")
-            print("  Note: Not all EPL features are supported in native compilation.")
-            print("  Use interpreter mode (--mode interpreter) for full feature support.")
+            print(f'Compilation error: {e}')
+            print('  Note: Not all EPL features are supported in native compilation.')
+            print('  Use interpreter mode (--mode interpreter) for full feature support.')
             return None
 
         os.makedirs(self.config.output_dir, exist_ok=True)
@@ -538,7 +549,7 @@ class NativePackager:
         try:
             obj_path = compiler.emit_object(output.replace(ext, '.o'))
             if not obj_path or not os.path.exists(obj_path):
-                print("Error: Failed to emit object file.")
+                print('Error: Failed to emit object file.')
                 return None
 
             # Link with system linker
@@ -548,14 +559,14 @@ class NativePackager:
             # Compile runtime.c
             cc = _find_c_compiler()
             if not cc:
-                print("Error: No C compiler found. Install gcc, clang, or MSVC.")
+                print('Error: No C compiler found. Install gcc, clang, or MSVC.')
                 return None
 
             # Compile runtime.c to runtime.o
             cc_cmd = [cc, '-c', '-O2', runtime_c, '-o', runtime_o]
             result = subprocess.run(cc_cmd, capture_output=True, text=True)
             if result.returncode != 0:
-                print(f"Error compiling runtime.c: {result.stderr}")
+                print(f'Error compiling runtime.c: {result.stderr}')
                 return None
 
             # Link everything
@@ -567,7 +578,7 @@ class NativePackager:
 
             result = subprocess.run(link_cmd, capture_output=True, text=True)
             if result.returncode != 0:
-                print(f"Link error: {result.stderr}")
+                print(f'Link error: {result.stderr}')
                 return None
 
             # Cleanup object files
@@ -578,12 +589,12 @@ class NativePackager:
 
             if os.path.exists(output):
                 size = os.path.getsize(output)
-                print(f"  Built native: {output} ({_human_size(size)})")
+                print(f'  Built native: {output} ({_human_size(size)})')
                 return output
 
         except Exception as e:
-            print(f"Native build failed: {e}")
-            print("  Falling back to interpreter mode.")
+            print(f'Native build failed: {e}')
+            print('  Falling back to interpreter mode.')
             return None
 
         return None
@@ -592,6 +603,7 @@ class NativePackager:
 # ═══════════════════════════════════════════════════════════
 #  Installer Generator
 # ═══════════════════════════════════════════════════════════
+
 
 class InstallerGenerator:
     """Generate platform-specific installers."""
@@ -638,7 +650,7 @@ SectionEnd
         script_path = os.path.join(self.config.output_dir, f'{self.config.output_name}.nsi')
         with open(script_path, 'w', encoding='utf-8') as f:
             f.write(nsis_script)
-        print(f"  NSIS script: {script_path}")
+        print(f'  NSIS script: {script_path}')
         return script_path
 
     def generate_desktop_entry(self, exe_path: str) -> Optional[str]:
@@ -655,13 +667,14 @@ Version={self.config.version}
         desktop_path = os.path.join(self.config.output_dir, f'{self.config.output_name}.desktop')
         with open(desktop_path, 'w', encoding='utf-8') as f:
             f.write(desktop)
-        print(f"  Desktop entry: {desktop_path}")
+        print(f'  Desktop entry: {desktop_path}')
         return desktop_path
 
 
 # ═══════════════════════════════════════════════════════════
 #  Utility Functions
 # ═══════════════════════════════════════════════════════════
+
 
 def _find_c_compiler() -> Optional[str]:
     """Find an available C compiler."""
@@ -679,9 +692,9 @@ def _human_size(size_bytes: int) -> str:
     """Convert bytes to human-readable size."""
     for unit in ['B', 'KB', 'MB', 'GB']:
         if size_bytes < 1024:
-            return f"{size_bytes:.1f} {unit}"
+            return f'{size_bytes:.1f} {unit}'
         size_bytes /= 1024
-    return f"{size_bytes:.1f} TB"
+    return f'{size_bytes:.1f} TB'
 
 
 def _dir_size(path: str) -> int:
@@ -698,6 +711,7 @@ def _dir_size(path: str) -> int:
 # ═══════════════════════════════════════════════════════════
 #  High-Level API
 # ═══════════════════════════════════════════════════════════
+
 
 def package(source_file: str, **kwargs) -> Optional[str]:
     """
@@ -721,13 +735,13 @@ def package(source_file: str, **kwargs) -> Optional[str]:
     mode = kwargs.pop('mode', 'exe')
     config = BuildConfig(source_file, **kwargs)
 
-    print(f"\n  EPL Packager v1.0")
-    print(f"  ─────────────────────────────────────────")
-    print(f"  Source:   {config.source_file}")
-    print(f"  Name:     {config.output_name}")
-    print(f"  Version:  {config.version}")
-    print(f"  Mode:     {mode}")
-    print(f"  Platform: {platform.system()} {platform.machine()}")
+    print('\n  EPL Packager v1.0')
+    print('  ─────────────────────────────────────────')
+    print(f'  Source:   {config.source_file}')
+    print(f'  Name:     {config.output_name}')
+    print(f'  Version:  {config.version}')
+    print(f'  Mode:     {mode}')
+    print(f'  Platform: {platform.system()} {platform.machine()}')
     print()
 
     if mode == 'exe':
@@ -744,8 +758,8 @@ def package(source_file: str, **kwargs) -> Optional[str]:
         return None
 
     if result:
-        print(f"\n  ✓ Package built successfully!")
-        print(f"  Output: {result}")
+        print('\n  ✓ Package built successfully!')
+        print(f'  Output: {result}')
 
         # Generate installer scripts on request
         if kwargs.get('installer', False):
@@ -763,10 +777,17 @@ def package_project(project_dir: str = '.', mode: str = 'exe') -> Optional[str]:
     try:
         config = BuildConfig.from_epl_project(project_dir)
     except FileNotFoundError:
-        print("Error: No epl.toml or epl.json found. Run 'epl init' first or specify a source file.")
+        print(
+            "Error: No epl.toml or epl.json found. Run 'epl init' first or specify a source file."
+        )
         return None
     config.mode = mode
-    return package(config.source_file, mode=mode, **{
-        k: v for k, v in config.to_dict().items()
-        if k not in ('source_file', 'mode', 'target_platform')
-    })
+    return package(
+        config.source_file,
+        mode=mode,
+        **{
+            k: v
+            for k, v in config.to_dict().items()
+            if k not in ('source_file', 'mode', 'target_platform')
+        },
+    )

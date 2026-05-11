@@ -5,28 +5,28 @@ Supports: semver resolution, transitive dependencies, lockfiles with integrity v
 conflict detection, local/GitHub/URL/registry sources, publish workflow, and EPL manifests.
 """
 
+import contextlib
+import hashlib
+import importlib.metadata as importlib_metadata
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
-import importlib.metadata as importlib_metadata
+import tempfile
+import time
 import urllib.request
 import zipfile
-import tempfile
-import hashlib
-import time
-import contextlib
-
 
 # ═══════════════════════════════════════════════════════════
 #  Atomic File Writes + Cross-Platform File Locking
 # ═══════════════════════════════════════════════════════════
 
+
 def _atomic_write(path, data, encoding='utf-8'):
     """Write to a file atomically: write to temp file then os.replace().
-    
+
     Prevents file corruption from concurrent writes or crashes.
     """
     dir_name = os.path.dirname(path) or '.'
@@ -47,7 +47,7 @@ def _atomic_write(path, data, encoding='utf-8'):
 @contextlib.contextmanager
 def _file_lock(path, timeout=30):
     """Cross-platform advisory file lock using a .lock file.
-    
+
     Uses atomic mkdir as the locking primitive (works on all platforms).
     """
     lock_path = path + '.lock'
@@ -121,8 +121,11 @@ class SemVer:
                 return cls(int(parts[0]), 0, 0)
             return None
         return cls(
-            int(m.group('major')), int(m.group('minor')), int(m.group('patch')),
-            m.group('pre'), m.group('build')
+            int(m.group('major')),
+            int(m.group('minor')),
+            int(m.group('patch')),
+            m.group('pre'),
+            m.group('build'),
         )
 
     def _cmp_tuple(self):
@@ -141,20 +144,27 @@ class SemVer:
             return NotImplemented
         return self._cmp_tuple() < other._cmp_tuple()
 
-    def __le__(self, other): return self == other or self < other
-    def __gt__(self, other): return not self <= other
-    def __ge__(self, other): return not self < other
-    def __ne__(self, other): return not self == other
+    def __le__(self, other):
+        return self == other or self < other
+
+    def __gt__(self, other):
+        return not self <= other
+
+    def __ge__(self, other):
+        return not self < other
+
+    def __ne__(self, other):
+        return not self == other
 
     def __repr__(self):
-        return f"SemVer({self})"
+        return f'SemVer({self})'
 
     def __str__(self):
-        s = f"{self.major}.{self.minor}.{self.patch}"
+        s = f'{self.major}.{self.minor}.{self.patch}'
         if self.pre:
-            s += f"-{self.pre}"
+            s += f'-{self.pre}'
         if self.build:
-            s += f"+{self.build}"
+            s += f'+{self.build}'
         return s
 
     def __hash__(self):
@@ -175,7 +185,7 @@ class SemVer:
 
 def parse_version_range(spec):
     """Parse a version specification string into a matcher function.
-    
+
     Supports: exact ("1.2.3"), caret ("^1.2.0"), tilde ("~1.2.0"),
     operators (">=1.0.0", "<2.0.0"), ranges (">=1.0.0 <2.0.0"), wildcard ("*").
     Returns a function(SemVer) -> bool.
@@ -208,15 +218,21 @@ def parse_version_range(spec):
     # Comparison operators
     for op in ('>=', '<=', '!=', '>', '<', '='):
         if spec.startswith(op):
-            base = SemVer.parse(spec[len(op):])
+            base = SemVer.parse(spec[len(op) :])
             if not base:
                 return lambda v: True
-            if op == '>=': return lambda v, b=base: v >= b
-            if op == '<=': return lambda v, b=base: v <= b
-            if op == '>':  return lambda v, b=base: v > b
-            if op == '<':  return lambda v, b=base: v < b
-            if op == '!=': return lambda v, b=base: v != b
-            if op == '=':  return lambda v, b=base: v == b
+            if op == '>=':
+                return lambda v, b=base: v >= b
+            if op == '<=':
+                return lambda v, b=base: v <= b
+            if op == '>':
+                return lambda v, b=base: v > b
+            if op == '<':
+                return lambda v, b=base: v < b
+            if op == '!=':
+                return lambda v, b=base: v != b
+            if op == '=':
+                return lambda v, b=base: v == b
 
     # Exact match
     base = SemVer.parse(spec)
@@ -229,14 +245,16 @@ def parse_version_range(spec):
 #  Dependency Resolution
 # ═══════════════════════════════════════════════════════════
 
+
 class DependencyConflict(Exception):
     """Raised when dependency versions are incompatible."""
+
     pass
 
 
 def resolve_dependencies(manifest_path='.', installed=None):
     """Resolve the full transitive dependency tree.
-    
+
     Returns dict: {package_name: {"version": str, "required_by": [str], "spec": str}}
     Raises DependencyConflict if incompatible versions are found.
     """
@@ -262,8 +280,8 @@ def resolve_dependencies(manifest_path='.', installed=None):
             if existing_ver and not matcher(existing_ver):
                 raise DependencyConflict(
                     f"Conflict: {name} required as '{spec}' by {required_by}, "
-                    f"but already resolved to {existing['version']} "
-                    f"(required by {', '.join(existing['required_by'])})"
+                    f'but already resolved to {existing["version"]} '
+                    f'(required by {", ".join(existing["required_by"])})'
                 )
             existing['required_by'].append(required_by)
             continue
@@ -277,7 +295,7 @@ def resolve_dependencies(manifest_path='.', installed=None):
         }
 
         # Check for transitive dependencies
-        dep_key = f"{name}@{version}"
+        dep_key = f'{name}@{version}'
         if dep_key not in visited:
             visited.add(dep_key)
             pkg_dir = os.path.join(PACKAGES_DIR, name)
@@ -321,8 +339,8 @@ CACHE_DIR = os.path.join(EPL_HOME, 'cache')
 REGISTRY_URL = 'https://raw.githubusercontent.com/epl-lang/registry/main/registry.json'
 LOCAL_REGISTRY_FILE = os.path.join(os.path.dirname(__file__), 'registry.json')
 OFFICIAL_PACKAGES_DIR = os.path.join(os.path.dirname(__file__), 'official_packages')
-MANIFEST_NAME = 'epl.json'          # legacy
-TOML_MANIFEST_NAME = 'epl.toml'     # preferred
+MANIFEST_NAME = 'epl.json'  # legacy
+TOML_MANIFEST_NAME = 'epl.toml'  # preferred
 LOCKFILE_NAME = 'epl.lock'
 LOCKFILE_VERSION = 3
 PYTHON_DEPENDENCIES_SECTION = 'python-dependencies'
@@ -332,6 +350,7 @@ GITHUB_DEPENDENCIES_SECTION = 'github-dependencies'
 # ═══════════════════════════════════════════════════════════
 #  TOML Parser / Writer (self-contained — no external deps)
 # ═══════════════════════════════════════════════════════════
+
 
 def _parse_toml(text):
     """Pure-Python TOML parser supporting the subset used by epl.toml.
@@ -356,17 +375,17 @@ def _parse_toml(text):
             raise ValueError('Expected value')
         ch = s[p]
         # Multi-line basic string
-        if s[p:p+3] == '\"\"\"':
+        if s[p : p + 3] == '"""':
             p += 3
             buf = []
             # skip first newline if immediately after quotes
             if p < len(s) and s[p] == '\n':
                 p += 1
-            elif p + 1 < len(s) and s[p:p+2] == '\r\n':
+            elif p + 1 < len(s) and s[p : p + 2] == '\r\n':
                 p += 2
             # collect lines until closing \"\"\"
             rest = s[p:]
-            end_idx = rest.find('\"\"\"')
+            end_idx = rest.find('"""')
             if end_idx >= 0:
                 return rest[:end_idx], p + end_idx + 3
             # Multi-line spanning actual lines
@@ -375,7 +394,7 @@ def _parse_toml(text):
             i += 1
             while i < len(lines):
                 ln = lines[i]
-                idx = ln.find('\"\"\"')
+                idx = ln.find('"""')
                 if idx >= 0:
                     buf.append(ln[:idx])
                     # re-parse rest of this line is not needed for epl.toml
@@ -393,9 +412,9 @@ def _parse_toml(text):
             end = s.index("'", p)
             return s[p:end], end + 1
         # Boolean
-        if s[p:p+4] == 'true':
+        if s[p : p + 4] == 'true':
             return True, p + 4
-        if s[p:p+5] == 'false':
+        if s[p : p + 5] == 'false':
             return False, p + 5
         # Array
         if ch == '[':
@@ -492,7 +511,10 @@ def _parse_toml(text):
             end = s.index("'", p)
             return s[p:end], end + 1
         start = p
-        while p < len(s) and s[p] in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-':
+        while (
+            p < len(s)
+            and s[p] in 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-'
+        ):
             p += 1
         return s[start:p], p
 
@@ -507,7 +529,7 @@ def _parse_toml(text):
         if stripped.startswith('['):
             if stripped.startswith('[['):
                 # Array of tables
-                key_part = stripped[2:stripped.index(']]')].strip()
+                key_part = stripped[2 : stripped.index(']]')].strip()
                 parts = [k.strip() for k in key_part.split('.')]
                 target = result
                 for p in parts[:-1]:
@@ -520,7 +542,7 @@ def _parse_toml(text):
                 current = new_tbl
                 current_path = parts
             else:
-                key_part = stripped[1:stripped.index(']')].strip()
+                key_part = stripped[1 : stripped.index(']')].strip()
                 parts = [k.strip() for k in key_part.split('.')]
                 current = result
                 for p in parts:
@@ -534,7 +556,7 @@ def _parse_toml(text):
             raw_key = stripped[:eq_pos].strip()
             # Handle dotted keys
             key_parts = [k.strip().strip('"').strip("'") for k in raw_key.split('.')]
-            rest = stripped[eq_pos + 1:]
+            rest = stripped[eq_pos + 1 :]
             val, _ = _parse_value(rest, 0)
             target = current
             for kp in key_parts[:-1]:
@@ -653,318 +675,302 @@ def _manifest_to_toml(manifest):
         toml['tool'] = tool
     return toml
 
+
 # --- Security: Package name sanitization ---
 _SAFE_PKG_NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')
+
 
 def _sanitize_package_name(name):
     """Validate and sanitize a package name to prevent path traversal.
     Returns the sanitized name or raises ValueError."""
     if not name or not isinstance(name, str):
-        raise ValueError("Package name must be a non-empty string")
+        raise ValueError('Package name must be a non-empty string')
     name = name.strip()
     if not _SAFE_PKG_NAME_RE.match(name):
         raise ValueError(
             f'Invalid package name "{name}". '
-            f'Names must be alphanumeric with . _ - only (no path separators).')
+            f'Names must be alphanumeric with . _ - only (no path separators).'
+        )
     # Extra safety: ensure no path component tricks
     if '..' in name or '/' in name or '\\' in name:
         raise ValueError(f'Invalid package name "{name}": path traversal detected.')
     return name
 
+
 def _validate_url(url):
     """Validate that a URL uses only https:// scheme."""
     if not url or not isinstance(url, str):
-        raise ValueError("URL must be a non-empty string")
+        raise ValueError('URL must be a non-empty string')
     if not url.startswith('https://'):
-        raise ValueError(
-            f'Only https:// URLs are allowed for security. Got: {url[:80]}')
+        raise ValueError(f'Only https:// URLs are allowed for security. Got: {url[:80]}')
     return url
+
 
 def _validate_github_repo(repo):
     """Validate a GitHub repo string (owner/repo format)."""
     if not repo or not isinstance(repo, str):
-        raise ValueError("GitHub repo must be a non-empty string")
+        raise ValueError('GitHub repo must be a non-empty string')
     if not re.match(r'^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$', repo):
-        raise ValueError(
-            f'Invalid GitHub repo format: "{repo}". Expected "owner/repo".')
+        raise ValueError(f'Invalid GitHub repo format: "{repo}". Expected "owner/repo".')
     return repo
+
 
 # Built-in package registry (works offline)
 BUILTIN_REGISTRY = {
-    "epl-math": {
-        "description": "Extended math functions for EPL",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-math': {
+        'description': 'Extended math functions for EPL',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-http": {
-        "description": "HTTP client and server utilities",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-http': {
+        'description': 'HTTP client and server utilities',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-json": {
-        "description": "JSON parsing and serialization",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-json': {
+        'description': 'JSON parsing and serialization',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-crypto": {
-        "description": "Cryptographic functions",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-crypto': {'description': 'Cryptographic functions', 'version': '1.0.0', 'type': 'builtin'},
+    'epl-datetime': {
+        'description': 'Date and time utilities',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-datetime": {
-        "description": "Date and time utilities",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-regex': {
+        'description': 'Regular expression support',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-regex": {
-        "description": "Regular expression support",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-fs': {'description': 'File system utilities', 'version': '1.0.0', 'type': 'builtin'},
+    'epl-db': {
+        'description': 'Database operations (SQLite)',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-fs": {
-        "description": "File system utilities",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-testing': {'description': 'Unit testing framework', 'version': '1.0.0', 'type': 'builtin'},
+    'epl-string': {
+        'description': 'Extended string utilities',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-db": {
-        "description": "Database operations (SQLite)",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-collections': {
+        'description': 'Advanced collection data structures',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-testing": {
-        "description": "Unit testing framework",
-        "version": "1.0.0",
-        "type": "builtin"
-    },
-    "epl-string": {
-        "description": "Extended string utilities",
-        "version": "1.0.0",
-        "type": "builtin"
-    },
-    "epl-collections": {
-        "description": "Advanced collection data structures",
-        "version": "1.0.0",
-        "type": "builtin"
-    },
-    "epl-web": {
-        "description": "Web framework helpers",
-        "version": "1.0.0",
-        "type": "builtin"
-    },
+    'epl-web': {'description': 'Web framework helpers', 'version': '1.0.0', 'type': 'builtin'},
     # ── v3.0 Real modules ──
-    "epl-networking": {
-        "description": "Real TCP/UDP/HTTP networking with SSL support",
-        "version": "3.0.0",
-        "type": "builtin"
+    'epl-networking': {
+        'description': 'Real TCP/UDP/HTTP networking with SSL support',
+        'version': '3.0.0',
+        'type': 'builtin',
     },
-    "epl-concurrency": {
-        "description": "Real threading, thread pools, mutexes, channels, atomics",
-        "version": "3.0.0",
-        "type": "builtin"
+    'epl-concurrency': {
+        'description': 'Real threading, thread pools, mutexes, channels, atomics',
+        'version': '3.0.0',
+        'type': 'builtin',
     },
-    "epl-database": {
-        "description": "Production SQLite with connection pooling, ORM, migrations",
-        "version": "3.0.0",
-        "type": "builtin"
+    'epl-database': {
+        'description': 'Production SQLite with connection pooling, ORM, migrations',
+        'version': '3.0.0',
+        'type': 'builtin',
     },
-    "epl-vm": {
-        "description": "Bytecode VM engine for 10-50x faster execution",
-        "version": "3.0.0",
-        "type": "builtin"
+    'epl-vm': {
+        'description': 'Bytecode VM engine for 10-50x faster execution',
+        'version': '3.0.0',
+        'type': 'builtin',
     },
-    "epl-packager": {
-        "description": "Package EPL programs into standalone executables",
-        "version": "3.0.0",
-        "type": "builtin"
+    'epl-packager': {
+        'description': 'Package EPL programs into standalone executables',
+        'version': '3.0.0',
+        'type': 'builtin',
     },
     # ── Utility packages ──
-    "epl-csv": {
-        "description": "CSV file reading, writing, and parsing",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-csv': {
+        'description': 'CSV file reading, writing, and parsing',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-os": {
-        "description": "Operating system and environment utilities",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-os': {
+        'description': 'Operating system and environment utilities',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-encoding": {
-        "description": "Base64, hex, URL encoding and decoding",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-encoding': {
+        'description': 'Base64, hex, URL encoding and decoding',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-uuid": {
-        "description": "UUID generation (v4)",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-uuid': {'description': 'UUID generation (v4)', 'version': '1.0.0', 'type': 'builtin'},
+    'epl-logging': {
+        'description': 'Structured logging with levels and formatting',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-logging": {
-        "description": "Structured logging with levels and formatting",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-validation': {
+        'description': 'Input validation (email, URL, number ranges, patterns)',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-validation": {
-        "description": "Input validation (email, URL, number ranges, patterns)",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-template': {
+        'description': 'String template engine with variables and loops',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-template": {
-        "description": "String template engine with variables and loops",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-config': {
+        'description': 'Configuration file support (JSON, INI, env files)',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-config": {
-        "description": "Configuration file support (JSON, INI, env files)",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-cli': {
+        'description': 'Command-line argument parsing and colored output',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-cli": {
-        "description": "Command-line argument parsing and colored output",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-events': {
+        'description': 'Event emitter / pub-sub pattern',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-events": {
-        "description": "Event emitter / pub-sub pattern",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-cache': {
+        'description': 'In-memory cache with TTL and LRU eviction',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
-    "epl-cache": {
-        "description": "In-memory cache with TTL and LRU eviction",
-        "version": "1.0.0",
-        "type": "builtin"
-    },
-    "epl-compression": {
-        "description": "Gzip and zlib compression/decompression",
-        "version": "1.0.0",
-        "type": "builtin"
+    'epl-compression': {
+        'description': 'Gzip and zlib compression/decompression',
+        'version': '1.0.0',
+        'type': 'builtin',
     },
     # ── v4.0 Production modules ──
-    "epl-async": {
-        "description": "Async event loop, tasks, channels, and structured concurrency",
-        "version": "4.0.0",
-        "type": "builtin"
+    'epl-async': {
+        'description': 'Async event loop, tasks, channels, and structured concurrency',
+        'version': '4.0.0',
+        'type': 'builtin',
     },
-    "epl-wsgi": {
-        "description": "Production WSGI/ASGI web server with middleware and routing",
-        "version": "4.0.0",
-        "type": "builtin"
+    'epl-wsgi': {
+        'description': 'Production WSGI/ASGI web server with middleware and routing',
+        'version': '4.0.0',
+        'type': 'builtin',
     },
-    "epl-types": {
-        "description": "Static type checking and type annotations",
-        "version": "4.0.0",
-        "type": "builtin"
+    'epl-types': {
+        'description': 'Static type checking and type annotations',
+        'version': '4.0.0',
+        'type': 'builtin',
     },
-    "epl-interfaces": {
-        "description": "Interface definitions and implementation validation",
-        "version": "4.0.0",
-        "type": "builtin"
+    'epl-interfaces': {
+        'description': 'Interface definitions and implementation validation',
+        'version': '4.0.0',
+        'type': 'builtin',
     },
-    "epl-modules": {
-        "description": "Module namespacing with export/import and :: access",
-        "version": "4.0.0",
-        "type": "builtin"
+    'epl-modules': {
+        'description': 'Module namespacing with export/import and :: access',
+        'version': '4.0.0',
+        'type': 'builtin',
     },
-    "epl-profiler": {
-        "description": "Performance profiler and execution tracer",
-        "version": "4.0.0",
-        "type": "builtin"
+    'epl-profiler': {
+        'description': 'Performance profiler and execution tracer',
+        'version': '4.0.0',
+        'type': 'builtin',
     },
-    "epl-debug": {
-        "description": "Debug Adapter Protocol server for IDE integration",
-        "version": "4.0.0",
-        "type": "builtin"
+    'epl-debug': {
+        'description': 'Debug Adapter Protocol server for IDE integration',
+        'version': '4.0.0',
+        'type': 'builtin',
     },
     # ── v4.2 Ecosystem packages ──
-    "epl-auth": {
-        "description": "Authentication and authorization (JWT, OAuth2, sessions, RBAC)",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["auth", "jwt", "oauth", "security", "login"]
+    'epl-auth': {
+        'description': 'Authentication and authorization (JWT, OAuth2, sessions, RBAC)',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['auth', 'jwt', 'oauth', 'security', 'login'],
     },
-    "epl-email": {
-        "description": "Send emails via SMTP with templates and attachments",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["email", "smtp", "mail", "send"]
+    'epl-email': {
+        'description': 'Send emails via SMTP with templates and attachments',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['email', 'smtp', 'mail', 'send'],
     },
-    "epl-pdf": {
-        "description": "Generate PDF documents with text, tables, and images",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["pdf", "document", "report", "generate"]
+    'epl-pdf': {
+        'description': 'Generate PDF documents with text, tables, and images',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['pdf', 'document', 'report', 'generate'],
     },
-    "epl-charts": {
-        "description": "Generate charts and graphs (bar, line, pie, scatter) as SVG/HTML",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["chart", "graph", "visualization", "plot", "svg"]
+    'epl-charts': {
+        'description': 'Generate charts and graphs (bar, line, pie, scatter) as SVG/HTML',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['chart', 'graph', 'visualization', 'plot', 'svg'],
     },
-    "epl-orm": {
-        "description": "Object-relational mapping with models, queries, and migrations",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["orm", "database", "model", "query", "migration"]
+    'epl-orm': {
+        'description': 'Object-relational mapping with models, queries, and migrations',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['orm', 'database', 'model', 'query', 'migration'],
     },
-    "epl-queue": {
-        "description": "Task queue and background job processing",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["queue", "job", "task", "background", "worker"]
+    'epl-queue': {
+        'description': 'Task queue and background job processing',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['queue', 'job', 'task', 'background', 'worker'],
     },
-    "epl-scheduler": {
-        "description": "Cron-like task scheduling and recurring jobs",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["scheduler", "cron", "timer", "recurring", "job"]
+    'epl-scheduler': {
+        'description': 'Cron-like task scheduling and recurring jobs',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['scheduler', 'cron', 'timer', 'recurring', 'job'],
     },
-    "epl-websocket": {
-        "description": "WebSocket client and server with rooms and broadcasting",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["websocket", "realtime", "ws", "socket", "broadcast"]
+    'epl-websocket': {
+        'description': 'WebSocket client and server with rooms and broadcasting',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['websocket', 'realtime', 'ws', 'socket', 'broadcast'],
     },
-    "epl-xml": {
-        "description": "XML parsing, generation, and XPath queries",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["xml", "parse", "xpath", "generate"]
+    'epl-xml': {
+        'description': 'XML parsing, generation, and XPath queries',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['xml', 'parse', 'xpath', 'generate'],
     },
-    "epl-i18n": {
-        "description": "Internationalization and localization (translations, formatting)",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["i18n", "l10n", "translation", "locale", "language"]
+    'epl-i18n': {
+        'description': 'Internationalization and localization (translations, formatting)',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['i18n', 'l10n', 'translation', 'locale', 'language'],
     },
-    "epl-rate-limit": {
-        "description": "Rate limiting with token bucket and sliding window algorithms",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["rate-limit", "throttle", "api", "protection"]
+    'epl-rate-limit': {
+        'description': 'Rate limiting with token bucket and sliding window algorithms',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['rate-limit', 'throttle', 'api', 'protection'],
     },
-    "epl-markdown": {
-        "description": "Markdown parser and HTML renderer",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["markdown", "md", "html", "render", "parse"]
+    'epl-markdown': {
+        'description': 'Markdown parser and HTML renderer',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['markdown', 'md', 'html', 'render', 'parse'],
     },
-    "epl-color": {
-        "description": "Color manipulation (hex, RGB, HSL, contrast, palette generation)",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["color", "hex", "rgb", "hsl", "palette"]
+    'epl-color': {
+        'description': 'Color manipulation (hex, RGB, HSL, contrast, palette generation)',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['color', 'hex', 'rgb', 'hsl', 'palette'],
     },
-    "epl-semver": {
-        "description": "Semantic versioning comparison, parsing, and range matching",
-        "version": "4.2.0",
-        "type": "builtin",
-        "keywords": ["semver", "version", "compare", "range"]
+    'epl-semver': {
+        'description': 'Semantic versioning comparison, parsing, and range matching',
+        'version': '4.2.0',
+        'type': 'builtin',
+        'keywords': ['semver', 'version', 'compare', 'range'],
     },
     # ── v5.2 Triple Ecosystem ──
-    "epl-ffi": {
-        "description": "C Foreign Function Interface — call C libraries from EPL",
-        "version": "5.2.0",
-        "type": "builtin",
-        "keywords": ["ffi", "c", "native", "external", "interop"]
+    'epl-ffi': {
+        'description': 'C Foreign Function Interface — call C libraries from EPL',
+        'version': '5.2.0',
+        'type': 'builtin',
+        'keywords': ['ffi', 'c', 'native', 'external', 'interop'],
     },
 }
 
@@ -983,8 +989,10 @@ def _get_official_package_dir(name):
 
 # --- Local Registry ---
 
+
 def _get_local_registry_path():
     return os.path.join(EPL_HOME, 'local_registry.json')
+
 
 def load_local_registry():
     """Load the local package registry."""
@@ -994,6 +1002,7 @@ def load_local_registry():
             return json.load(f)
     return {}
 
+
 def save_local_registry(registry):
     """Save the local package registry (atomic write + file lock)."""
     ensure_dirs()
@@ -1001,19 +1010,20 @@ def save_local_registry(registry):
     with _file_lock(path):
         _atomic_write(path, json.dumps(registry, indent=2, sort_keys=True))
 
+
 def register_installed_package(name, version, source, path, metadata=None):
     """Register a package in the local registry (thread-safe)."""
     registry_path = _get_local_registry_path()
     with _file_lock(registry_path):
         reg = load_local_registry()
         reg[name] = {
-            "version": version,
-            "source": source,
-            "path": path,
-            "installed_at": time.time(),
+            'version': version,
+            'source': source,
+            'path': path,
+            'installed_at': time.time(),
         }
         if metadata:
-            reg[name]["metadata"] = dict(metadata)
+            reg[name]['metadata'] = dict(metadata)
         _atomic_write(registry_path, json.dumps(reg, indent=2, sort_keys=True))
 
 
@@ -1152,7 +1162,9 @@ def _resolve_github_archive(repo, commit=None):
     try:
         repo_data = _github_api_json(f'https://api.github.com/repos/{repo}')
         default_branch = repo_data.get('default_branch', 'main')
-        commit_data = _github_api_json(f'https://api.github.com/repos/{repo}/commits/{default_branch}')
+        commit_data = _github_api_json(
+            f'https://api.github.com/repos/{repo}/commits/{default_branch}'
+        )
         resolved_commit = commit_data.get('sha')
         if resolved_commit:
             return resolved_commit, f'https://github.com/{repo}/archive/{resolved_commit}.zip'
@@ -1164,15 +1176,16 @@ def _resolve_github_archive(repo, commit=None):
 
 # --- Package Resolution (for imports) ---
 
+
 def find_package_module(name):
     """Find a package module for import resolution.
-    
+
     Searches in order:
     1. Current directory .epl files
     2. ./epl_modules/ directory
     3. ~/.epl/packages/ directory
     4. Built-in stdlib modules
-    
+
     Returns the path to the .epl file, or None.
     """
     # Sanitize the package name to prevent path traversal
@@ -1181,10 +1194,10 @@ def find_package_module(name):
     except ValueError:
         return None
     # 1. Current directory
-    local_file = f"{name}.epl"
+    local_file = f'{name}.epl'
     if os.path.isfile(local_file):
         return os.path.abspath(local_file)
-    
+
     # 2. Local epl_modules directory
     local_modules = os.path.join('.', 'epl_modules', name)
     if os.path.isdir(local_modules):
@@ -1196,7 +1209,7 @@ def find_package_module(name):
     local_module_file = os.path.join('.', 'epl_modules', f'{name}.epl')
     if os.path.isfile(local_module_file):
         return os.path.abspath(local_module_file)
-    
+
     # 3. Global packages directory (~/.epl/packages/)
     pkg_dir = os.path.join(PACKAGES_DIR, name)
     if os.path.isdir(pkg_dir):
@@ -1215,7 +1228,7 @@ def find_package_module(name):
         for f in os.listdir(pkg_dir):
             if f.endswith('.epl'):
                 return os.path.join(pkg_dir, f)
-    
+
     return None
 
 
@@ -1243,7 +1256,7 @@ def search_packages(query):
     """Search for packages in the package index plus local/built-in registries."""
     results = {}
     query_lower = query.lower()
-    
+
     # Search bundled official packages
     if os.path.isdir(OFFICIAL_PACKAGES_DIR):
         for pkg_name in sorted(os.listdir(OFFICIAL_PACKAGES_DIR)):
@@ -1272,17 +1285,20 @@ def search_packages(query):
                 'source': current.get('source', 'builtin'),
                 'latest': current.get('latest', info.get('version', '?')),
             }
-    
+
     # Search local registry
     local_reg = load_local_registry()
     for name, info in local_reg.items():
         if query_lower in name.lower():
-            results.setdefault(name, {
-                'name': name,
-                'version': info.get('version', '?'),
-                'description': '',
-                'source': info.get('source', 'local'),
-            })
+            results.setdefault(
+                name,
+                {
+                    'name': name,
+                    'version': info.get('version', '?'),
+                    'description': '',
+                    'source': info.get('source', 'local'),
+                },
+            )
 
     # Search package index
     try:
@@ -1300,7 +1316,7 @@ def search_packages(query):
             }
     except Exception:
         pass
-    
+
     # Search installed packages
     if os.path.exists(PACKAGES_DIR):
         for pkg_name in os.listdir(PACKAGES_DIR):
@@ -1309,8 +1325,11 @@ def search_packages(query):
                 current = results.get(pkg_name, {})
                 results[pkg_name] = {
                     'name': pkg_name,
-                    'version': manifest.get('version', '?') if manifest else current.get('version', '?'),
-                    'description': current.get('description') or (manifest.get('description', '') if manifest else ''),
+                    'version': manifest.get('version', '?')
+                    if manifest
+                    else current.get('version', '?'),
+                    'description': current.get('description')
+                    or (manifest.get('description', '') if manifest else ''),
                     'source': 'installed',
                     'latest': current.get('latest', current.get('version', '?')),
                 }
@@ -1348,52 +1367,59 @@ def _get_latest_available_version(name):
 
 # --- Lockfile ---
 
+
 def create_lockfile(path='.'):
     """Generate a deterministic lockfile from the current project state."""
     manifest = load_manifest(path)
     if not manifest:
         return None
-    
+
     deps = manifest.get('dependencies', {})
     lock = {
-        "lockfileVersion": LOCKFILE_VERSION,
-        "metadata": {
-            "project": manifest.get('name', os.path.basename(os.path.abspath(path))),
-            "manifest": TOML_MANIFEST_NAME if get_manifest_format(path) == 'toml' else MANIFEST_NAME,
+        'lockfileVersion': LOCKFILE_VERSION,
+        'metadata': {
+            'project': manifest.get('name', os.path.basename(os.path.abspath(path))),
+            'manifest': TOML_MANIFEST_NAME
+            if get_manifest_format(path) == 'toml'
+            else MANIFEST_NAME,
         },
-        "packages": {},
-        "python_packages": {},
-        "github_packages": {},
+        'packages': {},
+        'python_packages': {},
+        'github_packages': {},
     }
-    
+
     # Also include transitive dependencies
     try:
         resolved = resolve_dependencies(path)
     except DependencyConflict as e:
-        print(f"  Warning: Dependency conflict detected: {e}", flush=True)
-        print(f"  Lockfile will include only direct dependencies.", flush=True)
-        resolved = {name: {'version': ver, 'spec': ver, 'required_by': ['root']}
-                    for name, ver in deps.items()}
+        print(f'  Warning: Dependency conflict detected: {e}', flush=True)
+        print('  Lockfile will include only direct dependencies.', flush=True)
+        resolved = {
+            name: {'version': ver, 'spec': ver, 'required_by': ['root']}
+            for name, ver in deps.items()
+        }
 
     for name, info in sorted(resolved.items()):
         pkg_dir = os.path.join(PACKAGES_DIR, name)
         if os.path.isdir(pkg_dir):
             integrity = _hash_directory(pkg_dir)
-            lock["packages"][name] = {
-                "version": info.get('version', '1.0.0'),
-                "integrity": integrity,
-                "required_by": sorted(info.get('required_by', [])),
+            lock['packages'][name] = {
+                'version': info.get('version', '1.0.0'),
+                'integrity': integrity,
+                'required_by': sorted(info.get('required_by', [])),
             }
 
     python_deps = manifest.get(PYTHON_DEPENDENCIES_SECTION, {})
     for import_name, requirement in sorted(python_deps.items()):
         normalized_requirement = _normalize_python_requirement(import_name, requirement)
         resolved_py = _resolve_installed_python_package(import_name, normalized_requirement) or {}
-        lock["python_packages"][import_name] = {
-            "distribution": resolved_py.get('distribution', _extract_distribution_name(normalized_requirement) or import_name),
-            "version": resolved_py.get('version', ''),
-            "pip_spec": normalized_requirement,
-            "integrity": resolved_py.get('integrity', ''),
+        lock['python_packages'][import_name] = {
+            'distribution': resolved_py.get(
+                'distribution', _extract_distribution_name(normalized_requirement) or import_name
+            ),
+            'version': resolved_py.get('version', ''),
+            'pip_spec': normalized_requirement,
+            'integrity': resolved_py.get('integrity', ''),
         }
 
     github_deps = manifest.get(GITHUB_DEPENDENCIES_SECTION, {})
@@ -1418,13 +1444,13 @@ def create_lockfile(path='.'):
             if pkg_manifest:
                 version = pkg_manifest.get('version', version)
 
-        lock["github_packages"][alias] = {
-            "repo": repo,
-            "commit": commit or '',
-            "package": package_name or alias,
-            "version": version,
-            "integrity": integrity,
-            "archive_integrity": metadata.get('archive_integrity', ''),
+        lock['github_packages'][alias] = {
+            'repo': repo,
+            'commit': commit or '',
+            'package': package_name or alias,
+            'version': version,
+            'integrity': integrity,
+            'archive_integrity': metadata.get('archive_integrity', ''),
         }
 
     _write_lockfile(path, lock)
@@ -1442,7 +1468,7 @@ def load_lockfile(path='.'):
 
 def verify_lockfile(path='.', include_bridge=True):
     """Verify installed packages match the lockfile.
-    
+
     Returns dict with keys: 'valid' (bool), 'mismatches' (list), 'missing' (list).
     """
     lock = load_lockfile(path)
@@ -1462,11 +1488,13 @@ def verify_lockfile(path='.', include_bridge=True):
         expected_hash = lock_info.get('integrity', '')
         actual_hash = _hash_directory(pkg_dir)
         if expected_hash and actual_hash != expected_hash:
-            mismatches.append({
-                'package': name,
-                'expected_integrity': expected_hash,
-                'actual_integrity': actual_hash,
-            })
+            mismatches.append(
+                {
+                    'package': name,
+                    'expected_integrity': expected_hash,
+                    'actual_integrity': actual_hash,
+                }
+            )
 
         # Verify version
         pkg_manifest = load_manifest(pkg_dir)
@@ -1474,11 +1502,13 @@ def verify_lockfile(path='.', include_bridge=True):
             expected_ver = lock_info.get('version', '')
             actual_ver = pkg_manifest.get('version', '')
             if expected_ver and actual_ver != expected_ver:
-                mismatches.append({
-                    'package': name,
-                    'expected_version': expected_ver,
-                    'actual_version': actual_ver,
-                })
+                mismatches.append(
+                    {
+                        'package': name,
+                        'expected_version': expected_ver,
+                        'actual_version': actual_ver,
+                    }
+                )
 
     if include_bridge:
         for import_name, lock_info in lock.get('python_packages', {}).items():
@@ -1489,17 +1519,21 @@ def verify_lockfile(path='.', include_bridge=True):
             expected_ver = lock_info.get('version', '')
             expected_integrity = lock_info.get('integrity', '')
             if expected_ver and resolved.get('version') != expected_ver:
-                mismatches.append({
-                    'package': f'python:{import_name}',
-                    'expected_version': expected_ver,
-                    'actual_version': resolved.get('version', ''),
-                })
+                mismatches.append(
+                    {
+                        'package': f'python:{import_name}',
+                        'expected_version': expected_ver,
+                        'actual_version': resolved.get('version', ''),
+                    }
+                )
             if expected_integrity and resolved.get('integrity') != expected_integrity:
-                mismatches.append({
-                    'package': f'python:{import_name}',
-                    'expected_integrity': expected_integrity,
-                    'actual_integrity': resolved.get('integrity', ''),
-                })
+                mismatches.append(
+                    {
+                        'package': f'python:{import_name}',
+                        'expected_integrity': expected_integrity,
+                        'actual_integrity': resolved.get('integrity', ''),
+                    }
+                )
 
         for alias, lock_info in lock.get('github_packages', {}).items():
             repo = lock_info.get('repo', '')
@@ -1514,21 +1548,27 @@ def verify_lockfile(path='.', include_bridge=True):
             expected_commit = lock_info.get('commit', '')
             actual_commit = metadata.get('commit', '')
             if expected_commit and actual_commit != expected_commit:
-                mismatches.append({
-                    'package': f'github:{alias}',
-                    'expected_commit': expected_commit,
-                    'actual_commit': actual_commit,
-                })
+                mismatches.append(
+                    {
+                        'package': f'github:{alias}',
+                        'expected_commit': expected_commit,
+                        'actual_commit': actual_commit,
+                    }
+                )
 
             expected_integrity = lock_info.get('integrity', '')
             pkg_path = registered.get('path')
-            actual_integrity = _hash_directory(pkg_path) if pkg_path and os.path.isdir(pkg_path) else ''
+            actual_integrity = (
+                _hash_directory(pkg_path) if pkg_path and os.path.isdir(pkg_path) else ''
+            )
             if expected_integrity and actual_integrity != expected_integrity:
-                mismatches.append({
-                    'package': f'github:{alias}',
-                    'expected_integrity': expected_integrity,
-                    'actual_integrity': actual_integrity,
-                })
+                mismatches.append(
+                    {
+                        'package': f'github:{alias}',
+                        'expected_integrity': expected_integrity,
+                        'actual_integrity': actual_integrity,
+                    }
+                )
 
     return {
         'valid': len(mismatches) == 0 and len(missing) == 0,
@@ -1571,25 +1611,25 @@ def install_from_lockfile(path='.', include_bridge=False, strict=False):
                 return False
 
         if missing_lock_entries:
-            print("  Lockfile is missing declared dependencies:")
+            print('  Lockfile is missing declared dependencies:')
             for item in missing_lock_entries:
-                print(f"    - {item}")
+                print(f'    - {item}')
             return False
 
     packages = lock.get('packages', {})
     python_packages = lock.get('python_packages', {}) if include_bridge else {}
     github_packages = lock.get('github_packages', {}) if include_bridge else {}
     if not packages and not python_packages and not github_packages:
-        print("  Lockfile has no packages.")
+        print('  Lockfile has no packages.')
         return True
 
     total = len(packages) + len(python_packages) + len(github_packages)
-    print(f"  Installing {total} locked dependencies...")
+    print(f'  Installing {total} locked dependencies...')
     success = True
     for name, info in sorted(packages.items()):
         version = info.get('version', None)
         if not install_package(name, version):
-            print(f"  Failed to install {name}@{version}")
+            print(f'  Failed to install {name}@{version}')
             success = False
 
     for alias, info in sorted(github_packages.items()):
@@ -1601,7 +1641,7 @@ def install_from_lockfile(path='.', include_bridge=False, strict=False):
             success = False
             continue
         if not _install_from_github(repo, commit=commit, expected_sha256=archive_integrity):
-            print(f"  Failed to install GitHub dependency: {alias} -> {repo}@{commit}")
+            print(f'  Failed to install GitHub dependency: {alias} -> {repo}@{commit}')
             success = False
 
     for import_name, info in sorted(python_packages.items()):
@@ -1614,19 +1654,19 @@ def install_from_lockfile(path='.', include_bridge=False, strict=False):
             resolved = _resolve_installed_python_package(import_name, pip_spec)
             expected_integrity = info.get('integrity', '')
             if expected_integrity and resolved and resolved.get('integrity') != expected_integrity:
-                print(f"  Integrity mismatch after installing Python dependency: {import_name}")
+                print(f'  Integrity mismatch after installing Python dependency: {import_name}')
                 success = False
         except subprocess.CalledProcessError:
-            print(f"  Failed to install Python dependency: {requirement}")
+            print(f'  Failed to install Python dependency: {requirement}')
             success = False
 
     result = verify_lockfile(path, include_bridge=include_bridge)
     if not result['valid']:
-        print(f"  Warning: Lockfile verification found issues after install.")
+        print('  Warning: Lockfile verification found issues after install.')
         for m in result['mismatches']:
-            print(f"    Mismatch: {m}")
+            print(f'    Mismatch: {m}')
         for m in result['missing']:
-            print(f"    Missing: {m}")
+            print(f'    Missing: {m}')
 
     return success and result['valid']
 
@@ -1652,11 +1692,18 @@ def _hash_directory(path):
 
 # ─── Manifest ───────────────────────────────────────────
 
-def create_manifest(name="my-project", version="1.0.0", description="",
-                    author="", entry="main.epl", dependencies=None,
-                    python_dependencies=None,
-                    github_dependencies=None,
-                    fmt="toml"):
+
+def create_manifest(
+    name='my-project',
+    version='1.0.0',
+    description='',
+    author='',
+    entry='main.epl',
+    dependencies=None,
+    python_dependencies=None,
+    github_dependencies=None,
+    fmt='toml',
+):
     """Create a project manifest (epl.toml preferred, epl.json as legacy).
 
     Args:
@@ -1664,21 +1711,21 @@ def create_manifest(name="my-project", version="1.0.0", description="",
     Returns the manifest data dict (internal flat format).
     """
     manifest = {
-        "name": name,
-        "version": version,
-        "description": description,
-        "author": author,
-        "entry": entry,
-        "dependencies": dependencies or {},
-        "python-dependencies": python_dependencies or {},
-        "github-dependencies": github_dependencies or {},
-        "scripts": {
-            "start": f"epl run {entry}",
-            "build": f"epl build {entry}",
-            "test": "epl tests/run_tests.epl"
-        }
+        'name': name,
+        'version': version,
+        'description': description,
+        'author': author,
+        'entry': entry,
+        'dependencies': dependencies or {},
+        'python-dependencies': python_dependencies or {},
+        'github-dependencies': github_dependencies or {},
+        'scripts': {
+            'start': f'epl run {entry}',
+            'build': f'epl build {entry}',
+            'test': 'epl tests/run_tests.epl',
+        },
     }
-    if fmt == "toml":
+    if fmt == 'toml':
         toml_data = _manifest_to_toml(manifest)
         _atomic_write(TOML_MANIFEST_NAME, _dump_toml(toml_data) + '\n')
     else:
@@ -1749,12 +1796,12 @@ _PYTHON_IMPORT_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9
 def _validate_python_import_name(import_name):
     """Validate a Python import/module name used by EPL manifests and CLI."""
     if not isinstance(import_name, str):
-        raise ValueError("Python import name must be a string")
+        raise ValueError('Python import name must be a string')
     import_name = import_name.strip()
     if not _PYTHON_IMPORT_RE.match(import_name):
         raise ValueError(
-            f"Invalid Python import name: {import_name!r}. "
-            "Use dotted module names like requests, yaml, PIL, or fastapi."
+            f'Invalid Python import name: {import_name!r}. '
+            'Use dotted module names like requests, yaml, PIL, or fastapi.'
         )
     return import_name
 
@@ -1837,7 +1884,7 @@ def install_python_package(import_name, requirement=None, save=True, project_pat
     try:
         subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
     except subprocess.CalledProcessError:
-        print(f"  Failed to install Python package: {requirement}")
+        print(f'  Failed to install Python package: {requirement}')
         return False
 
     if save:
@@ -1849,11 +1896,11 @@ def install_python_package(import_name, requirement=None, save=True, project_pat
                 deps[import_name] = '*' if requirement == import_name else requirement
                 save_manifest(manifest, project_root)
                 create_lockfile(project_root)
-                print(f"  Added Python dependency: {import_name} -> {deps[import_name]}")
+                print(f'  Added Python dependency: {import_name} -> {deps[import_name]}')
         else:
-            print("  Installed Python package, but no epl.toml/epl.json was found to save it.")
+            print('  Installed Python package, but no epl.toml/epl.json was found to save it.')
 
-    print(f"  Installed Python package: {requirement}")
+    print(f'  Installed Python package: {requirement}')
     return True
 
 
@@ -1862,7 +1909,7 @@ def remove_python_dependency(import_name, path='.'):
     import_name = _validate_python_import_name(import_name)
     project_root = find_project_root(path)
     if not project_root:
-        print("  No epl.toml or epl.json found. Run: epl init")
+        print('  No epl.toml or epl.json found. Run: epl init')
         return False
 
     manifest = load_manifest(project_root)
@@ -1873,7 +1920,7 @@ def remove_python_dependency(import_name, path='.'):
         lowered = {str(k).lower(): k for k in deps}
         match = lowered.get(import_name.lower())
         if not match:
-            print(f"  Python dependency not declared: {import_name}")
+            print(f'  Python dependency not declared: {import_name}')
             return False
         del deps[match]
 
@@ -1883,7 +1930,7 @@ def remove_python_dependency(import_name, path='.'):
         manifest.pop(PYTHON_DEPENDENCIES_SECTION, None)
     save_manifest(manifest, project_root)
     create_lockfile(project_root)
-    print(f"  Removed Python dependency: {import_name}")
+    print(f'  Removed Python dependency: {import_name}')
     return True
 
 
@@ -1901,15 +1948,15 @@ def install_python_dependencies(path='.'):
     if not deps:
         return True
 
-    print(f"  Installing {len(deps)} Python dependencies...")
+    print(f'  Installing {len(deps)} Python dependencies...')
     ok = True
     for import_name, requirement in deps.items():
         requirement = _normalize_python_requirement(import_name, requirement)
         try:
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
-            print(f"  Installed Python dependency: {requirement}")
+            print(f'  Installed Python dependency: {requirement}')
         except subprocess.CalledProcessError:
-            print(f"  Failed to install Python dependency: {requirement}")
+            print(f'  Failed to install Python dependency: {requirement}')
             ok = False
     return ok
 
@@ -1934,9 +1981,9 @@ def add_github_dependency(repo, alias=None, save=True, path='.'):
                 deps[alias] = repo
                 save_manifest(manifest, project_root)
                 create_lockfile(project_root)
-                print(f"  Added GitHub dependency: {alias} -> {repo}")
+                print(f'  Added GitHub dependency: {alias} -> {repo}')
         else:
-            print("  Installed GitHub dependency, but no epl.toml/epl.json was found to save it.")
+            print('  Installed GitHub dependency, but no epl.toml/epl.json was found to save it.')
     return True
 
 
@@ -1944,7 +1991,7 @@ def remove_github_dependency(name, path='.'):
     """Remove a GitHub dependency declaration from the project manifest."""
     project_root = find_project_root(path)
     if not project_root:
-        print("  No epl.toml or epl.json found. Run: epl init")
+        print('  No epl.toml or epl.json found. Run: epl init')
         return False
 
     manifest = load_manifest(project_root)
@@ -1958,7 +2005,7 @@ def remove_github_dependency(name, path='.'):
                 match = alias
                 break
         if match is None:
-            print(f"  GitHub dependency not declared: {name}")
+            print(f'  GitHub dependency not declared: {name}')
             return False
         del deps[match]
 
@@ -1968,7 +2015,7 @@ def remove_github_dependency(name, path='.'):
         manifest.pop(GITHUB_DEPENDENCIES_SECTION, None)
     save_manifest(manifest, project_root)
     create_lockfile(project_root)
-    print(f"  Removed GitHub dependency: {name}")
+    print(f'  Removed GitHub dependency: {name}')
     return True
 
 
@@ -1986,11 +2033,11 @@ def install_github_dependencies(path='.'):
     if not deps:
         return True
 
-    print(f"  Installing {len(deps)} GitHub dependencies...")
+    print(f'  Installing {len(deps)} GitHub dependencies...')
     ok = True
     for alias, repo in deps.items():
         if not install_package(f'github:{repo}', save=False, project_path=project_root):
-            print(f"  Failed to install GitHub dependency: {alias} -> {repo}")
+            print(f'  Failed to install GitHub dependency: {alias} -> {repo}')
             ok = False
     return ok
 
@@ -2007,11 +2054,12 @@ def migrate_manifest_to_toml(path='.'):
         manifest = json.load(f)
     toml_data = _manifest_to_toml(manifest)
     _atomic_write(toml_fp, _dump_toml(toml_data) + '\n')
-    print(f"  Migrated {MANIFEST_NAME} -> {TOML_MANIFEST_NAME}")
+    print(f'  Migrated {MANIFEST_NAME} -> {TOML_MANIFEST_NAME}')
     return True
 
 
 # ─── Package Installation ───────────────────────────────
+
 
 def install_package(name_or_url, version=None, save=True, local=False, project_path='.'):
     """Install a package by name or URL.
@@ -2026,7 +2074,11 @@ def install_package(name_or_url, version=None, save=True, local=False, project_p
     ensure_dirs()
 
     # Parse name@version syntax (e.g. 'epl-math@^2.0.0' or 'epl-math@1.2.3')
-    if '@' in name_or_url and not name_or_url.startswith('http') and not name_or_url.startswith('github:'):
+    if (
+        '@' in name_or_url
+        and not name_or_url.startswith('http')
+        and not name_or_url.startswith('github:')
+    ):
         parts = name_or_url.split('@', 1)
         if parts[1]:  # not empty after @
             name_or_url = parts[0]
@@ -2035,8 +2087,9 @@ def install_package(name_or_url, version=None, save=True, local=False, project_p
     if name_or_url.startswith('https://'):
         return _install_from_url(_validate_url(name_or_url), source=f'url:{name_or_url}')
     elif name_or_url.startswith('http://'):
-        raise ValueError('Only https:// URLs are allowed for security. '
-                        'Use https:// instead of http://')
+        raise ValueError(
+            'Only https:// URLs are allowed for security. Use https:// instead of http://'
+        )
     elif name_or_url.startswith('github:'):
         repo = _validate_github_repo(name_or_url[7:])
         return _install_from_github(repo)
@@ -2048,7 +2101,9 @@ def install_package(name_or_url, version=None, save=True, local=False, project_p
         name_or_url = _sanitize_package_name(name_or_url)
         # Unified naming: allow 'math' to find 'epl-math'
         actual_name = _resolve_package_name(name_or_url)
-        success = _install_from_registry(actual_name, version, local=local, project_path=project_path)
+        success = _install_from_registry(
+            actual_name, version, local=local, project_path=project_path
+        )
         if success and save:
             _auto_save_dependency(actual_name, version or '*', project_path)
         return success
@@ -2057,30 +2112,30 @@ def install_package(name_or_url, version=None, save=True, local=False, project_p
 def _install_from_url(url, expected_sha256=None, source='url', metadata=None):
     """Download and install a package from a validated https URL."""
     url = _validate_url(url)
-    print(f"  Downloading from {url}...")
+    print(f'  Downloading from {url}...')
     with tempfile.TemporaryDirectory() as tmp:
         zip_path = os.path.join(tmp, 'package.zip')
         try:
             urllib.request.urlretrieve(url, zip_path)
         except Exception as e:
-            print(f"  Error downloading: {e}")
+            print(f'  Error downloading: {e}')
             return False
         archive_integrity = _sha256_file(zip_path)
         if expected_sha256 and archive_integrity != expected_sha256:
-            print("  Error: downloaded archive checksum mismatch.")
-            print(f"    Expected: {expected_sha256}")
-            print(f"    Actual:   {archive_integrity}")
+            print('  Error: downloaded archive checksum mismatch.')
+            print(f'    Expected: {expected_sha256}')
+            print(f'    Actual:   {archive_integrity}')
             return False
         with zipfile.ZipFile(zip_path, 'r') as z:
             # Zip-slip protection: reject entries with absolute paths or ..
             for member in z.namelist():
                 member_path = os.path.normpath(member)
                 if os.path.isabs(member_path) or member_path.startswith('..'):
-                    print(f"  Skipping unsafe zip entry: {member}")
+                    print(f'  Skipping unsafe zip entry: {member}')
                     continue
                 dest_path = os.path.realpath(os.path.join(tmp, member_path))
                 if not dest_path.startswith(os.path.realpath(tmp)):
-                    print(f"  Skipping unsafe zip entry: {member}")
+                    print(f'  Skipping unsafe zip entry: {member}')
                     continue
                 z.extract(member, tmp)
         # Find epl.json in extracted content
@@ -2094,10 +2149,12 @@ def _install_from_url(url, expected_sha256=None, source='url', metadata=None):
                         shutil.rmtree(dest)
                     shutil.copytree(root, dest)
                     pkg_metadata = dict(metadata or {})
-                    pkg_metadata.update({
-                        'archive_integrity': archive_integrity,
-                        'download_url': url,
-                    })
+                    pkg_metadata.update(
+                        {
+                            'archive_integrity': archive_integrity,
+                            'download_url': url,
+                        }
+                    )
                     register_installed_package(
                         pkg_name,
                         manifest.get('version', '?'),
@@ -2105,7 +2162,7 @@ def _install_from_url(url, expected_sha256=None, source='url', metadata=None):
                         dest,
                         metadata=pkg_metadata,
                     )
-                    print(f"  Installed: {pkg_name} @ {manifest.get('version', '?')}")
+                    print(f'  Installed: {pkg_name} @ {manifest.get("version", "?")}')
                     return True
         # If no manifest, install all .epl files
         epl_files = []
@@ -2130,9 +2187,9 @@ def _install_from_url(url, expected_sha256=None, source='url', metadata=None):
                     'download_url': url,
                 },
             )
-            print(f"  Installed: {pkg_name} ({len(epl_files)} files)")
+            print(f'  Installed: {pkg_name} ({len(epl_files)} files)')
             return True
-    print("  No EPL package found in download.")
+    print('  No EPL package found in download.')
     return False
 
 
@@ -2141,9 +2198,9 @@ def _install_from_github(repo, commit=None, expected_sha256=None):
     repo = _validate_github_repo(repo)
     resolved_commit, url = _resolve_github_archive(repo, commit=commit)
     if resolved_commit:
-        print(f"  Fetching from GitHub: {repo}@{resolved_commit[:12]}...")
+        print(f'  Fetching from GitHub: {repo}@{resolved_commit[:12]}...')
     else:
-        print(f"  Fetching from GitHub: {repo}...")
+        print(f'  Fetching from GitHub: {repo}...')
     return _install_from_url(
         url,
         expected_sha256=expected_sha256,
@@ -2163,7 +2220,7 @@ def _install_from_local(path, source=None):
     shutil.copytree(path, dest)
     version = manifest.get('version', '?') if manifest else '?'
     register_installed_package(pkg_name, version, source or f'local:{path}', dest)
-    print(f"  Installed: {pkg_name} @ {version}")
+    print(f'  Installed: {pkg_name} @ {version}')
     return True
 
 
@@ -2204,7 +2261,7 @@ def _auto_save_dependency(name, version_spec, project_path='.'):
     if name not in deps:
         deps[name] = version_spec
         save_manifest(manifest, project_path)
-        print(f"  Added {name}@{version_spec} to dependencies")
+        print(f'  Added {name}@{version_spec} to dependencies')
 
 
 def _install_from_registry(name, version=None, local=False, project_path='.'):
@@ -2228,9 +2285,9 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
                 if pkg_info.get('type') == 'builtin':
                     # Add to built-in registry dynamically and install
                     BUILTIN_REGISTRY[name] = {
-                        "description": pkg_info.get("description", ""),
-                        "version": pkg_info.get("version", "1.0.0"),
-                        "type": "builtin"
+                        'description': pkg_info.get('description', ''),
+                        'version': pkg_info.get('version', '1.0.0'),
+                        'type': 'builtin',
                     }
                     return _install_builtin_package(name)
                 url = pkg_info.get('url', '')
@@ -2245,13 +2302,13 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
                 if github:
                     return _install_from_github(_validate_github_repo(github))
         except (ValueError, json.JSONDecodeError) as e:
-            print(f"  Registry error: {e}")
+            print(f'  Registry error: {e}')
             return False
         except Exception:
             pass
 
     try:
-        print(f"  Searching remote registry for: {name}...")
+        print(f'  Searching remote registry for: {name}...')
         # Try the real registry server first (local or remote)
         registry_urls = [
             os.environ.get('EPL_REGISTRY_URL', ''),
@@ -2270,14 +2327,17 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
                     ver_info = pkg_data.get('versions', {}).get(target_ver, {})
                     if ver_info.get('type') == 'builtin':
                         BUILTIN_REGISTRY[name] = {
-                            "description": pkg_data.get("description", ""),
-                            "version": target_ver,
-                            "type": "builtin"
+                            'description': pkg_data.get('description', ''),
+                            'version': target_ver,
+                            'type': 'builtin',
                         }
-                        return _install_builtin_package(name, local=local, project_path=project_path)
+                        return _install_builtin_package(
+                            name, local=local, project_path=project_path
+                        )
                     # Download from registry server
-                    download_url = reg_url.replace(f'/api/v1/packages/{name}',
-                                                     f'/api/v1/download/{name}/{target_ver}')
+                    download_url = reg_url.replace(
+                        f'/api/v1/packages/{name}', f'/api/v1/download/{name}/{target_ver}'
+                    )
                     return _install_from_url(
                         download_url,
                         expected_sha256=ver_info.get('checksum') or None,
@@ -2302,13 +2362,13 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
                 break
             except Exception:
                 continue
-        print(f"  Package not found: {name}")
-        print(f"  Try: epl install github:user/repo")
+        print(f'  Package not found: {name}')
+        print('  Try: epl install github:user/repo')
         return False
     except Exception:
-        print(f"  Could not reach remote registry. Try installing from URL or GitHub:")
-        print(f"    epl install github:user/repo")
-        print(f"    epl install https://example.com/package.zip")
+        print('  Could not reach remote registry. Try installing from URL or GitHub:')
+        print('    epl install github:user/repo')
+        print('    epl install https://example.com/package.zip')
         return False
 
 
@@ -2326,7 +2386,7 @@ def _install_builtin_package(name, local=False, project_path='.'):
             shutil.copytree(official_pkg, dest)
             manifest = load_manifest(dest)
             version = manifest.get('version', '?') if manifest else '?'
-            print(f"  Installed: {name} @ {version} (official) -> epl_modules/")
+            print(f'  Installed: {name} @ {version} (official) -> epl_modules/')
             return True
         return _install_from_local(official_pkg, source=f'official:{name}')
 
@@ -2340,11 +2400,11 @@ def _install_builtin_package(name, local=False, project_path='.'):
 
     # Generate manifest
     manifest = {
-        "name": name,
-        "version": info["version"],
-        "description": info["description"],
-        "entry": "main.epl",
-        "type": "builtin",
+        'name': name,
+        'version': info['version'],
+        'description': info['description'],
+        'entry': 'main.epl',
+        'type': 'builtin',
     }
     with open(os.path.join(dest, MANIFEST_NAME), 'w', encoding='utf-8') as f:
         json.dump(manifest, f, indent=2)
@@ -2354,16 +2414,16 @@ def _install_builtin_package(name, local=False, project_path='.'):
     with open(os.path.join(dest, 'main.epl'), 'w', encoding='utf-8') as f:
         f.write(source)
 
-    register_installed_package(name, info["version"], "builtin", dest)
+    register_installed_package(name, info['version'], 'builtin', dest)
     location = 'epl_modules/' if local else '~/.epl/packages/'
-    print(f"  Installed: {name} @ {info['version']} (builtin) -> {location}")
+    print(f'  Installed: {name} @ {info["version"]} (builtin) -> {location}')
     return True
 
 
 def _get_builtin_source(name):
     """Get EPL source code for a built-in package."""
     sources = {
-        "epl-math": '''Note: EPL Math Library v1.0
+        'epl-math': """Note: EPL Math Library v1.0
 Note: Extended math functions
 
 Function PI()
@@ -2497,8 +2557,8 @@ End
 Function Average(list)
     Return Sum(list) / length(list)
 End
-''',
-        "epl-http": '''Note: EPL HTTP Library v2.0
+""",
+        'epl-http': """Note: EPL HTTP Library v2.0
 Note: Full HTTP client with all methods, headers, cookies, redirects
 
 Function HttpGet(url)
@@ -2598,8 +2658,8 @@ Function GetHeaders(response)
     End
     Return {}
 End
-''',
-        "epl-json": '''Note: EPL JSON Library v1.0
+""",
+        'epl-json': """Note: EPL JSON Library v1.0
 Note: JSON parsing and serialization
 
 Function ParseJSON(text)
@@ -2637,8 +2697,8 @@ Function MergeObjects(a, b)
     End
     Return result
 End
-''',
-        "epl-crypto": '''Note: EPL Crypto Library v2.0
+""",
+        'epl-crypto': """Note: EPL Crypto Library v2.0
 Note: Full cryptographic functions — hashing, HMAC, encoding, secure random
 
 Function HashMD5(text)
@@ -2727,8 +2787,8 @@ Function VerifyPassword(password, stored)
     Create hashed equal to HashSHA256(salted)
     Return CompareHash(hashed, parts[1])
 End
-''',
-        "epl-datetime": '''Note: EPL DateTime Library v1.0
+""",
+        'epl-datetime': """Note: EPL DateTime Library v1.0
 Note: Date and time utilities using built-in now() and time functions
 
 Function Now()
@@ -2750,8 +2810,8 @@ End
 Function Sleep(ms)
     Return sleep(ms)
 End
-''',
-        "epl-regex": '''Note: EPL Regex Library v1.0
+""",
+        'epl-regex': """Note: EPL Regex Library v1.0
 Note: Regular expression support using built-in regex functions
 
 Function Match(pattern, text)
@@ -2782,8 +2842,8 @@ End
 Function IsURL(text)
     Return IsMatch("^https?://[\\w.-]+", text)
 End
-''',
-        "epl-fs": '''Note: EPL File System Library v1.0
+""",
+        'epl-fs': """Note: EPL File System Library v1.0
 Note: File system utilities using built-in file functions
 
 Function ReadFile(path)
@@ -2819,8 +2879,8 @@ Function WriteLines(path, lines)
     Create content equal to join(lines, "\\n")
     Return write_file(path, content)
 End
-''',
-        "epl-db": '''Note: EPL Database Library v2.0
+""",
+        'epl-db': """Note: EPL Database Library v2.0
 Note: Full SQLite database with transactions, batch ops, schema info
 Note: All queries use parameterized statements — safe from SQL injection.
 
@@ -2943,8 +3003,8 @@ Function BatchInsert(db, table, columns, rows)
     Commit(db)
     Return length(rows)
 End
-''',
-        "epl-testing": '''Note: EPL Testing Library v1.0
+""",
+        'epl-testing': """Note: EPL Testing Library v1.0
 Note: Unit testing assertions
 
 Function AssertEqual(actual, expected)
@@ -3018,7 +3078,7 @@ Function AssertLess(a, b)
     Print "PASS"
     Return true
 End
-''',
+""",
     }
     if name in sources:
         return sources[name]
@@ -3032,7 +3092,7 @@ End
 def _get_builtin_source_extra(name):
     """Get EPL source for newer built-in packages."""
     extra_sources = {
-        "epl-string": '''Note: EPL String Library v1.0
+        'epl-string': """Note: EPL String Library v1.0
 Note: Extended string utilities
 
 Function PadLeft(text, target_len, char)
@@ -3122,8 +3182,8 @@ Function Reverse(text)
     End
     Return result
 End
-''',
-        "epl-collections": '''Note: EPL Collections Library v1.0
+""",
+        'epl-collections': """Note: EPL Collections Library v1.0
 Note: Advanced collection data structures
 
 Note: Stack - Last In, First Out
@@ -3263,8 +3323,8 @@ Function Drop(list, n)
     End
     Return result
 End
-''',
-        "epl-web": '''Note: EPL Web Helpers Library v1.0
+""",
+        'epl-web': """Note: EPL Web Helpers Library v1.0
 Note: Utilities for building web applications
 
 Function JsonResponse(data)
@@ -3311,8 +3371,8 @@ Function EscapeHtml(text)
     Set text to replace(text, "\\"", "&quot;")
     Return text
 End
-''',
-        "epl-async": '''Note: EPL Async Library v4.0
+""",
+        'epl-async': """Note: EPL Async Library v4.0
 Note: Async event loop, tasks, channels, and structured concurrency
 
 Function AsyncRun(fn)
@@ -3354,8 +3414,8 @@ End
 Function TaskGroupWaitAll(group)
     Return task_group_wait_all(group)
 End
-''',
-        "epl-wsgi": '''Note: EPL WSGI Library v4.0
+""",
+        'epl-wsgi': """Note: EPL WSGI Library v4.0
 Note: Production web server with middleware
 
 Function CreateApp()
@@ -3377,8 +3437,8 @@ End
 Function UseMiddleware(app, middleware)
     Return wsgi_use_middleware(app, middleware)
 End
-''',
-        "epl-types": '''Note: EPL Types Library v4.0
+""",
+        'epl-types': """Note: EPL Types Library v4.0
 Note: Type checking annotations and validation
 
 Function TypeCheck(value, expected_type)
@@ -3417,8 +3477,8 @@ End
 Function IsNothing(value)
     Return value == nothing
 End
-''',
-        "epl-interfaces": '''Note: EPL Interfaces Library v4.0
+""",
+        'epl-interfaces': """Note: EPL Interfaces Library v4.0
 Note: Interface definitions and validation
 
 Note: Example interface definition
@@ -3446,8 +3506,8 @@ Interface Collection extends Iterable
     Method remove(item)
     Method contains(item)
 End
-''',
-        "epl-modules": '''Note: EPL Modules Library v4.0
+""",
+        'epl-modules': """Note: EPL Modules Library v4.0
 Note: Module namespacing examples
 
 Module MathUtils
@@ -3481,8 +3541,8 @@ Module StringUtils
         Return result
     End
 End
-''',
-        "epl-profiler": '''Note: EPL Profiler Library v4.0
+""",
+        'epl-profiler': """Note: EPL Profiler Library v4.0
 Note: Performance profiling and timing
 
 Function StartTimer(name)
@@ -3510,8 +3570,8 @@ Function Benchmark(fn, iterations)
     Print "Benchmark: " + to_text(iterations) + " iterations in " + to_text(elapsed) + "ms"
     Return elapsed
 End
-''',
-        "epl-auth": '''Note: EPL Auth Library v4.2
+""",
+        'epl-auth': """Note: EPL Auth Library v4.2
 Note: Authentication and authorization utilities
 
 Function HashPassword(password)
@@ -3581,8 +3641,8 @@ Function CheckPermission(user_roles, required_role)
     End
     Return false
 End
-''',
-        "epl-email": '''Note: EPL Email Library v4.2
+""",
+        'epl-email': """Note: EPL Email Library v4.2
 Note: Send emails via SMTP
 
 Function SendEmail(to_addr, subject, body, from_addr, smtp_host, smtp_port, username, password)
@@ -3627,8 +3687,8 @@ Function FormatTemplate(template, variables)
     End
     Return result
 End
-''',
-        "epl-pdf": '''Note: EPL PDF Library v4.2
+""",
+        'epl-pdf': """Note: EPL PDF Library v4.2
 Note: Generate PDF documents
 
 Function CreatePDF(filename)
@@ -3699,8 +3759,8 @@ Function SavePDF(pdf)
     Write content to file pdf["filename"]
     Return pdf["filename"]
 End
-''',
-        "epl-charts": '''Note: EPL Charts Library v4.2
+""",
+        'epl-charts': """Note: EPL Charts Library v4.2
 Note: Generate charts as SVG
 
 Function _EscSVG(text)
@@ -3828,8 +3888,8 @@ Function SaveChart(svg_content, filename)
     Write svg_content to file filename
     Return filename
 End
-''',
-        "epl-orm": '''Note: EPL ORM Library v4.2
+""",
+        'epl-orm': """Note: EPL ORM Library v4.2
 Note: Object-Relational Mapping for SQLite
 
 Function CreateModel(name, fields)
@@ -3924,8 +3984,8 @@ Function Migrate(db, model)
         End
     End
 End
-''',
-        "epl-queue": '''Note: EPL Queue Library v4.2
+""",
+        'epl-queue': """Note: EPL Queue Library v4.2
 Note: Task queue and background job processing
 
 Function CreateQueue(name)
@@ -3987,8 +4047,8 @@ Function ProcessQueue(queue, handler)
         End
     End
 End
-''',
-        "epl-scheduler": '''Note: EPL Scheduler Library v4.2
+""",
+        'epl-scheduler': """Note: EPL Scheduler Library v4.2
 Note: Cron-like task scheduling
 
 Function CreateScheduler()
@@ -4070,8 +4130,8 @@ Function DisableTask(scheduler, name)
         End
     End
 End
-''',
-        "epl-websocket": '''Note: EPL WebSocket Library v4.2
+""",
+        'epl-websocket': """Note: EPL WebSocket Library v4.2
 Note: WebSocket client and server utilities
 
 Function CreateWSServer(port)
@@ -4120,8 +4180,8 @@ Function BroadcastToRoom(server, room_name, message)
         End
     End
 End
-''',
-        "epl-xml": '''Note: EPL XML Library v4.2
+""",
+        'epl-xml': """Note: EPL XML Library v4.2
 Note: XML parsing and generation
 
 Function CreateElement(tag, attributes, children)
@@ -4199,8 +4259,8 @@ End
 Function XMLDeclaration()
     Return "<?xml version=\\"1.0\\" encoding=\\"UTF-8\\"?>"
 End
-''',
-        "epl-i18n": '''Note: EPL i18n Library v4.2
+""",
+        'epl-i18n': """Note: EPL i18n Library v4.2
 Note: Internationalization and localization
 
 Function CreateTranslations()
@@ -4249,8 +4309,8 @@ End
 Function GetAvailableLocales(i18n)
     Return keys(i18n["locales"])
 End
-''',
-        "epl-rate-limit": '''Note: EPL Rate Limit Library v4.2
+""",
+        'epl-rate-limit': """Note: EPL Rate Limit Library v4.2
 Note: Rate limiting for API protection
 
 Function CreateTokenBucket(capacity, refill_rate_per_sec)
@@ -4320,8 +4380,8 @@ Function GetRemainingRequests(limiter, client_id)
     End
     Return limiter["max"] - length(client_reqs)
 End
-''',
-        "epl-markdown": '''Note: EPL Markdown Library v4.2
+""",
+        'epl-markdown': """Note: EPL Markdown Library v4.2
 Note: Markdown parser and HTML renderer
 
 Function MarkdownToHTML(text)
@@ -4380,8 +4440,8 @@ Function EscapeHTML(text)
     Set text to replace(text, "\\"", "&quot;")
     Return text
 End
-''',
-        "epl-color": '''Note: EPL Color Library v4.2
+""",
+        'epl-color': """Note: EPL Color Library v4.2
 Note: Color manipulation utilities
 
 Function _HexCharVal(c)
@@ -4489,8 +4549,8 @@ End
 Function IsDark(hex)
     Return Luminance(hex) <= 0.5
 End
-''',
-        "epl-semver": '''Note: EPL SemVer Library v4.2
+""",
+        'epl-semver': """Note: EPL SemVer Library v4.2
 Note: Semantic versioning utilities
 
 Function _SafeInt(text)
@@ -4575,8 +4635,8 @@ End
 Function VersionToString(v)
     Return to_text(v["major"]) + "." + to_text(v["minor"]) + "." + to_text(v["patch"])
 End
-''',
-        "epl-networking": '''Note: EPL Networking Library v3.0
+""",
+        'epl-networking': """Note: EPL Networking Library v3.0
 Note: TCP/UDP socket networking using built-in functions
 
 Function TcpConnect(host, port)
@@ -4623,8 +4683,8 @@ Function Ping(host)
     Note: Check if a host is reachable by trying to connect
     Return is_port_open(host, 80)
 End
-''',
-        "epl-ffi": '''Note: EPL FFI Library v5.2
+""",
+        'epl-ffi': """Note: EPL FFI Library v5.2
 Note: Convenience wrappers for C Foreign Function Interface
 
 Function OpenLibrary(path)
@@ -4646,12 +4706,13 @@ End
 Function ListTypes()
     Return ffi_types()
 End
-''',
+""",
     }
     return extra_sources.get(name, None)
 
 
 # ─── Package Management ─────────────────────────────────
+
 
 def uninstall_package(name):
     """Remove an installed package and clean up registry + manifest."""
@@ -4663,7 +4724,7 @@ def uninstall_package(name):
     real_dest = os.path.realpath(dest)
     real_packages = os.path.realpath(PACKAGES_DIR)
     if not real_dest.startswith(real_packages + os.sep):
-        print(f"  Error: Invalid package path.")
+        print('  Error: Invalid package path.')
         return False
     # Also check epl_modules/ in cwd
     local_dest = os.path.join('.', 'epl_modules', actual)
@@ -4684,12 +4745,12 @@ def uninstall_package(name):
         if manifest and actual in manifest.get('dependencies', {}):
             del manifest['dependencies'][actual]
             save_manifest(manifest, project_root)
-        print(f"  Removed: {actual}")
+        print(f'  Removed: {actual}')
         return True
     if removed_local:
-        print(f"  Removed: {actual} (from epl_modules/)")
+        print(f'  Removed: {actual} (from epl_modules/)')
         return True
-    print(f"  Package not installed: {actual}")
+    print(f'  Package not installed: {actual}')
     return False
 
 
@@ -4728,22 +4789,22 @@ def install_dependencies(path='.', frozen=False):
     """
     manifest = load_manifest(path)
     if not manifest:
-        print("  No epl.toml or epl.json found. Run: epl init")
+        print('  No epl.toml or epl.json found. Run: epl init')
         return False
     python_deps = manifest.get(PYTHON_DEPENDENCIES_SECTION, {})
-    
+
     # Frozen installs require the lockfile to fully define the project state.
     lock = load_lockfile(path)
     if frozen:
         if not lock:
             print("  No lockfile found. Run 'epl lock' first.")
             return False
-        print("  Installing frozen dependencies from lockfile...")
+        print('  Installing frozen dependencies from lockfile...')
         return install_from_lockfile(path, include_bridge=True, strict=True)
 
     # Existing compatibility behavior: if EPL packages are locked, prefer them.
     if lock and lock.get('packages'):
-        print("  Found lockfile, installing locked EPL dependencies...")
+        print('  Found lockfile, installing locked EPL dependencies...')
         ok = install_from_lockfile(path, include_bridge=False, strict=False)
         return install_github_dependencies(path) and install_python_dependencies(path) and ok
 
@@ -4751,17 +4812,17 @@ def install_dependencies(path='.', frozen=False):
     try:
         resolved = resolve_dependencies(path)
     except DependencyConflict as e:
-        print(f"  Dependency conflict: {e}")
+        print(f'  Dependency conflict: {e}')
         return False
 
     github_deps = manifest.get(GITHUB_DEPENDENCIES_SECTION, {})
 
     if not resolved and not python_deps and not github_deps:
-        print("  No dependencies to install.")
+        print('  No dependencies to install.')
         return True
 
     if resolved:
-        print(f"  Installing {len(resolved)} EPL dependencies (including transitive)...")
+        print(f'  Installing {len(resolved)} EPL dependencies (including transitive)...')
         epl_ok = True
         for name, info in resolved.items():
             if not install_package(name, info.get('version')):
@@ -4782,7 +4843,7 @@ def update_package(name, path='.', allow_major=False):
     """Update a package to the latest available version."""
     manifest = load_manifest(path)
     if not manifest:
-        print("  No epl.toml or epl.json found. Run: epl init")
+        print('  No epl.toml or epl.json found. Run: epl init')
         return False
 
     deps = manifest.get('dependencies', {})
@@ -4803,7 +4864,7 @@ def update_package(name, path='.', allow_major=False):
         and latest_semver.major != old_semver.major
         and spec not in ('*', '')
     ):
-        print(f"  Skipping {name}: latest {latest_version} is a major update outside {spec}")
+        print(f'  Skipping {name}: latest {latest_version} is a major update outside {spec}')
         return True
 
     if os.path.isdir(pkg_dir):
@@ -4813,7 +4874,7 @@ def update_package(name, path='.', allow_major=False):
     if install_package(name, version_arg):
         new_manifest = load_manifest(os.path.join(PACKAGES_DIR, name))
         new_version = new_manifest.get('version', '?') if new_manifest else '?'
-        print(f"  Updated {name}: {old_version} → {new_version}")
+        print(f'  Updated {name}: {old_version} → {new_version}')
         # Regenerate lockfile
         create_lockfile(path)
         return True
@@ -4824,7 +4885,7 @@ def update_all(path='.', allow_major=False):
     """Update all installed dependencies."""
     manifest = load_manifest(path)
     if not manifest:
-        print("  No epl.toml or epl.json found. Run: epl init")
+        print('  No epl.toml or epl.json found. Run: epl init')
         return False
     deps = manifest.get('dependencies', {})
     ok = True
@@ -4838,9 +4899,10 @@ def update_all(path='.', allow_major=False):
 
 # ─── Publish Workflow ────────────────────────────────────
 
+
 def validate_package(path='.'):
     """Validate a package is ready for publishing.
-    
+
     Returns dict: {'valid': bool, 'errors': [str], 'warnings': [str]}
     """
     errors = []
@@ -4859,12 +4921,14 @@ def validate_package(path='.'):
     # Required fields
     for field in ('name', 'version', 'description'):
         if not manifest.get(field):
-            errors.append(f"Missing required field: {field}")
+            errors.append(f'Missing required field: {field}')
 
     # Validate name
     name = manifest.get('name', '')
     if name and not re.match(r'^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$', name):
-        errors.append(f"Invalid package name: '{name}'. Use lowercase alphanumeric, dots, hyphens, underscores.")
+        errors.append(
+            f"Invalid package name: '{name}'. Use lowercase alphanumeric, dots, hyphens, underscores."
+        )
 
     # Validate version
     version = manifest.get('version', '')
@@ -4874,7 +4938,7 @@ def validate_package(path='.'):
     # Check entry point exists
     entry = manifest.get('entry', 'main.epl')
     if not os.path.exists(os.path.join(path, entry)):
-        errors.append(f"Entry point not found: {entry}")
+        errors.append(f'Entry point not found: {entry}')
 
     python_deps = manifest.get(PYTHON_DEPENDENCIES_SECTION, {})
     if python_deps and not isinstance(python_deps, dict):
@@ -4913,24 +4977,24 @@ def validate_package(path='.'):
 
 def pack_package(path='.', output_dir=None):
     """Pack a package directory into a distributable .zip file.
-    
+
     Returns the path to the created archive, or None on failure.
     """
     validation = validate_package(path)
     if not validation['valid']:
         for e in validation['errors']:
-            print(f"  Error: {e}")
+            print(f'  Error: {e}')
         return None
 
     manifest = load_manifest(path)
     name = manifest['name']
     version = manifest['version']
-    
+
     if output_dir is None:
         output_dir = os.path.join(path, 'dist')
     os.makedirs(output_dir, exist_ok=True)
 
-    archive_name = f"{name}-{version}.zip"
+    archive_name = f'{name}-{version}.zip'
     archive_path = os.path.join(output_dir, archive_name)
 
     with zipfile.ZipFile(archive_path, 'w', zipfile.ZIP_DEFLATED) as zf:
@@ -4945,19 +5009,19 @@ def pack_package(path='.', output_dir=None):
     # Generate checksum
     with open(archive_path, 'rb') as f:
         checksum = hashlib.sha256(f.read()).hexdigest()
-    
+
     checksum_path = archive_path + '.sha256'
     with open(checksum_path, 'w') as f:
-        f.write(f"{checksum}  {archive_name}\n")
+        f.write(f'{checksum}  {archive_name}\n')
 
-    print(f"  Packed: {archive_name} ({os.path.getsize(archive_path)} bytes)")
-    print(f"  SHA256: {checksum}")
+    print(f'  Packed: {archive_name} ({os.path.getsize(archive_path)} bytes)')
+    print(f'  SHA256: {checksum}')
     return archive_path
 
 
 def publish_package(path='.', registry_dir=None):
     """Publish a package to the local registry.
-    
+
     For production use, this would upload to a remote registry.
     Currently publishes to the local registry so other projects can consume it.
     Returns True on success.
@@ -4965,7 +5029,7 @@ def publish_package(path='.', registry_dir=None):
     validation = validate_package(path)
     if not validation['valid']:
         for e in validation['errors']:
-            print(f"  Error: {e}")
+            print(f'  Error: {e}')
         return False
 
     manifest = load_manifest(path)
@@ -4992,11 +5056,12 @@ def publish_package(path='.', registry_dir=None):
     }
     save_local_registry(reg)
 
-    print(f"  Published: {name}@{version}")
+    print(f'  Published: {name}@{version}')
     return True
 
 
 # ─── Init Command ────────────────────────────────────────
+
 
 def init_project(name=None):
     """Initialize a new EPL project with epl.toml manifest."""
@@ -5007,13 +5072,13 @@ def init_project(name=None):
     if not os.path.exists('main.epl'):
         with open('main.epl', 'w', encoding='utf-8') as f:
             f.write(f'Note: {name} - Created with EPL\n\nSay "Hello from {name}!"\n')
-    print(f"  Initialized EPL project: {name}")
-    print(f"  Created: epl.toml, main.epl")
-    print("  Next steps:")
-    print("    epl install                  # sync registry, GitHub, and Python dependencies")
-    print("    epl pyinstall requests       # add a Python package for `Use python`")
-    print("    epl gitinstall owner/repo    # add a GitHub EPL package")
-    print("    epl github clone owner/repo  # clone a GitHub project")
+    print(f'  Initialized EPL project: {name}')
+    print('  Created: epl.toml, main.epl')
+    print('  Next steps:')
+    print('    epl install                  # sync registry, GitHub, and Python dependencies')
+    print('    epl pyinstall requests       # add a Python package for `Use python`')
+    print('    epl gitinstall owner/repo    # add a GitHub EPL package')
+    print('    epl github clone owner/repo  # clone a GitHub project')
     return manifest
 
 
@@ -5021,7 +5086,8 @@ def init_project(name=None):
 #  Phase 4 — Production Package Ecosystem
 # ═══════════════════════════════════════════════════════════
 
-def add_dependency(name, version_spec="*", path='.', dev=False):
+
+def add_dependency(name, version_spec='*', path='.', dev=False):
     """Add a dependency to the manifest and install it.
 
     Args:
@@ -5033,7 +5099,7 @@ def add_dependency(name, version_spec="*", path='.', dev=False):
     name = _sanitize_package_name(name)
     manifest = load_manifest(path)
     if not manifest:
-        print("  No manifest found. Run: epl init")
+        print('  No manifest found. Run: epl init')
         return False
 
     section = 'dev-dependencies' if dev else 'dependencies'
@@ -5045,7 +5111,7 @@ def add_dependency(name, version_spec="*", path='.', dev=False):
     if success:
         # Regenerate lockfile
         create_lockfile(path)
-        print(f"  Added {name}@{version_spec} to {section}")
+        print(f'  Added {name}@{version_spec} to {section}')
     return success
 
 
@@ -5054,7 +5120,7 @@ def remove_dependency(name, path='.'):
     name = _sanitize_package_name(name)
     manifest = load_manifest(path)
     if not manifest:
-        print("  No manifest found. Run: epl init")
+        print('  No manifest found. Run: epl init')
         return False
 
     removed = False
@@ -5070,7 +5136,7 @@ def remove_dependency(name, path='.'):
     save_manifest(manifest, path)
     uninstall_package(name)
     create_lockfile(path)
-    print(f"  Removed {name} from project")
+    print(f'  Removed {name} from project')
     return True
 
 
@@ -5104,25 +5170,25 @@ def print_dependency_tree(path='.'):
     """Print a human-readable dependency tree."""
     tree = dependency_tree(path)
     if not tree:
-        print("  No dependencies.")
+        print('  No dependencies.')
         return
 
     def _print(nodes, prefix=''):
         for idx, node in enumerate(nodes):
             is_last = idx == len(nodes) - 1
             connector = '└── ' if is_last else '├── '
-            print(f"  {prefix}{connector}{node['name']}@{node['version']}")
+            print(f'  {prefix}{connector}{node["name"]}@{node["version"]}')
             if isinstance(node['deps'], list) and node['deps']:
                 ext = '    ' if is_last else '│   '
                 _print(node['deps'], prefix + ext)
             elif node['deps'] == '[circular]':
                 ext = '    ' if is_last else '│   '
-                print(f"  {prefix}{ext}(circular)")
+                print(f'  {prefix}{ext}(circular)')
 
     manifest = load_manifest(path)
     proj_name = manifest.get('name', 'project') if manifest else 'project'
     proj_ver = manifest.get('version', '?') if manifest else '?'
-    print(f"  {proj_name}@{proj_ver}")
+    print(f'  {proj_name}@{proj_ver}')
     _print(tree)
 
 
@@ -5151,15 +5217,19 @@ def outdated_packages(path='.'):
         if current != latest and current != '(not installed)':
             current_semver = SemVer.parse(current)
             latest_semver = SemVer.parse(latest)
-            outdated.append({
-                'name': name,
-                'current': current,
-                'latest': latest,
-                'constraint': spec,
-                'major_update': bool(
-                    current_semver and latest_semver and latest_semver.major != current_semver.major
-                ),
-            })
+            outdated.append(
+                {
+                    'name': name,
+                    'current': current,
+                    'latest': latest,
+                    'constraint': spec,
+                    'major_update': bool(
+                        current_semver
+                        and latest_semver
+                        and latest_semver.major != current_semver.major
+                    ),
+                }
+            )
 
     return outdated
 
@@ -5168,14 +5238,16 @@ def print_outdated(path='.'):
     """Print outdated packages."""
     results = outdated_packages(path)
     if not results:
-        print("  All packages up to date.")
+        print('  All packages up to date.')
         return
-    print(f"  {'Package':<24} {'Current':<12} {'Latest':<12} {'Constraint':<14}")
-    print(f"  {'─' * 68}")
+    print(f'  {"Package":<24} {"Current":<12} {"Latest":<12} {"Constraint":<14}')
+    print(f'  {"─" * 68}')
     for r in results:
         note = ' major' if r.get('major_update') else ''
-        print(f"  {r['name']:<24} {r['current']:<12} {r['latest']:<12} {r.get('constraint', '*'):<14}{note}")
-    print(f"\n  Run 'epl update' to update all packages.")
+        print(
+            f'  {r["name"]:<24} {r["current"]:<12} {r["latest"]:<12} {r.get("constraint", "*"):<14}{note}'
+        )
+    print("\n  Run 'epl update' to update all packages.")
 
 
 def audit_packages(path='.'):
@@ -5251,19 +5323,19 @@ def audit_packages(path='.'):
 def print_audit(path='.'):
     """Run and print audit results."""
     results = audit_packages(path)
-    print(f"\n  Package Audit")
-    print(f"  {'─' * 40}")
-    print(f"  Packages OK: {results['ok']}")
+    print('\n  Package Audit')
+    print(f'  {"─" * 40}')
+    print(f'  Packages OK: {results["ok"]}')
     if results['warnings']:
-        print(f"  Warnings: {len(results['warnings'])}")
+        print(f'  Warnings: {len(results["warnings"])}')
         for w in results['warnings']:
-            print(f"    ⚠ {w}")
+            print(f'    ⚠ {w}')
     if results['errors']:
-        print(f"  Errors: {len(results['errors'])}")
+        print(f'  Errors: {len(results["errors"])}')
         for e in results['errors']:
-            print(f"    ✗ {e}")
+            print(f'    ✗ {e}')
     if not results['warnings'] and not results['errors']:
-        print("  No issues found.")
+        print('  No issues found.')
 
 
 def clean_cache():
@@ -5275,6 +5347,6 @@ def clean_cache():
             if os.path.isfile(fp):
                 os.unlink(fp)
                 count += 1
-        print(f"  Cleaned {count} cached files.")
+        print(f'  Cleaned {count} cached files.')
     else:
-        print("  Cache is empty.")
+        print('  Cache is empty.')

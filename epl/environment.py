@@ -5,6 +5,7 @@ module namespacing, visibility modifiers, and scope depth limiting.
 """
 
 import os
+
 from epl.errors import NameError as EPLNameError
 
 # Maximum scope chain depth — prevents stack overflow from unbounded recursion
@@ -17,22 +18,23 @@ class Environment:
     Supports nested scopes via parent chaining, modules, and visibility.
     Enforces a maximum scope depth to prevent memory exhaustion.
     """
+
     __slots__ = ('parent', 'name', 'variables', 'functions', 'modules', 'constants', '_depth')
 
-    def __init__(self, parent=None, name: str = "global"):
+    def __init__(self, parent=None, name: str = 'global'):
         self.parent = parent
         self.name = name
         self.variables = {}
         self.functions = {}
-        self.modules = {}       # v4.0: registered modules {name: Environment}
+        self.modules = {}  # v4.0: registered modules {name: Environment}
         self.constants = set()  # v4.0: names of read-only bindings
         self._depth = (parent._depth + 1) if parent else 0
 
     def define_variable(self, name: str, value, var_type: str = None):
         """Define a new variable in the current scope."""
         self.variables[name] = {
-            "value": value,
-            "type": var_type or self._infer_type(value),
+            'value': value,
+            'type': var_type or self._infer_type(value),
         }
 
     def define_constant(self, name: str, value, var_type: str = None):
@@ -45,29 +47,33 @@ class Environment:
         if name in self.variables:
             if name in self.constants:
                 from epl.errors import RuntimeError as EPLRuntimeError
+
                 raise EPLRuntimeError(f'Cannot reassign constant "{name}".')
-            expected_type = self.variables[name]["type"]
+            expected_type = self.variables[name]['type']
             actual_type = self._infer_type(value)
             if expected_type and actual_type != expected_type:
                 # Allow integer to decimal promotion
-                if expected_type == "decimal" and actual_type == "integer":
+                if expected_type == 'decimal' and actual_type == 'integer':
                     value = float(value)
                 else:
                     from epl.errors import TypeError as EPLTypeError
+
                     raise EPLTypeError(
                         f'Cannot assign {actual_type} value to variable "{name}" of type {expected_type}.'
                     )
-            self.variables[name]["value"] = value
+            self.variables[name]['value'] = value
             return
         if self.parent:
             self.parent.set_variable(name, value)
             return
-        raise EPLNameError(f'Variable "{name}" has not been created yet. Use "Create" to define it first.')
+        raise EPLNameError(
+            f'Variable "{name}" has not been created yet. Use "Create" to define it first.'
+        )
 
     def get_variable(self, name: str):
         """Look up a variable. Walks up scope chain."""
         if name in self.variables:
-            return self.variables[name]["value"]
+            return self.variables[name]['value']
         if self.parent:
             return self.parent.get_variable(name)
         raise EPLNameError(f'Variable "{name}" has not been created yet.')
@@ -112,14 +118,15 @@ class Environment:
             return self.parent.get_module(name)
         raise EPLNameError(f'Module "{name}" has not been defined.')
 
-    def create_child(self, name: str = "local") -> "Environment":
+    def create_child(self, name: str = 'local') -> 'Environment':
         """Create a new child scope. Enforces maximum depth."""
         if self._depth >= _MAX_SCOPE_DEPTH:
             from epl.errors import RuntimeError as EPLRuntimeError
+
             raise EPLRuntimeError(
-                f"Maximum scope depth ({_MAX_SCOPE_DEPTH}) exceeded. "
-                f"This usually means infinite recursion. Add a base case to stop recursion, "
-                f"or set EPL_MAX_SCOPE_DEPTH env var to increase the limit."
+                f'Maximum scope depth ({_MAX_SCOPE_DEPTH}) exceeded. '
+                f'This usually means infinite recursion. Add a base case to stop recursion, '
+                f'or set EPL_MAX_SCOPE_DEPTH env var to increase the limit.'
             )
         return Environment(parent=self, name=name)
 
@@ -134,17 +141,17 @@ class Environment:
     def _infer_type(value) -> str:
         """Infer EPL type from a Python value."""
         if isinstance(value, bool):
-            return "boolean"
+            return 'boolean'
         if isinstance(value, int):
-            return "integer"
+            return 'integer'
         if isinstance(value, float):
-            return "decimal"
+            return 'decimal'
         if isinstance(value, str):
-            return "text"
+            return 'text'
         if isinstance(value, list):
-            return "list"
+            return 'list'
         if isinstance(value, dict):
-            return "map"
+            return 'map'
         if value is None:
-            return "nothing"
-        return "unknown"
+            return 'nothing'
+        return 'unknown'

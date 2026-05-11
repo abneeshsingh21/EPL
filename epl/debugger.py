@@ -20,30 +20,29 @@ CLI:
     python -m epl.debugger program.epl
 """
 
-import sys
 import os
-import readline  # for input history on Linux/Mac; silently ignored on Windows
-import traceback
-from typing import Dict, List, Optional, Set, Tuple, Callable, Any
+import sys
+from typing import List
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from epl.environment import Environment
+from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.interpreter import Interpreter
-from epl import ast_nodes as ast
-from epl.environment import Environment
-
 
 # ═══════════════════════════════════════════════════════════
 # Breakpoint Management
 # ═══════════════════════════════════════════════════════════
 
+
 class Breakpoint:
     """Represents a debugger breakpoint."""
+
     _id_counter = 0
 
-    def __init__(self, line: int = None, function_name: str = None,
-                 condition: str = None, hit_count: int = 0):
+    def __init__(
+        self, line: int = None, function_name: str = None, condition: str = None, hit_count: int = 0
+    ):
         Breakpoint._id_counter += 1
         self.id = Breakpoint._id_counter
         self.line = line
@@ -75,16 +74,19 @@ class Breakpoint:
                 # Evaluate condition using EPL parser, not Python eval
                 from epl.lexer import Lexer
                 from epl.parser import Parser
+
                 lexer = Lexer(self.condition)
                 tokens = lexer.tokenize()
                 parser = Parser(tokens)
                 expr_node = parser._parse_expression()
                 # Build a minimal Environment from the env dict
                 from epl.environment import Environment
+
                 temp_env = Environment(name='breakpoint')
                 for k, v in env.items():
                     temp_env.define_variable(k, v)
                 from epl.interpreter import Interpreter
+
                 interp = Interpreter()
                 result = interp._eval(expr_node, temp_env)
                 return bool(result)
@@ -110,6 +112,7 @@ class Breakpoint:
 # ═══════════════════════════════════════════════════════════
 # Debug State
 # ═══════════════════════════════════════════════════════════
+
 
 class DebugState:
     """Tracks debugger execution state."""
@@ -138,11 +141,7 @@ class DebugState:
         return len(self.call_stack)
 
     def push_frame(self, name: str, line: int, env: dict):
-        self.call_stack.append({
-            'name': name,
-            'line': line,
-            'env': env
-        })
+        self.call_stack.append({'name': name, 'line': line, 'env': env})
 
     def pop_frame(self):
         if self.call_stack:
@@ -185,6 +184,7 @@ class DebugState:
 # ═══════════════════════════════════════════════════════════
 # Debugger Engine
 # ═══════════════════════════════════════════════════════════
+
 
 class EPLDebugger:
     """Interactive step-through debugger for EPL programs."""
@@ -247,12 +247,12 @@ EPL Debugger Commands:
             tokens = Lexer(source).tokenize()
             self.program = Parser(tokens).parse()
         except Exception as e:
-            print(f"Parse error: {e}")
+            print(f'Parse error: {e}')
             return
 
         if not self.silent:
-            print(f"EPL Debugger v1.0 — {self.state.source_file}")
-            print(f"  {len(self.state.source_lines)} lines loaded")
+            print(f'EPL Debugger v1.0 — {self.state.source_file}')
+            print(f'  {len(self.state.source_lines)} lines loaded')
             print('  Type "help" for commands, "c" to run, "s" to step')
             print()
 
@@ -266,12 +266,12 @@ EPL Debugger Commands:
         try:
             self.interpreter.execute(self.program)
             if not self.silent:
-                print("\n--- Program finished ---")
+                print('\n--- Program finished ---')
         except DebugQuit:
             if not self.silent:
-                print("\n--- Debugger quit ---")
+                print('\n--- Debugger quit ---')
         except Exception as e:
-            print(f"\n--- Runtime error: {e} ---")
+            print(f'\n--- Runtime error: {e} ---')
             self._show_position()
             self._interact()
 
@@ -291,7 +291,7 @@ EPL Debugger Commands:
         line = self.state.current_line
         if line <= 0 or line > len(self.state.source_lines):
             return
-        print(f"\n  {self.state.current_function}() at line {line}:")
+        print(f'\n  {self.state.current_function}() at line {line}:')
         self._list_source(line, context=2)
 
     def _list_source(self, center: int, context: int = 5):
@@ -300,28 +300,30 @@ EPL Debugger Commands:
         end = min(len(self.state.source_lines), center + context)
         for i in range(start, end + 1):
             marker = '-->' if i == self.state.current_line else '   '
-            bp_marker = '●' if any(bp.line == i and bp.enabled for bp in self.state.breakpoints) else ' '
+            bp_marker = (
+                '●' if any(bp.line == i and bp.enabled for bp in self.state.breakpoints) else ' '
+            )
             line_text = self.state.source_lines[i - 1] if i <= len(self.state.source_lines) else ''
-            print(f"  {bp_marker}{marker} {i:4d} | {line_text}")
+            print(f'  {bp_marker}{marker} {i:4d} | {line_text}')
 
     def _show_watches(self, env_dict: dict):
         """Display watch expression values."""
         if not self.state.watch_expressions:
             return
-        print("  Watches:")
+        print('  Watches:')
         for expr in self.state.watch_expressions:
             try:
                 value = self._eval_epl_expr(expr, env_dict)
-                print(f"    {expr} = {repr(value)}")
+                print(f'    {expr} = {repr(value)}')
             except Exception as e:
-                print(f"    {expr} = <error: {e}>")
+                print(f'    {expr} = <error: {e}>')
 
     def _eval_epl_expr(self, expr_text: str, env_dict: dict):
         """Evaluate an EPL expression string in the given environment."""
+        from epl.interpreter import Interpreter
         from epl.lexer import Lexer
         from epl.parser import Parser
-        from epl.environment import Environment
-        from epl.interpreter import Interpreter
+
         lexer = Lexer(expr_text)
         tokens = lexer.tokenize()
         parser = Parser(tokens)
@@ -336,7 +338,7 @@ EPL Debugger Commands:
         """Interactive command loop at breakpoint."""
         while True:
             try:
-                cmd = input("(epl-dbg) ").strip()
+                cmd = input('(epl-dbg) ').strip()
             except (EOFError, KeyboardInterrupt):
                 print()
                 raise DebugQuit()
@@ -411,13 +413,13 @@ EPL Debugger Commands:
             except (DebugQuit, DebugRestart):
                 raise
             except Exception as e:
-                print(f"  Error: {e}")
+                print(f'  Error: {e}')
 
     # ─── Breakpoint Commands ────────────────────────
 
     def _cmd_breakpoint(self, arg: str):
         if not arg:
-            print("  Usage: b <line> or b <func> [if <condition>]")
+            print('  Usage: b <line> or b <func> [if <condition>]')
             return
         condition = None
         if ' if ' in arg:
@@ -427,20 +429,20 @@ EPL Debugger Commands:
         try:
             line = int(arg)
             bp = self.state.add_breakpoint(line=line, condition=condition)
-            print(f"  Breakpoint {bp}")
+            print(f'  Breakpoint {bp}')
         except ValueError:
             bp = self.state.add_breakpoint(function_name=arg, condition=condition)
-            print(f"  Breakpoint {bp}")
+            print(f'  Breakpoint {bp}')
 
     def _cmd_delete_breakpoint(self, arg: str):
         try:
             bp_id = int(arg)
             if self.state.remove_breakpoint(bp_id):
-                print(f"  Removed breakpoint #{bp_id}")
+                print(f'  Removed breakpoint #{bp_id}')
             else:
-                print(f"  No breakpoint #{bp_id}")
+                print(f'  No breakpoint #{bp_id}')
         except ValueError:
-            print("  Usage: delete <id>")
+            print('  Usage: delete <id>')
 
     def _cmd_toggle_breakpoint(self, arg: str, enabled: bool):
         try:
@@ -449,39 +451,39 @@ EPL Debugger Commands:
                 if bp.id == bp_id:
                     bp.enabled = enabled
                     status = 'enabled' if enabled else 'disabled'
-                    print(f"  Breakpoint #{bp_id} {status}")
+                    print(f'  Breakpoint #{bp_id} {status}')
                     return
-            print(f"  No breakpoint #{bp_id}")
+            print(f'  No breakpoint #{bp_id}')
         except ValueError:
-            print(f"  Usage: {'enable' if enabled else 'disable'} <id>")
+            print(f'  Usage: {"enable" if enabled else "disable"} <id>')
 
     def _cmd_list_breakpoints(self):
         if not self.state.breakpoints:
-            print("  No breakpoints set")
+            print('  No breakpoints set')
             return
         for bp in self.state.breakpoints:
-            print(f"  {bp}")
+            print(f'  {bp}')
 
     # ─── Inspection Commands ────────────────────────
 
     def _cmd_print(self, expr: str):
         if not expr:
-            print("  Usage: p <expression>")
+            print('  Usage: p <expression>')
             return
         env = self._get_current_env()
         try:
             result = self._eval_epl_expr(expr, env)
-            print(f"  {repr(result)}")
+            print(f'  {repr(result)}')
         except Exception as e:
             # Fallback: try simple variable lookup
             if expr in env:
-                print(f"  {repr(env[expr])}")
+                print(f'  {repr(env[expr])}')
             else:
                 print(f"  Error evaluating '{expr}': {e}")
 
     def _cmd_pretty_print(self, var_name: str):
         if not var_name:
-            print("  Usage: pp <variable>")
+            print('  Usage: pp <variable>')
             return
         env = self._get_current_env()
         val = env.get(var_name)
@@ -489,46 +491,47 @@ EPL Debugger Commands:
             print(f"  '{var_name}' not found")
             return
         import pprint
+
         pprint.pprint(val, indent=2)
 
     def _cmd_locals(self):
         env = self._get_current_env()
         if not env:
-            print("  No local variables")
+            print('  No local variables')
             return
-        print("  Local variables:")
+        print('  Local variables:')
         for k, v in sorted(env.items()):
             if not k.startswith('_'):
                 val_str = repr(v)
                 if len(val_str) > 80:
                     val_str = val_str[:77] + '...'
-                print(f"    {k} = {val_str}")
+                print(f'    {k} = {val_str}')
 
     def _cmd_globals(self):
         if self.interpreter and hasattr(self.interpreter, 'global_env'):
             env = self.interpreter.global_env
             if hasattr(env, 'variables'):
-                print("  Global variables:")
+                print('  Global variables:')
                 for k, v in sorted(env.variables.items()):
                     if not k.startswith('_'):
                         val_str = repr(v)
                         if len(val_str) > 80:
                             val_str = val_str[:77] + '...'
-                        print(f"    {k} = {val_str}")
+                        print(f'    {k} = {val_str}')
             else:
-                print("  (no global scope available)")
+                print('  (no global scope available)')
         else:
-            print("  (no interpreter context)")
+            print('  (no interpreter context)')
 
     def _cmd_stack(self):
         if not self.state.call_stack:
-            print(f"  #0  <main> at line {self.state.current_line}")
+            print(f'  #0  <main> at line {self.state.current_line}')
             return
-        print("  Call stack:")
+        print('  Call stack:')
         for i, frame in enumerate(reversed(self.state.call_stack)):
             marker = '-->' if i == 0 else '   '
-            print(f"  {marker} #{i}  {frame['name']}() at line {frame['line']}")
-        print(f"      #{len(self.state.call_stack)}  <main>")
+            print(f'  {marker} #{i}  {frame["name"]}() at line {frame["line"]}')
+        print(f'      #{len(self.state.call_stack)}  <main>')
 
     # ─── Source Commands ────────────────────────────
 
@@ -545,22 +548,24 @@ EPL Debugger Commands:
     def _cmd_source(self):
         for i, line in enumerate(self.state.source_lines, 1):
             marker = '-->' if i == self.state.current_line else '   '
-            bp_marker = '●' if any(bp.line == i and bp.enabled for bp in self.state.breakpoints) else ' '
-            print(f"  {bp_marker}{marker} {i:4d} | {line}")
+            bp_marker = (
+                '●' if any(bp.line == i and bp.enabled for bp in self.state.breakpoints) else ' '
+            )
+            print(f'  {bp_marker}{marker} {i:4d} | {line}')
 
     # ─── Watch Commands ─────────────────────────────
 
     def _cmd_watch(self, expr: str):
         if not expr:
-            print("  Usage: w <expression>")
+            print('  Usage: w <expression>')
             return
         self.state.watch_expressions.append(expr)
-        print(f"  Watching: {expr}")
+        print(f'  Watching: {expr}')
 
     def _cmd_unwatch(self, expr: str):
         if expr in self.state.watch_expressions:
             self.state.watch_expressions.remove(expr)
-            print(f"  Unwatched: {expr}")
+            print(f'  Unwatched: {expr}')
         else:
             print(f"  '{expr}' not in watch list")
 
@@ -580,6 +585,7 @@ EPL Debugger Commands:
 # ═══════════════════════════════════════════════════════════
 # Debug-Instrumented Interpreter
 # ═══════════════════════════════════════════════════════════
+
 
 class DebugInterpreter(Interpreter):
     """Interpreter subclass that calls debugger hooks before each statement."""
@@ -602,12 +608,16 @@ class DebugInterpreter(Interpreter):
 # Exceptions
 # ═══════════════════════════════════════════════════════════
 
+
 class DebugQuit(Exception):
     """Raised to quit the debugger."""
+
     pass
+
 
 class DebugRestart(Exception):
     """Raised to restart program execution."""
+
     pass
 
 
@@ -615,17 +625,25 @@ class DebugRestart(Exception):
 # CLI Entry Point
 # ═══════════════════════════════════════════════════════════
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description='EPL Debugger')
     parser.add_argument('file', nargs='?', help='EPL source file to debug')
-    parser.add_argument('-b', '--break', dest='breakpoints', action='append',
-                       default=[], help='Set breakpoint (line number or function name)')
+    parser.add_argument(
+        '-b',
+        '--break',
+        dest='breakpoints',
+        action='append',
+        default=[],
+        help='Set breakpoint (line number or function name)',
+    )
     args = parser.parse_args()
 
     if not args.file:
-        print("Usage: python -m epl.debugger <file.epl>")
-        print("       python -m epl.debugger <file.epl> -b 5 -b main")
+        print('Usage: python -m epl.debugger <file.epl>')
+        print('       python -m epl.debugger <file.epl> -b 5 -b main')
         sys.exit(1)
 
     debugger = EPLDebugger()

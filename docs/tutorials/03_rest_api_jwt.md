@@ -15,6 +15,10 @@ Route "/api/login" responds with
     auth_check = db_query(db, "SELECT count(*) as count FROM users WHERE username = '" + username + "' AND password = '" + password + "'")
     If auth_check.count == 0 Then
         Send json Map with success = false and error = "Invalid credentials"
+    Otherwise
+        Send json Map with success = true
+    End
+End
 ```
 
 ## Step 2: Creating the Token
@@ -22,9 +26,10 @@ Route "/api/login" responds with
 Tokens can be created using the `base64_encode()` builtin. This represents a stateless authentication string you can send back to the client.
 
 ```epl
-        token = base64_encode(username + "_authorized_" + timestamp())
-        Send json Map with success = true and token = token
-    End
+Route "/api/login" responds with
+    username = request.body_json.get("username")
+    token = base64_encode(username + "_authorized_" + timestamp())
+    Send json Map with success = true and token = token
 End
 ```
 
@@ -38,7 +43,8 @@ Route "/api/posts/create" responds with
     If token == "" Then
         Send json Map with success = false and error = "Unauthorized"
     Otherwise
-        // User successfully authenticated. Execute secured logic.
+        Note: User successfully authenticated. Execute secured logic.
+        Send json Map with success = true
     End
 End
 ```

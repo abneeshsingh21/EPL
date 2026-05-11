@@ -19,27 +19,27 @@ def parse(src):
 
 def test_store_statement_parses():
     statement = parse('Store form "task" in "tasks"').statements[0]
-    assert statement.__class__.__name__ == "StoreStatement"
-    assert statement.collection == "tasks"
-    assert statement.field_name == "task"
+    assert statement.__class__.__name__ == 'StoreStatement'
+    assert statement.collection == 'tasks'
+    assert statement.field_name == 'task'
 
 
 def test_delete_statement_parses():
     statement = parse('Delete from "tasks" at 0').statements[0]
-    assert statement.__class__.__name__ == "DeleteStatement"
-    assert statement.collection == "tasks"
+    assert statement.__class__.__name__ == 'DeleteStatement'
+    assert statement.collection == 'tasks'
 
 
 def test_fetch_statement_parses():
     statement = parse('Fetch "tasks"').statements[0]
-    assert statement.__class__.__name__ == "FetchStatement"
-    assert statement.collection == "tasks"
+    assert statement.__class__.__name__ == 'FetchStatement'
+    assert statement.collection == 'tasks'
 
 
 def test_redirect_statement_parses():
     statement = parse('Redirect to "/home"').statements[0]
-    assert statement.__class__.__name__ == "SendResponse"
-    assert statement.response_type == "redirect"
+    assert statement.__class__.__name__ == 'SendResponse'
+    assert statement.response_type == 'redirect'
 
 
 def test_new_statement_types_execute_without_crashing():
@@ -56,8 +56,11 @@ def test_new_statement_types_execute_without_crashing():
 
 
 def test_todo_example_parses():
-    with open("examples/todo.epl", encoding="utf-8") as handle:
+    with open('examples/todo.epl', encoding='utf-8') as handle:
         program = parse(handle.read())
 
     assert len(program.statements) > 0
-    assert any(hasattr(statement, "app_name") or hasattr(statement, "path") for statement in program.statements)
+    assert any(
+        hasattr(statement, 'app_name') or hasattr(statement, 'path')
+        for statement in program.statements
+    )

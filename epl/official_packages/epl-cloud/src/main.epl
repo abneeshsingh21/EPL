@@ -1,0 +1,24 @@
+Note: epl-cloud — AWS integration for EPL
+Note: This module provides cloud_* stdlib functions for S3, Lambda, and SQS.
+
+Note: Configure AWS (reads from environment by default)
+Note: Call cloud_configure("us-east-1")
+
+Note: S3 Object Storage
+Note: Call cloud_s3_upload(bucket, key, file_path)
+Note: Call cloud_s3_download(bucket, key, file_path)
+Note: Create objects equal to cloud_s3_list(bucket)
+Note: Create exists equal to cloud_s3_exists(bucket, key)
+Note: Create text equal to cloud_s3_read_text(bucket, key)
+Note: Call cloud_s3_write_text(bucket, key, content)
+Note: Call cloud_s3_delete(bucket, key)
+
+Note: Lambda Serverless
+Note: Create result equal to cloud_lambda_invoke(function_name, payload)
+
+Note: SQS Message Queues
+Note: Call cloud_sqs_send(queue_url, message)
+Note: Create messages equal to cloud_sqs_receive(queue_url, 5)
+Note: Call cloud_sqs_delete(queue_url, receipt_handle)
+
+Say "epl-cloud module loaded."

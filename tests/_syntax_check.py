@@ -1,5 +1,8 @@
 """Quick check: test EPL syntax forms used in copilot/playground templates."""
-import sys, os
+
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from epl.lexer import Lexer
 from epl.parser import Parser
@@ -19,11 +22,20 @@ tests = [
     ('new no-parens', 'class Dog\n    set name to "Rex"\nend\nset d to new Dog'),
     ('constant =', 'constant PI = 3.14'),
     ('enum as', 'enum Color as RED, GREEN, BLUE'),
-    ('match when', 'set x to 1\nmatch x\n    when 1\n        display "one"\n    default\n        display "other"\nend'),
+    (
+        'match when',
+        'set x to 1\nmatch x\n    when 1\n        display "one"\n    default\n        display "other"\nend',
+    ),
     ('wait seconds', 'wait 2 seconds'),
     ('webapp create', 'Create WebApp called myApp'),
-    ('route shows', 'Create WebApp called myApp\nRoute "/" shows\n    Page "Home"\n        Heading "Hello"\n    End\nEnd'),
-    ('route responds with', 'Create WebApp called myApp\nRoute "/api" responds with\n    Send json Map with msg = "hi"\nEnd'),
+    (
+        'route shows',
+        'Create WebApp called myApp\nRoute "/" shows\n    Page "Home"\n        Heading "Hello"\n    End\nEnd',
+    ),
+    (
+        'route responds with',
+        'Create WebApp called myApp\nRoute "/api" responds with\n    Send json Map with msg = "hi"\nEnd',
+    ),
 ]
 
 ok = fail = 0

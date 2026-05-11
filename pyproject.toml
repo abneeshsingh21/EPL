@@ -7,7 +7,7 @@ name = "eplang"
 dynamic = ["version"]
 description = "EPL - English Programming Language: write code in plain English. Build apps, web servers, and more."
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
 authors = [{name = "Abneesh Singh", email = "singhabneesh250@gmail.com"}]
@@ -37,7 +37,8 @@ server = [
 ]
 redis = ["redis>=5.0.0"]
 repl = ["prompt_toolkit>=3.0.0", "pygments>=2.15.0"]
-dev = ["pytest>=7.0", "coverage>=7.0", "build>=1.0.0"]
+cloud = ["boto3>=1.28.0"]
+dev = ["pytest>=7.0", "coverage>=7.0", "build>=1.0.0", "ruff>=0.1.0"]
 all = [
     "waitress>=2.1.0",
     "uvicorn>=0.30.0",
@@ -46,6 +47,7 @@ all = [
     "gunicorn>=21.2; platform_system != 'Windows'",
     "prompt_toolkit>=3.0.0",
     "pygments>=2.15.0",
+    "boto3>=1.28.0",
 ]
 
 [project.scripts]
@@ -94,3 +96,31 @@ omit = ["tests/*", "examples/*"]
 [tool.coverage.report]
 fail_under = 60
 show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+src = ["epl", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+    "E402",  # module level import not at top of file (sys.path hacks)
+    "F841",  # unused variables (common in tests)
+]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

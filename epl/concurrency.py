@@ -6,17 +6,16 @@ AtomicCounter, ThreadPool, and structured concurrency patterns.
 All primitives are thread-safe and designed for EPL's English-syntax paradigm.
 """
 
-import threading
-import queue
-import time
 import concurrent.futures
-from typing import Any, Optional, Callable, List
-from collections import deque
+import queue
+import threading
+import time
+from typing import Any, Callable, List
 
 
 class EPLMutex:
     """Mutual exclusion lock for thread-safe resource access.
-    
+
     Usage in EPL:
         Create lock equal to Mutex().
         lock.acquire().
@@ -25,6 +24,7 @@ class EPLMutex:
     Or:
         lock.with_lock(lambda -> do_something()).
     """
+
     def __init__(self):
         self._lock = threading.Lock()
         self._owner = None
@@ -57,17 +57,18 @@ class EPLMutex:
             self.release()
 
     def __repr__(self):
-        status = "locked" if self.is_locked() else "unlocked"
-        return f"<Mutex {status}>"
+        status = 'locked' if self.is_locked() else 'unlocked'
+        return f'<Mutex {status}>'
 
 
 class EPLRWLock:
     """Read-Write lock allowing multiple readers or one writer.
-    
+
     Multiple threads can read simultaneously, but writing is exclusive.
     Writers have priority: when a writer is waiting, new readers are blocked
     to prevent writer starvation.
     """
+
     def __init__(self):
         self._lock = threading.Lock()
         self._read_ready = threading.Condition(self._lock)
@@ -104,17 +105,18 @@ class EPLRWLock:
             self._read_ready.notify_all()
 
     def __repr__(self):
-        return f"<RWLock readers={self._readers} writers_waiting={self._writers_waiting}>"
+        return f'<RWLock readers={self._readers} writers_waiting={self._writers_waiting}>'
 
 
 class EPLChannel:
     """Go-style channel for thread-safe message passing.
-    
+
     Usage in EPL:
         Create ch equal to Channel(10).  Note: buffered channel, capacity 10
         ch.send("hello").
         Create msg equal to ch.receive().
     """
+
     def __init__(self, capacity: int = 0):
         if capacity <= 0:
             self._queue = queue.Queue(maxsize=1)  # unbuffered: sync handoff
@@ -125,11 +127,11 @@ class EPLChannel:
 
     def send(self, value: Any, timeout: float = None):
         if self._closed:
-            raise RuntimeError("Cannot send on closed channel")
+            raise RuntimeError('Cannot send on closed channel')
         try:
             self._queue.put(value, block=True, timeout=timeout)
         except queue.Full:
-            raise RuntimeError("Channel send timed out")
+            raise RuntimeError('Channel send timed out')
 
     def receive(self, timeout: float = None) -> Any:
         try:
@@ -137,7 +139,7 @@ class EPLChannel:
         except queue.Empty:
             if self._closed:
                 return None
-            raise RuntimeError("Channel receive timed out")
+            raise RuntimeError('Channel receive timed out')
 
     def try_send(self, value: Any) -> bool:
         if self._closed:
@@ -167,15 +169,16 @@ class EPLChannel:
         return self._queue.empty()
 
     def __repr__(self):
-        status = "closed" if self._closed else f"size={self.size()}"
-        return f"<Channel {status}>"
+        status = 'closed' if self._closed else f'size={self.size()}'
+        return f'<Channel {status}>'
 
 
 class EPLSemaphore:
     """Counting semaphore for limiting concurrent access.
-    
+
     Usage: Create sem equal to Semaphore(5).  Note: max 5 concurrent
     """
+
     def __init__(self, count: int = 1):
         self._sem = threading.Semaphore(count)
         self._max = count
@@ -194,17 +197,18 @@ class EPLSemaphore:
             self.release()
 
     def __repr__(self):
-        return f"<Semaphore max={self._max}>"
+        return f'<Semaphore max={self._max}>'
 
 
 class EPLAtomicCounter:
     """Thread-safe atomic counter.
-    
+
     Usage: Create counter equal to Atomic(0).
            counter.increment().
            counter.decrement().
            Print counter.get().
     """
+
     def __init__(self, initial: int = 0):
         self._value = initial
         self._lock = threading.Lock()
@@ -235,18 +239,19 @@ class EPLAtomicCounter:
             return False
 
     def __repr__(self):
-        return f"<Atomic value={self.get()}>"
+        return f'<Atomic value={self.get()}>'
 
 
 class EPLThreadPool:
     """Managed thread pool with structured concurrency.
-    
+
     Usage:
         Create pool equal to ThreadPool(4).
         Create future equal to pool.submit(lambda -> compute()).
         Print future.result().
         pool.shutdown().
     """
+
     def __init__(self, max_workers: int = 4):
         self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
         self._futures: List[concurrent.futures.Future] = []
@@ -269,11 +274,12 @@ class EPLThreadPool:
         return len(not_done) == 0
 
     def __repr__(self):
-        return f"<ThreadPool workers={self._max_workers}>"
+        return f'<ThreadPool workers={self._max_workers}>'
 
 
 class EPLFutureWrapper:
     """Wrapper around concurrent.futures.Future for EPL."""
+
     def __init__(self, future: concurrent.futures.Future):
         self._future = future
 
@@ -292,21 +298,22 @@ class EPLFutureWrapper:
     def __repr__(self):
         if self._future.done():
             try:
-                return f"<Future done={self._future.result(timeout=0)}>"
+                return f'<Future done={self._future.result(timeout=0)}>'
             except Exception as e:
-                return f"<Future error={e}>"
-        return "<Future pending>"
+                return f'<Future error={e}>'
+        return '<Future pending>'
 
 
 class EPLWaitGroup:
     """WaitGroup for coordinating multiple goroutine-style tasks.
-    
+
     Usage:
         Create wg equal to WaitGroup().
         wg.add(3).
         ... spawn 3 tasks, each calls wg.done() ...
         wg.wait().  Note: blocks until all 3 done
     """
+
     def __init__(self):
         self._count = 0
         self._lock = threading.Lock()
@@ -330,11 +337,12 @@ class EPLWaitGroup:
         return self._event.wait(timeout=timeout)
 
     def __repr__(self):
-        return f"<WaitGroup pending={self._count}>"
+        return f'<WaitGroup pending={self._count}>'
 
 
 class EPLTimer:
     """Repeating or one-shot timer."""
+
     def __init__(self, interval: float, func: Callable, repeat: bool = False):
         self._interval = interval
         self._func = func
@@ -360,7 +368,8 @@ class EPLTimer:
             self._func()
         except Exception as e:
             import sys
-            print(f"[EPL Timer] Unhandled exception: {e}", file=sys.stderr)
+
+            print(f'[EPL Timer] Unhandled exception: {e}', file=sys.stderr)
         if self._repeat and self._running:
             self._schedule()
 
@@ -370,34 +379,43 @@ class EPLTimer:
             self._timer.cancel()
 
     def __repr__(self):
-        return f"<Timer interval={self._interval} running={self._running}>"
+        return f'<Timer interval={self._interval} running={self._running}>'
 
 
 # ─── EPL Built-in Functions for Concurrency ────────────────
 
+
 def create_mutex() -> EPLMutex:
     return EPLMutex()
+
 
 def create_rwlock() -> EPLRWLock:
     return EPLRWLock()
 
+
 def create_channel(capacity: int = 0) -> EPLChannel:
     return EPLChannel(capacity)
+
 
 def create_semaphore(count: int = 1) -> EPLSemaphore:
     return EPLSemaphore(count)
 
+
 def create_atomic(initial: int = 0) -> EPLAtomicCounter:
     return EPLAtomicCounter(initial)
+
 
 def create_thread_pool(workers: int = 4) -> EPLThreadPool:
     return EPLThreadPool(workers)
 
+
 def create_wait_group() -> EPLWaitGroup:
     return EPLWaitGroup()
 
+
 def create_timer(interval: float, func: Callable, repeat: bool = False) -> EPLTimer:
     return EPLTimer(interval, func, repeat)
+
 
 def parallel_map(func: Callable, items: list, workers: int = 4) -> list:
     """Apply func to each item in parallel using a thread pool."""
@@ -413,9 +431,11 @@ def parallel_map(func: Callable, items: list, workers: int = 4) -> list:
                 results.append(None)
         if errors:
             import sys
+
             for err in errors:
-                print(f"[EPL parallel_map] Error: {err}", file=sys.stderr)
+                print(f'[EPL parallel_map] Error: {err}', file=sys.stderr)
         return results
+
 
 def parallel_for_each(func: Callable, items: list, workers: int = 4):
     """Execute func for each item in parallel, no return."""
@@ -426,7 +446,9 @@ def parallel_for_each(func: Callable, items: list, workers: int = 4):
                 f.result()  # Propagate exceptions
             except Exception as e:
                 import sys
-                print(f"[EPL parallel_for_each] Error: {e}", file=sys.stderr)
+
+                print(f'[EPL parallel_for_each] Error: {e}', file=sys.stderr)
+
 
 def sleep_ms(ms: int):
     """Sleep for given milliseconds."""

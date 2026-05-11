@@ -13,12 +13,12 @@ Production-grade asynchronous I/O with:
 import asyncio
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, Future
-
+from concurrent.futures import ThreadPoolExecutor
 
 # ═══════════════════════════════════════════════════════════
 #  Event Loop Singleton
 # ═══════════════════════════════════════════════════════════
+
 
 class EPLEventLoop:
     """Singleton event loop for EPL async operations."""
@@ -67,19 +67,21 @@ class EPLEventLoop:
 
     def shutdown(self, timeout: float = 5.0):
         """Gracefully shut down the event loop.
-        
+
         Drains pending tasks (up to timeout seconds), then stops the loop
         and shuts down the thread pool.
         """
         if self._loop and self._loop.is_running():
             # Cancel all pending tasks and give them time to finish
             async def _drain():
-                tasks = [t for t in asyncio.all_tasks(self._loop)
-                         if t is not asyncio.current_task()]
+                tasks = [
+                    t for t in asyncio.all_tasks(self._loop) if t is not asyncio.current_task()
+                ]
                 for t in tasks:
                     t.cancel()
                 if tasks:
                     await asyncio.gather(*tasks, return_exceptions=True)
+
             try:
                 future = asyncio.run_coroutine_threadsafe(_drain(), self._loop)
                 future.result(timeout=timeout)
@@ -87,6 +89,7 @@ class EPLEventLoop:
                 pass  # Best-effort drain
             self._loop.call_soon_threadsafe(self._loop.stop)
         import sys
+
         if sys.version_info >= (3, 9):
             self._executor.shutdown(wait=True, cancel_futures=True)
         else:
@@ -99,13 +102,14 @@ class EPLEventLoop:
 #  Async Task
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLTask:
     """Represents an async task with status tracking."""
 
     def __init__(self, name: str, future):
         self.name = name
         self._future = future
-        self.status = "running"
+        self.status = 'running'
         self._callbacks = []
 
     @property
@@ -115,7 +119,7 @@ class EPLTask:
     @property
     def result(self):
         if self._future.done():
-            self.status = "completed"
+            self.status = 'completed'
             return self._future.result()
         return None
 
@@ -123,20 +127,22 @@ class EPLTask:
         """Block until task completes."""
         try:
             result = self._future.result(timeout=timeout)
-            self.status = "completed"
+            self.status = 'completed'
             return result
-        except Exception as e:
-            self.status = "failed"
+        except Exception:
+            self.status = 'failed'
             raise
 
     def cancel(self):
         self._future.cancel()
-        self.status = "cancelled"
+        self.status = 'cancelled'
 
     def on_complete(self, callback):
         """Register a callback for when task completes."""
         self._callbacks.append(callback)
-        self._future.add_done_callback(lambda f: callback(f.result() if not f.cancelled() else None))
+        self._future.add_done_callback(
+            lambda f: callback(f.result() if not f.cancelled() else None)
+        )
 
 
 # ═══════════════════════════════════════════════════════════
@@ -148,10 +154,10 @@ class EPLTask:
 # Import it here for backward compatibility.
 from epl.concurrency import EPLChannel
 
-
 # ═══════════════════════════════════════════════════════════
 #  Task Group (structured concurrency)
 # ═══════════════════════════════════════════════════════════
+
 
 class EPLTaskGroup:
     """Run multiple tasks concurrently, wait for all to complete."""
@@ -189,6 +195,7 @@ class EPLTaskGroup:
 #  Async Utilities  (registered as stdlib functions)
 # ═══════════════════════════════════════════════════════════
 
+
 async def async_sleep(seconds):
     """Non-blocking sleep."""
     await asyncio.sleep(seconds)
@@ -197,41 +204,53 @@ async def async_sleep(seconds):
 async def async_read_file(path):
     """Async file read using thread pool."""
     loop = asyncio.get_running_loop()
+
     def _read():
         with open(path, 'r', encoding='utf-8') as f:
             return f.read()
+
     return await loop.run_in_executor(None, _read)
 
 
 async def async_write_file(path, content):
     """Async file write using thread pool."""
     loop = asyncio.get_running_loop()
+
     def _write():
         with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
+
     return await loop.run_in_executor(None, _write)
 
 
 async def async_http_get(url):
     """Async HTTP GET using urllib (no external deps)."""
     import urllib.request
+
     loop = asyncio.get_running_loop()
+
     def _get():
         with urllib.request.urlopen(url, timeout=30) as resp:
             return resp.read().decode('utf-8')
+
     return await loop.run_in_executor(None, _get)
 
 
 async def async_http_post(url, data):
     """Async HTTP POST."""
-    import urllib.request
     import json as _json
+    import urllib.request
+
     loop = asyncio.get_running_loop()
+
     def _post():
         payload = _json.dumps(data).encode('utf-8')
-        req = urllib.request.Request(url, data=payload, headers={'Content-Type': 'application/json'})
+        req = urllib.request.Request(
+            url, data=payload, headers={'Content-Type': 'application/json'}
+        )
         with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.read().decode('utf-8')
+
     return await loop.run_in_executor(None, _post)
 
 
@@ -246,7 +265,7 @@ from epl.concurrency import EPLTimer
 
 class EPLInterval:
     """Repeating timer that fires a callback at intervals (async-native).
-    
+
     Call start() to begin the interval. This avoids scheduling work
     before the caller has finished configuring the object.
     """
@@ -279,6 +298,7 @@ class EPLInterval:
 # ═══════════════════════════════════════════════════════════
 #  Stdlib Registration Helper
 # ═══════════════════════════════════════════════════════════
+
 
 def register_async_builtins():
     """Return dict of async-related builtin functions for the interpreter."""

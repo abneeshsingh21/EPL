@@ -1,0 +1,38 @@
+Note: epl-cloud basic usage example
+
+Note: Step 1 — Configure AWS region
+Call cloud_configure("us-east-1")
+
+Note: Step 2 — Upload a file to S3
+Create upload_result equal to cloud_s3_upload("my-bucket", "hello.txt", "hello.txt")
+Say "Upload status: " + upload_result.status
+
+Note: Step 3 — Check if the file exists
+Create exists equal to cloud_s3_exists("my-bucket", "hello.txt")
+Say "File exists: " + to_text(exists)
+
+Note: Step 4 — Read the file back as text
+Create content equal to cloud_s3_read_text("my-bucket", "hello.txt")
+Say "File content: " + content
+
+Note: Step 5 — List all objects in the bucket
+Create objects equal to cloud_s3_list("my-bucket")
+For Each obj In objects
+    Say "  " + obj.key + " (" + to_text(obj.size) + " bytes)"
+End
+
+Note: Step 6 — Invoke a Lambda function
+Create lambda_result equal to cloud_lambda_invoke("my-function", Map with greeting = "Hello from EPL!")
+Say "Lambda returned: " + to_text(lambda_result.payload)
+
+Note: Step 7 — Send and receive SQS messages
+Create queue equal to "https://sqs.us-east-1.amazonaws.com/123456789/my-queue"
+Call cloud_sqs_send(queue, "EPL says hello!")
+
+Create messages equal to cloud_sqs_receive(queue, 1)
+For Each msg In messages
+    Say "Received: " + msg.body
+    Call cloud_sqs_delete(queue, msg.receipt_handle)
+End
+
+Say "Cloud example complete!"

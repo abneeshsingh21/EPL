@@ -9,13 +9,13 @@ Try EPL directly in your browser — no installation required.
 
 ## Assistant Routing
 
-The browser playground assistant supports explicit provider routing:
+The browser playground loads the published `eplang` runtime in Pyodide, runs parser-backed AST diagnostics, and supports explicit assistant routing:
 
 - `Secure Proxy` for a same-origin `/chat` endpoint or a Cloudflare Worker URL
 - `Groq API` for direct browser requests with your own Groq key
 - `Gemini API` for direct browser requests with your own Gemini key
 
-The page no longer uses an anonymous third-party fallback. You decide exactly where assistant traffic goes.
+The page no longer uses an anonymous third-party fallback. You decide exactly where assistant traffic goes. For public deployments, prefer Secure Proxy mode so private Groq/Gemini keys are not stored in a public browser page.
 
 For the full local playground server with isolated code execution and `/api/assist`, run:
 

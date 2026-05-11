@@ -39,22 +39,22 @@ CI-gated:
 
 Base install:
 
-- `pip install epl-lang`
+- `pip install eplang`
 - supports interpreter, CLI, package manager, docs/lint/test workflows, and Python bridge
 
 Native compilation:
 
-- `pip install "epl-lang[llvm]"`
+- `pip install "eplang[llvm]"`
 - requires `llvmlite`
 - requires a system C compiler/linker such as `clang` or `gcc`
 
 AI tooling:
 
-- `pip install "epl-lang[ai]"`
+- `pip install "eplang[ai]"`
 
 Production serving:
 
-- `pip install "epl-lang[server]"`
+- `pip install "eplang[server]"`
 - Waitress for cross-platform WSGI serving
 - Gunicorn for Linux/macOS WSGI serving
 - Uvicorn and Hypercorn for ASGI serving
@@ -62,7 +62,7 @@ Production serving:
 
 Redis-backed features:
 
-- `pip install "epl-lang[redis]"`
+- `pip install "eplang[redis]"`
 
 ## Runtime Targets
 

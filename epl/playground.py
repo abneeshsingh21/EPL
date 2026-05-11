@@ -5,29 +5,31 @@ Browser-based IDE for trying EPL in seconds.
 Usage:  python main.py playground [--port 8080]
 """
 
-import io
-import os
-import sys
-import json
-import html
-import traceback
-import subprocess
 import contextlib
+import io
+import json
+import os
+import subprocess
+import sys
+
 from epl.errors import EPLError
 
 PLAYGROUND_MAX_BODY_BYTES = 1_000_000
 PLAYGROUND_EXEC_TIMEOUT_SECONDS = 10
 _PLAYGROUND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+
 def _safe_error(e):
     """Return error message, sanitizing non-EPL exceptions."""
     return str(e) if isinstance(e, EPLError) else 'Internal error'
 
+
 # ── Public API ───────────────────────────────────────────
+
 
 def start_playground(port: int = 8080, open_browser: bool = True):
     """Start the EPL Web Playground server."""
-    from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
     class PlaygroundHandler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -139,12 +141,13 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             self.wfile.write(encoded)
 
     server = ThreadingHTTPServer(('127.0.0.1', port), PlaygroundHandler)
-    print(f"  EPL Web Playground running at http://127.0.0.1:{port}")
-    print("  Press Ctrl+C to stop")
+    print(f'  EPL Web Playground running at http://127.0.0.1:{port}')
+    print('  Press Ctrl+C to stop')
 
     if open_browser:
         try:
             import webbrowser
+
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
             pass
@@ -152,11 +155,12 @@ def start_playground(port: int = 8080, open_browser: bool = True):
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n  Playground stopped.")
+        print('\n  Playground stopped.')
         server.server_close()
 
 
 # ── EPL Execution Engine ─────────────────────────────────
+
 
 def _worker_environment():
     env = os.environ.copy()
@@ -171,9 +175,9 @@ def _worker_environment():
 def _execute_epl_worker_payload(code: str) -> dict:
     """Execute EPL code in an isolated worker process."""
     try:
+        from epl.interpreter import Interpreter
         from epl.lexer import Lexer
         from epl.parser import Parser
-        from epl.interpreter import Interpreter
 
         lexer = Lexer(code)
         tokens = lexer.tokenize()
@@ -205,6 +209,7 @@ def _playground_worker_main() -> int:
     sys.stdout.flush()
     return 0
 
+
 def _execute_epl(code: str) -> dict:
     """Execute EPL code in a subprocess so timeout is a real kill boundary."""
     if not code.strip():
@@ -221,7 +226,10 @@ def _execute_epl(code: str) -> dict:
             env=_worker_environment(),
         )
     except subprocess.TimeoutExpired:
-        return {'output': '', 'error': f'Execution timed out ({PLAYGROUND_EXEC_TIMEOUT_SECONDS}s limit)'}
+        return {
+            'output': '',
+            'error': f'Execution timed out ({PLAYGROUND_EXEC_TIMEOUT_SECONDS}s limit)',
+        }
     except Exception as exc:
         return {'output': '', 'error': _safe_error(exc)}
 
@@ -254,9 +262,11 @@ def _transpile_epl(code: str, target: str) -> dict:
 
         if target == 'python':
             from epl.python_transpiler import transpile_to_python
+
             result = transpile_to_python(program)
         elif target == 'javascript':
             from epl.js_transpiler import transpile_to_js
+
             result = transpile_to_js(program)
         else:
             return {'error': f'Unknown target: {target}'}
@@ -266,7 +276,7 @@ def _transpile_epl(code: str, target: str) -> dict:
         return {'code': '', 'error': _safe_error(e)}
 
 
-def _assist_playground(message: str, code: str = "", mode: str = "auto") -> dict:
+def _assist_playground(message: str, code: str = '', mode: str = 'auto') -> dict:
     """Run the syntax-aware playground assistant."""
     from epl.copilot import assist_request
 
@@ -286,56 +296,53 @@ def _get_syntax_reference() -> dict:
 def _get_examples() -> list:
     """Return a curated list of EPL examples."""
     return [
-        {
-            'name': 'Hello World',
-            'code': 'Say "Hello, World!"\nSay "Welcome to EPL!"'
-        },
+        {'name': 'Hello World', 'code': 'Say "Hello, World!"\nSay "Welcome to EPL!"'},
         {
             'name': 'Variables & Math',
-            'code': 'Create name = "Alice"\nCreate age = 25\nCreate score = 95.5\nSay "Name: " + name\nSay "Age: " + age\nSay "Score: " + score'
+            'code': 'Create name = "Alice"\nCreate age = 25\nCreate score = 95.5\nSay "Name: " + name\nSay "Age: " + age\nSay "Score: " + score',
         },
         {
             'name': 'If/Else',
-            'code': 'Create score = 85\n\nIf score > 90 Then\n    Say "Grade: A"\nOtherwise If score > 80 Then\n    Say "Grade: B"\nOtherwise\n    Say "Grade: C"\nEnd'
+            'code': 'Create score = 85\n\nIf score > 90 Then\n    Say "Grade: A"\nOtherwise If score > 80 Then\n    Say "Grade: B"\nOtherwise\n    Say "Grade: C"\nEnd',
         },
         {
             'name': 'Loops',
-            'code': 'Say "Counting:"\nRepeat 5 times\n    Say "Hello!"\nEnd\n\nFor i from 1 to 5\n    Say "Number: " + i\nEnd'
+            'code': 'Say "Counting:"\nRepeat 5 times\n    Say "Hello!"\nEnd\n\nFor i from 1 to 5\n    Say "Number: " + i\nEnd',
         },
         {
             'name': 'Functions',
-            'code': 'Function greet takes name\n    Return "Hello, " + name + "!"\nEnd\n\nSay greet("Alice")\nSay greet("Bob")\n\nFunction add(a, b)\n    Return a + b\nEnd\n\nCreate result = add(10, 20)\nSay "10 + 20 = " + result'
+            'code': 'Function greet takes name\n    Return "Hello, " + name + "!"\nEnd\n\nSay greet("Alice")\nSay greet("Bob")\n\nFunction add(a, b)\n    Return a + b\nEnd\n\nCreate result = add(10, 20)\nSay "10 + 20 = " + result',
         },
         {
             'name': 'Lists',
-            'code': 'Create fruits = ["apple", "banana", "cherry"]\nSay "Fruits: " + fruits\nSay "First: " + fruits[0]\n\nFor each fruit in fruits\n    Say "I like " + fruit\nEnd'
+            'code': 'Create fruits = ["apple", "banana", "cherry"]\nSay "Fruits: " + fruits\nSay "First: " + fruits[0]\n\nFor each fruit in fruits\n    Say "I like " + fruit\nEnd',
         },
         {
             'name': 'Classes',
-            'code': 'Class Animal\n    Set name to "Unknown"\n    Set sound to "..."\n\n    Function speak\n        Return name + " says " + sound\n    End\nEnd\n\nCreate dog = new Animal()\ndog.name = "Rex"\ndog.sound = "Woof!"\nSay dog.speak()'
+            'code': 'Class Animal\n    Set name to "Unknown"\n    Set sound to "..."\n\n    Function speak\n        Return name + " says " + sound\n    End\nEnd\n\nCreate dog = new Animal()\ndog.name = "Rex"\ndog.sound = "Woof!"\nSay dog.speak()',
         },
         {
             'name': 'Try/Catch',
-            'code': 'Try\n    Create result = 10 / 0\nCatch error\n    Say "Caught error: " + error\nEnd\n\nSay "Program continues!"'
+            'code': 'Try\n    Create result = 10 / 0\nCatch error\n    Say "Caught error: " + error\nEnd\n\nSay "Program continues!"',
         },
         {
             'name': 'Fibonacci',
-            'code': 'Function fibonacci takes n\n    If n <= 1 Then\n        Return n\n    End\n    Return fibonacci(n - 1) + fibonacci(n - 2)\nEnd\n\nFor i from 0 to 10\n    Say "fib(" + i + ") = " + fibonacci(i)\nEnd'
+            'code': 'Function fibonacci takes n\n    If n <= 1 Then\n        Return n\n    End\n    Return fibonacci(n - 1) + fibonacci(n - 2)\nEnd\n\nFor i from 0 to 10\n    Say "fib(" + i + ") = " + fibonacci(i)\nEnd',
         },
         {
             'name': 'FizzBuzz',
-            'code': 'For i from 1 to 30\n    If i % 15 == 0 Then\n        Say "FizzBuzz"\n    Otherwise If i % 3 == 0 Then\n        Say "Fizz"\n    Otherwise If i % 5 == 0 Then\n        Say "Buzz"\n    Otherwise\n        Say i\n    End\nEnd'
+            'code': 'For i from 1 to 30\n    If i % 15 == 0 Then\n        Say "FizzBuzz"\n    Otherwise If i % 3 == 0 Then\n        Say "Fizz"\n    Otherwise If i % 5 == 0 Then\n        Say "Buzz"\n    Otherwise\n        Say i\n    End\nEnd',
         },
         {
             'name': 'Maps',
-            'code': 'Create profile = Map with name = "Ada" and role = "builder"\nSay profile.name\nSay profile.role'
-        }
+            'code': 'Create profile = Map with name = "Ada" and role = "builder"\nSay profile.name\nSay profile.role',
+        },
     ]
 
 
 # ── HTML Template ────────────────────────────────────────
 
-_PLAYGROUND_HTML = r'''<!DOCTYPE html>
+_PLAYGROUND_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1070,7 +1077,7 @@ loadSyntaxGuide();
 </script>
 </body>
 </html>
-'''
+"""
 
 
 if __name__ == '__main__':

@@ -10,15 +10,13 @@ Provides production deployment adapters and config generators:
 - Systemd service file generator
 - Production health monitoring
 """
+
+import asyncio
 import json
+import logging
 import os
-import re
-import time
-import secrets
 import textwrap
 import urllib.parse
-import logging
-import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 _logger = logging.getLogger('epl.deploy')
@@ -26,6 +24,7 @@ _logger = logging.getLogger('epl.deploy')
 # ═══════════════════════════════════════════════════════════
 # WSGI Adapter — enables Gunicorn / uWSGI / mod_wsgi
 # ═══════════════════════════════════════════════════════════
+
 
 class WSGIAdapter:
     """WSGI-compliant adapter wrapping an EPLWebApp.
@@ -52,12 +51,23 @@ class WSGIAdapter:
     def _import_web(self):
         """Import web module components lazily."""
         from epl.web import (
-            _data_store, store_get, store_add, store_remove,
-            db_store_add, db_store_get, db_store_remove,
-            _check_rate_limit, generate_html, Request, Response,
-            _build_route_env, _execute_route_block,
-            _resolve_page_def, _resolve_page_element,
+            Request,
+            Response,
+            _build_route_env,
+            _check_rate_limit,
+            _data_store,
+            _execute_route_block,
+            _resolve_page_def,
+            _resolve_page_element,
+            db_store_add,
+            db_store_get,
+            db_store_remove,
+            generate_html,
+            store_add,
+            store_get,
+            store_remove,
         )
+
         self._data_store = _data_store
         self._store_get = store_get
         self._store_add = store_add
@@ -77,7 +87,7 @@ class WSGIAdapter:
     def __call__(self, environ, start_response):
         """WSGI entry point — translate environ to Request, route, return Response."""
         import html as _html_mod
-        from epl import ast_nodes as ast
+
 
         method = environ.get('REQUEST_METHOD', 'GET')
         path = environ.get('PATH_INFO', '/')
@@ -132,8 +142,12 @@ class WSGIAdapter:
 
         # Build Request object
         req = self._Request(
-            method=method, path=path, headers=headers,
-            body_raw=body_raw, client_ip=client_ip, app=self.app
+            method=method,
+            path=path,
+            headers=headers,
+            body_raw=body_raw,
+            client_ip=client_ip,
+            app=self.app,
         )
         req.session_id = req.cookies.get('epl_session')
 
@@ -166,8 +180,9 @@ class WSGIAdapter:
             if method == 'POST':
                 route = self.app.get_route(clean_path, 'GET')
             if not route:
-                return self._error_response(start_response, 404,
-                    f'Route not found: {_html_mod.escape(clean_path)}')
+                return self._error_response(
+                    start_response, 404, f'Route not found: {_html_mod.escape(clean_path)}'
+                )
 
         response_type, route_body, route_params = route
         request_params = dict(urllib.parse.parse_qsl(query_string))
@@ -192,10 +207,16 @@ class WSGIAdapter:
                         resp_headers.append((k, v))
                     for cookie in result._cookies:
                         resp_headers.append(('Set-Cookie', cookie))
-                    status_text = {200: '200 OK', 201: '201 Created', 204: '204 No Content',
-                                   301: '301 Moved Permanently', 303: '303 See Other',
-                                   400: '400 Bad Request', 404: '404 Not Found',
-                                   500: '500 Internal Server Error'}.get(result.status, f'{result.status} Unknown')
+                    status_text = {
+                        200: '200 OK',
+                        201: '201 Created',
+                        204: '204 No Content',
+                        301: '301 Moved Permanently',
+                        303: '303 See Other',
+                        400: '400 Bad Request',
+                        404: '404 Not Found',
+                        500: '500 Internal Server Error',
+                    }.get(result.status, f'{result.status} Unknown')
                     start_response(status_text, resp_headers)
                     resp = [body_bytes]
                 elif isinstance(result, dict):
@@ -204,22 +225,42 @@ class WSGIAdapter:
                 elif isinstance(result, str):
                     resp = self._html_response(start_response, 200, result)
                 else:
-                    resp = self._html_response(start_response, 200, str(result) if result else '<p>OK</p>')
+                    resp = self._html_response(
+                        start_response, 200, str(result) if result else '<p>OK</p>'
+                    )
             elif response_type == 'json':
-                data = self._build_json(route_body, form_data, request_params, method, clean_path, headers, req.session_id)
+                data = self._build_json(
+                    route_body,
+                    form_data,
+                    request_params,
+                    method,
+                    clean_path,
+                    headers,
+                    req.session_id,
+                )
                 body = json.dumps(data, indent=2, default=str)
                 resp = self._json_response(start_response, 200, body)
             elif response_type == 'page':
-                html = self._build_page(route_body, form_data, request_params, method, clean_path, headers, req.session_id)
+                html = self._build_page(
+                    route_body,
+                    form_data,
+                    request_params,
+                    method,
+                    clean_path,
+                    headers,
+                    req.session_id,
+                )
                 if html.startswith('REDIRECT:'):
-                    location = html[len('REDIRECT:'):]
+                    location = html[len('REDIRECT:') :]
                     resp = self._redirect_response(start_response, location)
                 else:
                     resp = self._html_response(start_response, 200, html)
             elif response_type == 'action':
-                result = self._exec_action(route_body, form_data, method, clean_path, headers, req.session_id)
+                result = self._exec_action(
+                    route_body, form_data, method, clean_path, headers, req.session_id
+                )
                 if result and result.startswith('REDIRECT:'):
-                    location = result[len('REDIRECT:'):]
+                    location = result[len('REDIRECT:') :]
                     resp = self._redirect_response(start_response, location)
                 else:
                     resp = self._html_response(start_response, 200, result or '<p>OK</p>')
@@ -237,6 +278,7 @@ class WSGIAdapter:
         """Build HTML page response."""
         from epl import ast_nodes as ast
         from epl.web import _data_store
+
         route_env = self._build_route_env(
             self.interpreter,
             method,
@@ -257,30 +299,37 @@ class WSGIAdapter:
         signal = self._execute_route_block(self.interpreter, body, route_env)
         if signal is not None:
             if signal.response_type == 'redirect':
-                url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                url = (
+                    self.interpreter._eval(signal.payload, route_env)
+                    if self.interpreter
+                    else signal.payload
+                )
                 return f'REDIRECT:{url}'
             if signal.response_type == 'text' and self.interpreter is not None:
                 return str(self.interpreter._eval(signal.payload, route_env))
             if signal.response_type == 'json' and self.interpreter is not None:
                 data = self._build_json(body, form_data, params, method, path, headers, session_id)
-                return f"<pre>{json.dumps(data, indent=2, default=str)}</pre>"
+                return f'<pre>{json.dumps(data, indent=2, default=str)}</pre>'
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
                 page_def = self._resolve_page_def(stmt, self.interpreter, route_env)
                 return self._generate_html(page_def, data_store=_data_store, form_data=form_data)
         from epl import ast_nodes as ast
+
         elements = [
             self._resolve_page_element(s, self.interpreter, route_env)
-            for s in body if isinstance(s, ast.HtmlElement)
+            for s in body
+            if isinstance(s, ast.HtmlElement)
         ]
         if elements:
-            page = ast.PageDef("EPL Page", elements)
+            page = ast.PageDef('EPL Page', elements)
             return self._generate_html(page, data_store=_data_store, form_data=form_data)
-        return self._generate_html(ast.PageDef("EPL Page", []), data_store=_data_store)
+        return self._generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
 
     def _build_json(self, body, form_data, params, method, path, headers, session_id):
         """Build JSON response."""
         from epl.web import _data_store
+
         route_env = self._build_route_env(
             self.interpreter,
             method,
@@ -297,21 +346,22 @@ class WSGIAdapter:
                     if signal.response_type == 'fetch':
                         return self._fetch_payload(signal.payload)
                     if signal.response_type == 'redirect':
-                        return {"redirect": self.interpreter._eval(signal.payload, route_env)}
+                        return {'redirect': self.interpreter._eval(signal.payload, route_env)}
                     result = self.interpreter._eval(signal.payload, route_env)
                     if hasattr(result, 'data'):
                         result = result.data
                     return result
             except Exception as e:
-                return {"error": str(e)}
+                return {'error': str(e)}
         legacy_result = self._legacy_json_fallback(body, form_data)
         if legacy_result is not None:
             return legacy_result
-        return {"store": {k: list(v) for k, v in _data_store.items()}}
+        return {'store': {k: list(v) for k, v in _data_store.items()}}
 
     def _exec_action(self, body, form_data, method, path, headers, session_id):
         """Execute action route."""
         from epl import ast_nodes as ast
+
         route_env = self._build_route_env(
             self.interpreter,
             method,
@@ -332,14 +382,19 @@ class WSGIAdapter:
         signal = self._execute_route_block(self.interpreter, body, route_env)
         if signal is not None:
             if signal.response_type == 'redirect':
-                url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                url = (
+                    self.interpreter._eval(signal.payload, route_env)
+                    if self.interpreter
+                    else signal.payload
+                )
                 return f'REDIRECT:{url}'
             if signal.response_type == 'text' and self.interpreter is not None:
                 return str(self.interpreter._eval(signal.payload, route_env))
         return None
 
     def _exec_store(self, stmt, form_data, route_env=None):
-        from epl.web import store_add, db_store_add
+        from epl.web import db_store_add, store_add
+
         collection = stmt.collection
         if form_data and stmt.field_name:
             value = form_data.get(stmt.field_name, '')
@@ -358,7 +413,8 @@ class WSGIAdapter:
                 pass
 
     def _exec_delete(self, stmt, form_data, route_env=None):
-        from epl.web import store_remove, db_store_remove
+        from epl.web import db_store_remove, store_remove
+
         collection = stmt.collection
         if form_data and 'index' in form_data:
             try:
@@ -381,7 +437,7 @@ class WSGIAdapter:
 
     def _fetch_payload(self, collection):
         items = self._store_get(collection)
-        return {"collection": collection, "count": len(items), "items": items}
+        return {'collection': collection, 'count': len(items), 'items': items}
 
     def _legacy_json_fallback(self, body, form_data):
         """Preserve legacy JSON-route behavior for Python-defined apps without an interpreter."""
@@ -398,7 +454,7 @@ class WSGIAdapter:
                 return self._fetch_payload(stmt.collection)
             if isinstance(stmt, ast.SendResponse):
                 if stmt.response_type == 'redirect':
-                    return {"redirect": self._coerce_json_literal(stmt.data)}
+                    return {'redirect': self._coerce_json_literal(stmt.data)}
                 if stmt.response_type in ('json', 'text'):
                     return self._coerce_json_literal(stmt.data)
         return None
@@ -412,16 +468,14 @@ class WSGIAdapter:
         if isinstance(node, ast.ListLiteral):
             return [self._coerce_json_literal(element) for element in node.elements]
         if isinstance(node, ast.DictLiteral):
-            return {
-                key: self._coerce_json_literal(value)
-                for key, value in node.pairs
-            }
+            return {key: self._coerce_json_literal(value) for key, value in node.pairs}
         return str(node)
 
     def _serve_static(self, start_response, path, environ):
         """Serve static files via WSGI."""
         import mimetypes
-        rel = path[len(self.static_url) + 1:]
+
+        rel = path[len(self.static_url) + 1 :]
         # Prevent path traversal
         safe = os.path.normpath(rel)
         if safe.startswith('..') or os.path.isabs(safe):
@@ -439,11 +493,14 @@ class WSGIAdapter:
         with open(filepath, 'rb') as f:
             data = f.read()
 
-        start_response('200 OK', [
-            ('Content-Type', ctype),
-            ('Content-Length', str(len(data))),
-            ('Cache-Control', 'public, max-age=86400'),
-        ])
+        start_response(
+            '200 OK',
+            [
+                ('Content-Type', ctype),
+                ('Content-Length', str(len(data))),
+                ('Cache-Control', 'public, max-age=86400'),
+            ],
+        )
         return [data]
 
     def _security_headers(self):
@@ -460,9 +517,14 @@ class WSGIAdapter:
 
     def _html_response(self, start_response, status, html):
         body = html.encode('utf-8') if isinstance(html, str) else html
-        status_text = {200: '200 OK', 201: '201 Created', 204: '204 No Content',
-                       400: '400 Bad Request', 404: '404 Not Found',
-                       500: '500 Internal Server Error'}.get(status, f'{status} Unknown')
+        status_text = {
+            200: '200 OK',
+            201: '201 Created',
+            204: '204 No Content',
+            400: '400 Bad Request',
+            404: '404 Not Found',
+            500: '500 Internal Server Error',
+        }.get(status, f'{status} Unknown')
         headers = [
             ('Content-Type', 'text/html; charset=utf-8'),
             ('Content-Length', str(len(body))),
@@ -482,38 +544,49 @@ class WSGIAdapter:
 
     def _error_response(self, start_response, status, message):
         import html as _html_mod
+
         safe = _html_mod.escape(str(message))
         html = (
-            f"<!DOCTYPE html><html><head><title>Error {status}</title>"
-            f"<style>body{{font-family:system-ui;background:#0f172a;color:#f1f5f9;"
-            f"display:flex;justify-content:center;align-items:center;min-height:100vh}}"
-            f".err{{text-align:center}}h1{{font-size:4rem;color:#ef4444}}"
-            f"p{{color:#94a3b8}}</style></head><body>"
+            f'<!DOCTYPE html><html><head><title>Error {status}</title>'
+            f'<style>body{{font-family:system-ui;background:#0f172a;color:#f1f5f9;'
+            f'display:flex;justify-content:center;align-items:center;min-height:100vh}}'
+            f'.err{{text-align:center}}h1{{font-size:4rem;color:#ef4444}}'
+            f'p{{color:#94a3b8}}</style></head><body>'
             f'<div class="err"><h1>{status}</h1><p>{safe}</p></div></body></html>'
         )
         body = html.encode('utf-8')
         status_text = {
-            400: '400 Bad Request', 403: '403 Forbidden', 404: '404 Not Found',
-            413: '413 Payload Too Large', 429: '429 Too Many Requests',
-            500: '500 Internal Server Error'
+            400: '400 Bad Request',
+            403: '403 Forbidden',
+            404: '404 Not Found',
+            413: '413 Payload Too Large',
+            429: '429 Too Many Requests',
+            500: '500 Internal Server Error',
         }.get(status, f'{status} Error')
-        start_response(status_text, [
-            ('Content-Type', 'text/html; charset=utf-8'),
-            ('Content-Length', str(len(body))),
-        ])
+        start_response(
+            status_text,
+            [
+                ('Content-Type', 'text/html; charset=utf-8'),
+                ('Content-Length', str(len(body))),
+            ],
+        )
         return [body]
 
     def _redirect_response(self, start_response, location):
-        start_response('303 See Other', [
-            ('Location', location),
-            ('Content-Length', '0'),
-        ])
+        start_response(
+            '303 See Other',
+            [
+                ('Location', location),
+                ('Content-Length', '0'),
+            ],
+        )
         return [b'']
 
 
 # ═══════════════════════════════════════════════════════════
 # ASGI Adapter — enables Uvicorn / Daphne / Hypercorn
 # ═══════════════════════════════════════════════════════════
+
 
 class ASGIAdapter:
     """ASGI-compliant adapter wrapping an EPLWebApp.
@@ -603,29 +676,33 @@ class ASGIAdapter:
             response_started = True
 
         result = await loop.run_in_executor(
-            self._executor,
-            self._wsgi.__call__, environ, start_response
+            self._executor, self._wsgi.__call__, environ, start_response
         )
 
         # Parse status code
         status_code = int(response_status.split(' ', 1)[0])
 
         # Convert headers to ASGI format
-        asgi_headers = [(k.lower().encode('latin-1'), v.encode('latin-1'))
-                        for k, v in response_headers]
+        asgi_headers = [
+            (k.lower().encode('latin-1'), v.encode('latin-1')) for k, v in response_headers
+        ]
 
         # Send response
-        await send({
-            'type': 'http.response.start',
-            'status': status_code,
-            'headers': asgi_headers,
-        })
+        await send(
+            {
+                'type': 'http.response.start',
+                'status': status_code,
+                'headers': asgi_headers,
+            }
+        )
 
         body_bytes = b''.join(result) if result else b''
-        await send({
-            'type': 'http.response.body',
-            'body': body_bytes,
-        })
+        await send(
+            {
+                'type': 'http.response.body',
+                'body': body_bytes,
+            }
+        )
 
     async def _handle_lifespan(self, scope, receive, send):
         """Handle ASGI lifespan events (startup/shutdown)."""
@@ -647,21 +724,23 @@ class ASGIAdapter:
 
 class _BytesIO:
     """Minimal file-like object for WSGI environ wsgi.input."""
+
     def __init__(self, data):
         self._data = data
         self._pos = 0
 
     def read(self, size=-1):
         if size < 0:
-            result = self._data[self._pos:]
+            result = self._data[self._pos :]
             self._pos = len(self._data)
         else:
-            result = self._data[self._pos:self._pos + size]
+            result = self._data[self._pos : self._pos + size]
             self._pos += size
         return result
 
 
 # ─── ASGI WebSocket handler ──────────────────────────────
+
 
 class _ASGIWebSocket:
     """WebSocket connection wrapper for ASGI WebSocket scope."""
@@ -685,19 +764,13 @@ class _ASGIWebSocket:
             return
         if isinstance(message, dict):
             message = json.dumps(message)
-        await self._send({
-            'type': 'websocket.send',
-            'text': str(message)
-        })
+        await self._send({'type': 'websocket.send', 'text': str(message)})
 
     async def send_bytes(self, data):
         """Send binary data."""
         if not self.is_open:
             return
-        await self._send({
-            'type': 'websocket.send',
-            'bytes': data
-        })
+        await self._send({'type': 'websocket.send', 'bytes': data})
 
     async def receive(self):
         """Receive a message. Returns text or bytes, or None on close."""
@@ -775,10 +848,11 @@ async def _asgi_websocket_handler(scope, receive, send, app):
 # Cross-Platform Server (Waitress on Windows, Gunicorn on Linux)
 # ═══════════════════════════════════════════════════════════
 
+
 def _banner(engine, host, port, workers):
     print(f'\n  EPL Production Server ({engine})')
     print(f'  Listening on {host}:{port} (workers={workers})')
-    print(f'  Press Ctrl+C to stop\n')
+    print('  Press Ctrl+C to stop\n')
 
 
 def _resolve_server_apps(app_or_wsgi, interpreter=None):
@@ -824,11 +898,11 @@ def _normalize_asgi_workers(engine, workers):
         return 1
 
     message = (
-        f"{engine} multi-worker runtime requires an import string entrypoint. "
-        f"Use generated deploy/asgi.py with `{engine.lower()} asgi:application ...` "
-        f"for multi-worker production deployment."
+        f'{engine} multi-worker runtime requires an import string entrypoint. '
+        f'Use generated deploy/asgi.py with `{engine.lower()} asgi:application ...` '
+        f'for multi-worker production deployment.'
     )
-    _logger.warning("%s Falling back to a single worker for in-process launch.", message)
+    _logger.warning('%s Falling back to a single worker for in-process launch.', message)
     return 1
 
 
@@ -847,9 +921,10 @@ def _run_uvicorn(asgi_app, host, port, workers, reload=False):
 
 
 def _run_hypercorn(asgi_app, host, port, workers):
+    import asyncio
+
     from hypercorn.asyncio import serve as hypercorn_serve
     from hypercorn.config import Config
-    import asyncio
 
     effective_workers = _normalize_asgi_workers('Hypercorn', workers)
     config = Config()
@@ -860,7 +935,9 @@ def _run_hypercorn(asgi_app, host, port, workers):
     asyncio.run(hypercorn_serve(asgi_app, config))
 
 
-def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engine=None, interpreter=None):
+def serve(
+    app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engine=None, interpreter=None
+):
     """Start a production server using the best available EPL runtime adapter.
 
     - Windows: Uses Waitress by default
@@ -920,6 +997,7 @@ def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engin
             # Linux/macOS: Try Gunicorn first
             try:
                 import gunicorn  # type: ignore[reportMissingModuleSource]
+
                 _run_gunicorn(wsgi_app, host, port, workers)
             except ImportError:
                 try:
@@ -941,10 +1019,9 @@ def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engin
 
     if reload:
         from epl.hot_reload import HotReloader
+
         reloader = HotReloader(
-            watch_dirs=['.', 'epl', 'templates'],
-            patterns=['*.py', '*.epl', '*.html'],
-            interval=1.0
+            watch_dirs=['.', 'epl', 'templates'], patterns=['*.py', '*.epl', '*.html'], interval=1.0
         )
         reloader.run_with_reload(_start_server)
     else:
@@ -954,9 +1031,10 @@ def serve(app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engin
 def _fallback_serve(wsgi_app, host, port):
     """Fallback: use Python's built-in WSGI server."""
     from wsgiref.simple_server import make_server
-    print(f'\n  EPL Development Server (wsgiref)')
+
+    print('\n  EPL Development Server (wsgiref)')
     print(f'  Listening on {host}:{port}')
-    print(f'  WARNING: Not for production use!\n')
+    print('  WARNING: Not for production use!\n')
     server = make_server(host, port, wsgi_app)
     try:
         server.serve_forever()
@@ -1007,12 +1085,22 @@ _gunicorn_app = None
 # Gunicorn Config Generator
 # ═══════════════════════════════════════════════════════════
 
-def generate_gunicorn_config(app_name='MyApp', port=8000, workers=None,
-                              bind='0.0.0.0', timeout=120, log_level='info',
-                              ssl_cert=None, ssl_key=None, max_requests=1000,
-                              preload=True):
+
+def generate_gunicorn_config(
+    app_name='MyApp',
+    port=8000,
+    workers=None,
+    bind='0.0.0.0',
+    timeout=120,
+    log_level='info',
+    ssl_cert=None,
+    ssl_key=None,
+    max_requests=1000,
+    preload=True,
+):
     """Generate a production-ready gunicorn.conf.py."""
     import multiprocessing
+
     if workers is None:
         workers = (multiprocessing.cpu_count() * 2) + 1
 
@@ -1284,20 +1372,30 @@ def generate_wsgi_entry(app_module='app', app_var='app', app_file=None, project_
 # Nginx Config Generator
 # ═══════════════════════════════════════════════════════════
 
-def generate_nginx_config(server_name='localhost', upstream_port=8000,
-                           ssl_cert=None, ssl_key=None,
-                           static_dir='/var/www/epl/static',
-                           workers=None, enable_websocket=False,
-                           rate_limit='10r/s', client_max_body='10m',
-                           enable_gzip=True, cache_static=True,
-                           upstream_name='epl_backend',
-                           listen_port=80, ssl_listen_port=443):
+
+def generate_nginx_config(
+    server_name='localhost',
+    upstream_port=8000,
+    ssl_cert=None,
+    ssl_key=None,
+    static_dir='/var/www/epl/static',
+    workers=None,
+    enable_websocket=False,
+    rate_limit='10r/s',
+    client_max_body='10m',
+    enable_gzip=True,
+    cache_static=True,
+    upstream_name='epl_backend',
+    listen_port=80,
+    ssl_listen_port=443,
+):
     """Generate production-ready Nginx reverse proxy configuration."""
     import multiprocessing
+
     if workers is None:
         workers = multiprocessing.cpu_count()
 
-    config = textwrap.dedent(f'''\
+    config = textwrap.dedent(f"""\
         # ═══════════════════════════════════════════════════════════
         # Nginx Configuration for EPL Web Application
         # Generated by EPL Deploy v4.0
@@ -1347,11 +1445,11 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
             client_body_buffer_size 128k;
             client_header_buffer_size 1k;
             large_client_header_buffers 4 4k;
-    ''')
+    """)
 
     # Gzip
     if enable_gzip:
-        config += textwrap.dedent('''\
+        config += textwrap.dedent("""\
 
             # ─── Gzip Compression ─────────────────────────────
             gzip on;
@@ -1369,20 +1467,20 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
                 application/xml
                 application/rss+xml
                 image/svg+xml;
-        ''')
+        """)
 
     # Upstream
-    config += textwrap.dedent(f'''
+    config += textwrap.dedent(f"""
             # ─── Upstream (EPL Backend) ───────────────────────
             upstream {upstream_name} {{
                 server 127.0.0.1:{upstream_port};
                 keepalive 32;
             }}
-    ''')
+    """)
 
     # SSL redirect server block
     if ssl_cert and ssl_key:
-        config += textwrap.dedent(f'''
+        config += textwrap.dedent(f"""
             # ─── HTTP → HTTPS Redirect ───────────────────────
             server {{
                 listen {listen_port};
@@ -1390,11 +1488,11 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
                 server_name {server_name};
                 return 301 https://$server_name$request_uri;
             }}
-        ''')
+        """)
 
     # Main server block
     if ssl_cert and ssl_key:
-        config += textwrap.dedent(f'''
+        config += textwrap.dedent(f"""
             # ─── Main Server (HTTPS) ─────────────────────────
             server {{
                 listen {ssl_listen_port} ssl http2;
@@ -1413,18 +1511,18 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
 
                 # HSTS
                 add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-        ''')
+        """)
     else:
-        config += textwrap.dedent(f'''
+        config += textwrap.dedent(f"""
             # ─── Main Server (HTTP) ──────────────────────────
             server {{
                 listen {listen_port};
                 listen [::]:{listen_port};
                 server_name {server_name};
-        ''')
+        """)
 
     # Security headers
-    config += textwrap.dedent('''\
+    config += textwrap.dedent("""\
 
                 # ─── Security Headers ─────────────────────────
                 add_header X-Content-Type-Options nosniff always;
@@ -1432,11 +1530,11 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
                 add_header X-XSS-Protection "0" always;
                 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
                 add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-    ''')
+    """)
 
     # Static files
     if cache_static:
-        config += textwrap.dedent(f'''
+        config += textwrap.dedent(f"""
                 # ─── Static Files (served by Nginx directly) ──
                 location /static/ {{
                     alias {static_dir}/;
@@ -1455,11 +1553,11 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
                     expires 30d;
                     access_log off;
                 }}
-        ''')
+        """)
 
     # WebSocket support
     if enable_websocket:
-        config += textwrap.dedent(f'''
+        config += textwrap.dedent(f"""
                 # ─── WebSocket Support ────────────────────────
                 location /ws/ {{
                     proxy_pass http://{upstream_name};
@@ -1472,10 +1570,10 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
                     proxy_set_header X-Forwarded-Proto $scheme;
                     proxy_read_timeout 86400;
                 }}
-        ''')
+        """)
 
     # Main proxy
-    config += textwrap.dedent(f'''
+    config += textwrap.dedent(f"""
                 # ─── Proxy to EPL Backend ─────────────────────
                 location / {{
                     limit_req zone=epl_limit burst=20 nodelay;
@@ -1517,7 +1615,7 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
                 }}
             }}
         }}
-    ''')
+    """)
 
     return config
 
@@ -1526,10 +1624,17 @@ def generate_nginx_config(server_name='localhost', upstream_port=8000,
 # Tomcat Reverse Proxy Config Generator (AJP/HTTP)
 # ═══════════════════════════════════════════════════════════
 
-def generate_tomcat_config(server_name='localhost', upstream_port=8000,
-                            ajp_port=8009, http_port=8080,
-                            ssl_cert=None, ssl_key=None,
-                            context_path='/', app_name='epl'):
+
+def generate_tomcat_config(
+    server_name='localhost',
+    upstream_port=8000,
+    ajp_port=8009,
+    http_port=8080,
+    ssl_cert=None,
+    ssl_key=None,
+    context_path='/',
+    app_name='epl',
+):
     """Generate Apache Tomcat configuration for proxying to EPL.
 
     Generates:
@@ -1590,7 +1695,7 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
         ''')
 
     # Access log valve
-    server_xml += textwrap.dedent('''\
+    server_xml += textwrap.dedent("""\
 
         <!-- Access Log Valve (add inside <Host> element) -->
         <Valve className="org.apache.catalina.valves.AccessLogValve"
@@ -1603,11 +1708,11 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
         <Valve className="org.apache.catalina.valves.RemoteIpValve"
                remoteIpHeader="X-Forwarded-For"
                protocolHeader="X-Forwarded-Proto" />
-    ''')
+    """)
     configs['server.xml'] = server_xml
 
     # 2. Apache mod_proxy config (for httpd + Tomcat)
-    mod_proxy = textwrap.dedent(f'''\
+    mod_proxy = textwrap.dedent(f"""\
         # ═══════════════════════════════════════════════════════
         # Apache mod_proxy Configuration for EPL via Tomcat
         # Generated by EPL Deploy v4.0
@@ -1646,10 +1751,10 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
             ProxyTimeout 60
             Timeout 120
         </VirtualHost>
-    ''')
+    """)
 
     if ssl_cert and ssl_key:
-        mod_proxy += textwrap.dedent(f'''
+        mod_proxy += textwrap.dedent(f"""
         <VirtualHost *:443>
             ServerName {server_name}
 
@@ -1670,12 +1775,12 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
             ErrorLog /var/log/httpd/{app_name}_ssl_error.log
             CustomLog /var/log/httpd/{app_name}_ssl_access.log combined
         </VirtualHost>
-        ''')
+        """)
 
     configs['mod_proxy.conf'] = mod_proxy
 
     # 3. AJP proxy config (alternative to mod_proxy HTTP)
-    ajp_config = textwrap.dedent(f'''\
+    ajp_config = textwrap.dedent(f"""\
         # ═══════════════════════════════════════════════════════
         # Apache mod_proxy_ajp Configuration (Tomcat AJP)
         # Generated by EPL Deploy v4.0
@@ -1696,7 +1801,7 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
             ErrorLog /var/log/httpd/{app_name}_ajp_error.log
             CustomLog /var/log/httpd/{app_name}_ajp_access.log combined
         </VirtualHost>
-    ''')
+    """)
     configs['mod_proxy_ajp.conf'] = ajp_config
 
     return configs
@@ -1706,11 +1811,12 @@ def generate_tomcat_config(server_name='localhost', upstream_port=8000,
 # Docker Config Generator
 # ═══════════════════════════════════════════════════════════
 
+
 def generate_dockerfile(app_file='app.epl', port=8000, workers=4, runtime_subdir='.'):
     """Generate a production Dockerfile for EPL web application."""
     runtime_subdir = (runtime_subdir or '.').replace('\\', '/').strip('/')
     workdir = '/app' if not runtime_subdir or runtime_subdir == '.' else f'/app/{runtime_subdir}'
-    return textwrap.dedent(f'''\
+    return textwrap.dedent(f"""\
         # ═══════════════════════════════════════════════════════
         # Dockerfile for EPL Web Application
         # Generated by EPL Deploy v4.0
@@ -1759,24 +1865,30 @@ def generate_dockerfile(app_file='app.epl', port=8000, workers=4, runtime_subdir
 
         # Start with Gunicorn
         CMD ["gunicorn", "-c", "gunicorn_conf.py", "wsgi:application"]
-    ''')
+    """)
 
 
-def generate_docker_compose(app_name='epl-app', port=8000, workers=4,
-                             enable_nginx=True, enable_redis=False,
-                             enable_postgres=False, build_context='.',
-                             dockerfile='Dockerfile', uploads_dir='./uploads',
-                             logs_dir='./logs', static_dir='./static',
-                             nginx_config='./nginx/epl_nginx.conf',
-                             certs_dir='./nginx/certs'):
+def generate_docker_compose(
+    app_name='epl-app',
+    port=8000,
+    workers=4,
+    enable_nginx=True,
+    enable_redis=False,
+    enable_postgres=False,
+    build_context='.',
+    dockerfile='Dockerfile',
+    uploads_dir='./uploads',
+    logs_dir='./logs',
+    static_dir='./static',
+    nginx_config='./nginx/epl_nginx.conf',
+    certs_dir='./nginx/certs',
+):
     """Generate docker-compose.yml for EPL production deployment."""
     compose = {
         'version': '3.8',
         'services': {},
-        'networks': {
-            'epl-network': {'driver': 'bridge'}
-        },
-        'volumes': {}
+        'networks': {'epl-network': {'driver': 'bridge'}},
+        'volumes': {},
     }
 
     # EPL App service
@@ -1911,14 +2023,23 @@ def _dict_to_yaml(d, indent=0):
 # Systemd Service Generator
 # ═══════════════════════════════════════════════════════════
 
-def generate_systemd_service(app_name='epl-app', app_dir='/opt/epl-app',
-                               port=8000, workers=4, user='epl', group='epl',
-                               runtime_subdir='.'):
+
+def generate_systemd_service(
+    app_name='epl-app',
+    app_dir='/opt/epl-app',
+    port=8000,
+    workers=4,
+    user='epl',
+    group='epl',
+    runtime_subdir='.',
+):
     """Generate a systemd service unit file for EPL applications."""
     app_dir = app_dir.rstrip('/')
     runtime_subdir = (runtime_subdir or '.').replace('\\', '/').strip('/')
-    runtime_dir = app_dir if not runtime_subdir or runtime_subdir == '.' else f'{app_dir}/{runtime_subdir}'
-    return textwrap.dedent(f'''\
+    runtime_dir = (
+        app_dir if not runtime_subdir or runtime_subdir == '.' else f'{app_dir}/{runtime_subdir}'
+    )
+    return textwrap.dedent(f"""\
         # ═══════════════════════════════════════════════════════
         # Systemd Service for EPL Web Application
         # Generated by EPL Deploy v4.0
@@ -1975,12 +2096,13 @@ def generate_systemd_service(app_name='epl-app', app_dir='/opt/epl-app',
 
         [Install]
         WantedBy=multi-user.target
-    ''')
+    """)
 
 
 # ═══════════════════════════════════════════════════════════
 # ASGI Entry Point Generator
 # ═══════════════════════════════════════════════════════════
+
 
 def generate_asgi_entry(app_module='app', app_file=None, project_root='.'):
     """Generate asgi.py entry point for Uvicorn/Daphne/Hypercorn."""
@@ -2087,6 +2209,7 @@ def generate_asgi_entry(app_module='app', app_file=None, project_root='.'):
 # Deploy CLI — generate all configs at once
 # ═══════════════════════════════════════════════════════════
 
+
 def deploy_generate(target, output_dir='.', **kwargs):
     """Generate deployment configuration files.
 
@@ -2110,6 +2233,7 @@ def deploy_generate(target, output_dir='.', **kwargs):
         app_file=kwargs.get('app_file'),
     )
     from epl.package_manager import load_manifest
+
     manifest = load_manifest(project_root) or {}
     app_file_ref = _relative_deploy_path(app_path, output_dir)
     project_root_ref = _relative_deploy_path(project_root, output_dir)
@@ -2124,8 +2248,7 @@ def deploy_generate(target, output_dir='.', **kwargs):
     if target in ('gunicorn', 'all'):
         # gunicorn_conf.py
         config = generate_gunicorn_config(
-            app_name=app_name, port=port, workers=workers,
-            ssl_cert=ssl_cert, ssl_key=ssl_key
+            app_name=app_name, port=port, workers=workers, ssl_cert=ssl_cert, ssl_key=ssl_key
         )
         path = os.path.join(output_dir, 'gunicorn_conf.py')
         with open(path, 'w', encoding='utf-8') as f:
@@ -2141,9 +2264,11 @@ def deploy_generate(target, output_dir='.', **kwargs):
 
     if target in ('nginx', 'all'):
         config = generate_nginx_config(
-            server_name=server_name, upstream_port=port,
-            ssl_cert=ssl_cert, ssl_key=ssl_key,
-            enable_websocket=kwargs.get('websocket', False)
+            server_name=server_name,
+            upstream_port=port,
+            ssl_cert=ssl_cert,
+            ssl_key=ssl_key,
+            enable_websocket=kwargs.get('websocket', False),
         )
         nginx_dir = os.path.join(output_dir, 'nginx')
         os.makedirs(nginx_dir, exist_ok=True)
@@ -2154,9 +2279,11 @@ def deploy_generate(target, output_dir='.', **kwargs):
 
     if target in ('tomcat', 'all'):
         configs = generate_tomcat_config(
-            server_name=server_name, upstream_port=port,
-            ssl_cert=ssl_cert, ssl_key=ssl_key,
-            app_name=app_name
+            server_name=server_name,
+            upstream_port=port,
+            ssl_cert=ssl_cert,
+            ssl_key=ssl_key,
+            app_name=app_name,
         )
         tomcat_dir = os.path.join(output_dir, 'tomcat')
         os.makedirs(tomcat_dir, exist_ok=True)
@@ -2196,7 +2323,9 @@ def deploy_generate(target, output_dir='.', **kwargs):
             build_context = project_root_ref
             dockerfile_ref = f'{runtime_subdir}/Dockerfile'
         dc = generate_docker_compose(
-            app_name=app_name, port=port, workers=workers or 4,
+            app_name=app_name,
+            port=port,
+            workers=workers or 4,
             enable_nginx=kwargs.get('nginx', True),
             build_context=build_context,
             dockerfile=dockerfile_ref,
@@ -2286,43 +2415,45 @@ def deploy_generate(target, output_dir='.', **kwargs):
 def deploy_cli(args):
     """Handle 'epl deploy' CLI command."""
     if not args:
-        print("EPL Deploy — Production Deployment Generator")
+        print('EPL Deploy — Production Deployment Generator')
         print()
-        print("Usage:")
-        print("  python main.py deploy <target> [options]")
+        print('Usage:')
+        print('  python main.py deploy <target> [options]')
         print()
-        print("Targets:")
-        print("  gunicorn        Generate Gunicorn config + WSGI entry point")
-        print("  nginx           Generate Nginx reverse proxy config")
-        print("  tomcat          Generate Tomcat/Apache proxy configs")
-        print("  docker          Generate Dockerfile + docker-compose.yml")
-        print("  systemd         Generate systemd service file")
-        print("  asgi            Generate ASGI entry point (Uvicorn/Daphne)")
-        print("  all             Generate everything")
+        print('Targets:')
+        print('  gunicorn        Generate Gunicorn config + WSGI entry point')
+        print('  nginx           Generate Nginx reverse proxy config')
+        print('  tomcat          Generate Tomcat/Apache proxy configs')
+        print('  docker          Generate Dockerfile + docker-compose.yml')
+        print('  systemd         Generate systemd service file')
+        print('  asgi            Generate ASGI entry point (Uvicorn/Daphne)')
+        print('  all             Generate everything')
         print()
-        print("Options:")
-        print("  --port <N>          Application port (default: 8000)")
-        print("  --workers <N>       Number of workers (default: auto)")
-        print("  --name <name>       Application name")
-        print("  --server <hostname> Server hostname (default: localhost)")
-        print("  --ssl-cert <path>   SSL certificate file path")
-        print("  --ssl-key <path>    SSL key file path")
-        print("  --output <dir>      Output directory (default: ./deploy)")
-        print("  --websocket         Enable WebSocket proxy support")
+        print('Options:')
+        print('  --port <N>          Application port (default: 8000)')
+        print('  --workers <N>       Number of workers (default: auto)')
+        print('  --name <name>       Application name')
+        print('  --server <hostname> Server hostname (default: localhost)')
+        print('  --ssl-cert <path>   SSL certificate file path')
+        print('  --ssl-key <path>    SSL key file path')
+        print('  --output <dir>      Output directory (default: ./deploy)')
+        print('  --websocket         Enable WebSocket proxy support')
         print()
-        print("Examples:")
-        print("  python main.py deploy all")
-        print("  python main.py deploy gunicorn --port 8000 --workers 4")
-        print("  python main.py deploy nginx --server example.com --ssl-cert cert.pem --ssl-key key.pem")
-        print("  python main.py deploy docker --name my-epl-app")
-        print("  python main.py deploy tomcat --port 8000")
+        print('Examples:')
+        print('  python main.py deploy all')
+        print('  python main.py deploy gunicorn --port 8000 --workers 4')
+        print(
+            '  python main.py deploy nginx --server example.com --ssl-cert cert.pem --ssl-key key.pem'
+        )
+        print('  python main.py deploy docker --name my-epl-app')
+        print('  python main.py deploy tomcat --port 8000')
         return
 
     target = args[0]
     valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s','aws','gcp','azure','all')
     if target not in valid_targets:
         print(f"EPL Error: Unknown deploy target '{target}'")
-        print(f"Valid targets: {', '.join(valid_targets)}")
+        print(f'Valid targets: {", ".join(valid_targets)}')
         return
 
     # Parse options
@@ -2374,30 +2505,30 @@ def deploy_cli(args):
     generated = deploy_generate(target, output_dir=output_dir, **kwargs)
 
     if generated:
-        print(f"\n  ╔══════════════════════════════════════╗")
-        print(f"  ║  EPL Deploy — Files Generated        ║")
-        print(f"  ╠══════════════════════════════════════╣")
+        print('\n  ╔══════════════════════════════════════╗')
+        print('  ║  EPL Deploy — Files Generated        ║')
+        print('  ╠══════════════════════════════════════╣')
         for path in generated:
             display = os.path.relpath(path, '.')
-            print(f"  ║  ✓ {display:<34}║")
-        print(f"  ╚══════════════════════════════════════╝")
+            print(f'  ║  ✓ {display:<34}║')
+        print('  ╚══════════════════════════════════════╝')
         print()
         if target in ('gunicorn', 'all'):
-            print("  Start with Gunicorn:")
-            print(f"    gunicorn --chdir {output_dir} -c gunicorn_conf.py wsgi:application")
+            print('  Start with Gunicorn:')
+            print(f'    gunicorn --chdir {output_dir} -c gunicorn_conf.py wsgi:application')
             print()
         if target in ('nginx', 'all'):
-            print("  Install Nginx config:")
-            print(f"    sudo cp {output_dir}/nginx/epl_nginx.conf /etc/nginx/sites-available/")
-            print("    sudo nginx -t && sudo systemctl reload nginx")
+            print('  Install Nginx config:')
+            print(f'    sudo cp {output_dir}/nginx/epl_nginx.conf /etc/nginx/sites-available/')
+            print('    sudo nginx -t && sudo systemctl reload nginx')
             print()
         if target in ('docker', 'all'):
-            print("  Build & run with Docker:")
-            print(f"    docker compose -f {output_dir}/docker-compose.yml up -d --build")
+            print('  Build & run with Docker:')
+            print(f'    docker compose -f {output_dir}/docker-compose.yml up -d --build')
             print()
         if target in ('tomcat', 'all'):
-            print("  Tomcat configs generated in:")
-            print(f"    {output_dir}/tomcat/")
+            print('  Tomcat configs generated in:')
+            print(f'    {output_dir}/tomcat/')
             print()
     else:
-        print("  No files generated.")
+        print('  No files generated.')

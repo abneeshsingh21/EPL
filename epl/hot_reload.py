@@ -11,14 +11,14 @@ Usage:
                            callback=restart_fn)
     reloader.start()
 """
-import os
-import sys
-import time
-import threading
-import logging
+
 import fnmatch
+import logging
+import os
 import subprocess
-import signal
+import sys
+import threading
+import time
 
 _logger = logging.getLogger('epl.reload')
 
@@ -54,9 +54,12 @@ class FileWatcher:
                 continue
             for root, dirs, files in os.walk(d):
                 # Skip hidden dirs and common excludes
-                dirs[:] = [x for x in dirs if not x.startswith('.')
-                           and x not in ('__pycache__', 'node_modules', '.git',
-                                        'venv', 'env', '.venv')]
+                dirs[:] = [
+                    x
+                    for x in dirs
+                    if not x.startswith('.')
+                    and x not in ('__pycache__', 'node_modules', '.git', 'venv', 'env', '.venv')
+                ]
                 for f in files:
                     if self._matches(f):
                         path = os.path.join(root, f)
@@ -103,8 +106,7 @@ class FileWatcher:
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(target=self._loop, daemon=True,
-                                        name='epl-file-watcher')
+        self._thread = threading.Thread(target=self._loop, daemon=True, name='epl-file-watcher')
         self._thread.start()
         _logger.info(f'File watcher started: dirs={self._dirs}, patterns={self._patterns}')
 
@@ -127,7 +129,7 @@ class HotReloader:
         self._watcher = FileWatcher(
             watch_dirs=watch_dirs or ['.'],
             patterns=patterns or ['*.py', '*.epl', '*.html'],
-            interval=interval
+            interval=interval,
         )
         self._watcher.on_change(self._on_change)
         self._restart_pending = False
@@ -139,7 +141,7 @@ class HotReloader:
         short = [os.path.basename(f) for f in changed_files[:5]]
         _logger.info(f'Files changed: {", ".join(short)} — restarting...')
         print(f'\n  [HOT RELOAD] Files changed: {", ".join(short)}')
-        print(f'  [HOT RELOAD] Restarting server...\n')
+        print('  [HOT RELOAD] Restarting server...\n')
         self._restart_pending = True
 
     def run_with_reload(self, target_fn, *args, **kwargs):
@@ -170,7 +172,9 @@ class HotReloader:
                         # Child exited on its own
                         if ret != 0:
                             _logger.warning(f'Child exited with code {ret}, waiting for fix...')
-                            print(f'  [HOT RELOAD] Server crashed (exit {ret}). Waiting for file change...')
+                            print(
+                                f'  [HOT RELOAD] Server crashed (exit {ret}). Waiting for file change...'
+                            )
                             # Wait for a file change before restarting
                             self._restart_pending = False
                             while not self._restart_pending:

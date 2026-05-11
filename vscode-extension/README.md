@@ -18,8 +18,10 @@ Provides full IDE support for the EPL programming language.
 Install EPL first:
 
 ```bash
-pip install epl-lang
+pip install eplang
 ```
+
+The extension runs the `epl` executable installed by the Python package. If `epl` is not on your terminal `PATH`, set `epl.lsp.path` to the full path of `epl.exe` / `epl`.
 
 ## Commands
 
@@ -28,6 +30,9 @@ pip install epl-lang
 | `EPL: Run Current File` | `Ctrl+Shift+R` | Run the current `.epl` file |
 | `EPL: Type Check Current File` | — | Run type checker on current file |
 | `EPL: Format Current File` | — | Format using EPL formatter |
+| `EPL: Build Current File` | — | Compile current file |
+| `EPL: Lint Current File` | — | Lint current file |
+| `EPL: Profile Current File` | — | Profile current file |
 
 ## Settings
 
@@ -45,4 +50,4 @@ npm install
 npx @vscode/vsce package
 ```
 
-This creates `epl-lang-1.0.0.vsix` which can be installed in VS Code.
+This creates a versioned `.vsix` file which can be installed in VS Code.

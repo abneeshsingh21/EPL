@@ -1,0 +1,12 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Python Style File Icon (Just the standalone logo, no document background) -->
+  
+  <g transform="translate(28, 28) scale(1.8)">
+    <!-- The Dark Navy 'E' block (Solid and thick for readability at 16x16) -->
+    <!-- This shape mimics the 'E' in your uploaded logo -->
+    <path d="M10 10H70V30H40V50H60V70H40V90H70V110H10V10Z" fill="#0A192F"/>
+    
+    <!-- The Bright Electric Blue Slash (The dynamic element) -->
+    <path d="M95 10L35 110H65L125 10H95Z" fill="#007BFF"/>
+  </g>
+</svg>

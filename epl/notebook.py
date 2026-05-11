@@ -6,26 +6,35 @@ Usage:  python main.py notebook [--port 8888]
 """
 
 import io
-import os
-import sys
 import json
-import uuid
+import sys
 import threading
+import uuid
+
 from epl.errors import EPLError
+
 
 def _safe_error(e):
     """Return error message, sanitizing non-EPL exceptions."""
     return str(e) if isinstance(e, EPLError) else 'Internal error'
 
+
 # ── Public API ───────────────────────────────────────────
+
 
 def start_notebook(port: int = 8888, open_browser: bool = True):
     """Start the EPL Notebook server."""
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
     notebook_state = {
         'cells': [
-            {'id': _new_id(), 'type': 'code', 'source': 'display "Hello from EPL Notebook!"', 'output': '', 'error': None}
+            {
+                'id': _new_id(),
+                'type': 'code',
+                'source': 'display "Hello from EPL Notebook!"',
+                'output': '',
+                'error': None,
+            }
         ]
     }
     state_lock = threading.Lock()
@@ -103,12 +112,20 @@ def start_notebook(port: int = 8888, open_browser: bool = True):
             fmt = data.get('format', 'epl') if data else 'epl'
             with state_lock:
                 if fmt == 'epl':
-                    code = '\n\n'.join(c['source'] for c in notebook_state['cells']
-                                       if c['type'] == 'code' and c['source'].strip())
+                    code = '\n\n'.join(
+                        c['source']
+                        for c in notebook_state['cells']
+                        if c['type'] == 'code' and c['source'].strip()
+                    )
                     self._json_response(200, {'content': code, 'filename': 'notebook.epl'})
                 elif fmt == 'json':
-                    self._json_response(200, {'content': json.dumps(notebook_state, indent=2),
-                                              'filename': 'notebook.json'})
+                    self._json_response(
+                        200,
+                        {
+                            'content': json.dumps(notebook_state, indent=2),
+                            'filename': 'notebook.json',
+                        },
+                    )
                 else:
                     self._json_response(400, {'error': f'Unknown format: {fmt}'})
 
@@ -132,12 +149,13 @@ def start_notebook(port: int = 8888, open_browser: bool = True):
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
     server = HTTPServer(('127.0.0.1', port), NotebookHandler)
-    print(f"  EPL Notebook running at http://127.0.0.1:{port}")
-    print("  Press Ctrl+C to stop")
+    print(f'  EPL Notebook running at http://127.0.0.1:{port}')
+    print('  Press Ctrl+C to stop')
 
     if open_browser:
         try:
             import webbrowser
+
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
             pass
@@ -145,11 +163,12 @@ def start_notebook(port: int = 8888, open_browser: bool = True):
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n  Notebook stopped.")
+        print('\n  Notebook stopped.')
         server.server_close()
 
 
 # ── Helpers ──────────────────────────────────────────────
+
 
 def _new_id():
     return uuid.uuid4().hex[:8]
@@ -158,10 +177,10 @@ def _new_id():
 def _execute_epl(code: str) -> dict:
     """Execute EPL code and capture output."""
     try:
+        from epl.environment import Environment
+        from epl.interpreter import Interpreter
         from epl.lexer import Lexer
         from epl.parser import Parser
-        from epl.interpreter import Interpreter
-        from epl.environment import Environment
 
         lexer = Lexer(code)
         tokens = lexer.tokenize()
@@ -205,7 +224,7 @@ def _execute_epl(code: str) -> dict:
 
 # ── HTML Template ────────────────────────────────────────
 
-_NOTEBOOK_HTML = r'''<!DOCTYPE html>
+_NOTEBOOK_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -631,4 +650,4 @@ loadState();
 </script>
 </body>
 </html>
-'''
+"""

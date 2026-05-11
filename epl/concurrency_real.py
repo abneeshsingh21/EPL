@@ -8,7 +8,7 @@ Provides:
 - Thread creation and management
 - Thread pools with work queues
 - Mutex/RWLock/Semaphore synchronization
-- Channels for thread communication  
+- Channels for thread communication
 - Process spawning and management
 - Atomic operations
 - Parallel map/filter/reduce
@@ -16,24 +16,22 @@ Provides:
 - Timer and interval scheduling
 """
 
-import threading
-import multiprocessing
 import concurrent.futures
-import queue
-import time
 import os
+import queue
 import subprocess
-import signal
-from typing import Any, Optional, Callable
+import threading
+import time
 from dataclasses import dataclass
-
+from typing import Any, Callable, Optional
 
 # ─── Thread ───────────────────────────────────────────────────
+
 
 class EPLThread:
     """
     Real thread wrapper.
-    
+
     Usage from EPL:
         Set t To Thread(Given Do
             Print "Running in thread"
@@ -45,20 +43,19 @@ class EPLThread:
     _counter = 0
     _counter_lock = threading.Lock()
 
-    def __init__(self, target: Callable = None, args: tuple = (),
-                 name: str = None, daemon: bool = False):
+    def __init__(
+        self, target: Callable = None, args: tuple = (), name: str = None, daemon: bool = False
+    ):
         with EPLThread._counter_lock:
             EPLThread._counter += 1
             self._id = EPLThread._counter
 
-        self._name = name or f"EPLThread-{self._id}"
+        self._name = name or f'EPLThread-{self._id}'
         self._target = target
         self._args = args
         self._result = None
         self._error = None
-        self._thread = threading.Thread(
-            target=self._run, name=self._name, daemon=daemon
-        )
+        self._thread = threading.Thread(target=self._run, name=self._name, daemon=daemon)
         self._started = False
         self._finished = False
 
@@ -110,16 +107,17 @@ class EPLThread:
         return self._id
 
     def __repr__(self):
-        status = "alive" if self.is_alive else ("finished" if self._finished else "created")
+        status = 'alive' if self.is_alive else ('finished' if self._finished else 'created')
         return f"<Thread '{self._name}' {status}>"
 
 
 # ─── Thread Pool ──────────────────────────────────────────────
 
+
 class ThreadPool:
     """
     Thread pool for parallel task execution.
-    
+
     Usage from EPL:
         Set pool To ThreadPool(4)
         Set future To pool.submit(my_function, arg1, arg2)
@@ -129,9 +127,7 @@ class ThreadPool:
 
     def __init__(self, max_workers: int = None):
         self._max_workers = max_workers or min(32, (os.cpu_count() or 1) + 4)
-        self._executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._max_workers
-        )
+        self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers)
 
     def submit(self, fn: Callable, *args) -> 'Future':
         """Submit a task and return a Future."""
@@ -178,21 +174,22 @@ class Future:
         self._future.add_done_callback(lambda f: fn(f.result()))
 
     def __repr__(self):
-        return f"<Future done={self.done}>"
+        return f'<Future done={self.done}>'
 
 
 # ─── Synchronization Primitives ───────────────────────────────
 
+
 class Mutex:
     """
     Mutual exclusion lock.
-    
+
     Usage from EPL:
         Set lock To Mutex()
         lock.acquire()
         // critical section
         lock.release()
-        
+
         // Or with context manager style:
         lock.with(Given Do
             // critical section
@@ -314,10 +311,11 @@ class Event:
 
 # ─── Channel ─────────────────────────────────────────────────
 
+
 class Channel:
     """
     Thread-safe communication channel (like Go channels).
-    
+
     Usage from EPL:
         Set ch To Channel(10)  // buffered channel
         ch.send("hello")
@@ -334,7 +332,7 @@ class Channel:
     def send(self, value, timeout: float = None):
         """Send a value to the channel."""
         if self._closed:
-            raise RuntimeError("Cannot send on closed channel")
+            raise RuntimeError('Cannot send on closed channel')
         self._queue.put(value, timeout=timeout)
 
     def receive(self, timeout: float = None):
@@ -344,7 +342,7 @@ class Channel:
         except queue.Empty:
             if self._closed:
                 return None
-            raise TimeoutError("Channel receive timed out")
+            raise TimeoutError('Channel receive timed out')
 
     def try_send(self, value) -> bool:
         """Non-blocking send. Returns True if sent."""
@@ -388,6 +386,7 @@ class Channel:
 
 # ─── Atomic Operations ────────────────────────────────────────
 
+
 class AtomicInt:
     """Thread-safe integer with atomic operations."""
 
@@ -425,7 +424,7 @@ class AtomicInt:
         return self.get()
 
     def __repr__(self):
-        return f"<AtomicInt value={self.get()}>"
+        return f'<AtomicInt value={self.get()}>'
 
 
 class AtomicBool:
@@ -451,10 +450,11 @@ class AtomicBool:
 
 # ─── Wait Group ───────────────────────────────────────────────
 
+
 class WaitGroup:
     """
     Wait for a collection of tasks to finish (like Go's sync.WaitGroup).
-    
+
     Usage from EPL:
         Set wg To WaitGroup()
         wg.add(3)
@@ -492,10 +492,11 @@ class WaitGroup:
 
 # ─── Process Management ──────────────────────────────────────
 
+
 class Process:
     """
     Spawn and manage OS processes.
-    
+
     Usage from EPL:
         Set p To Process("python", ["-c", "print('hello')"])
         p.start()
@@ -503,8 +504,14 @@ class Process:
         Print output.stdout
     """
 
-    def __init__(self, command: str, args: list = None, cwd: str = None,
-                 env: dict = None, shell: bool = False):
+    def __init__(
+        self,
+        command: str,
+        args: list = None,
+        cwd: str = None,
+        env: dict = None,
+        shell: bool = False,
+    ):
         self.command = command
         self.args = args or []
         self.cwd = cwd
@@ -577,6 +584,7 @@ class Process:
 @dataclass
 class ProcessResult:
     """Result of a completed process."""
+
     exit_code: int
     stdout: str
     stderr: str
@@ -586,10 +594,11 @@ class ProcessResult:
         return self.exit_code == 0
 
     def __repr__(self):
-        return f"<ProcessResult code={self.exit_code}>"
+        return f'<ProcessResult code={self.exit_code}>'
 
 
 # ─── Timer and Interval ──────────────────────────────────────
+
 
 class Timer:
     """Execute a function after a delay."""
@@ -637,6 +646,7 @@ class Interval:
 
 # ─── Parallel Operations ─────────────────────────────────────
 
+
 def parallel_map(fn: Callable, items: list, max_workers: int = None) -> list:
     """Apply function to items in parallel using thread pool."""
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -665,9 +675,7 @@ def race(*tasks) -> Any:
     """Run tasks in parallel, return first result."""
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(task) for task in tasks]
-        done, _ = concurrent.futures.wait(
-            futures, return_when=concurrent.futures.FIRST_COMPLETED
-        )
+        done, _ = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
         return done.pop().result()
 
 
@@ -685,6 +693,7 @@ def all_settled(*tasks) -> list:
 
 
 # ─── Convenience Functions ────────────────────────────────────
+
 
 def run_in_thread(fn: Callable, *args) -> EPLThread:
     """Quick way to run a function in a new thread."""
@@ -722,9 +731,8 @@ def run_command(command: str, shell: bool = True, timeout: float = None) -> Proc
     """Run a shell command and return result."""
     try:
         result = subprocess.run(
-            command, shell=shell, capture_output=True, text=True,
-            timeout=timeout
+            command, shell=shell, capture_output=True, text=True, timeout=timeout
         )
         return ProcessResult(result.returncode, result.stdout, result.stderr)
     except subprocess.TimeoutExpired:
-        return ProcessResult(-1, "", "Command timed out")
+        return ProcessResult(-1, '', 'Command timed out')

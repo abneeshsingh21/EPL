@@ -2,9 +2,10 @@
 EPL HTML Generator (v0.5)
 Converts PageDef and HtmlElement AST nodes into styled HTML.
 """
-import re
-from epl import ast_nodes as ast
 
+import re
+
+from epl import ast_nodes as ast
 
 # Modern Premium CSS - Professional Component Design
 STYLES = """
@@ -527,7 +528,7 @@ html {
 
 def generate_html(page_def, data_store=None, form_data=None):
     """Convert a PageDef AST node into a full HTML page string."""
-    title = page_def.title if isinstance(page_def, ast.PageDef) else "EPL Page"
+    title = page_def.title if isinstance(page_def, ast.PageDef) else 'EPL Page'
     elements = page_def.elements if isinstance(page_def, ast.PageDef) else []
     store = data_store if data_store is not None else {}
 
@@ -557,7 +558,13 @@ def _esc(text):
     """HTML-escape text."""
     if not isinstance(text, str):
         return str(text)
-    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;').replace("'", '&#x27;')
+    return (
+        text.replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;')
+        .replace('"', '&quot;')
+        .replace("'", '&#x27;')
+    )
 
 
 def _safe_href(url):
@@ -620,13 +627,18 @@ def _render_element(elem, data_store=None, form_data=None):
 
     if tag == 'form':
         action = attrs.get('action', '')
-        children_html = '\n'.join(_render_element(c, store, form_data) for c in (elem.children or []))
+        children_html = '\n'.join(
+            _render_element(c, store, form_data) for c in (elem.children or [])
+        )
         return f'<form action="{_esc(action)}" method="POST">\n{children_html}\n<button type="submit" class="btn">Submit</button>\n</form>'
 
     if tag == 'list':
         # content is a ListLiteral or evaluated list
         if isinstance(content, ast.ListLiteral):
-            items = [f'<li>{_esc(e.value if hasattr(e, "value") else str(e))}</li>' for e in content.elements]
+            items = [
+                f'<li>{_esc(e.value if hasattr(e, "value") else str(e))}</li>'
+                for e in content.elements
+            ]
         elif isinstance(content, list):
             items = [f'<li>{_esc(str(item))}</li>' for item in content]
         else:
@@ -661,12 +673,15 @@ def _render_element(elem, data_store=None, form_data=None):
 def _resolve_store_templates(text, data_store):
     """Replace $count{collection} and $items{collection} in text."""
     import re
+
     def replace_count(m):
         coll = m.group(1)
         return str(len(data_store.get(coll, [])))
+
     def replace_items(m):
         coll = m.group(1)
         return str(data_store.get(coll, []))
+
     text = re.sub(r'\$count\{(\w+)\}', replace_count, text)
     text = re.sub(r'\$items\{(\w+)\}', replace_items, text)
     return text

@@ -27,13 +27,15 @@ Usage:
     epl --help                   Show help
 """
 
-import sys
 import os
+import sys
 
 # Python version guard
 if sys.version_info < (3, 9):
-    print(f"EPL requires Python 3.9 or later (found {sys.version_info.major}.{sys.version_info.minor}).")
-    print("Please upgrade Python: https://python.org/downloads/")
+    print(
+        f'EPL requires Python 3.9 or later (found {sys.version_info.major}.{sys.version_info.minor}).'
+    )
+    print('Please upgrade Python: https://python.org/downloads/')
     sys.exit(1)
 
 # Ensure EPL root is on the path
@@ -45,17 +47,35 @@ from epl import __version__
 
 # ─── ANSI Colors ──────────────────────────────────────────
 
+
 def _color(code, text):
     if os.environ.get('NO_COLOR') or not sys.stdout.isatty():
         return text
-    return f"\033[{code}m{text}\033[0m"
+    return f'\033[{code}m{text}\033[0m'
 
-def _bold(t):    return _color('1', t)
-def _green(t):   return _color('32', t)
-def _cyan(t):    return _color('36', t)
-def _yellow(t):  return _color('33', t)
-def _red(t):     return _color('31', t)
-def _dim(t):     return _color('2', t)
+
+def _bold(t):
+    return _color('1', t)
+
+
+def _green(t):
+    return _color('32', t)
+
+
+def _cyan(t):
+    return _color('36', t)
+
+
+def _yellow(t):
+    return _color('33', t)
+
+
+def _red(t):
+    return _color('31', t)
+
+
+def _dim(t):
+    return _color('2', t)
 
 
 # ─── Banner ───────────────────────────────────────────────
@@ -191,7 +211,7 @@ HELP = f"""\
 
 
 def _print_version():
-    print(f"epl {__version__}")
+    print(f'epl {__version__}')
 
 
 def _print_help():
@@ -200,9 +220,11 @@ def _print_help():
 
 # ─── Project Helpers ──────────────────────────────────────
 
+
 def _load_project_manifest(path='.'):
     """Load epl.toml/epl.json project metadata if present."""
     from epl.package_manager import load_manifest
+
     try:
         return load_manifest(path)
     except Exception:
@@ -281,6 +303,7 @@ def _legacy_dispatch(argv):
 
 # ─── Command Dispatch ─────────────────────────────────────
 
+
 def cli_main(argv=None):
     """Main CLI entry point for the `epl` command."""
     if argv is None:
@@ -305,7 +328,16 @@ def cli_main(argv=None):
     clean_args = []
     i = 0
     while i < len(argv):
-        if argv[i] in ('--strict', '--no-color', '--verbose', '--quiet', '--sandbox', '--interpret', '--json'):
+        if argv[i] in (
+            '--strict',
+            '--no-color',
+            '--verbose',
+            '--quiet',
+            '--sandbox',
+            '--interpret',
+            '--json',
+            '--ai-errors',
+        ):
             flags.add(argv[i])
         else:
             clean_args.append(argv[i])
@@ -316,6 +348,7 @@ def cli_main(argv=None):
 
     # Setup logging
     import logging
+
     if '--verbose' in flags:
         logging.basicConfig(level=logging.DEBUG, format='%(name)s: %(message)s')
     elif '--quiet' in flags:
@@ -332,96 +365,98 @@ def cli_main(argv=None):
 
     # Command dispatch table
     commands = {
-        'run':       lambda: _run_file(rest, flags),
-        'new':       lambda: _new_project(rest),
-        'build':     lambda: _build(rest, flags, 'build'),
-        'compile':   lambda: _build(rest, flags, 'compile'),
-        'wasm':      lambda: _wasm(rest),
-        'test':      lambda: _run_tests(rest, flags),
-        'repl':      lambda: _run_repl(flags),
-        'install':   lambda: _pkg_install(rest),
-        'use':       lambda: _pkg_install(rest),  # Alias: "epl use" = "epl install"
+        'run': lambda: _run_file(rest, flags),
+        'new': lambda: _new_project(rest),
+        'build': lambda: _build(rest, flags, 'build'),
+        'compile': lambda: _build(rest, flags, 'compile'),
+        'wasm': lambda: _wasm(rest),
+        'test': lambda: _run_tests(rest, flags),
+        'repl': lambda: _run_repl(flags),
+        'install': lambda: _pkg_install(rest),
+        'use': lambda: _pkg_install(rest),  # Alias: "epl use" = "epl install"
         'uninstall': lambda: _pkg_uninstall(rest),
-        'packages':  lambda: _pkg_list(),
+        'packages': lambda: _pkg_list(),
         'gitinstall': lambda: _git_install(rest),
         'gitremove': lambda: _git_remove(rest),
-        'gitdeps':   lambda: _git_list(),
+        'gitdeps': lambda: _git_list(),
         'pyinstall': lambda: _py_install(rest),
-        'pyremove':  lambda: _py_remove(rest),
-        'pydeps':    lambda: _py_list(),
-        'modules':   lambda: _list_modules(),
-        'github':    lambda: _github(rest),
-        'init':      lambda: _init_project(rest),
-        'search':    lambda: _pkg_search(rest),
-        'add':       lambda: _pkg_add(rest),
-        'remove':    lambda: _pkg_remove(rest),
-        'lock':      lambda: _pkg_lock(rest),
-        'update':    lambda: _pkg_update(rest),
-        'tree':      lambda: _pkg_tree(rest),
-        'outdated':  lambda: _pkg_outdated(rest),
-        'audit':     lambda: _pkg_audit(rest),
-        'migrate':   lambda: _pkg_migrate(rest),
-        'cache':     lambda: _pkg_cache(rest),
-        'publish':   lambda: _pkg_publish(rest),
-        'info':      lambda: _pkg_info(rest),
-        'stats':     lambda: _pkg_stats(rest),
-        'serve':     lambda: _serve(rest),
-        'deploy':    lambda: _deploy(rest),
-        'fmt':       lambda: _format(rest),
-        'lint':      lambda: _lint(rest),
-        'check':     lambda: _check(rest, flags),
-        'docs':      lambda: _docs(rest),
-        'debug':     lambda: _debug(rest, flags),
-        'js':        lambda: _transpile_js(rest),
-        'node':      lambda: _transpile_node(rest),
-        'kotlin':    lambda: _transpile_kotlin(rest),
-        'python':    lambda: _transpile_python(rest),
-        'android':   lambda: _android(rest),
-        'ios':       lambda: _ios(rest),
-        'desktop':   lambda: _desktop(rest),
-        'web':       lambda: _web(rest),
-        'gui':       lambda: _gui(rest),
-        'ir':        lambda: _show_ir(rest),
-        'vm':        lambda: _run_vm(rest, flags),
+        'pyremove': lambda: _py_remove(rest),
+        'pydeps': lambda: _py_list(),
+        'modules': lambda: _list_modules(),
+        'github': lambda: _github(rest),
+        'init': lambda: _init_project(rest),
+        'search': lambda: _pkg_search(rest),
+        'add': lambda: _pkg_add(rest),
+        'remove': lambda: _pkg_remove(rest),
+        'lock': lambda: _pkg_lock(rest),
+        'update': lambda: _pkg_update(rest),
+        'tree': lambda: _pkg_tree(rest),
+        'outdated': lambda: _pkg_outdated(rest),
+        'audit': lambda: _pkg_audit(rest),
+        'migrate': lambda: _pkg_migrate(rest),
+        'cache': lambda: _pkg_cache(rest),
+        'publish': lambda: _pkg_publish(rest),
+        'info': lambda: _pkg_info(rest),
+        'stats': lambda: _pkg_stats(rest),
+        'serve': lambda: _serve(rest),
+        'deploy': lambda: _deploy(rest),
+        'fmt': lambda: _format(rest),
+        'lint': lambda: _lint(rest),
+        'check': lambda: _check(rest, flags),
+        'docs': lambda: _docs(rest),
+        'debug': lambda: _debug(rest, flags),
+        'js': lambda: _transpile_js(rest),
+        'node': lambda: _transpile_node(rest),
+        'kotlin': lambda: _transpile_kotlin(rest),
+        'python': lambda: _transpile_python(rest),
+        'android': lambda: _android(rest),
+        'ios': lambda: _ios(rest),
+        'desktop': lambda: _desktop(rest),
+        'web': lambda: _web(rest),
+        'gui': lambda: _gui(rest),
+        'ir': lambda: _show_ir(rest),
+        'vm': lambda: _run_vm(rest, flags),
         'micropython': lambda: _micropython(rest),
         'benchmark': lambda: _benchmark(rest),
-        'profile':   lambda: _profile(rest),
-        'bench':     lambda: _bench(rest, flags),
-        'site':      lambda: _site(rest),
+        'profile': lambda: _profile(rest),
+        'bench': lambda: _bench(rest, flags),
+        'site': lambda: _site(rest),
         'playground': lambda: _playground(rest),
-        'notebook':  lambda: _notebook(rest),
-        'blocks':    lambda: _blocks(rest),
-        'copilot':   lambda: _copilot(rest),
-        'lsp':       lambda: _start_lsp(rest),
-        'ai':        lambda: _ai(rest),
-        'gen':       lambda: _ai_gen(rest),
-        'explain':   lambda: _ai_explain(rest),
-        'package':   lambda: _package(rest),
-        'cloud':     lambda: _cloud(rest),
-        'train':     lambda: _train(rest),
-        'model':     lambda: _model(rest),
-        'resolve':   lambda: _resolve(),
+        'notebook': lambda: _notebook(rest),
+        'blocks': lambda: _blocks(rest),
+        'copilot': lambda: _copilot(rest),
+        'lsp': lambda: _start_lsp(rest),
+        'ai': lambda: _ai(rest),
+        'gen': lambda: _ai_gen(rest),
+        'explain': lambda: _ai_explain(rest),
+        'fix': lambda: _fix_file(rest, flags),
+        'package': lambda: _package(rest),
+        'cloud': lambda: _cloud(rest),
+        'train': lambda: _train(rest),
+        'model': lambda: _model(rest),
+        'resolve': lambda: _resolve(),
         'workspace': lambda: _workspace(rest),
-        'ci':        lambda: _ci(rest),
+        'ci': lambda: _ci(rest),
         'sync-index': lambda: _sync_index(rest),
-        'upgrade':   lambda: _upgrade(),
-        'version':   lambda: print(f'EPL v{__version__}'),
+        'upgrade': lambda: _upgrade(),
+        'version': lambda: print(f'EPL v{__version__}'),
     }
 
     if command in commands:
         try:
             return commands[command]() or 0
         except KeyboardInterrupt:
-            print(f"\n{_dim('Interrupted.')}")
+            print(f'\n{_dim("Interrupted.")}')
             return 130
         except SystemExit as e:
             return e.code if isinstance(e.code, int) else 1
         except Exception as e:
             from epl.errors import EPLError
+
             if isinstance(e, EPLError):
                 print(str(e), file=sys.stderr)
             else:
-                print(f"{_red('Error:')} {e}", file=sys.stderr)
+                print(f'{_red("Error:")} {e}', file=sys.stderr)
             return 1
 
     # Default: treat as filename
@@ -429,54 +464,115 @@ def cli_main(argv=None):
         try:
             return _run_file([command] + rest, flags) or 0
         except KeyboardInterrupt:
-            print(f"\n{_dim('Interrupted.')}")
+            print(f'\n{_dim("Interrupted.")}')
             return 130
         except Exception as e:
             from epl.errors import EPLError
+
             if isinstance(e, EPLError):
                 print(str(e), file=sys.stderr)
             else:
-                print(f"{_red('Error:')} {e}", file=sys.stderr)
+                print(f'{_red("Error:")} {e}', file=sys.stderr)
             return 1
 
-    print(f"{_red('Unknown command:')} {command}")
-    print(f"Run {_bold('epl --help')} for usage.")
+    print(f'{_red("Unknown command:")} {command}')
+    print(f'Run {_bold("epl --help")} for usage.')
     return 1
 
 
 # ─── Run ──────────────────────────────────────────────────
 
+
 def _run_file(args, flags):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
-        print("Usage: epl run <file.epl>")
-        print("       or run from a directory containing epl.toml / epl.json")
+        print(f'{_red("Error:")} No file specified.')
+        print('Usage: epl run <file.epl>')
+        print('       or run from a directory containing epl.toml / epl.json')
         return 1
 
     filename = args[0]
     if not os.path.isfile(filename):
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
 
     from epl.runtime_support import run_file
 
-    return 0 if run_file(
-        filename,
-        strict='--strict' in flags,
-        safe_mode='--sandbox' in flags,
-        force_interpret='--interpret' in flags,
-        json_errors='--json' in flags,
-    ) else 1
+    return (
+        0
+        if run_file(
+            filename,
+            strict='--strict' in flags,
+            safe_mode='--sandbox' in flags,
+            force_interpret='--interpret' in flags,
+            json_errors='--json' in flags,
+            ai_errors='--ai-errors' in flags,
+        )
+        else 1
+    )
+
+
+def _fix_file(args, flags):
+    """Run a file, catch errors, and show AI-powered fix suggestions.
+
+    Usage: epl fix <file.epl>
+    Always shows the error explainer output, with AI enhancement when available.
+    """
+    args = _resolve_target_args(args)
+    if not args:
+        print(f'{_red("Error:")} No file specified.')
+        print('Usage: epl fix <file.epl>')
+        return 1
+
+    filename = args[0]
+    if not os.path.isfile(filename):
+        print(f'{_red("Error:")} File not found: {filename}')
+        return 1
+
+    with open(filename, 'r', encoding='utf-8') as f:
+        source = f.read()
+
+    from epl.errors import EPLError, set_source_context
+
+    set_source_context(source, filename)
+
+    try:
+        from epl.interpreter import Interpreter
+        from epl.lexer import Lexer
+        from epl.parser import Parser
+
+        tokens = Lexer(source).tokenize()
+        program = Parser(tokens).parse()
+        interpreter = Interpreter()
+        interpreter.execute(program)
+        print(f'\n  {_green("[OK]")} No errors found in {_bold(filename)}')
+        return 0
+    except EPLError as exc:
+        print(f'\n{exc}', file=sys.stderr)
+
+        try:
+            from epl.error_explainer import explain, format_explanation
+
+            exp = explain(exc, source=source, ai=True)
+            print(format_explanation(exp), file=sys.stderr)
+        except Exception:
+            pass
+        return 1
+    except Exception as exc:
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
+        return 1
 
 
 # ─── New Project ──────────────────────────────────────────
 
+
 def _new_project(args):
     """Create a new EPL project with full structure."""
     if not args:
-        print(f"{_red('Error:')} No project name specified.")
-        print(f"Usage: epl new <project-name> [--template basic|web|api|cli|lib|frontend|auth|chatbot|android|ios|fullstack]")
+        print(f'{_red("Error:")} No project name specified.')
+        print(
+            'Usage: epl new <project-name> [--template basic|web|api|cli|lib|frontend|auth|chatbot|android|ios|fullstack]'
+        )
         return 1
 
     name = args[0]
@@ -484,21 +580,36 @@ def _new_project(args):
     if '--template' in args:
         idx = args.index('--template')
         if idx + 1 >= len(args):
-            print(f"{_red('Error:')} Missing template name after --template.")
+            print(f'{_red("Error:")} Missing template name after --template.')
             return 1
         template = args[idx + 1].lower()
 
-    valid_templates = {'basic', 'web', 'api', 'cli', 'lib', 'frontend', 'auth', 'chatbot', 'android', 'ios', 'fullstack'}
+    valid_templates = {
+        'basic',
+        'web',
+        'api',
+        'cli',
+        'lib',
+        'frontend',
+        'auth',
+        'chatbot',
+        'android',
+        'ios',
+        'fullstack',
+    }
     if template not in valid_templates:
-        print(f"{_red('Error:')} Unknown template: {template}")
-        print("Available templates: basic, web, api, cli, lib, frontend, auth, chatbot, android, ios, fullstack")
+        print(f'{_red("Error:")} Unknown template: {template}')
+        print(
+            'Available templates: basic, web, api, cli, lib, frontend, auth, chatbot, android, ios, fullstack'
+        )
         return 1
 
     # Validate project name
     import re
+
     if not re.match(r'^[a-zA-Z][a-zA-Z0-9_-]*$', name):
-        print(f"{_red('Error:')} Invalid project name: {name}")
-        print("Use letters, digits, hyphens, underscores. Must start with a letter.")
+        print(f'{_red("Error:")} Invalid project name: {name}')
+        print('Use letters, digits, hyphens, underscores. Must start with a letter.')
         return 1
 
     if os.path.exists(name):
@@ -515,6 +626,7 @@ def _new_project(args):
 
     # epl.toml manifest
     from epl.package_manager import _dump_toml, _manifest_to_toml
+
     toml_data = _manifest_to_toml(manifest_data)
     with open(os.path.join(name, 'epl.toml'), 'w', encoding='utf-8') as f:
         f.write(_dump_toml(toml_data) + '\n')
@@ -534,29 +646,29 @@ def _new_project(args):
         f.write('# Python\n__pycache__/\n*.pyc\n.venv/\n')
         f.write('# IDE\n.vscode/\n.idea/\n')
 
-    print(f"\n  {_green('Created')} EPL project: {_bold(name)} {_dim(f'[{template}]')}")
-    print(f"\n  {_dim('Project structure:')}")
-    print(f"    {name}/")
-    print(f"    ├── epl.toml          Project manifest")
-    print(f"    ├── README.md         Documentation")
-    print(f"    ├── .gitignore        Git ignore rules")
-    print(f"    ├── src/")
-    print(f"    │   └── main.epl      Entry point")
-    print(f"    ├── tests/")
-    print(f"    │   └── test_main.epl Test file")
-    print(f"    └── lib/              Local libraries")
-    print(f"\n  {_dim('Get started:')}")
-    print(f"    cd {name}")
-    print(f"    epl install                  {_dim('# sync EPL, GitHub, and Python dependencies')}")
-    print(f"    epl run                      {_dim('# uses the manifest entrypoint')}")
+    print(f'\n  {_green("Created")} EPL project: {_bold(name)} {_dim(f"[{template}]")}')
+    print(f'\n  {_dim("Project structure:")}')
+    print(f'    {name}/')
+    print('    ├── epl.toml          Project manifest')
+    print('    ├── README.md         Documentation')
+    print('    ├── .gitignore        Git ignore rules')
+    print('    ├── src/')
+    print('    │   └── main.epl      Entry point')
+    print('    ├── tests/')
+    print('    │   └── test_main.epl Test file')
+    print('    └── lib/              Local libraries')
+    print(f'\n  {_dim("Get started:")}')
+    print(f'    cd {name}')
+    print(f'    epl install                  {_dim("# sync EPL, GitHub, and Python dependencies")}')
+    print(f'    epl run                      {_dim("# uses the manifest entrypoint")}')
     if template in ('web', 'api', 'lib', 'frontend', 'auth', 'chatbot', 'fullstack'):
-        print(f"    epl test tests/             {_dim('# run the starter tests')}")
+        print(f'    epl test tests/             {_dim("# run the starter tests")}')
     if template in ('web', 'api', 'frontend', 'auth', 'chatbot', 'fullstack'):
-        print(f"    epl serve                   {_dim('# boot the generated web app')}")
+        print(f'    epl serve                   {_dim("# boot the generated web app")}')
     if template in ('android', 'ios'):
-        print(f"    epl {template} src/main.epl        {_dim('# generate the mobile project')}")
-    print(f"    epl pyinstall requests       {_dim('# add a Python package for `Use python`')}")
-    print(f"    epl gitinstall owner/repo    {_dim('# add a GitHub EPL package')}")
+        print(f'    epl {template} src/main.epl        {_dim("# generate the mobile project")}')
+    print(f'    epl pyinstall requests       {_dim("# add a Python package for `Use python`")}')
+    print(f'    epl gitinstall owner/repo    {_dim("# add a GitHub EPL package")}')
     print()
     return 0
 
@@ -564,15 +676,15 @@ def _new_project(args):
 def _project_template(name, template):
     dependencies = {}
     scripts = {
-        "start": "epl run src/main.epl",
-        "test": "epl test tests/",
-        "build": "epl build src/main.epl",
+        'start': 'epl run src/main.epl',
+        'test': 'epl test tests/',
+        'build': 'epl build src/main.epl',
     }
-    description = f"{name} — an EPL project"
+    description = f'{name} — an EPL project'
 
     if template == 'web':
-        description = f"{name} — EPL web application"
-        scripts["serve"] = "epl serve src/main.epl"
+        description = f'{name} — EPL web application'
+        scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} web app template\n'
             'Create WebApp called app\n\n'
@@ -596,16 +708,16 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl install",
-                "epl serve",
-                "epl run",
+                'epl install',
+                'epl serve',
+                'epl run',
             ],
             "Starter web app using EPL's native `Create WebApp` routing DSL.",
         )
     elif template == 'api':
-        description = f"{name} — EPL API service"
-        dependencies = {"epl-db": f"^{__version__}"}
-        scripts["serve"] = "epl serve src/main.epl"
+        description = f'{name} — EPL API service'
+        dependencies = {'epl-db': f'^{__version__}'}
+        scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} API template\n'
             'Import "epl-db"\n\n'
@@ -629,14 +741,14 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl install",
-                "epl serve",
-                "epl run",
+                'epl install',
+                'epl serve',
+                'epl run',
             ],
-            "Starter API app using the native WebApp DSL and the supported `epl-db` package.",
+            'Starter API app using the native WebApp DSL and the supported `epl-db` package.',
         )
     elif template == 'cli':
-        description = f"{name} — EPL CLI tool"
+        description = f'{name} — EPL CLI tool'
         main_source = (
             f'Note: {name} CLI template\n\n'
             f'Say "Welcome to {name}."\n'
@@ -652,14 +764,14 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl run",
-                "epl build",
-                "epl test tests/",
+                'epl run',
+                'epl build',
+                'epl test tests/',
             ],
-            "Starter CLI project with a simple command-line oriented entrypoint.",
+            'Starter CLI project with a simple command-line oriented entrypoint.',
         )
     elif template == 'lib':
-        description = f"{name} — EPL library package"
+        description = f'{name} — EPL library package'
         main_source = (
             f'Note: {name} library template\n\n'
             'Define Function greet Takes name\n'
@@ -677,15 +789,15 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl install",
-                "epl test tests/",
-                "epl run src/main.epl",
+                'epl install',
+                'epl test tests/',
+                'epl run src/main.epl',
             ],
             "Starter reusable EPL library with tests using EPL's native test runner.",
         )
     elif template == 'frontend':
-        description = f"{name} — EPL frontend experience"
-        scripts["serve"] = "epl serve src/main.epl"
+        description = f'{name} — EPL frontend experience'
+        scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} frontend template\n\n'
             'Create hero_title equal to "Build a bold frontend in EPL"\n'
@@ -731,16 +843,16 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl install",
-                "epl serve",
-                "epl test tests/",
+                'epl install',
+                'epl serve',
+                'epl test tests/',
             ],
             "Creative frontend starter using EPL's native `Create WebApp` routes and server-rendered page DSL.",
         )
     elif template == 'auth':
-        description = f"{name} — EPL auth starter"
-        dependencies = {"epl-db": f"^{__version__}"}
-        scripts["serve"] = "epl serve src/main.epl"
+        description = f'{name} — EPL auth starter'
+        dependencies = {'epl-db': f'^{__version__}'}
+        scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} auth template\n'
             'Import "epl-db"\n\n'
@@ -804,15 +916,15 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl install",
-                "epl serve",
-                "epl test tests/",
+                'epl install',
+                'epl serve',
+                'epl test tests/',
             ],
-            "Auth/API starter using the native WebApp DSL, request context bindings, and the supported `epl-db` package.",
+            'Auth/API starter using the native WebApp DSL, request context bindings, and the supported `epl-db` package.',
         )
     elif template == 'chatbot':
-        description = f"{name} — EPL chatbot starter"
-        scripts["serve"] = "epl serve src/main.epl"
+        description = f'{name} — EPL chatbot starter'
+        scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} chatbot template\n'
             'Use python "epl.ai" as ai\n\n'
@@ -855,15 +967,15 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl install",
-                "epl serve",
-                "epl test tests/",
+                'epl install',
+                'epl serve',
+                'epl test tests/',
             ],
             "Chatbot starter using EPL's web runtime plus the built-in AI bridge, with a graceful fallback when no model backend is configured.",
         )
     elif template == 'android':
-        description = f"{name} — EPL Android app"
-        scripts["android"] = f"epl android src/main.epl --name '{name}' --build"
+        description = f'{name} — EPL Android app'
+        scripts['android'] = f"epl android src/main.epl --name '{name}' --build"
         main_source = (
             f'Note: {name} — Android app template\n'
             f'Note: Build with: epl android src/main.epl --name "{name}" --build\n\n'
@@ -883,16 +995,16 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl run",
+                'epl run',
                 f"epl android src/main.epl --name '{name}' --build",
-                "epl test tests/",
+                'epl test tests/',
             ],
-            "Starter Android app. Generates a Kotlin/Jetpack Compose project and builds an APK.",
+            'Starter Android app. Generates a Kotlin/Jetpack Compose project and builds an APK.',
         )
     elif template == 'ios':
-        description = f"{name} — EPL iOS app"
+        description = f'{name} — EPL iOS app'
         bundle_slug = name.lower().replace('_', '-')
-        scripts["ios"] = f'epl ios src/main.epl --name "{name}" --bundle-id "com.epl.{bundle_slug}"'
+        scripts['ios'] = f'epl ios src/main.epl --name "{name}" --bundle-id "com.epl.{bundle_slug}"'
         main_source = (
             f'Note: {name} — iOS app template\n'
             f'Note: Generate a SwiftUI project with: epl ios src/main.epl --name "{name}" --bundle-id "com.epl.{bundle_slug}"\n\n'
@@ -912,16 +1024,16 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl run",
+                'epl run',
                 f'epl ios src/main.epl --name "{name}" --bundle-id "com.epl.{bundle_slug}"',
-                "epl test tests/",
+                'epl test tests/',
             ],
-            "Starter iOS app. Generates a SwiftUI/Xcode project from EPL source.",
+            'Starter iOS app. Generates a SwiftUI/Xcode project from EPL source.',
         )
     elif template == 'fullstack':
-        description = f"{name} — EPL full-stack web app"
-        dependencies = {"epl-db": f"^{__version__}"}
-        scripts["serve"] = "epl serve src/main.epl"
+        description = f'{name} — EPL full-stack web app'
+        dependencies = {'epl-db': f'^{__version__}'}
+        scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} — Full-stack web app with database\n\n'
             'Import "epl-db"\n\n'
@@ -954,11 +1066,11 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl install",
-                "epl serve",
-                "epl run",
+                'epl install',
+                'epl serve',
+                'epl run',
             ],
-            "Full-stack web app with native routes, a server-rendered page, and SQLite-backed APIs.",
+            'Full-stack web app with native routes, a server-rendered page, and SQLite-backed APIs.',
         )
     else:
         main_source = (
@@ -976,21 +1088,21 @@ def _project_template(name, template):
             name,
             template,
             [
-                "epl run",
-                "epl test tests/",
-                "epl build",
+                'epl run',
+                'epl test tests/',
+                'epl build',
             ],
-            "Starter EPL project.",
+            'Starter EPL project.',
         )
 
     manifest = {
-        "name": name,
-        "version": "1.0.0",
-        "description": description,
-        "entry": "src/main.epl",
-        "author": "",
-        "scripts": scripts,
-        "dependencies": dependencies,
+        'name': name,
+        'version': '1.0.0',
+        'description': description,
+        'entry': 'src/main.epl',
+        'author': '',
+        'scripts': scripts,
+        'dependencies': dependencies,
     }
     return manifest, main_source, test_source, readme_body
 
@@ -1025,10 +1137,11 @@ def _template_readme(name, template, commands, summary):
 
 # ─── Build / Compile ─────────────────────────────────────
 
+
 def _build(args, flags, command='build'):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified and no epl.toml/epl.json project was found.")
+        print(f'{_red("Error:")} No file specified and no epl.toml/epl.json project was found.')
         return 1
     filename = args[0]
     opt_level = 2
@@ -1062,23 +1175,28 @@ def _build(args, flags, command='build'):
             target = arg.split('=', 1)[1]
             i += 1
             continue
-        print(f"{_red('Error:')} Unknown {command} option: {arg}")
+        print(f'{_red("Error:")} Unknown {command} option: {arg}')
         return 1
 
     try:
         from epl.runtime_support import compile_file
 
-        return 0 if compile_file(filename, opt_level=opt_level, static=static_link, target=target) else 1
+        return (
+            0
+            if compile_file(filename, opt_level=opt_level, static=static_link, target=target)
+            else 1
+        )
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _run_tests(args, flags):
     from fnmatch import fnmatch
+
     from epl.test_framework import EPLTestRunner
 
     targets = list(args)
@@ -1108,10 +1226,10 @@ def _run_tests(args, flags):
                 seen.add(normalized)
                 discovered.append(target)
         else:
-            print(f"{_yellow('Skip:')} {target} is not an .epl file or directory")
+            print(f'{_yellow("Skip:")} {target} is not an .epl file or directory')
 
     if not discovered:
-        print(f"{_red('Error:')} No EPL test files found.")
+        print(f'{_red("Error:")} No EPL test files found.')
         return 1
 
     runner = EPLTestRunner(
@@ -1132,7 +1250,7 @@ def _run_repl(flags):
         run_repl()
         return 0
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
@@ -1148,17 +1266,21 @@ def _pkg_install(args):
         return 0 if install_dependencies('.', frozen=frozen) else 1
 
     if frozen:
-        print(f"{_red('Error:')} `--frozen` applies to project dependency installs, not ad hoc package installs.")
+        print(
+            f'{_red("Error:")} `--frozen` applies to project dependency installs, not ad hoc package installs.'
+        )
         return 1
 
-    return 0 if install_package(clean_args[0], save=not no_save, local=local, project_path='.') else 1
+    return (
+        0 if install_package(clean_args[0], save=not no_save, local=local, project_path='.') else 1
+    )
 
 
 def _pkg_uninstall(args):
     from epl.package_manager import uninstall_package
 
     if not args:
-        print(f"{_red('Error:')} No package specified.")
+        print(f'{_red("Error:")} No package specified.')
         return 1
     return 0 if uninstall_package(args[0]) else 1
 
@@ -1168,12 +1290,12 @@ def _pkg_list():
 
     packages = list_packages()
     if packages:
-        print("\n  Installed Packages")
-        print("  " + "-" * 40)
+        print('\n  Installed Packages')
+        print('  ' + '-' * 40)
         for name, version, desc in packages:
-            print(f"  {name} @ {version}  {desc}")
+            print(f'  {name} @ {version}  {desc}')
     else:
-        print("  No packages installed.")
+        print('  No packages installed.')
     return 0
 
 
@@ -1181,14 +1303,14 @@ def _pkg_add(args):
     from epl.package_manager import add_dependency
 
     if not args:
-        print(f"{_red('Error:')} No package specified.")
-        print("Usage: epl add <package> [version] [--dev]")
+        print(f'{_red("Error:")} No package specified.')
+        print('Usage: epl add <package> [version] [--dev]')
         return 1
 
     dev = '--dev' in args
     clean_args = [arg for arg in args if not arg.startswith('--')]
     if not clean_args:
-        print(f"{_red('Error:')} No package specified.")
+        print(f'{_red("Error:")} No package specified.')
         return 1
 
     name = clean_args[0]
@@ -1200,8 +1322,8 @@ def _pkg_remove(args):
     from epl.package_manager import remove_dependency
 
     if not args:
-        print(f"{_red('Error:')} No package specified.")
-        print("Usage: epl remove <package>")
+        print(f'{_red("Error:")} No package specified.')
+        print('Usage: epl remove <package>')
         return 1
 
     return 0 if remove_dependency(args[0], path='.') else 1
@@ -1211,7 +1333,7 @@ def _pkg_tree(args):
     from epl.package_manager import print_dependency_tree
 
     if args:
-        print(f"{_red('Error:')} `epl tree` does not accept positional arguments.")
+        print(f'{_red("Error:")} `epl tree` does not accept positional arguments.')
         return 1
 
     print_dependency_tree('.')
@@ -1222,22 +1344,22 @@ def _pkg_search(args):
     from epl.package_manager import search_packages
 
     if not args:
-        print(f"{_red('Error:')} No search query specified.")
-        print("Usage: epl search <query>")
+        print(f'{_red("Error:")} No search query specified.')
+        print('Usage: epl search <query>')
         return 1
 
     results = search_packages(' '.join(args))
     if not results:
-        print("  No packages found.")
+        print('  No packages found.')
         return 0
 
-    print(f"\n  {_bold('Package Search Results')} ({len(results)}):")
-    print("  " + "-" * 72)
+    print(f'\n  {_bold("Package Search Results")} ({len(results)}):')
+    print('  ' + '-' * 72)
     for result in results:
         version = result.get('latest') or result.get('version', '?')
         source = result.get('source', 'unknown')
         description = result.get('description', '')
-        print(f"  {result['name']:<24} {version:<12} {source:<12} {description}")
+        print(f'  {result["name"]:<24} {version:<12} {source:<12} {description}')
     print()
     return 0
 
@@ -1246,7 +1368,7 @@ def _pkg_lock(args):
     from epl.package_manager import create_lockfile
 
     if args:
-        print(f"{_red('Error:')} `epl lock` does not accept positional arguments.")
+        print(f'{_red("Error:")} `epl lock` does not accept positional arguments.')
         return 1
     return 0 if create_lockfile('.') is not None else 1
 
@@ -1265,23 +1387,25 @@ def _pkg_outdated(args):
     from epl.package_manager import outdated_packages
 
     if args:
-        print(f"{_red('Error:')} `epl outdated` does not accept positional arguments.")
+        print(f'{_red("Error:")} `epl outdated` does not accept positional arguments.')
         return 1
 
     results = outdated_packages('.')
     if not results:
-        print("  All packages up to date.")
+        print('  All packages up to date.')
         return 0
 
-    print(f"  {'Package':<24} {'Current':<12} {'Latest':<12} {'Constraint':<14}")
-    print(f"  {'─' * 68}")
+    print(f'  {"Package":<24} {"Current":<12} {"Latest":<12} {"Constraint":<14}')
+    print(f'  {"─" * 68}')
     for item in results:
-        note = " major" if item.get('major_update') else ""
+        note = ' major' if item.get('major_update') else ''
         print(
-            f"  {item['name']:<24} {item['current']:<12} {item['latest']:<12} "
-            f"{item.get('constraint', '*'):<14}{note}"
+            f'  {item["name"]:<24} {item["current"]:<12} {item["latest"]:<12} '
+            f'{item.get("constraint", "*"):<14}{note}'
         )
-    print("\n  Run `epl update` to update compatible versions or `epl update --major` to allow major bumps.")
+    print(
+        '\n  Run `epl update` to update compatible versions or `epl update --major` to allow major bumps.'
+    )
     return 0
 
 
@@ -1289,24 +1413,24 @@ def _pkg_audit(args):
     from epl.package_manager import audit_packages
 
     if args:
-        print(f"{_red('Error:')} `epl audit` does not accept positional arguments.")
+        print(f'{_red("Error:")} `epl audit` does not accept positional arguments.')
         return 1
 
     results = audit_packages('.')
-    print(f"\n  {_bold('Package Audit')}")
-    print(f"  {'─' * 40}")
-    print(f"  Packages OK: {results['ok']}")
+    print(f'\n  {_bold("Package Audit")}')
+    print(f'  {"─" * 40}')
+    print(f'  Packages OK: {results["ok"]}')
     if results['warnings']:
-        print(f"  Warnings: {len(results['warnings'])}")
+        print(f'  Warnings: {len(results["warnings"])}')
         for warning in results['warnings']:
-            print(f"    - {warning}")
+            print(f'    - {warning}')
     if results['errors']:
-        print(f"  Errors: {len(results['errors'])}")
+        print(f'  Errors: {len(results["errors"])}')
         for error in results['errors']:
-            print(f"    - {error}")
+            print(f'    - {error}')
         return 1
     if not results['warnings']:
-        print("  No problems found.")
+        print('  No problems found.')
     return 0
 
 
@@ -1314,35 +1438,36 @@ def _pkg_migrate(args):
     from epl.package_manager import migrate_manifest_to_toml
 
     if args:
-        print(f"{_red('Error:')} `epl migrate` does not accept positional arguments.")
+        print(f'{_red("Error:")} `epl migrate` does not accept positional arguments.')
         return 1
 
     if migrate_manifest_to_toml('.'):
-        print("  Migration complete. You can now delete epl.json.")
+        print('  Migration complete. You can now delete epl.json.')
     else:
-        print("  Nothing to migrate (already using epl.toml or no epl.json found).")
+        print('  Nothing to migrate (already using epl.toml or no epl.json found).')
     return 0
 
 
 def _pkg_cache(args):
     import glob
+
     from epl.package_manager import CACHE_DIR, clean_cache
 
     subcommand = args[0] if args else 'info'
     if subcommand == 'clean':
         if len(args) > 1:
-            print(f"{_red('Error:')} `epl cache clean` does not accept additional arguments.")
+            print(f'{_red("Error:")} `epl cache clean` does not accept additional arguments.')
             return 1
         clean_cache()
         return 0
     if subcommand != 'info':
-        print(f"{_red('Error:')} Unknown cache command: {subcommand}")
+        print(f'{_red("Error:")} Unknown cache command: {subcommand}')
         return 1
 
     files = glob.glob(os.path.join(CACHE_DIR, '*')) if os.path.isdir(CACHE_DIR) else []
     total = sum(os.path.getsize(path) for path in files if os.path.isfile(path))
-    print(f"  Cache: {len(files)} files, {total / 1024:.1f} KB")
-    print(f"  Path: {CACHE_DIR}")
+    print(f'  Cache: {len(files)} files, {total / 1024:.1f} KB')
+    print(f'  Path: {CACHE_DIR}')
     return 0
 
 
@@ -1359,7 +1484,7 @@ def _pkg_publish(args):
             i += 2
             continue
         if arg.startswith('--'):
-            print(f"{_red('Error:')} Unknown publish option: {arg}")
+            print(f'{_red("Error:")} Unknown publish option: {arg}')
             return 1
         path = arg
         i += 1
@@ -1372,7 +1497,7 @@ def _pkg_info(args):
     from epl.registry import registry_info
 
     if len(args) != 1:
-        print(f"{_red('Error:')} Usage: epl info <package-name>")
+        print(f'{_red("Error:")} Usage: epl info <package-name>')
         return 1
 
     registry_info(args[0])
@@ -1383,7 +1508,7 @@ def _pkg_stats(args):
     from epl.registry import registry_stats
 
     if args:
-        print(f"{_red('Error:')} `epl stats` does not accept positional arguments.")
+        print(f'{_red("Error:")} `epl stats` does not accept positional arguments.')
         return 1
 
     registry_stats()
@@ -1392,21 +1517,25 @@ def _pkg_stats(args):
 
 def _git_install(args):
     if not args:
-        print(f"{_red('Error:')} No GitHub repository specified.")
-        print("Usage: epl gitinstall <owner/repo> [alias]")
+        print(f'{_red("Error:")} No GitHub repository specified.')
+        print('Usage: epl gitinstall <owner/repo> [alias]')
         return 1
     from epl.package_manager import add_github_dependency
+
     repo = args[0]
     alias = args[1] if len(args) > 1 and not args[1].startswith('--') else None
-    return 0 if add_github_dependency(repo, alias=alias, save='--no-save' not in args, path='.') else 1
+    return (
+        0 if add_github_dependency(repo, alias=alias, save='--no-save' not in args, path='.') else 1
+    )
 
 
 def _git_remove(args):
     if not args:
-        print(f"{_red('Error:')} No GitHub dependency name specified.")
-        print("Usage: epl gitremove <name-or-owner/repo>")
+        print(f'{_red("Error:")} No GitHub dependency name specified.')
+        print('Usage: epl gitremove <name-or-owner/repo>')
         return 1
     from epl.package_manager import remove_github_dependency
+
     return 0 if remove_github_dependency(args[0], '.') else 1
 
 
@@ -1415,13 +1544,13 @@ def _git_list():
 
     deps = list_github_dependencies('.')
     if not deps:
-        print("  No GitHub dependencies declared.")
+        print('  No GitHub dependencies declared.')
         return 0
 
-    print(f"\n  {_bold('Declared GitHub Dependencies')} ({len(deps)}):")
-    print("  " + "-" * 40)
+    print(f'\n  {_bold("Declared GitHub Dependencies")} ({len(deps)}):')
+    print('  ' + '-' * 40)
     for alias, repo in deps:
-        print(f"  {alias:20s} -> {repo}")
+        print(f'  {alias:20s} -> {repo}')
     print()
     return 0
 
@@ -1436,15 +1565,20 @@ def _py_install(args):
     clean_args = [a for a in args if a != '--no-save']
     import_name = clean_args[0]
     requirement = clean_args[1] if len(clean_args) > 1 else None
-    return 0 if install_python_package(import_name, requirement, save=not no_save, project_path='.') else 1
+    return (
+        0
+        if install_python_package(import_name, requirement, save=not no_save, project_path='.')
+        else 1
+    )
 
 
 def _py_remove(args):
     if not args:
-        print(f"{_red('Error:')} No Python import name specified.")
-        print("Usage: epl pyremove <import-name>")
+        print(f'{_red("Error:")} No Python import name specified.')
+        print('Usage: epl pyremove <import-name>')
         return 1
     from epl.package_manager import remove_python_dependency
+
     return 0 if remove_python_dependency(args[0], '.') else 1
 
 
@@ -1453,22 +1587,22 @@ def _py_list():
 
     deps = list_python_dependencies('.')
     if not deps:
-        print("  No Python dependencies declared.")
+        print('  No Python dependencies declared.')
         return 0
 
-    print(f"\n  {_bold('Declared Python Dependencies')} ({len(deps)}):")
-    print("  " + "-" * 40)
+    print(f'\n  {_bold("Declared Python Dependencies")} ({len(deps)}):')
+    print('  ' + '-' * 40)
     for import_name, requirement in deps:
         display = import_name if requirement in ('', '*') else requirement
-        print(f"  {import_name:20s} -> {display}")
+        print(f'  {import_name:20s} -> {display}')
     print()
     return 0
 
 
 def _github(args):
     if not args:
-        print(f"{_red('Error:')} No GitHub subcommand specified.")
-        print("Usage: epl github <clone|pull|push> ...")
+        print(f'{_red("Error:")} No GitHub subcommand specified.')
+        print('Usage: epl github <clone|pull|push> ...')
         return 1
 
     from epl.github_tools import clone_repo, pull_repo, push_repo
@@ -1476,7 +1610,7 @@ def _github(args):
     subcommand = args[0]
     if subcommand == 'clone':
         if len(args) < 2:
-            print("Usage: epl github clone <owner/repo> [dir]")
+            print('Usage: epl github clone <owner/repo> [dir]')
             return 1
         repo = args[1]
         dest = args[2] if len(args) > 2 and not args[2].startswith('--') else None
@@ -1509,11 +1643,11 @@ def _github(args):
                 branch = args[i + 1]
                 i += 2
                 continue
-            print(f"{_red('Error:')} Unknown github push option: {arg}")
+            print(f'{_red("Error:")} Unknown github push option: {arg}')
             return 1
         return 0 if push_repo(path=path, message=message, remote=remote, branch=branch) else 1
 
-    print(f"{_red('Error:')} Unknown github subcommand: {subcommand}")
+    print(f'{_red("Error:")} Unknown github subcommand: {subcommand}')
     return 1
 
 
@@ -1521,7 +1655,7 @@ def _init_project(args):
     from epl.package_manager import init_project
 
     if len(args) > 1:
-        print(f"{_red('Error:')} Usage: epl init [name]")
+        print(f'{_red("Error:")} Usage: epl init [name]')
         return 1
 
     init_project(args[0] if args else None)
@@ -1531,16 +1665,19 @@ def _init_project(args):
 def _upgrade():
     """Self-update EPL to the latest version."""
     import subprocess
-    print("  Checking for EPL updates...")
+
+    print('  Checking for EPL updates...')
 
     # Try pip upgrade (works if EPL was installed via pip)
     try:
         result = subprocess.run(
             [sys.executable, '-m', 'pip', 'install', '--upgrade', 'epl-lang'],
-            capture_output=True, text=True, timeout=60
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode == 0 and 'already satisfied' not in result.stdout.lower():
-            print("  EPL updated successfully via pip!")
+            print('  EPL updated successfully via pip!')
             return 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
@@ -1552,16 +1689,19 @@ def _upgrade():
         try:
             result = subprocess.run(
                 ['git', 'pull', '--rebase'],
-                cwd=epl_root, capture_output=True, text=True, timeout=30
+                cwd=epl_root,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode == 0:
-                print(f"  EPL updated via git: {result.stdout.strip()}")
+                print(f'  EPL updated via git: {result.stdout.strip()}')
                 return 0
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
 
-    print(f"  EPL is at v{__version__}. No update method available.")
-    print("  To update manually: git pull  or  pip install --upgrade epl-lang")
+    print(f'  EPL is at v{__version__}. No update method available.')
+    print('  To update manually: git pull  or  pip install --upgrade epl-lang')
     return 0
 
 
@@ -1578,9 +1718,9 @@ def _read_epl_source(filepath):
         stripped = line.lstrip()
         if stripped.startswith('#'):
             # Replace entire line with a Note: comment so the parser sees a valid token
-            indent = line[:len(line) - len(stripped)]
+            indent = line[: len(line) - len(stripped)]
             comment_text = stripped[1:].strip()
-            lines.append(f"{indent}Note: {comment_text}" if comment_text else f"{indent}Note: .")
+            lines.append(f'{indent}Note: {comment_text}' if comment_text else f'{indent}Note: .')
         else:
             lines.append(line)
     return '\n'.join(lines)
@@ -1650,7 +1790,9 @@ def _load_epl_web_app(filepath):
     if app is None:
         app = _find_web_app(interpreter.global_env)
     if app is None:
-        raise RuntimeError("No web app found in EPL file. Use 'Create WebApp called ...' or import a package that creates one.")
+        raise RuntimeError(
+            "No web app found in EPL file. Use 'Create WebApp called ...' or import a package that creates one."
+        )
     return app, interpreter
 
 
@@ -1669,7 +1811,7 @@ def _write_generated_text(source_file, extension, content):
 def _serve(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified and no epl.toml/epl.json project was found.")
+        print(f'{_red("Error:")} No file specified and no epl.toml/epl.json project was found.')
         return 1
 
     filename = args[0]
@@ -1705,8 +1847,8 @@ def _serve(args):
             engine = args[i + 1].lower()
             valid_engines = ('auto', 'waitress', 'gunicorn', 'uvicorn', 'hypercorn', 'builtin')
             if engine not in valid_engines:
-                print(f"{_red('Error:')} Unknown engine: {engine}")
-                print(f"Valid engines: {', '.join(valid_engines)}")
+                print(f'{_red("Error:")} Unknown engine: {engine}')
+                print(f'Valid engines: {", ".join(valid_engines)}')
                 return 1
             i += 2
             continue
@@ -1718,21 +1860,24 @@ def _serve(args):
             session_backend = args[i + 1]
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown serve option: {arg}")
+        print(f'{_red("Error:")} Unknown serve option: {arg}')
         return 1
 
     try:
         from epl.store_backends import configure_backends
+
         configure_backends(store=store_backend, session=session_backend)
 
         if dev_mode:
             # Development mode: use built-in threaded server with hot-reload
             from epl.web import start_server
+
             app, interpreter = _load_epl_web_app(filename)
-            print(f"  {_yellow('⚠ Development mode')} — not for production use")
+            print(f'  {_yellow("⚠ Development mode")} — not for production use')
             if reload_mode:
                 try:
                     from epl.hot_reload import start_with_reload
+
                     start_with_reload(filename, port=port)
                 except ImportError:
                     start_server(app, port=port, interpreter=interpreter, workers=workers)
@@ -1741,6 +1886,7 @@ def _serve(args):
         else:
             # Production mode: use WSGI adapter with best available server
             from epl.deploy import WSGIAdapter, serve
+
             app, interpreter = _load_epl_web_app(filename)
 
             # Auto-install waitress on Windows if no production server found
@@ -1757,13 +1903,13 @@ def _serve(args):
             )
         return 0
     except ValueError as exc:
-        print(f"{_red('Error:')} {exc}")
+        print(f'{_red("Error:")} {exc}')
         return 1
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}")
+        print(f'{_red("Error:")} {exc}')
         return 1
 
 
@@ -1776,21 +1922,24 @@ def _ensure_production_server():
         except ImportError:
             continue
     # None found — try to install waitress (cross-platform, lightweight)
-    print(f"  {_yellow('Note:')} No production server found. Installing waitress...")
+    print(f'  {_yellow("Note:")} No production server found. Installing waitress...')
     import subprocess
+
     try:
         result = subprocess.run(
             [sys.executable, '-m', 'pip', 'install', 'waitress'],
-            capture_output=True, text=True, timeout=60
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode == 0:
-            print(f"  {_green('✓')} waitress installed successfully.")
+            print(f'  {_green("✓")} waitress installed successfully.')
         else:
-            print(f"  {_yellow('⚠')} Could not install waitress. Using built-in server.")
-            print(f"  Install manually: pip install \"eplang[server]\"")
+            print(f'  {_yellow("⚠")} Could not install waitress. Using built-in server.')
+            print('  Install manually: pip install "eplang[server]"')
     except Exception:
-        print(f"  {_yellow('⚠')} Could not install waitress. Using built-in server.")
-        print(f"  Install manually: pip install \"eplang[server]\"")
+        print(f'  {_yellow("⚠")} Could not install waitress. Using built-in server.')
+        print('  Install manually: pip install "eplang[server]"')
 
 
 def _deploy(args):
@@ -1803,7 +1952,7 @@ def _deploy(args):
     valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s', 'all')
     if args[0] not in valid_targets:
         print(f"{_red('Error:')} Unknown deploy target '{args[0]}'")
-        print(f"Valid targets: {', '.join(valid_targets)}")
+        print(f'Valid targets: {", ".join(valid_targets)}')
         return 1
 
     deploy_cli(list(args))
@@ -1812,6 +1961,7 @@ def _deploy(args):
 
 def _format(args):
     from pathlib import Path
+
     from epl.formatter import format_source
 
     check_only = '--check' in args
@@ -1824,8 +1974,8 @@ def _format(args):
         elif os.path.isfile(_default_project_target() or ''):
             targets = [_default_project_target()]
         else:
-            print(f"{_red('Error:')} No file or directory specified.")
-            print("Usage: epl fmt <file|dir> [--check] [--in-place]")
+            print(f'{_red("Error:")} No file or directory specified.')
+            print('Usage: epl fmt <file|dir> [--check] [--in-place]')
             return 1
 
     files = []
@@ -1844,10 +1994,10 @@ def _format(args):
                 files.append(path)
                 seen.add(child_key)
         else:
-            print(f"{_yellow('Skip:')} {target} not found")
+            print(f'{_yellow("Skip:")} {target} not found')
 
     if not files:
-        print(f"{_red('Error:')} No .epl files found.")
+        print(f'{_red("Error:")} No .epl files found.')
         return 1
 
     changed = []
@@ -1868,16 +2018,16 @@ def _format(args):
 
     if check_only:
         for filepath in changed:
-            print(f"  NEEDS FORMATTING: {filepath}")
+            print(f'  NEEDS FORMATTING: {filepath}')
         if not changed:
-            print(f"  {_green('All files already formatted.')}")
+            print(f'  {_green("All files already formatted.")}')
         return 1 if changed else 0
 
     if in_place:
         for filepath in changed:
-            print(f"  FORMATTED: {filepath}")
+            print(f'  FORMATTED: {filepath}')
         for filepath in unchanged:
-            print(f"  OK: {filepath}")
+            print(f'  OK: {filepath}')
         return 0
 
     if len(outputs) == 1:
@@ -1887,14 +2037,15 @@ def _format(args):
     for idx, (filepath, content) in enumerate(outputs):
         if idx:
             print()
-        print(f"--- {filepath} ---")
+        print(f'--- {filepath} ---')
         print(content, end='')
     return 0
 
 
 def _lint(args):
     import json
-    from epl.doc_linter import Linter, LintConfig
+
+    from epl.doc_linter import LintConfig, Linter
 
     fix_mode = False
     config_path = None
@@ -1925,7 +2076,7 @@ def _lint(args):
         i += 1
 
     if output_format not in ('text', 'json'):
-        print(f"{_red('Error:')} Unknown lint output format: {output_format}")
+        print(f'{_red("Error:")} Unknown lint output format: {output_format}')
         return 1
 
     if not targets:
@@ -1937,10 +2088,10 @@ def _lint(args):
 
     files, missing = _collect_epl_files(targets)
     for target in missing:
-        print(f"{_yellow('Skip:')} {target} not found")
+        print(f'{_yellow("Skip:")} {target} not found')
 
     if not files:
-        print(f"{_red('Error:')} No .epl files found.")
+        print(f'{_red("Error:")} No .epl files found.')
         return 1
 
     all_issues = []
@@ -1952,7 +2103,7 @@ def _lint(args):
         for filepath in files:
             _, count = linter.auto_fix(str(filepath))
             fix_total += count
-        print(f"  Fixed {fix_total} issues")
+        print(f'  Fixed {fix_total} issues')
         return 0
 
     if output_format == 'json':
@@ -1992,7 +2143,7 @@ def _check(args, flags):
             targets = glob.glob('**/*.epl', recursive=True)
 
     if not targets:
-        print(f"{_red('Error:')} No .epl files found.")
+        print(f'{_red("Error:")} No .epl files found.')
         return 1
 
     from epl.type_checker import type_check_file
@@ -2007,7 +2158,7 @@ def _check(args, flags):
             if os.path.isdir(filepath):
                 targets.extend(glob.glob(os.path.join(filepath, '**/*.epl'), recursive=True))
                 continue
-            print(f"{_yellow('Skip:')} {filepath} not found")
+            print(f'{_yellow("Skip:")} {filepath} not found')
             continue
 
         try:
@@ -2021,34 +2172,37 @@ def _check(args, flags):
             total_infos += len(infos)
 
             if checker.warnings:
-                print(f"\n  {_bold(filepath)}")
+                print(f'\n  {_bold(filepath)}')
                 print(checker.format_report())
         except Exception as e:
-            print(f"\n  {_bold(filepath)}")
-            print(f"  {_red('Parse Error:')} {e}")
+            print(f'\n  {_bold(filepath)}')
+            print(f'  {_red("Parse Error:")} {e}')
             total_errors += 1
 
     # Summary
-    print(f"\n{'─' * 50}")
-    print(f"  {_bold('Type Check Summary')}: "
-          f"{len(targets)} file(s) checked")
+    print(f'\n{"─" * 50}')
+    print(f'  {_bold("Type Check Summary")}: {len(targets)} file(s) checked')
     if total_errors:
-        print(f"  {_red(f'{total_errors} error(s)')}, "
-              f"{_yellow(f'{total_warnings} warning(s)')}, "
-              f"{total_infos} info(s)")
+        print(
+            f'  {_red(f"{total_errors} error(s)")}, '
+            f'{_yellow(f"{total_warnings} warning(s)")}, '
+            f'{total_infos} info(s)'
+        )
     elif total_warnings:
-        print(f"  {_green('No errors.')} "
-              f"{_yellow(f'{total_warnings} warning(s)')}, "
-              f"{total_infos} info(s)")
+        print(
+            f'  {_green("No errors.")} '
+            f'{_yellow(f"{total_warnings} warning(s)")}, '
+            f'{total_infos} info(s)'
+        )
     else:
-        print(f"  {_green('All checks passed!')} "
-              f"{total_infos} info(s)")
+        print(f'  {_green("All checks passed!")} {total_infos} info(s)')
 
     return 1 if total_errors > 0 else 0
 
 
 def _docs(args):
     from pathlib import Path
+
     from epl.doc_linter import DocGenerator
 
     output_dir = 'docs'
@@ -2070,7 +2224,7 @@ def _docs(args):
         i += 1
 
     if output_format not in ('html', 'markdown', 'json', 'all'):
-        print(f"{_red('Error:')} Unknown docs format: {output_format}")
+        print(f'{_red("Error:")} Unknown docs format: {output_format}')
         return 1
 
     if not targets:
@@ -2078,10 +2232,10 @@ def _docs(args):
 
     files, missing = _collect_epl_files(targets)
     for target in missing:
-        print(f"{_yellow('Skip:')} {target} not found")
+        print(f'{_yellow("Skip:")} {target} not found')
 
     if not files:
-        print(f"{_red('Error:')} No .epl files found.")
+        print(f'{_red("Error:")} No .epl files found.')
         return 1
 
     generator = DocGenerator()
@@ -2102,15 +2256,15 @@ def _docs(args):
         print(f'Generated: {out_dir}/api.json')
 
     total_entries = sum(len(module.entries) for module in generator.modules)
-    print(f"\n  Documentation generated:")
-    print(f"    {len(generator.modules)} modules, {total_entries} documented items")
+    print('\n  Documentation generated:')
+    print(f'    {len(generator.modules)} modules, {total_entries} documented items')
     return 0
 
 
 def _debug(args, flags):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
 
     filename = args[0]
@@ -2122,11 +2276,11 @@ def _debug(args, flags):
             breakpoint_specs.append(args[i + 1])
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown debug option: {arg}")
+        print(f'{_red("Error:")} Unknown debug option: {arg}')
         return 1
 
     try:
-        from epl.debugger import EPLDebugger, DebugInterpreter
+        from epl.debugger import DebugInterpreter, EPLDebugger
 
         source = _read_epl_source(filename)
         _, program = _load_epl_program(filename)
@@ -2143,13 +2297,13 @@ def _debug(args, flags):
 
         interpreter = DebugInterpreter(debugger)
 
-        print(f"  EPL Debugger — {filename}")
-        print(f"  Breakpoints: {len(debugger.state.breakpoints)}")
+        print(f'  EPL Debugger — {filename}')
+        print(f'  Breakpoints: {len(debugger.state.breakpoints)}')
         print("  Type 'help' for commands, 'c' to continue\n")
         interpreter.execute(program)
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
         from epl.errors import EPLError
@@ -2157,14 +2311,14 @@ def _debug(args, flags):
         if isinstance(exc, EPLError) and '--json' in flags:
             print(exc.to_json(), file=sys.stderr)
         else:
-            print(f"{_red('Error:')} {exc}", file=sys.stderr)
+            print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _transpile_js(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     try:
@@ -2172,20 +2326,20 @@ def _transpile_js(args):
 
         _, program = _load_epl_program(filename)
         output_path = _write_generated_text(filename, '.js', transpile_to_js(program))
-        print(f"  JavaScript written to: {output_path}")
+        print(f'  JavaScript written to: {output_path}')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _transpile_node(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     try:
@@ -2193,20 +2347,20 @@ def _transpile_node(args):
 
         _, program = _load_epl_program(filename)
         output_path = _write_generated_text(filename, '.node.js', transpile_to_node(program))
-        print(f"  Node.js written to: {output_path}")
+        print(f'  Node.js written to: {output_path}')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _transpile_kotlin(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     try:
@@ -2214,20 +2368,20 @@ def _transpile_kotlin(args):
 
         _, program = _load_epl_program(filename)
         output_path = _write_generated_text(filename, '.kt', transpile_to_kotlin(program))
-        print(f"  Kotlin written to: {output_path}")
+        print(f'  Kotlin written to: {output_path}')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _transpile_python(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     try:
@@ -2235,20 +2389,20 @@ def _transpile_python(args):
 
         _, program = _load_epl_program(filename)
         output_path = _write_generated_text(filename, '.py', transpile_to_python(program))
-        print(f"  Python written to: {output_path}")
+        print(f'  Python written to: {output_path}')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _android(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     use_compose = '--compose' in args[1:]
@@ -2278,36 +2432,36 @@ def _android(args):
         resolved_name = app_name or base.replace('_', ' ').title()
         generate_android_project(program, output_dir, app_name=resolved_name)
 
-        print(f"\n  {_green('✓')} Android project generated: {_bold(output_dir)}/")
-        print(f"  App name: {resolved_name}")
+        print(f'\n  {_green("✓")} Android project generated: {_bold(output_dir)}/')
+        print(f'  App name: {resolved_name}')
         if use_compose:
-            print(f"  UI Mode: Jetpack Compose")
+            print('  UI Mode: Jetpack Compose')
 
         if build_apk:
             _build_android_apk(output_dir)
         else:
-            print(f"\n  {_dim('Next steps:')}")
-            print(f"    1. Open in Android Studio: {output_dir}/")
-            print(f"    2. Or build from CLI:  epl android {filename} --build")
-            print(f"    3. The APK will be at: {output_dir}/app/build/outputs/apk/")
+            print(f'\n  {_dim("Next steps:")}')
+            print(f'    1. Open in Android Studio: {output_dir}/')
+            print(f'    2. Or build from CLI:  epl android {filename} --build')
+            print(f'    3. The APK will be at: {output_dir}/app/build/outputs/apk/')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _ios(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
 
     filename = args[0]
     app_name = None
-    bundle_id = "com.epl.app"
+    bundle_id = 'com.epl.app'
     team_id = None
 
     i = 1
@@ -2325,7 +2479,7 @@ def _ios(args):
             team_id = args[i + 1]
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown ios option: {arg}")
+        print(f'{_red("Error:")} Unknown ios option: {arg}')
         return 1
 
     try:
@@ -2343,28 +2497,30 @@ def _ios(args):
             team_id=team_id,
         )
 
-        print(f"\n  {_green('✓')} iOS project generated: {_bold(output_dir)}/")
-        print(f"  App name: {resolved_name}")
-        print(f"  Bundle ID: {bundle_id}")
+        print(f'\n  {_green("✓")} iOS project generated: {_bold(output_dir)}/')
+        print(f'  App name: {resolved_name}')
+        print(f'  Bundle ID: {bundle_id}')
         if team_id:
-            print(f"  Team ID: {team_id}")
-        print(f"\n  {_dim('Next steps:')}")
-        print(f"    1. Open in Xcode: {output_dir}/")
-        print(f"    2. Or build package: xcodebuild -project {output_dir}/{resolved_name}.xcodeproj")
-        print(f"    3. Review README: {output_dir}/README.md")
+            print(f'  Team ID: {team_id}')
+        print(f'\n  {_dim("Next steps:")}')
+        print(f'    1. Open in Xcode: {output_dir}/')
+        print(
+            f'    2. Or build package: xcodebuild -project {output_dir}/{resolved_name}.xcodeproj'
+        )
+        print(f'    3. Review README: {output_dir}/README.md')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _build_android_apk(project_dir):
     """Attempt to build APK using Gradle wrapper or system Gradle."""
-    import subprocess as _sp
     import shutil
+    import subprocess as _sp
 
     # Find gradle/gradlew
     gradlew = os.path.join(project_dir, 'gradlew.bat' if os.name == 'nt' else 'gradlew')
@@ -2377,9 +2533,9 @@ def _build_android_apk(project_dir):
     elif shutil.which('gradle'):
         gradle_cmd = 'gradle'
     else:
-        print(f"\n  {_yellow('⚠')} Gradle not found. Cannot build APK automatically.")
-        print(f"  Install Gradle: https://gradle.org/install/")
-        print(f"  Or open {project_dir}/ in Android Studio.")
+        print(f'\n  {_yellow("⚠")} Gradle not found. Cannot build APK automatically.')
+        print('  Install Gradle: https://gradle.org/install/')
+        print(f'  Or open {project_dir}/ in Android Studio.')
         return
 
     # Check for ANDROID_HOME / ANDROID_SDK_ROOT
@@ -2397,12 +2553,12 @@ def _build_android_apk(project_dir):
                 break
 
     if not sdk_root:
-        print(f"\n  {_yellow('⚠')} Android SDK not found (ANDROID_HOME not set).")
-        print(f"  Install Android Studio or set ANDROID_HOME.")
+        print(f'\n  {_yellow("⚠")} Android SDK not found (ANDROID_HOME not set).')
+        print('  Install Android Studio or set ANDROID_HOME.')
         return
 
-    print(f"\n  {_cyan('Building APK...')} (this may take a minute)")
-    print(f"  SDK: {sdk_root}")
+    print(f'\n  {_cyan("Building APK...")} (this may take a minute)')
+    print(f'  SDK: {sdk_root}')
 
     env = os.environ.copy()
     env['ANDROID_HOME'] = sdk_root
@@ -2418,29 +2574,31 @@ def _build_android_apk(project_dir):
             timeout=300,
         )
         if result.returncode == 0:
-            apk_path = os.path.join(project_dir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk')
+            apk_path = os.path.join(
+                project_dir, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk'
+            )
             if os.path.isfile(apk_path):
                 size_mb = os.path.getsize(apk_path) / (1024 * 1024)
-                print(f"\n  {_green('✓')} APK built successfully!")
-                print(f"  {_bold(apk_path)} ({size_mb:.1f} MB)")
+                print(f'\n  {_green("✓")} APK built successfully!')
+                print(f'  {_bold(apk_path)} ({size_mb:.1f} MB)')
             else:
-                print(f"\n  {_green('✓')} Build completed. Check {project_dir}/app/build/outputs/")
+                print(f'\n  {_green("✓")} Build completed. Check {project_dir}/app/build/outputs/')
         else:
-            print(f"\n  {_red('✗')} Build failed.")
+            print(f'\n  {_red("✗")} Build failed.')
             # Show last 10 lines of stderr
             lines = result.stderr.strip().split('\n')
             for line in lines[-10:]:
-                print(f"    {line}")
+                print(f'    {line}')
     except _sp.TimeoutExpired:
-        print(f"\n  {_red('✗')} Build timed out (5 min limit).")
+        print(f'\n  {_red("✗")} Build timed out (5 min limit).')
     except Exception as e:
-        print(f"\n  {_red('✗')} Build error: {e}")
+        print(f'\n  {_red("✗")} Build error: {e}')
 
 
 def _desktop(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     app_name = None
@@ -2462,7 +2620,7 @@ def _desktop(args):
             height = int(args[i + 1])
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown desktop option: {arg}")
+        print(f'{_red("Error:")} Unknown desktop option: {arg}')
         return 1
 
     try:
@@ -2472,24 +2630,26 @@ def _desktop(args):
         base = os.path.splitext(os.path.basename(filename))[0]
         resolved_name = app_name or base.title().replace('_', '')
         output_dir = f'{base}_desktop'
-        generate_desktop_project(program, output_dir, app_name=resolved_name, width=width, height=height)
-        print(f"  Desktop project generated: {output_dir}/")
-        print(f"  App: {resolved_name} ({width}x{height})")
-        print(f"  Build: cd {output_dir} && ./gradlew run")
-        print("  Package: ./gradlew packageMsi  (or packageDmg/packageDeb)")
+        generate_desktop_project(
+            program, output_dir, app_name=resolved_name, width=width, height=height
+        )
+        print(f'  Desktop project generated: {output_dir}/')
+        print(f'  App: {resolved_name} ({width}x{height})')
+        print(f'  Build: cd {output_dir} && ./gradlew run')
+        print('  Package: ./gradlew packageMsi  (or packageDmg/packageDeb)')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _web(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     mode = 'js'
@@ -2506,7 +2666,7 @@ def _web(args):
             app_name = args[i + 1]
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown web option: {arg}")
+        print(f'{_red("Error:")} Unknown web option: {arg}')
         return 1
 
     try:
@@ -2517,32 +2677,32 @@ def _web(args):
         resolved_name = app_name or base.title().replace('_', '')
         output_dir = f'{base}_web'
         generate_web_project(program, output_dir, app_name=resolved_name, mode=mode)
-        print(f"  Web project generated: {output_dir}/")
-        print(f"  Mode: {mode}")
+        print(f'  Web project generated: {output_dir}/')
+        print(f'  Mode: {mode}')
         if mode == 'js':
-            print(f"  Run: python -m http.server 3000 --directory {output_dir}/public")
+            print(f'  Run: python -m http.server 3000 --directory {output_dir}/public')
         elif mode == 'wasm':
-            print(f"  Build: cd {output_dir} && ./build.sh")
-            print(f"  Run: python -m http.server 3000 --directory {output_dir}/public")
+            print(f'  Build: cd {output_dir} && ./build.sh')
+            print(f'  Run: python -m http.server 3000 --directory {output_dir}/public')
         elif mode == 'kotlin_js':
-            print(f"  Build: cd {output_dir} && ./gradlew jsBrowserDevelopmentRun")
+            print(f'  Build: cd {output_dir} && ./gradlew jsBrowserDevelopmentRun')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _gui(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
 
     if len(args) > 1:
-        print(f"{_red('Error:')} Unknown gui option: {args[1]}")
+        print(f'{_red("Error:")} Unknown gui option: {args[1]}')
         return 1
 
     filename = args[0]
@@ -2551,7 +2711,10 @@ def _gui(args):
         from epl.interpreter import Interpreter
 
         if not gui_available():
-            print(f"{_red('Error:')} GUI requires tkinter. Install Python with Tk support.", file=sys.stderr)
+            print(
+                f'{_red("Error:")} GUI requires tkinter. Install Python with Tk support.',
+                file=sys.stderr,
+            )
             return 1
 
         _, program = _load_epl_program(filename)
@@ -2560,17 +2723,17 @@ def _gui(args):
         interpreter.execute(program)
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _show_ir(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     try:
@@ -2580,47 +2743,47 @@ def _show_ir(args):
         print(Compiler().get_ir(program))
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except ImportError:
-        print(f"{_red('Error:')} llvmlite not installed.", file=sys.stderr)
+        print(f'{_red("Error:")} llvmlite not installed.', file=sys.stderr)
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _run_vm(args, flags):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     try:
         from epl.vm import compile_and_run
 
         source = _read_epl_source(filename)
-        print(f"  EPL Bytecode VM — {os.path.basename(filename)}")
+        print(f'  EPL Bytecode VM — {os.path.basename(filename)}')
         print()
         result = compile_and_run(source)
         if result.get('error'):
-            print(f"\nVM Error: {result['error']}", file=sys.stderr)
+            print(f'\nVM Error: {result["error"]}', file=sys.stderr)
             return 1
         for line in result.get('output', []):
             print(line)
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _wasm(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     try:
@@ -2629,24 +2792,24 @@ def _wasm(args):
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         wasm_path = Compiler(source_filename=filename).compile_to_wasm(program, output_path=base)
-        print(f"  WebAssembly compiled: {wasm_path}")
+        print(f'  WebAssembly compiled: {wasm_path}')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except ImportError:
-        print(f"{_red('Error:')} llvmlite not installed.", file=sys.stderr)
-        print("Install it with: pip install llvmlite", file=sys.stderr)
+        print(f'{_red("Error:")} llvmlite not installed.', file=sys.stderr)
+        print('Install it with: pip install llvmlite', file=sys.stderr)
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _micropython(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     target = 'esp32'
@@ -2658,7 +2821,7 @@ def _micropython(args):
             target = args[i + 1]
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown micropython option: {arg}")
+        print(f'{_red("Error:")} Unknown micropython option: {arg}')
         return 1
 
     valid_targets = ('esp32', 'pico')
@@ -2674,22 +2837,22 @@ def _micropython(args):
         output_path = os.path.splitext(os.path.basename(filename))[0] + f'_{target}_mpy.py'
         with open(output_path, 'w', encoding='utf-8') as handle:
             handle.write(rendered)
-        print(f"  MicroPython written to: {output_path}")
-        print(f"  Target: {target.upper()}")
-        print(f"  Upload with: mpremote cp {output_path} :")
+        print(f'  MicroPython written to: {output_path}')
+        print(f'  Target: {target.upper()}')
+        print(f'  Upload with: mpremote cp {output_path} :')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _benchmark(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
 
     filename = args[0]
@@ -2714,21 +2877,22 @@ def _benchmark(args):
             warmup = int(arg.split('=', 1)[1])
             i += 1
             continue
-        print(f"{_red('Error:')} Unknown benchmark option: {arg}")
+        print(f'{_red("Error:")} Unknown benchmark option: {arg}')
         return 1
 
     try:
         import time as _time
+
+        from epl.errors import set_source_context
         from epl.interpreter import Interpreter
         from epl.lexer import Lexer
         from epl.parser import Parser
-        from epl.errors import set_source_context
         from epl.vm import compile_and_run
 
         source = _read_epl_source(filename)
-        print(f"  EPL Benchmark — {os.path.basename(filename)}")
-        print(f"  Runs: {runs}, Warmup: {warmup}")
-        print("  " + "=" * 50)
+        print(f'  EPL Benchmark — {os.path.basename(filename)}')
+        print(f'  Runs: {runs}, Warmup: {warmup}')
+        print('  ' + '=' * 50)
 
         vm_time = None
         try:
@@ -2744,9 +2908,11 @@ def _benchmark(args):
             vm_time = min(times)
             avg_time = sum(times) / len(times)
             avg_ips = instructions_total // runs if runs else 0
-            print(f"  VM:          {vm_time:.4f}s best, {avg_time:.4f}s avg  ({avg_ips:,} instructions)")
+            print(
+                f'  VM:          {vm_time:.4f}s best, {avg_time:.4f}s avg  ({avg_ips:,} instructions)'
+            )
         except Exception as exc:
-            print(f"  VM:          FAILED ({exc})")
+            print(f'  VM:          FAILED ({exc})')
 
         interp_time = None
         try:
@@ -2762,27 +2928,27 @@ def _benchmark(args):
                 times.append(_time.perf_counter() - t0)
             interp_time = min(times)
             avg_time = sum(times) / len(times)
-            print(f"  Interpreter: {interp_time:.4f}s best, {avg_time:.4f}s avg")
+            print(f'  Interpreter: {interp_time:.4f}s best, {avg_time:.4f}s avg')
         except Exception as exc:
-            print(f"  Interpreter: FAILED ({exc})")
+            print(f'  Interpreter: FAILED ({exc})')
 
         if vm_time and interp_time:
             speedup = interp_time / vm_time if vm_time > 0 else float('inf')
-            print(f"  Speedup:     {speedup:.1f}x (best of {runs})")
-        print("  " + "=" * 50)
+            print(f'  Speedup:     {speedup:.1f}x (best of {runs})')
+        print('  ' + '=' * 50)
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _profile(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
 
     filename = args[0]
@@ -2800,11 +2966,12 @@ def _profile(args):
             top_n = int(args[i + 1])
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown profile option: {arg}")
+        print(f'{_red("Error:")} Unknown profile option: {arg}')
         return 1
 
     try:
         import time as _time
+
         from epl.interpreter import Interpreter
         from epl.profiler import get_profiler
 
@@ -2815,7 +2982,7 @@ def _profile(args):
         profiler.reset()
         profiler.enable()
 
-        print(f"  EPL Profiler — {os.path.basename(filename)}")
+        print(f'  EPL Profiler — {os.path.basename(filename)}')
         print()
         t0 = _time.perf_counter()
         interpreter = Interpreter()
@@ -2828,7 +2995,7 @@ def _profile(args):
 
         print()
         print(profiler.report())
-        print(f"\n  Wall time: {total_time:.2f} ms")
+        print(f'\n  Wall time: {total_time:.2f} ms')
 
         stats = profiler.get_stats()
         if stats:
@@ -2838,19 +3005,19 @@ def _profile(args):
                     break
                 pct = (stat['total_ms'] / total_time * 100) if total_time > 0 else 0
                 if index == 0:
-                    print(f"\n  Top {min(top_n, len(sorted_funcs))} hotspots:")
-                print(f"    {pct:5.1f}%  {stat['total_ms']:8.2f}ms  {stat['calls']:>4}x  {name}")
+                    print(f'\n  Top {min(top_n, len(sorted_funcs))} hotspots:')
+                print(f'    {pct:5.1f}%  {stat["total_ms"]:8.2f}ms  {stat["calls"]:>4}x  {name}')
 
         if trace_file:
             profiler.export_trace(trace_file)
-            print(f"\n  Trace exported to: {trace_file}")
-            print("  View at: chrome://tracing")
+            print(f'\n  Trace exported to: {trace_file}')
+            print('  View at: chrome://tracing')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
@@ -2883,7 +3050,7 @@ def _bench(args, flags):
         if arg == '--json':
             i += 1
             continue
-        print(f"{_red('Error:')} Unknown bench option: {arg}")
+        print(f'{_red("Error:")} Unknown bench option: {arg}')
         return 1
 
     run_suite(runs=runs, warmup=warmup, json_output=json_output)
@@ -2898,16 +3065,16 @@ def _site(args):
     if '--output' in source_dirs:
         idx = source_dirs.index('--output')
         if idx + 1 >= len(source_dirs):
-            print(f"{_red('Error:')} Missing output directory after --output")
+            print(f'{_red("Error:")} Missing output directory after --output')
             return 1
         output_dir = source_dirs[idx + 1]
-        source_dirs = source_dirs[:idx] + source_dirs[idx + 2:]
+        source_dirs = source_dirs[:idx] + source_dirs[idx + 2 :]
 
     if not source_dirs:
         source_dirs = None
 
     out_dir, page_count = generate_site(source_dirs, output_dir)
-    print(f"Generated {page_count} pages in {out_dir}/")
+    print(f'Generated {page_count} pages in {out_dir}/')
     return 0
 
 
@@ -2921,7 +3088,7 @@ def _playground(args):
             port = int(args[i + 1])
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown playground option: {args[i]}")
+        print(f'{_red("Error:")} Unknown playground option: {args[i]}')
         return 1
 
     start_playground(port=port)
@@ -2938,7 +3105,7 @@ def _notebook(args):
             port = int(args[i + 1])
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown notebook option: {args[i]}")
+        print(f'{_red("Error:")} Unknown notebook option: {args[i]}')
         return 1
 
     start_notebook(port=port)
@@ -2955,7 +3122,7 @@ def _blocks(args):
             port = int(args[i + 1])
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown blocks option: {args[i]}")
+        print(f'{_red("Error:")} Unknown blocks option: {args[i]}')
         return 1
 
     start_block_editor(port=port)
@@ -2976,7 +3143,7 @@ def _copilot(args):
                 port = int(args[i + 1])
                 i += 2
                 continue
-            print(f"{_red('Error:')} Unknown copilot option: {args[i]}")
+            print(f'{_red("Error:")} Unknown copilot option: {args[i]}')
             return 1
         start_copilot_web(port=port)
         return 0
@@ -3005,8 +3172,8 @@ def _start_lsp(args):
 
     server = EPLLanguageServer()
     if tcp_mode:
-        print(f"  EPL Language Server starting on TCP port {port}...")
-        print(f"  Connect your IDE to localhost:{port}")
+        print(f'  EPL Language Server starting on TCP port {port}...')
+        print(f'  Connect your IDE to localhost:{port}')
         server.start_tcp(port)
     else:
         server.start_stdio()
@@ -3016,8 +3183,8 @@ def _start_lsp(args):
 def _ai(args):
     try:
         from epl.ai import (
-            Conversation,
             EPL_MODEL_NAME,
+            Conversation,
             _use_cloud,
             code_assist,
             ensure_epl_model,
@@ -3028,8 +3195,8 @@ def _ai(args):
         using_cloud = _use_cloud()
         if not using_cloud:
             if not is_available():
-                print("  Ollama is not running. Start it with: ollama serve")
-                print("  Or use cloud AI: epl cloud --setup")
+                print('  Ollama is not running. Start it with: ollama serve')
+                print('  Or use cloud AI: epl cloud --setup')
                 return 1
             ensure_epl_model(verbose=False)
 
@@ -3041,20 +3208,22 @@ def _ai(args):
             status = get_cloud_status()
             provider = status.get('provider', 'cloud').title()
             model = status.get('model', 'auto')
-            print(f"  EPL AI Assistant [cloud: {provider} / {model}]")
+            print(f'  EPL AI Assistant [cloud: {provider} / {model}]')
             print("  Tip: 'epl cloud --off' to switch to local Ollama.")
         else:
             model_name = EPL_MODEL_NAME if is_available() else 'default'
-            print(f"  EPL AI Assistant [local: {model_name}]")
+            print(f'  EPL AI Assistant [local: {model_name}]')
             print("  Tip: 'epl cloud --setup' for cloud AI.")
 
         print("  Type your questions or 'quit' to exit.\n")
-        conversation = Conversation(system="You are EPL-Coder, an expert EPL programming assistant.")
+        conversation = Conversation(
+            system='You are EPL-Coder, an expert EPL programming assistant.'
+        )
         while True:
             try:
-                prompt = input("AI> ").strip()
+                prompt = input('AI> ').strip()
             except (EOFError, KeyboardInterrupt):
-                print("\nGoodbye!")
+                print('\nGoodbye!')
                 break
             if prompt.lower() in ('quit', 'exit', 'q'):
                 break
@@ -3063,7 +3232,7 @@ def _ai(args):
                 print()
         return 0
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
@@ -3072,35 +3241,35 @@ def _ai_gen(args):
         from epl.ai import ensure_epl_model, generate_epl_code, is_available
 
         if not args:
-            print("Usage: epl gen <description>", file=sys.stderr)
+            print('Usage: epl gen <description>', file=sys.stderr)
             print('Example: epl gen "sort a list of numbers"', file=sys.stderr)
             return 1
 
         if not is_available():
-            print("  Ollama is not running. Start it with: ollama serve")
+            print('  Ollama is not running. Start it with: ollama serve')
             return 1
 
         ensure_epl_model(verbose=False)
         description = ' '.join(args)
         safe_name = description[:30].replace(' ', '_').replace('"', '').replace("'", '')
         safe_name = ''.join(char for char in safe_name if char.isalnum() or char == '_')
-        filename = f"{safe_name}.epl"
+        filename = f'{safe_name}.epl'
 
         print(f'\n  Generating EPL code: "{description}"')
-        print("  " + "\u2500" * 44)
+        print('  ' + '\u2500' * 44)
         code, full_response = generate_epl_code(description, filename=filename)
 
         if code:
-            print(f"\n{full_response}")
-            print(f"\n  " + "\u2500" * 44)
-            print(f"  Saved to: {filename}")
-            print(f"  Run it:   epl run {filename}")
+            print(f'\n{full_response}')
+            print('\n  ' + '\u2500' * 44)
+            print(f'  Saved to: {filename}')
+            print(f'  Run it:   epl run {filename}')
             return 0
 
-        print("  Could not generate code. Try a more specific description.")
+        print('  Could not generate code. Try a more specific description.')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
@@ -3109,33 +3278,33 @@ def _ai_explain(args):
         from epl.ai import ensure_epl_model, explain_code, is_available
 
         if len(args) != 1:
-            print("Usage: epl explain <file.epl>", file=sys.stderr)
+            print('Usage: epl explain <file.epl>', file=sys.stderr)
             return 1
 
         if not is_available():
-            print("  Ollama is not running. Start it with: ollama serve")
+            print('  Ollama is not running. Start it with: ollama serve')
             return 1
 
         filepath = args[0]
         source = _read_epl_source(filepath)
         ensure_epl_model(verbose=False)
 
-        print(f"\n  Analyzing: {filepath}")
-        print("  " + "\u2500" * 44)
-        print(f"\n{explain_code(source)}")
+        print(f'\n  Analyzing: {filepath}')
+        print('  ' + '\u2500' * 44)
+        print(f'\n{explain_code(source)}')
         return 0
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {args[0] if args else ''}", file=sys.stderr)
+        print(f'{_red("Error:")} File not found: {args[0] if args else ""}', file=sys.stderr)
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _package(args):
     args = _resolve_target_args(args)
     if not args:
-        print(f"{_red('Error:')} No file specified.")
+        print(f'{_red("Error:")} No file specified.')
         return 1
     filename = args[0]
     mode = 'exe'
@@ -3152,7 +3321,7 @@ def _package(args):
             output_dir = args[i + 1]
             i += 2
             continue
-        print(f"{_red('Error:')} Unknown package option: {arg}")
+        print(f'{_red("Error:")} Unknown package option: {arg}')
         return 1
 
     try:
@@ -3161,16 +3330,16 @@ def _package(args):
         result = package(os.path.abspath(filename), mode=mode, output_dir=output_dir)
         return 0 if result else 1
     except FileNotFoundError:
-        print(f"{_red('Error:')} File not found: {filename}")
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _mask_key(key):
     if len(key) <= 12:
-        return key[:4] + "..." if len(key) > 4 else key
+        return key[:4] + '...' if len(key) > 4 else key
     return key[:8] + '...' + key[-4:]
 
 
@@ -3180,53 +3349,53 @@ def _cloud(args):
 
         if not args or '--help' in args or '-h' in args:
             status = ai.get_cloud_status()
-            print("\n  ╔══════════════════════════════════════╗")
-            print("  ║     Cloud AI Configuration          ║")
-            print("  ╚══════════════════════════════════════╝")
+            print('\n  ╔══════════════════════════════════════╗')
+            print('  ║     Cloud AI Configuration          ║')
+            print('  ╚══════════════════════════════════════╝')
             if status.get('active'):
-                print(f"\n  ✓ Active: {status['provider'].title()} ({status['model']})")
-                print(f"  Key:     {status['key_masked']}")
+                print(f'\n  ✓ Active: {status["provider"].title()} ({status["model"]})')
+                print(f'  Key:     {status["key_masked"]}')
             else:
-                print("\n  Status: Not configured (using local Ollama)")
-            print("\n  Providers:")
-            print("  Gemini  — Google, free, works globally   https://aistudio.google.com/apikey")
-            print("  Groq    — Fast, free (may be region-locked) https://console.groq.com/keys")
-            print("\n  Commands:")
-            print("  epl cloud --setup             Interactive setup")
-            print("  epl cloud --gemini <key>      Set Google Gemini key")
-            print("  epl cloud --groq <key>        Set Groq API key")
-            print("  epl cloud --model <model>     Change cloud model")
-            print("  epl cloud --models            List available models")
-            print("  epl cloud --status            Show current config")
-            print("  epl cloud --off               Disable cloud, use Ollama")
+                print('\n  Status: Not configured (using local Ollama)')
+            print('\n  Providers:')
+            print('  Gemini  — Google, free, works globally   https://aistudio.google.com/apikey')
+            print('  Groq    — Fast, free (may be region-locked) https://console.groq.com/keys')
+            print('\n  Commands:')
+            print('  epl cloud --setup             Interactive setup')
+            print('  epl cloud --gemini <key>      Set Google Gemini key')
+            print('  epl cloud --groq <key>        Set Groq API key')
+            print('  epl cloud --model <model>     Change cloud model')
+            print('  epl cloud --models            List available models')
+            print('  epl cloud --status            Show current config')
+            print('  epl cloud --off               Disable cloud, use Ollama')
             return 0
 
         if '--off' in args:
             ai.clear_cloud()
-            print("  Cloud AI disabled. Using local Ollama.")
+            print('  Cloud AI disabled. Using local Ollama.')
             return 0
 
         if '--status' in args:
             status = ai.get_cloud_status()
             if status.get('active'):
-                print(f"\n  Provider: {status['provider'].title()}")
-                print(f"  Model:    {status['model']}")
-                print(f"  Key:      {status['key_masked']}")
-                print("  Status:   ✓ Active")
+                print(f'\n  Provider: {status["provider"].title()}')
+                print(f'  Model:    {status["model"]}')
+                print(f'  Key:      {status["key_masked"]}')
+                print('  Status:   ✓ Active')
             else:
-                print("\n  Cloud AI not configured.")
-                print("  Run: epl cloud --setup")
+                print('\n  Cloud AI not configured.')
+                print('  Run: epl cloud --setup')
             return 0
 
         if '--models' in args:
-            print("\n  Available Gemini Models (free, recommended):")
-            print("  " + "-" * 60)
+            print('\n  Available Gemini Models (free, recommended):')
+            print('  ' + '-' * 60)
             for name, desc in ai.GEMINI_MODELS:
-                print(f"  {name:<30} {desc}")
-            print("\n  Available Groq Models (free, may be region-locked):")
-            print("  " + "-" * 60)
+                print(f'  {name:<30} {desc}')
+            print('\n  Available Groq Models (free, may be region-locked):')
+            print('  ' + '-' * 60)
             for name, desc in ai.GROQ_MODELS:
-                print(f"  {name:<30} {desc}")
+                print(f'  {name:<30} {desc}')
             return 0
 
         if '--gemini' in args or '--groq' in args or '--key' in args:
@@ -3240,7 +3409,7 @@ def _cloud(args):
                 provider_flag = '--key'
                 idx = args.index('--key')
                 if idx + 1 >= len(args):
-                    print("  Usage: epl cloud --gemini <key>  or  --groq <key>")
+                    print('  Usage: epl cloud --gemini <key>  or  --groq <key>')
                     return 1
                 key = args[idx + 1]
                 provider = 'groq' if key.startswith('gsk_') else 'gemini'
@@ -3248,7 +3417,7 @@ def _cloud(args):
             if provider_flag != '--key':
                 idx = args.index(provider_flag)
                 if idx + 1 >= len(args):
-                    print(f"  Usage: epl cloud {provider_flag} <your_api_key>")
+                    print(f'  Usage: epl cloud {provider_flag} <your_api_key>')
                     return 1
                 key = args[idx + 1]
 
@@ -3256,53 +3425,53 @@ def _cloud(args):
             if '--model' in args:
                 midx = args.index('--model')
                 if midx + 1 >= len(args):
-                    print("  Usage: epl cloud --model <model_name>")
+                    print('  Usage: epl cloud --model <model_name>')
                     return 1
                 model = args[midx + 1]
             ai.configure_cloud(provider, key, model)
-            print(f"\n  ✓ {provider.title()} configured!")
-            print(f"  Key:   {_mask_key(key)}")
+            print(f'\n  ✓ {provider.title()} configured!')
+            print(f'  Key:   {_mask_key(key)}')
             if model:
-                print(f"  Model: {model}")
+                print(f'  Model: {model}')
             print('\n  Test it: epl ai "Write hello world in EPL"')
             return 0
 
         if '--model' in args:
             idx = args.index('--model')
             if idx + 1 >= len(args):
-                print("  Usage: epl cloud --model <model_name>")
+                print('  Usage: epl cloud --model <model_name>')
                 return 1
             status = ai.get_cloud_status()
             if not status.get('active'):
-                print("  No cloud provider configured. Run: epl cloud --setup")
+                print('  No cloud provider configured. Run: epl cloud --setup')
                 return 1
             model = args[idx + 1]
             ai.configure_cloud(ai.CLOUD_PROVIDER, ai.CLOUD_API_KEY, model)
-            print(f"  ✓ Cloud model changed to: {model}")
+            print(f'  ✓ Cloud model changed to: {model}')
             return 0
 
         if '--setup' in args:
-            print("\n  Cloud AI Setup")
-            print("  " + "-" * 50)
-            print("  Choose a provider:\n")
-            print("  [1] Google Gemini  — Free, fast, works globally (recommended)")
-            print("  [2] Groq           — Free, very fast (may be region-locked)\n")
+            print('\n  Cloud AI Setup')
+            print('  ' + '-' * 50)
+            print('  Choose a provider:\n')
+            print('  [1] Google Gemini  — Free, fast, works globally (recommended)')
+            print('  [2] Groq           — Free, very fast (may be region-locked)\n')
             try:
-                choice = input("  Provider (1/2): ").strip()
+                choice = input('  Provider (1/2): ').strip()
                 provider = 'groq' if choice == '2' else 'gemini'
                 if provider == 'groq':
-                    print("\n  Get a free Groq key: https://console.groq.com/keys")
+                    print('\n  Get a free Groq key: https://console.groq.com/keys')
                 else:
-                    print("\n  Get a free Gemini key: https://aistudio.google.com/apikey")
-                key = input("  API Key: ").strip()
+                    print('\n  Get a free Gemini key: https://aistudio.google.com/apikey')
+                key = input('  API Key: ').strip()
             except (EOFError, KeyboardInterrupt):
-                print("\n  Cancelled.")
+                print('\n  Cancelled.')
                 return 1
             if not key:
-                print("  No key provided. Cancelled.")
+                print('  No key provided. Cancelled.')
                 return 1
             ai.configure_cloud(provider, key)
-            print(f"\n  ✓ {provider.title()} configured! Key: {_mask_key(key)}")
+            print(f'\n  ✓ {provider.title()} configured! Key: {_mask_key(key)}')
             print('  Test it: epl ai "Write hello world in EPL"')
             return 0
 
@@ -3310,16 +3479,16 @@ def _cloud(args):
         if key.startswith('gsk_') or key.startswith('AIza') or len(key) > 20:
             provider = 'groq' if key.startswith('gsk_') else 'gemini'
             ai.configure_cloud(provider, key)
-            print(f"\n  ✓ {provider.title()} configured!")
-            print(f"  Key:   {_mask_key(key)}")
+            print(f'\n  ✓ {provider.title()} configured!')
+            print(f'  Key:   {_mask_key(key)}')
             print('\n  Test it: epl ai "Write hello world in EPL"')
             return 0
 
-        print(f"  Unknown option: {key}")
-        print("  Run: epl cloud --help")
+        print(f'  Unknown option: {key}')
+        print('  Run: epl cloud --help')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
@@ -3336,104 +3505,111 @@ def _train(args):
 
         for arg in args:
             if arg in ('--help', '-h'):
-                print("\n  EPL Model Training")
-                print("  " + "-" * 40)
-                print("  epl train                Create EPL-Coder model")
-                print("  epl train --base <model> Use specific base model")
-                print("  epl train --force        Recreate even if exists")
-                print("  epl train --delete       Remove EPL-Coder model")
-                print("  epl train --list         Show base model options")
+                print('\n  EPL Model Training')
+                print('  ' + '-' * 40)
+                print('  epl train                Create EPL-Coder model')
+                print('  epl train --base <model> Use specific base model')
+                print('  epl train --force        Recreate even if exists')
+                print('  epl train --delete       Remove EPL-Coder model')
+                print('  epl train --list         Show base model options')
                 return 0
             if arg in ('--list', '--models'):
-                print("\n  Recommended base models for EPL:")
-                print("  " + "-" * 55)
+                print('\n  Recommended base models for EPL:')
+                print('  ' + '-' * 55)
                 for name, size, desc in list_base_models():
-                    print(f"  {name:<20} {size:<10} {desc}")
-                print("\n  Usage: epl train --base <model>")
+                    print(f'  {name:<20} {size:<10} {desc}')
+                print('\n  Usage: epl train --base <model>')
                 return 0
 
         if '--delete' in args:
             if not is_available():
-                print("\n  Ollama is not running. Start it with: ollama serve")
-                print("  Install from: https://ollama.com")
+                print('\n  Ollama is not running. Start it with: ollama serve')
+                print('  Install from: https://ollama.com')
                 return 1
             delete_epl_model()
             return 0
 
         if not is_available():
-            print("\n  Ollama is not running. Start it with: ollama serve")
-            print("  Install from: https://ollama.com")
+            print('\n  Ollama is not running. Start it with: ollama serve')
+            print('  Install from: https://ollama.com')
             return 1
 
         base_model = None
         if '--base' in args:
             idx = args.index('--base')
             if idx + 1 >= len(args):
-                print("  Usage: epl train --base <model>")
+                print('  Usage: epl train --base <model>')
                 return 1
             base_model = args[idx + 1]
         force = '--force' in args
 
         if model_exists() and not force:
             print(f"\n  EPL model '{EPL_MODEL_NAME}' already exists!")
-            print("  Use --force to recreate, or --delete to remove.")
-            print("  Or just run: epl ai")
+            print('  Use --force to recreate, or --delete to remove.')
+            print('  Or just run: epl ai')
             return 0
 
         print()
-        print("  ╔══════════════════════════════════════╗")
-        print("  ║     EPL-Coder Model Training         ║")
-        print("  ╚══════════════════════════════════════╝")
+        print('  ╔══════════════════════════════════════╗')
+        print('  ║     EPL-Coder Model Training         ║')
+        print('  ╚══════════════════════════════════════╝')
         print()
 
         if model_exists() and force:
-            print("  Removing existing model...")
+            print('  Removing existing model...')
             delete_epl_model(verbose=False)
 
         ok = create_epl_model(base_model=base_model)
         return 0 if ok else 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 def _model(args):
     try:
-        from epl.ai import EPL_MODEL_NAME, get_model_info, is_available, list_base_models, list_models, model_exists
+        from epl.ai import (
+            EPL_MODEL_NAME,
+            get_model_info,
+            is_available,
+            list_base_models,
+            list_models,
+            model_exists,
+        )
 
         sub = args[0] if args else 'list'
 
         if sub == 'bases':
-            print("\n  Recommended Base Models:")
-            print("  " + "-" * 55)
+            print('\n  Recommended Base Models:')
+            print('  ' + '-' * 55)
             for name, size, desc in list_base_models():
-                print(f"  {name:<20} {size:<10} {desc}")
+                print(f'  {name:<20} {size:<10} {desc}')
             return 0
 
         if sub in ('--help', '-h', 'help'):
-            print("\n  Model Management:")
-            print("  epl model list     List installed models")
-            print("  epl model info     Show EPL model details")
-            print("  epl model bases    Show base model options")
+            print('\n  Model Management:')
+            print('  epl model list     List installed models')
+            print('  epl model info     Show EPL model details')
+            print('  epl model bases    Show base model options')
             return 0
 
         if not is_available():
-            print("\n  Ollama is not running.")
+            print('\n  Ollama is not running.')
             return 1
 
         if sub == 'list':
             models = list_models()
             epl_exists = model_exists()
-            print("\n  Installed Ollama Models:")
-            print("  " + "-" * 40)
+            print('\n  Installed Ollama Models:')
+            print('  ' + '-' * 40)
             if not models:
-                print("  (none)")
+                print('  (none)')
             for model in models:
-                tag = " ← EPL-Coder" if EPL_MODEL_NAME in model else ""
-                print(f"  {model}{tag}")
+                tag = ' ← EPL-Coder' if EPL_MODEL_NAME in model else ''
+                print(f'  {model}{tag}')
             print()
             if not epl_exists:
-                print("  EPL model not installed. Run: epl train")
+                print('  EPL model not installed. Run: epl train')
             return 0
 
         if sub == 'info':
@@ -3442,71 +3618,80 @@ def _model(args):
                 params = info.get('details', {}).get('parameter_size', 'N/A')
                 family = info.get('details', {}).get('family', 'N/A')
                 fmt = info.get('details', {}).get('format', 'N/A')
-                print(f"\n  Model: {EPL_MODEL_NAME}")
-                print(f"  Family: {family}")
-                print(f"  Parameters: {params}")
-                print(f"  Format: {fmt}")
+                print(f'\n  Model: {EPL_MODEL_NAME}')
+                print(f'  Family: {family}')
+                print(f'  Parameters: {params}')
+                print(f'  Format: {fmt}')
                 return 0
             print(f"  Model '{EPL_MODEL_NAME}' not found. Run: epl train")
             return 1
 
-        print(f"\n  Unknown subcommand: {sub}")
-        print("  Try: epl model --help")
+        print(f'\n  Unknown subcommand: {sub}')
+        print('  Try: epl model --help')
         return 1
     except Exception as exc:
-        print(f"{_red('Error:')} {exc}", file=sys.stderr)
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
 
 
 # ─── Phase 7 Commands ────────────────────────────────────
 
+
 def _resolve():
-    from epl.resolver import resolve_from_manifest, print_resolution
+    from epl.resolver import print_resolution, resolve_from_manifest
+
     result = resolve_from_manifest()
     print_resolution(result)
 
 
 def _workspace(args):
     from epl.workspace import workspace_cli
+
     workspace_cli(list(args))
 
 
 def _ci(args):
     from epl.ci_gen import ci_cli
+
     ci_cli(list(args))
 
 
 def _sync_index(args):
     from epl.package_index import PackageIndex
+
     idx = PackageIndex()
     force = '--force' in args
     if idx.sync_index(force=force):
-        print("  Package index synced successfully.")
+        print('  Package index synced successfully.')
     else:
-        print("  Failed to sync package index.")
+        print('  Failed to sync package index.')
 
 
 def _list_modules():
     """List available EPL standard library modules."""
     import json
-    registry_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stdlib', 'registry.json')
+
+    registry_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'stdlib', 'registry.json'
+    )
     try:
         with open(registry_path, 'r', encoding='utf-8') as f:
             registry = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        print(f"{_red('Error:')} stdlib registry not found.")
+        print(f'{_red("Error:")} stdlib registry not found.')
         return 1
 
-    print(f"\n{_bold('EPL Standard Library Modules')}")
-    print(_dim('Use: Import "name" to load a module') + "\n")
+    print(f'\n{_bold("EPL Standard Library Modules")}')
+    print(_dim('Use: Import "name" to load a module') + '\n')
     for name, info in registry['modules'].items():
-        print(f"  {_green(name):30s} {info['description']}")
+        print(f'  {_green(name):30s} {info["description"]}')
     count = len(registry['modules'])
-    print(f"\n{_dim(f'{count} modules available | EPL v{__version__}')}\n")
+    print(f'\n{_dim(f"{count} modules available | EPL v{__version__}")}\n')
     return 0
 
 
 # ─── Entry Point ──────────────────────────────────────────
+
 
 def main():
     """CLI entry point for setuptools console_scripts."""

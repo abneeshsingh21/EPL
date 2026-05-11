@@ -1,0 +1,23 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Professional Material Theme Style Document -->
+  <!-- Main File Body -->
+  <path d="M48 24C48 15.1634 55.1634 8 64 8H152L208 64V232C208 240.837 200.837 248 192 248H64C55.1634 248 48 240.837 48 232V24Z" fill="#1E293B"/>
+  
+  <!-- Folded Corner Effect -->
+  <path d="M152 8L208 64H168C159.163 64 152 56.8366 152 48V8Z" fill="#334155"/>
+
+  <!-- Subtle bottom border for depth -->
+  <rect x="48" y="240" width="160" height="8" rx="4" fill="#0F172A" opacity="0.5"/>
+
+  <!-- Logo Group -->
+  <!-- Recreating the clean geometric E / Slash logo you uploaded -->
+  <g transform="translate(68, 90) scale(0.85)">
+    <!-- Dark shape of the 'E' -->
+    <path d="M10 10H65V35H35V65H55V90H35V120H10V10Z" fill="#FFFFFF"/>
+    <!-- The bright blue Slash -->
+    <path d="M95 10L35 120H65L125 10H95Z" fill="#38BDF8"/>
+  </g>
+
+  <!-- "EPL" Text at the bottom -->
+  <text x="128" y="210" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="28" font-weight="800" fill="#94A3B8" text-anchor="middle" letter-spacing="2">EPL</text>
+</svg>
