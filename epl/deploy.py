@@ -2244,7 +2244,43 @@ def deploy_generate(target, output_dir='.', **kwargs):
         )
         generated.extend(k8s_files)
 
+    if target in ('aws', 'all'):
+        from epl.cloud_deploy import generate_aws_all
+        aws_files = generate_aws_all(
+            app_name=app_name,
+            image=kwargs.get('image', f'{app_name}:latest'),
+            output_dir=os.path.join(output_dir, 'aws'),
+            port=port,
+            region=kwargs.get('region', 'us-east-1'),
+            account_id=kwargs.get('account_id', 'YOUR_ACCOUNT_ID'),
+        )
+        generated.extend(aws_files)
+
+    if target in ('gcp', 'all'):
+        from epl.cloud_deploy import generate_gcp_all
+        gcp_files = generate_gcp_all(
+            app_name=app_name,
+            image=kwargs.get('image', f'{app_name}:latest'),
+            output_dir=os.path.join(output_dir, 'gcp'),
+            port=port,
+            region=kwargs.get('region', 'us-central1'),
+            project_id=kwargs.get('project_id', 'YOUR_PROJECT_ID'),
+        )
+        generated.extend(gcp_files)
+
+    if target in ('azure', 'all'):
+        from epl.cloud_deploy import generate_azure_all
+        azure_files = generate_azure_all(
+            app_name=app_name,
+            image=kwargs.get('image', f'{app_name}:latest'),
+            output_dir=os.path.join(output_dir, 'azure'),
+            port=port,
+            region=kwargs.get('region', 'eastus'),
+        )
+        generated.extend(azure_files)
+
     return generated
+
 
 
 def deploy_cli(args):
@@ -2283,7 +2319,7 @@ def deploy_cli(args):
         return
 
     target = args[0]
-    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s', 'all')
+    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s','aws','gcp','azure','all')
     if target not in valid_targets:
         print(f"EPL Error: Unknown deploy target '{target}'")
         print(f"Valid targets: {', '.join(valid_targets)}")
