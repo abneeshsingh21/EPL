@@ -616,6 +616,8 @@ def test_all_ast_nodes_handled():
         'LightSetup',
         'MeshAdd',
         'DrawCommand',
+        # v5.3: JS Bridge (handled by interpreter and JS transpiler, not LLVM)
+        'UseJSStatement',
     }
     # Structural/helper nodes not dispatched directly
     structural_nodes = {

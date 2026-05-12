@@ -454,6 +454,15 @@ class UseStatement(ASTNode):
         self.line = line
 
 
+class UseJSStatement(ASTNode):
+    """Use javascript "library" as alias  OR  Use typescript "library" as alias"""
+
+    def __init__(self, library: str, alias: str = None, is_typescript: bool = False, line: int = 0):
+        self.library = library
+        self.alias = alias
+        self.is_typescript = is_typescript
+        self.line = line
+
 # ─── v0.3: Wait / Exit / Constant / Assert ───────────────
 
 

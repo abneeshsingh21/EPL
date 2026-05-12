@@ -2,6 +2,18 @@
 
 All notable changes to EPL are documented in this file.
 
+## [Unreleased]
+
+### Added
+- **JavaScript/TypeScript Bridge** — New `Use javascript "library"` / `Use typescript "library"` syntax for accessing the NPM ecosystem from EPL
+  - `epl/js_bridge/` — Persistent Node.js subprocess bridge with JSON-RPC protocol over stdin/stdout
+  - `JSModule` wrapper class in `interpreter.py` — enables `module.method()` and `module.property` access
+  - NPM auto-install for allowlisted packages via `package_manager.py` integration
+  - `epl jsinstall <pkg>` / `epl jsremove <pkg>` / `epl jsdeps` — CLI commands for npm dependency management
+  - JS transpiler support — `UseJSStatement` emits proper ESM `import` or CommonJS `require`
+  - Error explainer patterns for Node.js-not-installed, missing modules, and bridge crashes
+  - 34 unit tests covering parser, AST, serialization, transpiler, and Node.js integration
+
 ## [7.5.1] — 2026-05-11
 
 ### Added (PR Integrations)
@@ -47,6 +59,14 @@ All notable changes to EPL are documented in this file.
 - **Dynamic AI Thinking Mode** — Copilot natively evaluates complex architectural requests using a multi-step semantic logic sequence.
 - **Strict Grammar SSOT** — Single Source of Truth enforced across CLI and Edge workers to accurately identify Enums, Ternaries, Error Handling, and File I/O naturally.
 - **Root Repository Restructuring** — Purged thousands of lines of dev scratchpads and leaked release artifacts to enforce an industry-standard project structure.
+- **Kubernetes Manifest Generator** — `epl deploy k8s` generates production-ready
+  Kubernetes manifests: Namespace, ConfigMap, Deployment (with liveness/readiness
+  probes, non-root security context, resource limits), Service, Ingress (with
+  optional TLS), and HorizontalPodAutoscaler.
+  - CLI: `epl deploy k8s --image myapp:1.0 --host myapp.example.com --tls`
+  - All manifests written to `./k8s/` by default
+- **Bug fix** — Fixed `tests/test_llvm.py` crashing on Python 3.13 when
+  `llvmlite` is not installed.
 
 ## [7.3.2] — 2026-04-06
 

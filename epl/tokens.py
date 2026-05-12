@@ -221,6 +221,9 @@ class TokenType(Enum):
     EXTERNAL = auto()  # "External"
     LIBRARY = auto()  # "Library"
 
+    # --- v5.3: JavaScript/TypeScript Bridge ---
+    JAVASCRIPT = auto()  # "javascript"
+
     # --- v6.0: Style & Layout System ---
     STYLE = auto()  # "Style"
     COMPONENT = auto()  # "Component"
@@ -514,6 +517,8 @@ KEYWORDS = {
     # v5.2: Triple Ecosystem keywords
     'external': TokenType.EXTERNAL,
     'library': TokenType.LIBRARY,
+    # v5.3: JavaScript/TypeScript Bridge
+    'javascript': TokenType.JAVASCRIPT,
     # v6.0: Style & Layout keywords
     'style': TokenType.STYLE,
     'component': TokenType.COMPONENT,
