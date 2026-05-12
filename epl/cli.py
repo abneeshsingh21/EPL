@@ -448,6 +448,7 @@ def cli_main(argv=None):
         'ci': lambda: _ci(rest),
         'sync-index': lambda: _sync_index(rest),
         'monitor': lambda: _monitor(rest),
+        'login': lambda: _login(rest),
         'registry': lambda: _registry_server(rest),
         'upgrade': lambda: _upgrade(),
         'version': lambda: print(f'EPL v{__version__}'),
@@ -4224,6 +4225,57 @@ def _list_modules():
         print(f'  {_green(name):30s} {info["description"]}')
     count = len(registry['modules'])
     print(f'\n{_dim(f"{count} modules available | EPL v{__version__}")}\n')
+    return 0
+
+
+# ─── Login Command ────────────────────────────────────────
+
+
+def _login(args):
+    """Save GitHub token for publishing packages."""
+    import getpass
+
+    epl_home = os.path.join(os.path.expanduser('~'), '.epl')
+    os.makedirs(epl_home, exist_ok=True)
+    creds_path = os.path.join(epl_home, 'credentials.json')
+
+    if '--status' in args:
+        if os.path.isfile(creds_path):
+            print(f'{_green("✓")} Logged in (credentials at {creds_path})')
+        else:
+            print(f'{_dim("Not logged in.")} Run: epl login')
+        return 0
+
+    if '--logout' in args:
+        if os.path.isfile(creds_path):
+            os.remove(creds_path)
+            print(f'{_green("✓")} Logged out. Credentials removed.')
+        else:
+            print(f'{_dim("Already logged out.")}')
+        return 0
+
+    print(f'{_bold("EPL Login")}')
+    print(f'{_dim("Your GitHub token is used to publish packages and auto-register them.")}')
+    print(f'{_dim("Create a token at: https://github.com/settings/tokens")}')
+    print(f'{_dim("Required scope: public_repo")}')
+    print()
+
+    token = getpass.getpass('GitHub Token: ')
+    if not token.strip():
+        print(f'{_red("Error:")} Token cannot be empty.')
+        return 1
+
+    import json
+
+    with open(creds_path, 'w', encoding='utf-8') as f:
+        json.dump({'github_token': token.strip()}, f)
+    os.chmod(creds_path, 0o600)
+
+    # Also set env var for current session
+    os.environ['GITHUB_TOKEN'] = token.strip()
+
+    print(f'\n{_green("✓")} Logged in successfully!')
+    print(f'{_dim(f"Credentials saved to {creds_path}")}')
     return 0
 
 
