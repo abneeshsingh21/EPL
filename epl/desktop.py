@@ -425,6 +425,15 @@ class DesktopComposeGenerator:
                         ast.BreakStatement,
                         ast.ContinueStatement,
                         ast.AugmentedAssignment,
+                        # v6.0+v6.1 nodes
+                        ast.StyleDef,
+                        ast.StyledElement,
+                        ast.LayoutContainer,
+                        ast.ComponentDef,
+                        ast.ComponentUse,
+                        ast.AnimateDef,
+                        ast.Scene3D,
+                        ast.DrawCommand,
                     ),
                 ):
                     self._emit_stmt(s)
@@ -1066,6 +1075,26 @@ object EPLRuntime {{
             self._line(
                 f'java.io.File({self._expr(node.filepath)}).appendText({self._expr(node.content)}.toString() + "\\n")'
             )
+        # v6.0: Style & Layout System (Compose Desktop)
+        elif isinstance(node, ast.StyleDef):
+            self._emit_style_def(node)
+        elif isinstance(node, ast.StyledElement):
+            self._emit_styled_element(node)
+        elif isinstance(node, ast.LayoutContainer):
+            self._emit_layout_container(node)
+        elif isinstance(node, ast.ComponentDef):
+            self._emit_component_def(node)
+        elif isinstance(node, ast.ComponentUse):
+            self._emit_component_use(node)
+        elif isinstance(node, ast.AnimateDef):
+            self._emit_animate_def(node)
+        # v6.1: 3D & Canvas
+        elif isinstance(node, ast.Scene3D):
+            self._emit_scene_3d(node)
+        elif isinstance(node, ast.DrawCommand):
+            self._emit_draw_command(node)
+        elif isinstance(node, (ast.ResponsiveBlock, ast.TransitionDef, ast.KeyframeDef)):
+            pass
 
     # ── GUI Node Collection ─────────────────────────────
 
@@ -1096,6 +1125,263 @@ object EPLRuntime {{
                         'handler': s.handler,
                     }
                 )
+            # v6.0+v6.1: Style & Layout nodes handled in _emit_stmt
+            elif isinstance(s, (
+                ast.StyleDef, ast.StyledElement, ast.LayoutContainer,
+                ast.ComponentDef, ast.ComponentUse, ast.AnimateDef,
+                ast.ResponsiveBlock, ast.TransitionDef, ast.KeyframeDef,
+                ast.Scene3D, ast.DrawCommand,
+            )):
+                pass  # emitted during code generation pass
+
+    # ─── v6.0+v6.1: Style, Layout, 3D & Canvas (Compose Desktop) ────
+
+    _NAMED_COLORS = {
+        'red': 'ff0000', 'green': '00ff00', 'blue': '0000ff',
+        'white': 'ffffff', 'black': '000000', 'yellow': 'ffff00',
+        'cyan': '00ffff', 'magenta': 'ff00ff', 'orange': 'ff8c00',
+        'purple': '800080', 'pink': 'ffc0cb', 'gray': '808080',
+        'grey': '808080', 'transparent': '000000',
+    }
+
+    def _css_color_to_compose(self, color_str):
+        """Convert CSS color to Compose Color()."""
+        if not color_str:
+            return 'Color.Unspecified'
+        c = color_str.strip().lstrip('#')
+        if c.lower() in self._NAMED_COLORS:
+            c = self._NAMED_COLORS[c.lower()]
+        if len(c) == 3 and all(ch in '0123456789abcdefABCDEF' for ch in c):
+            c = ''.join(ch * 2 for ch in c)
+        if len(c) == 6 and all(ch in '0123456789abcdefABCDEF' for ch in c):
+            return f'Color(0xFF{c})'
+        return f'Color(0xFF000000)'
+
+    def _css_value_to_dp(self, value):
+        """Extract numeric value from CSS size string."""
+        if isinstance(value, (int, float)):
+            return int(value)
+        s = str(value).replace('px', '').replace('rem', '').replace('em', '').strip()
+        try:
+            return int(float(s))
+        except (ValueError, TypeError):
+            return 0
+
+    def _parse_duration_ms(self, duration):
+        """Parse CSS duration string to milliseconds."""
+        d = str(duration or '1s').strip()
+        if d.endswith('ms'):
+            try:
+                return int(float(d[:-2]))
+            except ValueError:
+                return 1000
+        elif d.endswith('s'):
+            try:
+                return int(float(d[:-1]) * 1000)
+            except ValueError:
+                return 1000
+        try:
+            return int(float(d) * 1000)
+        except ValueError:
+            return 1000
+
+    def _emit_style_def(self, node):
+        """Emit @Composable style wrapper function."""
+        self.imports.add('androidx.compose.foundation.background')
+        self.imports.add('androidx.compose.foundation.layout.*')
+        self.imports.add('androidx.compose.foundation.shape.RoundedCornerShape')
+        self.imports.add('androidx.compose.ui.draw.clip')
+        self.imports.add('androidx.compose.ui.graphics.Color')
+        self.imports.add('androidx.compose.ui.unit.dp')
+        self.imports.add('androidx.compose.runtime.Composable')
+
+        name = node.name.replace('-', '_').replace(' ', '_').title().replace('_', '')
+        self._line('@Composable')
+        self._line(f'fun {name}Style(content: @Composable () -> Unit) {{')
+        self.indent += 1
+
+        modifiers = []
+        for prop in node.properties:
+            pname = prop.property_name.lower().replace('-', '_')
+            val = prop.value
+            if pname == 'background':
+                modifiers.append(f'.background({self._css_color_to_compose(val)})')
+            elif pname in ('padding', 'padding_all'):
+                modifiers.append(f'.padding({self._css_value_to_dp(val)}.dp)')
+            elif pname in ('border_radius', 'borderradius'):
+                modifiers.append(f'.clip(RoundedCornerShape({self._css_value_to_dp(val)}.dp))')
+            elif pname == 'width':
+                modifiers.append(f'.width({self._css_value_to_dp(val)}.dp)')
+            elif pname == 'height':
+                modifiers.append(f'.height({self._css_value_to_dp(val)}.dp)')
+
+        mod_chain = 'Modifier' + ''.join(modifiers) if modifiers else 'Modifier'
+        self._line(f'Box(modifier = {mod_chain}) {{')
+        self.indent += 1
+        self._line('content()')
+        self.indent -= 1
+        self._line('}')
+        self.indent -= 1
+        self._line('}')
+
+    def _emit_styled_element(self, node):
+        """Emit Box/Column with Modifier chain."""
+        self.imports.add('androidx.compose.foundation.layout.*')
+        self.imports.add('androidx.compose.ui.graphics.Color')
+        self.imports.add('androidx.compose.ui.unit.dp')
+
+        tag = node.tag
+        compose_widget = 'Column' if tag in ('section', 'article', 'main', 'nav') else 'Box'
+        self._line(f'{compose_widget}(modifier = Modifier) {{')
+        self.indent += 1
+        for child in (node.children or []):
+            self._emit_stmt(child)
+        self.indent -= 1
+        self._line('}')
+
+    def _emit_layout_container(self, node):
+        """Emit Row/Column/LazyVerticalGrid."""
+        self.imports.add('androidx.compose.foundation.layout.*')
+        self.imports.add('androidx.compose.ui.unit.dp')
+
+        props = node.properties
+        gap = self._css_value_to_dp(props.get('gap', '0'))
+
+        if node.layout_type == 'grid':
+            self.imports.add('androidx.compose.foundation.lazy.grid.LazyVerticalGrid')
+            self.imports.add('androidx.compose.foundation.lazy.grid.GridCells')
+            cols = int(props.get('columns', 2))
+            self._line(f'LazyVerticalGrid(')
+            self.indent += 1
+            self._line(f'columns = GridCells.Fixed({cols}),')
+            self._line(f'horizontalArrangement = Arrangement.spacedBy({gap}.dp),')
+            self._line(f'verticalArrangement = Arrangement.spacedBy({gap}.dp)')
+            self.indent -= 1
+            self._line(') {')
+            self.indent += 1
+            for child in (node.children or []):
+                self._line('item {')
+                self.indent += 1
+                self._emit_stmt(child)
+                self.indent -= 1
+                self._line('}')
+            self.indent -= 1
+            self._line('}')
+        else:
+            direction = props.get('direction', 'column')
+            container = 'Row' if direction == 'row' else 'Column'
+            arrangement = 'horizontalArrangement' if direction == 'row' else 'verticalArrangement'
+            self._line(f'{container}({arrangement} = Arrangement.spacedBy({gap}.dp)) {{')
+            self.indent += 1
+            for child in (node.children or []):
+                self._emit_stmt(child)
+            self.indent -= 1
+            self._line('}')
+
+    def _emit_component_def(self, node):
+        """Emit @Composable function definition."""
+        self.imports.add('androidx.compose.runtime.Composable')
+        name = node.name.replace('-', '_').replace(' ', '_')
+        param_strs = []
+        for p in (node.params or []):
+            pname = p[0] if isinstance(p, tuple) else str(p)
+            param_strs.append(f'{pname}: Any? = null')
+        params = ', '.join(param_strs)
+        self._line('@Composable')
+        self._line(f'fun {name}({params}) {{')
+        self.indent += 1
+        for stmt in (node.body or []):
+            self._emit_stmt(stmt)
+        self.indent -= 1
+        self._line('}')
+
+    def _emit_component_use(self, node):
+        """Emit component function call."""
+        name = node.component_name.replace('-', '_').replace(' ', '_')
+        self._line(f'{name}()')
+
+    def _emit_animate_def(self, node):
+        """Emit Compose animation definition."""
+        self.imports.add('androidx.compose.animation.core.*')
+        self.imports.add('androidx.compose.runtime.*')
+        name = node.name.replace('-', '_')
+        duration_ms = self._parse_duration_ms(node.duration)
+        self._line(f'val {name}Anim = animateFloatAsState(')
+        self.indent += 1
+        self._line(f'targetValue = 1f,')
+        self._line(f'animationSpec = tween(durationMillis = {duration_ms})')
+        self.indent -= 1
+        self._line(')')
+
+    def _emit_scene_3d(self, node):
+        """Emit 3D scene using Compose Canvas."""
+        self.imports.add('androidx.compose.foundation.Canvas')
+        self.imports.add('androidx.compose.foundation.layout.size')
+        self.imports.add('androidx.compose.ui.graphics.Color')
+        self.imports.add('androidx.compose.ui.geometry.Offset')
+        self.imports.add('androidx.compose.ui.geometry.Size')
+        self.imports.add('androidx.compose.ui.unit.dp')
+
+        w, h = node.width, node.height
+        self._line(f'// 3D Scene: {node.name}')
+        self._line(f'Canvas(modifier = Modifier.size({w}.dp, {h}.dp)) {{')
+        self.indent += 1
+        self._line(f'drawRect(color = Color(0xFF1a1a2e), size = size)')
+        for child in node.body:
+            if isinstance(child, ast.MeshAdd):
+                color = self._css_color_to_compose(child.color or '#667eea')
+                px, py = child.position[0], child.position[1]
+                sx, sy = child.scale[0], child.scale[1]
+                if child.shape in ('cube', 'box'):
+                    self._line(f'drawRect(color = {color}, '
+                               f'topLeft = Offset({px + w // 2}f, {py + h // 2}f), '
+                               f'size = Size({50 * sx}f, {50 * sy}f))')
+                elif child.shape == 'sphere':
+                    self._line(f'drawCircle(color = {color}, '
+                               f'radius = {25 * sx}f, '
+                               f'center = Offset({px + w // 2}f, {py + h // 2}f))')
+        self.indent -= 1
+        self._line('}')
+
+    def _emit_draw_command(self, node):
+        """Emit Compose Canvas draw commands."""
+        self.imports.add('androidx.compose.foundation.Canvas')
+        self.imports.add('androidx.compose.foundation.layout.size')
+        self.imports.add('androidx.compose.ui.graphics.Color')
+        self.imports.add('androidx.compose.ui.graphics.Path')
+        self.imports.add('androidx.compose.ui.geometry.Offset')
+        self.imports.add('androidx.compose.ui.geometry.Size')
+        self.imports.add('androidx.compose.ui.unit.dp')
+
+        props = node.properties
+        shape = node.shape
+
+        self._line('Canvas(modifier = Modifier.size(800.dp, 600.dp)) {')
+        self.indent += 1
+        if shape == 'rect':
+            x, y = props.get('x', 0), props.get('y', 0)
+            w, h = props.get('width', 100), props.get('height', 50)
+            fill = self._css_color_to_compose(props.get('fill', '#000'))
+            self._line(f'drawRect(color = {fill}, topLeft = Offset({x}f, {y}f), size = Size({w}f, {h}f))')
+        elif shape == 'circle':
+            x, y = props.get('x', 50), props.get('y', 50)
+            r = props.get('radius', 25)
+            fill = self._css_color_to_compose(props.get('fill', '#000'))
+            self._line(f'drawCircle(color = {fill}, radius = {r}f, center = Offset({x}f, {y}f))')
+        elif shape == 'line':
+            x1, y1 = props.get('x1', 0), props.get('y1', 0)
+            x2, y2 = props.get('x2', 100), props.get('y2', 100)
+            stroke = self._css_color_to_compose(props.get('stroke', '#000'))
+            lw = props.get('width', 1)
+            self._line(f'drawLine(color = {stroke}, start = Offset({x1}f, {y1}f), end = Offset({x2}f, {y2}f), strokeWidth = {lw}f)')
+        elif shape == 'text':
+            self._line(f'// Text: {props.get("content", "")}')
+        elif shape == 'path':
+            fill = self._css_color_to_compose(props.get('fill', '#000'))
+            self._line(f'val path = Path()')
+            self._line(f'drawPath(path = path, color = {fill})')
+        self.indent -= 1
+        self._line('}')
 
     def _line(self, text):
         self.output.append('    ' * self.indent + text)

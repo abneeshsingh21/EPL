@@ -1,0 +1,399 @@
+Note: epl-animate — Pre-built CSS animations for EPL
+Note: Import this package to use ready-made animations on any element.
+Note: Usage: Div with style "card" animate "fadeIn" ... End
+
+Note: ═══════════════════════════════════════════
+Note: FADE ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "fadeIn"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Opacity "0"
+    End
+    Keyframe 100
+        Opacity "1"
+    End
+End
+
+Animate "fadeOut"
+    Duration "0.4s"
+    Easing "ease-in"
+    Keyframe 0
+        Opacity "1"
+    End
+    Keyframe 100
+        Opacity "0"
+    End
+End
+
+Animate "fadeInUp"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Opacity "0"
+        Transform "translateY(20px)"
+    End
+    Keyframe 100
+        Opacity "1"
+        Transform "translateY(0)"
+    End
+End
+
+Animate "fadeInDown"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Opacity "0"
+        Transform "translateY(-20px)"
+    End
+    Keyframe 100
+        Opacity "1"
+        Transform "translateY(0)"
+    End
+End
+
+Animate "fadeInLeft"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Opacity "0"
+        Transform "translateX(-20px)"
+    End
+    Keyframe 100
+        Opacity "1"
+        Transform "translateX(0)"
+    End
+End
+
+Animate "fadeInRight"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Opacity "0"
+        Transform "translateX(20px)"
+    End
+    Keyframe 100
+        Opacity "1"
+        Transform "translateX(0)"
+    End
+End
+
+Note: ═══════════════════════════════════════════
+Note: SLIDE ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "slideUp"
+    Duration "0.5s"
+    Easing "cubic-bezier(0.4, 0, 0.2, 1)"
+    Keyframe 0
+        Transform "translateY(100%)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "translateY(0)"
+        Opacity "1"
+    End
+End
+
+Animate "slideDown"
+    Duration "0.5s"
+    Easing "cubic-bezier(0.4, 0, 0.2, 1)"
+    Keyframe 0
+        Transform "translateY(-100%)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "translateY(0)"
+        Opacity "1"
+    End
+End
+
+Animate "slideLeft"
+    Duration "0.5s"
+    Easing "cubic-bezier(0.4, 0, 0.2, 1)"
+    Keyframe 0
+        Transform "translateX(100%)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "translateX(0)"
+        Opacity "1"
+    End
+End
+
+Animate "slideRight"
+    Duration "0.5s"
+    Easing "cubic-bezier(0.4, 0, 0.2, 1)"
+    Keyframe 0
+        Transform "translateX(-100%)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "translateX(0)"
+        Opacity "1"
+    End
+End
+
+Note: ═══════════════════════════════════════════
+Note: BOUNCE & ELASTIC ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "bounce"
+    Duration "1s"
+    Easing "cubic-bezier(0.34, 1.56, 0.64, 1)"
+    Keyframe 0
+        Transform "scale(0.3)"
+        Opacity "0"
+    End
+    Keyframe 50
+        Transform "scale(1.05)"
+    End
+    Keyframe 70
+        Transform "scale(0.95)"
+    End
+    Keyframe 100
+        Transform "scale(1)"
+        Opacity "1"
+    End
+End
+
+Animate "bounceIn"
+    Duration "0.75s"
+    Easing "cubic-bezier(0.34, 1.56, 0.64, 1)"
+    Keyframe 0
+        Transform "scale(0)"
+        Opacity "0"
+    End
+    Keyframe 60
+        Transform "scale(1.1)"
+    End
+    Keyframe 100
+        Transform "scale(1)"
+        Opacity "1"
+    End
+End
+
+Animate "elastic"
+    Duration "1s"
+    Easing "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
+    Keyframe 0
+        Transform "scale(0)"
+    End
+    Keyframe 100
+        Transform "scale(1)"
+    End
+End
+
+Note: ═══════════════════════════════════════════
+Note: SPIN & ROTATE ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "spin"
+    Duration "1s"
+    Easing "linear"
+    Iteration "infinite"
+    Keyframe 0
+        Transform "rotate(0deg)"
+    End
+    Keyframe 100
+        Transform "rotate(360deg)"
+    End
+End
+
+Animate "spinSlow"
+    Duration "3s"
+    Easing "linear"
+    Iteration "infinite"
+    Keyframe 0
+        Transform "rotate(0deg)"
+    End
+    Keyframe 100
+        Transform "rotate(360deg)"
+    End
+End
+
+Animate "rotateIn"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Transform "rotate(-180deg) scale(0)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "rotate(0deg) scale(1)"
+        Opacity "1"
+    End
+End
+
+Note: ═══════════════════════════════════════════
+Note: PULSE & HEARTBEAT ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "pulse"
+    Duration "2s"
+    Easing "ease-in-out"
+    Iteration "infinite"
+    Keyframe 0
+        Transform "scale(1)"
+        Opacity "1"
+    End
+    Keyframe 50
+        Transform "scale(1.05)"
+        Opacity "0.8"
+    End
+    Keyframe 100
+        Transform "scale(1)"
+        Opacity "1"
+    End
+End
+
+Animate "heartbeat"
+    Duration "1.5s"
+    Easing "ease-in-out"
+    Iteration "infinite"
+    Keyframe 0
+        Transform "scale(1)"
+    End
+    Keyframe 14
+        Transform "scale(1.3)"
+    End
+    Keyframe 28
+        Transform "scale(1)"
+    End
+    Keyframe 42
+        Transform "scale(1.3)"
+    End
+    Keyframe 70
+        Transform "scale(1)"
+    End
+End
+
+Animate "ping"
+    Duration "1s"
+    Easing "cubic-bezier(0, 0, 0.2, 1)"
+    Iteration "infinite"
+    Keyframe 0
+        Transform "scale(1)"
+        Opacity "1"
+    End
+    Keyframe 75
+        Transform "scale(2)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "scale(2)"
+        Opacity "0"
+    End
+End
+
+Note: ═══════════════════════════════════════════
+Note: ZOOM ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "zoomIn"
+    Duration "0.5s"
+    Easing "ease-out"
+    Keyframe 0
+        Transform "scale(0.5)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "scale(1)"
+        Opacity "1"
+    End
+End
+
+Animate "zoomOut"
+    Duration "0.4s"
+    Easing "ease-in"
+    Keyframe 0
+        Transform "scale(1)"
+        Opacity "1"
+    End
+    Keyframe 100
+        Transform "scale(0.5)"
+        Opacity "0"
+    End
+End
+
+Note: ═══════════════════════════════════════════
+Note: SHAKE & WOBBLE ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "shake"
+    Duration "0.5s"
+    Easing "ease-in-out"
+    Keyframe 0
+        Transform "translateX(0)"
+    End
+    Keyframe 25
+        Transform "translateX(-5px)"
+    End
+    Keyframe 50
+        Transform "translateX(5px)"
+    End
+    Keyframe 75
+        Transform "translateX(-5px)"
+    End
+    Keyframe 100
+        Transform "translateX(0)"
+    End
+End
+
+Animate "wobble"
+    Duration "0.8s"
+    Easing "ease-in-out"
+    Keyframe 0
+        Transform "rotate(0deg)"
+    End
+    Keyframe 15
+        Transform "rotate(-5deg)"
+    End
+    Keyframe 30
+        Transform "rotate(3deg)"
+    End
+    Keyframe 45
+        Transform "rotate(-3deg)"
+    End
+    Keyframe 60
+        Transform "rotate(2deg)"
+    End
+    Keyframe 75
+        Transform "rotate(-1deg)"
+    End
+    Keyframe 100
+        Transform "rotate(0deg)"
+    End
+End
+
+Note: ═══════════════════════════════════════════
+Note: FLIP ANIMATIONS
+Note: ═══════════════════════════════════════════
+
+Animate "flipX"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Transform "perspective(400px) rotateX(90deg)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "perspective(400px) rotateX(0deg)"
+        Opacity "1"
+    End
+End
+
+Animate "flipY"
+    Duration "0.6s"
+    Easing "ease-out"
+    Keyframe 0
+        Transform "perspective(400px) rotateY(90deg)"
+        Opacity "0"
+    End
+    Keyframe 100
+        Transform "perspective(400px) rotateY(0deg)"
+        Opacity "1"
+    End
+End

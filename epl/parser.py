@@ -125,6 +125,45 @@ class Parser:
         TokenType.DOES,
         TokenType.ACTION,
         TokenType.NOTHING,
+        # v6.0: Style & Layout keywords usable as identifiers in context
+        TokenType.STYLE,
+        TokenType.COMPONENT,
+        TokenType.DIV,
+        TokenType.SECTION,
+        TokenType.NAV,
+        TokenType.HEADER_EL,
+        TokenType.FOOTER_EL,
+        TokenType.SPAN,
+        TokenType.ARTICLE,
+        TokenType.ASIDE,
+        TokenType.MAIN_EL,
+        TokenType.CONTAINER,
+        TokenType.GRID,
+        TokenType.FLEX,
+        TokenType.ANIMATE,
+        TokenType.DURATION,
+        TokenType.EASING,
+        TokenType.KEYFRAME,
+        TokenType.TRANSITION_KW,
+        TokenType.TRANSFORM,
+        TokenType.OPACITY,
+        TokenType.RESPONSIVE,
+        TokenType.CLASSNAME,
+        TokenType.APPLY,
+        # v6.1: 3D & Canvas keywords usable as identifiers
+        TokenType.SCENE,
+        TokenType.CAMERA_KW,
+        TokenType.MESH,
+        TokenType.LIGHT,
+        TokenType.MATERIAL,
+        TokenType.TEXTURE,
+        TokenType.RENDER,
+        TokenType.POSITION,
+        TokenType.ROTATION,
+        TokenType.SCALE_KW,
+        TokenType.DRAW,
+        TokenType.FILL,
+        TokenType.STROKE,
     )
 
     def _expect_identifier(self, error_msg: str = None) -> Token:
@@ -565,6 +604,65 @@ class Parser:
             nxt = self._peek()
             if nxt and nxt.type == TokenType.LIBRARY:
                 return self._parse_load_library()
+
+        # v6.0: Style & Layout System
+        if tok.type == TokenType.STYLE:
+            return self._parse_style_def()
+
+        if tok.type == TokenType.COMPONENT:
+            return self._parse_component_def()
+
+        if tok.type == TokenType.DIV:
+            return self._parse_styled_element('div')
+
+        if tok.type == TokenType.SECTION:
+            return self._parse_styled_element('section')
+
+        if tok.type == TokenType.NAV:
+            return self._parse_styled_element('nav')
+
+        if tok.type == TokenType.HEADER_EL:
+            return self._parse_styled_element('header')
+
+        if tok.type == TokenType.FOOTER_EL:
+            return self._parse_styled_element('footer')
+
+        if tok.type == TokenType.SPAN:
+            return self._parse_styled_element('span')
+
+        if tok.type == TokenType.ARTICLE:
+            return self._parse_styled_element('article')
+
+        if tok.type == TokenType.ASIDE:
+            return self._parse_styled_element('aside')
+
+        if tok.type == TokenType.MAIN_EL:
+            return self._parse_styled_element('main')
+
+        if tok.type == TokenType.CONTAINER:
+            return self._parse_styled_element('container')
+
+        if tok.type == TokenType.FLEX:
+            return self._parse_layout_container('flex')
+
+        if tok.type == TokenType.GRID:
+            return self._parse_layout_container('grid')
+
+        if tok.type == TokenType.RESPONSIVE:
+            return self._parse_responsive_block()
+
+        if tok.type == TokenType.ANIMATE:
+            return self._parse_animate_def()
+
+        if tok.type == TokenType.TRANSITION_KW:
+            return self._parse_transition_def()
+
+        # v6.1: 3D & Canvas
+        if tok.type == TokenType.SCENE:
+            return self._parse_scene_3d()
+
+        if tok.type == TokenType.DRAW:
+            return self._parse_draw_command()
 
         # Create WebApp called myApp (special Create handling)
         if tok.type == TokenType.CREATE or tok.type == TokenType.REMEMBER:
@@ -2325,6 +2423,28 @@ class Parser:
         if tok.type == TokenType.PAGE:
             return self._parse_page()
 
+        # v6.0: Structural elements inside Page
+        _structural_map = {
+            TokenType.DIV: 'div', TokenType.SECTION: 'section',
+            TokenType.NAV: 'nav', TokenType.HEADER_EL: 'header',
+            TokenType.FOOTER_EL: 'footer', TokenType.SPAN: 'span',
+            TokenType.ARTICLE: 'article', TokenType.ASIDE: 'aside',
+            TokenType.MAIN_EL: 'main', TokenType.CONTAINER: 'container',
+        }
+        if tok.type in _structural_map:
+            return self._parse_styled_element(_structural_map[tok.type])
+
+        if tok.type == TokenType.FLEX:
+            return self._parse_layout_container('flex')
+        if tok.type == TokenType.GRID:
+            return self._parse_layout_container('grid')
+
+        # v6.1: 3D & Canvas inside Page
+        if tok.type == TokenType.SCENE:
+            return self._parse_scene_3d()
+        if tok.type == TokenType.DRAW:
+            return self._parse_draw_command()
+
         # Unknown element: skip line
         self._advance()
         self._end_statement()
@@ -3203,3 +3323,512 @@ class Parser:
         elif self._match(TokenType.FUNCTION):
             return self._parse_function_def_short()
         raise ParserError('Expected "Define" or "Function" after "Override".', line)
+
+    # ─── v6.0: Style & Layout System ─────────────────────
+
+    def _parse_element_or_statement(self):
+        """Try to parse as HTML element first, then fall back to statement."""
+        tok = self._current()
+        nxt = self._peek()
+        if tok.type in (
+            TokenType.HEADING, TokenType.SUBHEADING, TokenType.LINK,
+            TokenType.IMAGE, TokenType.BUTTON, TokenType.FORM,
+        ) and nxt and nxt.type == TokenType.STRING:
+            return self._parse_html_element()
+        if tok.type == TokenType.TYPE_TEXT and nxt and nxt.type == TokenType.STRING:
+            return self._parse_html_element()
+        if tok.type in (TokenType.SAY, TokenType.DISPLAY, TokenType.SHOW):
+            if nxt and nxt.type == TokenType.STRING:
+                return self._parse_html_element()
+        return self._parse_statement()
+
+    def _parse_style_def(self):
+        """Style "card"
+            Background "#fff"
+            Padding "20px"
+            Border radius "12px"
+        End"""
+        line = self._current().line
+        self._advance()  # consume STYLE
+        name_tok = self._expect(TokenType.STRING, 'Expected style name after "Style".')
+        self._end_statement()
+
+        properties = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            prop = self._parse_style_property()
+            if prop:
+                properties.append(prop)
+
+        self._expect(TokenType.END, 'Expected "End" to close Style block.')
+        self._end_statement()
+        return ast.StyleDef(name_tok.value, properties, line)
+
+    def _parse_style_property(self):
+        """Parse a CSS property line: Background "#fff" or Border radius "12px" """
+        line = self._current().line
+        parts = []
+
+        while not self._match(TokenType.STRING, TokenType.NUMBER, TokenType.NEWLINE, TokenType.EOF, TokenType.END):
+            tok = self._current()
+            parts.append(tok.value.lower() if tok.value else '')
+            self._advance()
+
+        if not parts:
+            if self._match(TokenType.NEWLINE):
+                self._advance()
+            return None
+
+        if self._match(TokenType.STRING):
+            value = self._advance().value
+        elif self._match(TokenType.NUMBER):
+            value = str(self._advance().value)
+        else:
+            self._end_statement()
+            return None
+
+        property_name = '-'.join(parts)
+        self._end_statement()
+        return ast.StyleProperty(property_name, value, line)
+
+    def _parse_styled_element(self, tag):
+        """Div [with style "name"] [class "cls"] [id "myid"] ... End"""
+        line = self._current().line
+        self._advance()  # consume tag keyword
+
+        styles = []
+        class_names = []
+        attributes = {}
+        animate_name = None
+
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            if self._match(TokenType.WITH):
+                self._advance()
+                if self._match(TokenType.STYLE):
+                    self._advance()
+                    if self._match(TokenType.STRING):
+                        styles.append(self._advance().value)
+                continue
+            if self._match(TokenType.CLASSNAME):
+                self._advance()
+                if self._match(TokenType.STRING):
+                    class_names.append(self._advance().value)
+                continue
+            tok = self._current()
+            if tok.type == TokenType.CLASS or (tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'class'):
+                self._advance()
+                if self._match(TokenType.STRING):
+                    class_names.append(self._advance().value)
+                continue
+            if tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'id':
+                self._advance()
+                if self._match(TokenType.STRING):
+                    attributes['id'] = self._advance().value
+                continue
+            if self._match(TokenType.ANIMATE):
+                self._advance()
+                if self._match(TokenType.STRING):
+                    animate_name = self._advance().value
+                continue
+            break
+
+        self._end_statement()
+
+        children = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            child = self._parse_element_or_statement()
+            if child:
+                children.append(child)
+
+        self._expect(TokenType.END, f'Expected "End" to close {tag} block.')
+        self._end_statement()
+
+        if animate_name:
+            attributes['data-animate'] = animate_name
+
+        return ast.StyledElement(tag, styles, class_names, attributes, children, [], line)
+
+    def _parse_layout_container(self, layout_type):
+        """Flex direction "row" gap "16px" align "center" ... End
+           Grid columns 3 gap "20px" ... End"""
+        line = self._current().line
+        self._advance()  # consume FLEX/GRID
+
+        properties = {}
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            tok = self._current()
+            if tok.type == TokenType.IDENTIFIER or tok.type in (
+                TokenType.GRID, TokenType.FLEX, TokenType.ANIMATE,
+            ):
+                prop_name = tok.value.lower()
+                self._advance()
+                if self._match(TokenType.STRING):
+                    properties[prop_name] = self._advance().value
+                elif self._match(TokenType.NUMBER):
+                    properties[prop_name] = self._advance().value
+                else:
+                    properties[prop_name] = 'true'
+            else:
+                break
+
+        self._end_statement()
+
+        children = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            child = self._parse_element_or_statement()
+            if child:
+                children.append(child)
+
+        self._expect(TokenType.END, f'Expected "End" to close {layout_type} block.')
+        self._end_statement()
+        return ast.LayoutContainer(layout_type, properties, children, line)
+
+    def _parse_component_def(self):
+        """Component "Card" takes title, description ... End"""
+        line = self._current().line
+        self._advance()  # consume COMPONENT
+        name_tok = self._expect(TokenType.STRING, 'Expected component name after "Component".')
+
+        params = []
+        if self._match(TokenType.TAKES):
+            self._advance()
+            params = self._parse_param_list()
+
+        self._end_statement()
+
+        body = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            stmt = self._parse_element_or_statement()
+            if stmt:
+                body.append(stmt)
+
+        self._expect(TokenType.END, 'Expected "End" to close Component block.')
+        self._end_statement()
+        return ast.ComponentDef(name_tok.value, params, body, line)
+
+    def _parse_responsive_block(self):
+        """Responsive "mobile" ... End"""
+        line = self._current().line
+        self._advance()  # consume RESPONSIVE
+        breakpoint = self._expect(TokenType.STRING, 'Expected breakpoint name after "Responsive".')
+        self._end_statement()
+
+        body = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            stmt = self._parse_element_or_statement()
+            if stmt:
+                body.append(stmt)
+
+        self._expect(TokenType.END, 'Expected "End" to close Responsive block.')
+        self._end_statement()
+        return ast.ResponsiveBlock(breakpoint.value, body, line)
+
+    def _parse_animate_def(self):
+        """Animate "fadeIn"
+            Duration "1s"
+            Easing "ease-out"
+            Keyframe 0
+                Opacity "0"
+            End
+            Keyframe 100
+                Opacity "1"
+            End
+        End"""
+        line = self._current().line
+        self._advance()  # consume ANIMATE
+        name_tok = self._expect(TokenType.STRING, 'Expected animation name after "Animate".')
+        self._end_statement()
+
+        duration = None
+        easing = None
+        iteration = None
+        keyframes = []
+
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            tok = self._current()
+            if tok.type == TokenType.DURATION:
+                self._advance()
+                if self._match(TokenType.STRING):
+                    duration = self._advance().value
+                self._end_statement()
+            elif tok.type == TokenType.EASING:
+                self._advance()
+                if self._match(TokenType.STRING):
+                    easing = self._advance().value
+                self._end_statement()
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'iteration':
+                self._advance()
+                if self._match(TokenType.STRING):
+                    iteration = self._advance().value
+                elif self._match(TokenType.NUMBER):
+                    iteration = str(self._advance().value)
+                self._end_statement()
+            elif tok.type == TokenType.KEYFRAME:
+                keyframes.append(self._parse_keyframe_def())
+            else:
+                self._advance()
+                self._end_statement()
+
+        self._expect(TokenType.END, 'Expected "End" to close Animate block.')
+        self._end_statement()
+        return ast.AnimateDef(name_tok.value, duration, easing, iteration, keyframes, line)
+
+    def _parse_keyframe_def(self):
+        """Keyframe 0 ... End  or  Keyframe 100 ... End"""
+        line = self._current().line
+        self._advance()  # consume KEYFRAME
+        if self._match(TokenType.NUMBER):
+            percentage = self._advance().value
+        else:
+            percentage = 0
+        self._end_statement()
+
+        properties = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            prop = self._parse_style_property()
+            if prop:
+                properties.append(prop)
+
+        self._expect(TokenType.END, 'Expected "End" to close Keyframe block.')
+        self._end_statement()
+        return ast.KeyframeDef(percentage, properties, line)
+
+    def _parse_transition_def(self):
+        """Transition "all" duration "0.3s" easing "ease" """
+        line = self._current().line
+        self._advance()  # consume TRANSITION_KW
+        prop_name = 'all'
+        if self._match(TokenType.STRING):
+            prop_name = self._advance().value
+
+        duration = None
+        easing = None
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            tok = self._current()
+            if tok.type == TokenType.DURATION:
+                self._advance()
+                if self._match(TokenType.STRING):
+                    duration = self._advance().value
+            elif tok.type == TokenType.EASING:
+                self._advance()
+                if self._match(TokenType.STRING):
+                    easing = self._advance().value
+            else:
+                break
+
+        self._end_statement()
+        return ast.TransitionDef(prop_name, duration, easing, line)
+
+    # ─── v6.1: 3D & Canvas System ─────────────────────────
+
+    def _parse_scene_3d(self):
+        """Scene "name" [width N] [height N] ... End"""
+        line = self._current().line
+        self._advance()  # consume SCENE
+        name_tok = self._expect(TokenType.STRING, 'Expected scene name after "Scene".')
+
+        width = 800
+        height = 600
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            tok = self._current()
+            if tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'width':
+                self._advance()
+                if self._match(TokenType.NUMBER):
+                    width = self._advance().value
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'height':
+                self._advance()
+                if self._match(TokenType.NUMBER):
+                    height = self._advance().value
+            else:
+                break
+        self._end_statement()
+
+        body = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            tok = self._current()
+            if tok.type == TokenType.CAMERA_KW:
+                body.append(self._parse_camera_setup())
+            elif tok.type == TokenType.LIGHT:
+                body.append(self._parse_light_setup())
+            elif tok.type == TokenType.MESH:
+                body.append(self._parse_mesh_add())
+            else:
+                stmt = self._parse_statement()
+                if stmt:
+                    body.append(stmt)
+
+        self._expect(TokenType.END, 'Expected "End" to close Scene block.')
+        self._end_statement()
+        return ast.Scene3D(name_tok.value, width, height, body, line)
+
+    def _parse_camera_setup(self):
+        """Camera position 0, 5, 10 look_at 0, 0, 0 [fov 75]"""
+        line = self._current().line
+        self._advance()  # consume CAMERA_KW
+        position = [0, 5, 10]
+        look_at = [0, 0, 0]
+        fov = 75
+
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            tok = self._current()
+            if tok.type == TokenType.POSITION:
+                self._advance()
+                position = self._parse_number_list(3)
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() in ('look_at', 'lookat', 'target'):
+                self._advance()
+                look_at = self._parse_number_list(3)
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'fov':
+                self._advance()
+                if self._match(TokenType.NUMBER):
+                    fov = self._advance().value
+            else:
+                break
+        self._end_statement()
+        return ast.CameraSetup(position, look_at, fov, line)
+
+    def _parse_light_setup(self):
+        """Light "ambient" [color "#fff"] [intensity 0.5] [position 0, 10, 0]"""
+        line = self._current().line
+        self._advance()  # consume LIGHT
+        light_type = 'ambient'
+        if self._match(TokenType.STRING):
+            light_type = self._advance().value
+
+        color = '#ffffff'
+        intensity = 1.0
+        position = None
+
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            tok = self._current()
+            if tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'color':
+                self._advance()
+                if self._match(TokenType.STRING):
+                    color = self._advance().value
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'intensity':
+                self._advance()
+                if self._match(TokenType.NUMBER):
+                    intensity = self._advance().value
+            elif tok.type == TokenType.POSITION:
+                self._advance()
+                position = self._parse_number_list(3)
+            else:
+                break
+        self._end_statement()
+        return ast.LightSetup(light_type, color, intensity, position, line)
+
+    def _parse_mesh_add(self):
+        """Mesh "cube" [position 0,0,0] [rotation 0,45,0] [scale 1,1,1] [color "#red"]"""
+        line = self._current().line
+        self._advance()  # consume MESH
+        shape = 'cube'
+        if self._match(TokenType.STRING):
+            shape = self._advance().value
+
+        name = None
+        position = [0, 0, 0]
+        rotation = [0, 0, 0]
+        scale = [1, 1, 1]
+        material = None
+        color = None
+
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            tok = self._current()
+            if tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'name':
+                self._advance()
+                if self._match(TokenType.STRING):
+                    name = self._advance().value
+            elif tok.type == TokenType.POSITION:
+                self._advance()
+                position = self._parse_number_list(3)
+            elif tok.type == TokenType.ROTATION:
+                self._advance()
+                rotation = self._parse_number_list(3)
+            elif tok.type == TokenType.SCALE_KW:
+                self._advance()
+                scale = self._parse_number_list(3)
+            elif tok.type == TokenType.MATERIAL:
+                self._advance()
+                if self._match(TokenType.STRING):
+                    material = self._advance().value
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'color':
+                self._advance()
+                if self._match(TokenType.STRING):
+                    color = self._advance().value
+            else:
+                break
+        self._end_statement()
+        return ast.MeshAdd(shape, name, position, rotation, scale, material, color, line)
+
+    def _parse_number_list(self, count):
+        """Parse a comma-separated list of numbers (e.g., 0, 5, 10)."""
+        numbers = []
+        for i in range(count):
+            if self._match(TokenType.NUMBER):
+                numbers.append(self._advance().value)
+            elif self._match(TokenType.OP_MINUS):
+                self._advance()
+                if self._match(TokenType.NUMBER):
+                    numbers.append(-self._advance().value)
+                else:
+                    numbers.append(0)
+            else:
+                numbers.append(0)
+            if i < count - 1:
+                self._optional(TokenType.COMMA)
+        return numbers
+
+    def _parse_draw_command(self):
+        """Draw "rect" x 10 y 10 width 100 height 50 fill "#ff0000" """
+        line = self._current().line
+        self._advance()  # consume DRAW
+        shape = 'rect'
+        if self._match(TokenType.STRING):
+            shape = self._advance().value
+
+        properties = {}
+        while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            tok = self._current()
+            if tok.type == TokenType.IDENTIFIER or tok.type in (
+                TokenType.FILL, TokenType.STROKE, TokenType.POSITION,
+                TokenType.SCALE_KW,
+            ):
+                prop_name = tok.value.lower()
+                self._advance()
+                if self._match(TokenType.STRING):
+                    properties[prop_name] = self._advance().value
+                elif self._match(TokenType.NUMBER):
+                    properties[prop_name] = self._advance().value
+                elif self._match(TokenType.OP_MINUS):
+                    self._advance()
+                    if self._match(TokenType.NUMBER):
+                        properties[prop_name] = -self._advance().value
+                else:
+                    properties[prop_name] = True
+            else:
+                break
+
+        self._end_statement()
+        return ast.DrawCommand(shape, properties, line)

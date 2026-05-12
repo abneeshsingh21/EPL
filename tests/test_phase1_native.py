@@ -599,6 +599,25 @@ def test_all_ast_nodes_handled():
         'WebApp',
         'WidgetAdd',
         'WindowCreate',
+        # v6.0: Style & Layout (handled by generators, not LLVM)
+        'StyleDef',
+        'StyleProperty',
+        'StyledElement',
+        'LayoutContainer',
+        'ComponentDef',
+        'ComponentUse',
+        'AnimateDef',
+        'KeyframeDef',
+        'ResponsiveBlock',
+        'TransitionDef',
+        # v6.1: 3D & Canvas (handled by generators, not LLVM)
+        'Scene3D',
+        'CameraSetup',
+        'LightSetup',
+        'MeshAdd',
+        'DrawCommand',
+        # v5.3: JS Bridge (handled by interpreter and JS transpiler, not LLVM)
+        'UseJSStatement',
     }
     # Structural/helper nodes not dispatched directly
     structural_nodes = {

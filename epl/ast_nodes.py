@@ -1019,3 +1019,260 @@ class LoadLibrary(ASTNode):
         self.path = path
         self.alias = alias
         self.line = line
+
+
+# ─── v6.0: Style & Layout System ──────────────────────────
+
+
+class StyleDef(ASTNode):
+    """Style "name" ... End — defines a reusable CSS class.
+
+    Syntax:
+        Style "card"
+            Background "#ffffff"
+            Border radius "12px"
+            Padding "24px"
+        End
+    """
+
+    def __init__(self, name: str, properties: list, line: int = 0):
+        self.name = name
+        self.properties = properties
+        self.line = line
+
+
+class StyleProperty(ASTNode):
+    """Single CSS property inside a Style block."""
+
+    def __init__(self, property_name: str, value, line: int = 0):
+        self.property_name = property_name
+        self.value = value
+        self.line = line
+
+
+class StyledElement(ASTNode):
+    """HTML structural element with optional style/class.
+
+    Syntax:
+        Div with style "card" class "extra"
+            Heading "Hello"
+        End
+    """
+
+    def __init__(
+        self,
+        tag: str,
+        styles: list = None,
+        class_names: list = None,
+        attributes: dict = None,
+        children: list = None,
+        inline_styles: list = None,
+        line: int = 0,
+    ):
+        self.tag = tag
+        self.styles = styles or []
+        self.class_names = class_names or []
+        self.attributes = attributes or {}
+        self.children = children or []
+        self.inline_styles = inline_styles or []
+        self.line = line
+
+
+class LayoutContainer(ASTNode):
+    """Flex/Grid layout container.
+
+    Syntax:
+        Flex direction "row" gap "16px" align "center"
+            ...
+        End
+
+        Grid columns 3 gap "20px"
+            ...
+        End
+    """
+
+    def __init__(
+        self, layout_type: str, properties: dict = None, children: list = None, line: int = 0,
+    ):
+        self.layout_type = layout_type
+        self.properties = properties or {}
+        self.children = children or []
+        self.line = line
+
+
+class ComponentDef(ASTNode):
+    """Reusable UI component definition.
+
+    Syntax:
+        Component "Card" takes title, description
+            Div with style "card"
+                Heading title
+                Text description
+            End
+        End
+    """
+
+    def __init__(self, name: str, params: list, body: list, line: int = 0):
+        self.name = name
+        self.params = params
+        self.body = body
+        self.line = line
+
+
+class ComponentUse(ASTNode):
+    """Instantiate a defined component.
+
+    Syntax:
+        Card title "Hello" description "World"
+    """
+
+    def __init__(self, component_name: str, arguments: dict, line: int = 0):
+        self.component_name = component_name
+        self.arguments = arguments
+        self.line = line
+
+
+class ResponsiveBlock(ASTNode):
+    """Media query wrapper for responsive design.
+
+    Syntax:
+        Responsive "mobile"
+            Grid columns 1
+                ...
+            End
+        End
+    """
+
+    def __init__(self, breakpoint: str, body: list, line: int = 0):
+        self.breakpoint = breakpoint
+        self.body = body
+        self.line = line
+
+
+class AnimateDef(ASTNode):
+    """CSS animation definition.
+
+    Syntax:
+        Animate "fadeIn"
+            Duration "1s"
+            Easing "ease-out"
+            Keyframe 0
+                Opacity "0"
+                Transform translate "0, 20px"
+            End
+            Keyframe 100
+                Opacity "1"
+                Transform translate "0, 0"
+            End
+        End
+    """
+
+    def __init__(
+        self, name: str, duration=None, easing=None, iteration=None,
+        keyframes: list = None, line: int = 0,
+    ):
+        self.name = name
+        self.duration = duration
+        self.easing = easing
+        self.iteration = iteration
+        self.keyframes = keyframes or []
+        self.line = line
+
+
+class KeyframeDef(ASTNode):
+    """Single keyframe inside an Animate block."""
+
+    def __init__(self, percentage, properties: list, line: int = 0):
+        self.percentage = percentage
+        self.properties = properties
+        self.line = line
+
+
+class TransitionDef(ASTNode):
+    """CSS transition definition.
+
+    Syntax:
+        Transition "all" duration "0.3s" easing "ease"
+    """
+
+    def __init__(self, property_name: str, duration=None, easing=None, line: int = 0):
+        self.property_name = property_name
+        self.duration = duration
+        self.easing = easing
+        self.line = line
+
+
+# ─── v6.1: 3D & Canvas System ─────────────────────────────
+
+
+class Scene3D(ASTNode):
+    """3D scene definition.
+
+    Syntax:
+        Scene "myScene" width 800 height 600
+            Camera position 0, 5, 10 look_at 0, 0, 0
+            Light "ambient" color "#ffffff" intensity 0.5
+            Mesh "cube" position 0, 0, 0
+        End
+    """
+
+    def __init__(self, name: str, width=800, height=600, body: list = None, line: int = 0):
+        self.name = name
+        self.width = width
+        self.height = height
+        self.body = body or []
+        self.line = line
+
+
+class CameraSetup(ASTNode):
+    """Camera configuration inside a Scene."""
+
+    def __init__(self, position=None, look_at=None, fov=75, line: int = 0):
+        self.position = position or [0, 5, 10]
+        self.look_at = look_at or [0, 0, 0]
+        self.fov = fov
+        self.line = line
+
+
+class LightSetup(ASTNode):
+    """Light configuration inside a Scene."""
+
+    def __init__(self, light_type: str = 'ambient', color: str = '#ffffff',
+                 intensity=1.0, position=None, line: int = 0):
+        self.light_type = light_type
+        self.color = color
+        self.intensity = intensity
+        self.position = position
+        self.line = line
+
+
+class MeshAdd(ASTNode):
+    """Add a mesh/shape to a Scene."""
+
+    def __init__(self, shape: str = 'cube', name: str = None, position=None,
+                 rotation=None, scale=None, material=None, color=None, line: int = 0):
+        self.shape = shape
+        self.name = name
+        self.position = position or [0, 0, 0]
+        self.rotation = rotation or [0, 0, 0]
+        self.scale = scale or [1, 1, 1]
+        self.material = material
+        self.color = color
+        self.line = line
+
+
+class DrawCommand(ASTNode):
+    """Enhanced 2D canvas draw command.
+
+    Syntax:
+        Draw "rect" x 10 y 10 width 100 height 50 fill "#ff0000"
+        Draw "circle" x 50 y 50 radius 25 fill "#00ff00"
+        Draw "line" x1 0 y1 0 x2 100 y2 100 stroke "#000" width 2
+        Draw "text" x 10 y 30 content "Hello" font "16px Arial" fill "#000"
+        Draw "path" points "M10,10 L100,10 L100,100 Z" fill "#blue"
+    """
+
+    def __init__(self, shape: str, properties: dict = None, line: int = 0):
+        self.shape = shape
+        self.properties = properties or {}
+        self.line = line
