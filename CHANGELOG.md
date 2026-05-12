@@ -2,7 +2,7 @@
 
 All notable changes to EPL are documented in this file.
 
-## [Unreleased]
+## [7.5.2] — 2026-05-12
 
 ### Added
 - **JavaScript/TypeScript Bridge** — New `Use javascript "library"` / `Use typescript "library"` syntax for accessing the NPM ecosystem from EPL
@@ -13,6 +13,19 @@ All notable changes to EPL are documented in this file.
   - JS transpiler support — `UseJSStatement` emits proper ESM `import` or CommonJS `require`
   - Error explainer patterns for Node.js-not-installed, missing modules, and bridge crashes
   - 34 unit tests covering parser, AST, serialization, transpiler, and Node.js integration
+- **Observability Module** (`epl/observability.py`) — Production-grade health checks (`/_health`), readiness probes (`/_ready`), Prometheus-format metrics (`/_metrics`), and structured JSON logging with thread-safe request tracking
+- **Kubernetes Manifest Generator** (`epl/k8s_gen.py`) — Generate Namespace, ConfigMap, Deployment, Service, Ingress, and HorizontalPodAutoscaler YAML from CLI with strict input validation
+- **Cloud Deploy** (`epl/cloud_deploy.py`) — One-command deployment config generation for AWS ECS/ECR, GCP Cloud Run, and Azure Container Apps with Docker image handling
+- **Style/Layout Generation** — CSS style blocks, responsive layout containers, and cross-platform styling with XSS-hardened output
+- **3D/Canvas Support** — `Scene` blocks for WebGL 3D rendering and `Canvas` draw commands (rect, circle, line, text, path) with batched rendering
+- **Cross-Platform Generation** — iOS (SwiftUI), Desktop (Compose Multiplatform), and Web/WASM target generators
+- **Cloudflare Workers Configuration** — Edge deployment support via `wrangler.jsonc`
+
+### Security
+- **Input Validation** — Strict regex validation for all user inputs (app_name, image, region, account_id, port, service_type, hostname) in `k8s_gen.py` and `cloud_deploy.py` to prevent shell/YAML injection
+- **Thread Safety** — Added `_readiness_lock` for concurrent readiness access in observability module
+- **XSS Hardening** — HTML sanitization in style/layout and canvas output generation
+- **CSS Injection Prevention** — Strict validation of CSS property values in style blocks
 
 ## [7.5.1] — 2026-05-11
 

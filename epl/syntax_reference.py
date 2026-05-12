@@ -164,6 +164,59 @@ _SYNTAX_SECTIONS = [
         ],
     },
     {
+        'id': 'js_bridge',
+        'title': 'JavaScript/TypeScript Bridge',
+        'summary': 'Use javascript/typescript to import NPM modules. Manage deps with jsinstall/jsremove.',
+        'examples': [
+            'Use javascript "lodash" as lodash',
+            'Use typescript "axios" as axios',
+            'Say lodash.capitalize("hello epl")',
+            'Note: CLI: epl jsinstall lodash, epl jsremove lodash, epl jsdeps',
+        ],
+    },
+    {
+        'id': 'deploy',
+        'title': 'Deployment',
+        'summary': 'Generate K8s, AWS, GCP, and Azure deployment configs via CLI.',
+        'examples': [
+            'Note: epl deploy k8s myapp.epl --image myapp:1.0 --host myapp.example.com --tls',
+            'Note: epl deploy aws myapp.epl --image myapp:latest --region us-east-1',
+            'Note: epl deploy gcp myapp.epl --image myapp:latest --region us-central1',
+            'Note: epl deploy azure myapp.epl --image myapp:latest --region eastus',
+        ],
+    },
+    {
+        'id': 'observability',
+        'title': 'Observability',
+        'summary': 'Attach health, readiness, and metrics endpoints to any web app.',
+        'examples': [
+            'Import "epl.observability" As obs',
+            'obs.attach(app)',
+            'Note: Auto-adds /_health, /_ready, /_metrics endpoints',
+            'obs.set_ready(true, "all services connected")',
+        ],
+    },
+    {
+        'id': 'style_layout',
+        'title': 'Style And Layout',
+        'summary': 'Style blocks define CSS. Grid and Flex create layout containers.',
+        'examples': [
+            'Style "card"\n    background "#ffffff"\n    border-radius "12px"\n    padding "24px"\nEnd',
+            'Grid columns 3 gap "16px"\n    Text "Col 1"\n    Text "Col 2"\n    Text "Col 3"\nEnd',
+            'Flex direction "row" gap "8px"\n    Text "Left"\n    Text "Right"\nEnd',
+        ],
+    },
+    {
+        'id': '3d_canvas',
+        'title': '3D And Canvas',
+        'summary': 'Scene blocks create WebGL 3D worlds. Canvas commands draw 2D shapes.',
+        'examples': [
+            'Scene "demo" width 800 height 600\n    Mesh "cube" position 0, 1, 0 color "#ff4500"\n    Light "ambient" color "#ffffff" intensity 1.0 position 5, 10, 5\n    Camera position 0, 5, 10 look_at 0, 0, 0\nEnd',
+            'Canvas art draw rect x 10 y 10 width 200 height 100 fill "#3498db"',
+            'Canvas art draw circle x 100 y 100 radius 50 fill "#e74c3c"',
+        ],
+    },
+    {
         'id': 'misc',
         'title': 'Miscellaneous',
         'summary': 'Wait, Exit, and built-in functions.',
