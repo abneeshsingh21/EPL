@@ -1,0 +1,13 @@
+# Global owner — all PRs require review from repo owner
+* @abneeshsingh21
+
+# Critical paths — extra attention
+epl/vm.py @abneeshsingh21
+epl/compiler.py @abneeshsingh21
+epl/interpreter.py @abneeshsingh21
+epl/networking.py @abneeshsingh21
+epl/js_bridge/ @abneeshsingh21
+epl/cli.py @abneeshsingh21
+.github/workflows/ @abneeshsingh21
+setup.py @abneeshsingh21
+pyproject.toml @abneeshsingh21
