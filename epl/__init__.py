@@ -23,6 +23,7 @@ __author__ = 'Abneesh Singh'
 __email__ = 'singhabneesh250@gmail.com'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright (c) 2024–2026 Abneesh Singh'
+__repo__ = 'https://github.com/abneeshsingh21/EPL'
 
 if TYPE_CHECKING:
     from epl.environment import Environment
