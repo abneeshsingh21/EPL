@@ -58,3 +58,43 @@ For Each name in names
     Say "Hello, " + name + "!"
 End
 ```
+
+### Web App with Observability
+```epl
+Create WebApp called app
+
+Import "epl.observability" As obs
+obs.attach(app)
+
+Route "/" shows
+    Page "EPL App"
+        Heading "Hello from EPL!"
+        Text "Monitoring: /_health | /_ready | /_metrics"
+    End
+End
+
+Start app on port 8000
+```
+
+### JavaScript Bridge
+```epl
+Use javascript "lodash" as _
+Say _.capitalize("hello from epl")
+Say _.shuffle([1, 2, 3, 4, 5])
+```
+
+### 3D Scene
+```epl
+Scene "demo" 800 by 600
+    Box "cube" at 0 1 0 size 2 2 2 color "#ff4500"
+    Light "sun" at 5 10 5
+    Camera at 0 5 10 look 0 0 0
+End
+```
+
+## Features
+
+- **AST-Aware Analysis** — Real-time error detection with gutter markers
+- **AI Copilot** — Multi-provider support (Secure Proxy, Groq, Gemini) with code injection
+- **Thinking Mode** — Complex queries show reasoning process before generating code
+- **Full EPL Support** — All language features including web apps, 3D/canvas, style/layout, and JS bridge

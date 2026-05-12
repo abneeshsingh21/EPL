@@ -1101,6 +1101,12 @@ IMPORTS AND PYTHON BRIDGE:
   Import "epl-db"
   Use python "json" as json_mod
 
+JAVASCRIPT/TYPESCRIPT BRIDGE:
+  Use javascript "lodash" as lodash
+  Use typescript "axios" as axios
+  Say lodash.capitalize("hello epl")
+  Note: Manage deps via CLI: epl jsinstall <pkg>, epl jsremove <pkg>, epl jsdeps
+
 CLASSES AND OBJECTS:
   Class User\n      Set name to "Anonymous"\n      Function greet\n          Return "Hello, " + name\n      End\n  End
   Create user = new User()
@@ -1126,11 +1132,33 @@ GUI: Desktop-style UI uses Window, layout blocks, and widgets.
 ERROR HANDLING:
   Try\n      Create result = 10 / 0\n  Catch error\n      Say "Caught: " + error\n  End
 
+OBSERVABILITY (attach to any web app):
+  Import "epl.observability" As obs
+  obs.attach(app)
+  Note: Auto-adds /_health, /_ready, /_metrics endpoints
+
+DEPLOYMENT (CLI commands):
+  Note: epl deploy k8s myapp.epl --image myapp:1.0 --host myapp.example.com --tls
+  Note: epl deploy aws myapp.epl --image myapp:latest --region us-east-1
+  Note: epl deploy gcp myapp.epl --image myapp:latest --region us-central1
+  Note: epl deploy azure myapp.epl --image myapp:latest --region eastus
+
+STYLE AND LAYOUT:
+  Style "card"\n      background "#ffffff"\n      border-radius "12px"\n      padding "24px"\n  End
+  Layout responsive columns 3\n      Text "Col 1"\n      Text "Col 2"\n      Text "Col 3"\n  End
+
+3D AND CANVAS:
+  Scene "myScene" 800 by 600\n      Box "hero" at 0 0 0 size 2 2 2 color "#ff4500"\n      Light "main" at 5 10 5\n      Camera at 0 5 10 look 0 0 0\n  End
+  Canvas "drawing" draw rect x 10 y 10 width 100 height 50 fill "#ff0000"
+  Canvas "drawing" draw circle x 100 y 100 radius 40 fill "#3498db"
+
 --- CAPABILITIES & PROGRAM TYPES ---
 1. FULLSTACK WEBSITES & WEB APPS: Use Create WebApp called myApp, Route ... shows/responds with, Page blocks, Send json, Start myApp on port. For complex HTML/CSS/JS embed inside triple-quotes (\"\"\") and Send HTML.
 2. GAMES: For graphical games (Snake, etc.), build a WebApp that serves an HTML5 Canvas JS game wrapped in an EPL triple-quote string. For text CLI games, use Ask inside a While loop.
 3. CALCULATORS & ALGORITHMS: Use Function ... takes ... End.
-4. IMPORTANT REMINDERS:
+4. DEPLOYMENT & DEVOPS: epl deploy k8s/aws/gcp/azure for cloud deployments. Use javascript for NPM interop. Import "epl.observability" for health/metrics.
+5. STYLE/LAYOUT & 3D: Style blocks for CSS, Layout for responsive grids, Scene for WebGL 3D, Canvas for 2D drawing.
+6. IMPORTANT REMINDERS:
    - Use 'Otherwise' NOT 'Else'. Use 'Otherwise If' NOT 'Else If'.
    - Built-in calls always need parentheses: length(items), not 'length items'.
    - Lambdas: 'square = lambda x -> x * 2'

@@ -149,7 +149,35 @@ epl install epl-web
 
 `epl-web` is a supported helper facade. The native `Create WebApp` DSL remains the authoritative served runtime.
 
+## Adding Observability
+
+Attach production-grade health checks, readiness probes, and Prometheus metrics to any web app:
+
+```epl
+Create WebApp called app
+
+Import "epl.observability" As obs
+obs.attach(app)
+
+Route "/" shows
+    Page "Home"
+        Heading "My App"
+    End
+End
+
+Start app on port 8000
+```
+
+This auto-registers:
+- `/_health` — JSON health status (uptime, app name, version)
+- `/_ready` — Readiness probe (toggleable via `obs.set_ready(true/false, "reason")`)
+- `/_metrics` — Prometheus-format metrics (request count, error count, latency histogram, in-flight requests)
+
+Use `obs.start_request()` and `obs.record_request(duration, error)` for per-route tracking.
+
 ## Deployment
+
+### Local Deployment
 
 ```bash
 epl deploy docker
@@ -157,5 +185,25 @@ epl deploy nginx
 epl deploy systemd
 epl deploy all
 ```
+
+### Kubernetes
+
+```bash
+epl deploy k8s myapp.epl --app-name my-service --image my-registry/my-service:1.0 --port 8000 --host my-service.example.com --tls --replicas 3
+```
+
+Generates: Namespace, ConfigMap, Deployment (with resource limits and health probes), Service, Ingress (with TLS), and HorizontalPodAutoscaler.
+
+### Cloud Providers
+
+```bash
+epl deploy aws myapp.epl --image my-service:latest --region us-east-1 --port 8000
+epl deploy gcp myapp.epl --image my-service:latest --region us-central1 --port 8000
+epl deploy azure myapp.epl --image my-service:latest --region eastus --port 8000
+```
+
+### Cloudflare Workers
+
+EPL supports edge deployment via Cloudflare Workers. See `wrangler.jsonc` for configuration.
 
 Generated deployment artifacts are validated in CI through Docker Compose, WSGI, and ASGI reference app smoke tests.

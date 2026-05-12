@@ -1,6 +1,6 @@
 # EPL Standard Library Reference
 
-> EPL v7.4.3 — 725 Python-backed functions plus native EPL stdlib modules
+> EPL v7.5.2 — 725 Python-backed functions plus native EPL stdlib modules
 
 ## Categories
 
@@ -234,6 +234,25 @@
 | `orm_find(model, query)` | Find records |
 | `orm_update(model, id, data)` | Update record |
 | `orm_delete(model, id)` | Delete record |
+
+### Observability
+| Function | Description |
+|----------|-------------|
+| `obs.attach(app)` | Attach health, readiness, and metrics endpoints to a web app |
+| `obs.health_response(name, version)` | Generate JSON health status with uptime |
+| `obs.metrics_response(name)` | Generate Prometheus-format metrics output |
+| `obs.set_ready(ready, reason)` | Set/unset readiness state with reason |
+| `obs.start_request()` | Increment in-flight request counter |
+| `obs.record_request(duration, error)` | Record completed request (latency + optional error) |
+| `obs.structured_log(level, message, **ctx)` | Emit structured JSON log entry |
+
+### Deployment (CLI)
+| Command | Description |
+|---------|-------------|
+| `epl deploy k8s <file> [options]` | Generate Kubernetes manifests (Namespace, Deployment, Service, Ingress, HPA) |
+| `epl deploy aws <file> [options]` | Generate AWS ECS/ECR deployment configuration |
+| `epl deploy gcp <file> [options]` | Generate GCP Cloud Run deployment configuration |
+| `epl deploy azure <file> [options]` | Generate Azure Container Apps configuration |
 
 ---
 

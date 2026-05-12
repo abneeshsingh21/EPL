@@ -792,6 +792,50 @@ epl ios program.epl          # Generates iOS / SwiftUI project
 epl vm program.epl            # Fast bytecode execution
 ```
 
+### 14.7 Desktop & Web Targets
+
+```bash
+epl desktop program.epl      # Compose Multiplatform (Windows/macOS/Linux)
+epl web program.epl          # Web app (WASM/JS/Kotlin-JS)
+epl wasm program.epl         # WebAssembly binary
+```
+
+### 14.8 JavaScript/TypeScript Bridge
+
+Access the NPM ecosystem from EPL:
+
+```epl
+Use javascript "lodash" as lodash
+Use typescript "axios" as axios
+
+Say lodash.capitalize("hello from epl")
+```
+
+Manage JS dependencies:
+```bash
+epl jsinstall lodash         # Install npm package
+epl jsremove lodash          # Remove npm package
+epl jsdeps                   # List JS dependencies
+```
+
+### 14.9 Deployment Targets
+
+```bash
+epl deploy k8s app.epl --image app:1.0 --host app.example.com --tls
+epl deploy aws app.epl --image app:latest --region us-east-1
+epl deploy gcp app.epl --image app:latest --region us-central1
+epl deploy azure app.epl --image app:latest --region eastus
+```
+
+### 14.10 Observability
+
+```epl
+Import "epl.observability" As obs
+obs.attach(app)
+```
+
+Auto-registers `/_health`, `/_ready`, `/_metrics` endpoints.
+
 ---
 
 ## 15. Package Manager
@@ -848,18 +892,34 @@ epl test [dir|file]              Run tests
 epl repl                         Interactive REPL
 epl install <pkg>                Install package
 epl pyinstall <import> [spec]    Install/save a Python package for `Use python`
+epl jsinstall <pkg> [ver]        Install/save an npm package for `Use javascript`
+epl jsremove <pkg>               Remove an npm dependency
+epl jsdeps                       List installed JS dependencies
 epl gitinstall <owner/repo>      Install/save a GitHub dependency
 epl github <clone|pull|push>     GitHub project workflows
 epl serve <file.epl> [opts]      Start production server
 epl js <file.epl>                Transpile to JavaScript
 epl node <file.epl>              Transpile to Node.js
 epl kotlin <file.epl>            Transpile to Kotlin
+epl python <file.epl>            Transpile to Python
+epl android <file.epl>           Generate Android project
+epl ios <file.epl>               Generate iOS/SwiftUI project
+epl desktop <file.epl>           Generate desktop app
+epl web <file.epl>               Generate web app (WASM/JS/Kotlin-JS)
+epl deploy k8s <file> [opts]     Generate Kubernetes manifests
+epl deploy aws <file> [opts]     Deploy to AWS ECS
+epl deploy gcp <file> [opts]     Deploy to GCP Cloud Run
+epl deploy azure <file> [opts]   Deploy to Azure Container Apps
 epl ir <file.epl>                Show LLVM IR
 epl vm <file.epl>                Run with bytecode VM
 epl debug <file.epl>             Debug with breakpoints
 epl fmt <file|dir> [options]     Format source code
 epl lint [dir|file]              Lint source code
+epl check [file|dir]             Static type checking
+epl fix <file>                   AI Error Diagnostics
 epl lsp                          Start LSP server
+epl playground                   Start browser playground
+epl copilot                      AI code assistant (offline)
 epl ai <prompt>                  AI code assistant
 epl --version                    Show version
 epl --help                       Show help
@@ -986,4 +1046,4 @@ block          = { statement End ;
 
 ---
 
-*EPL v7.4.3 — Write code in plain English. Build anything.*
+*EPL v7.5.2 — Write code in plain English. Build anything.*

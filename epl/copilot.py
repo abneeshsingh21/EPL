@@ -373,6 +373,11 @@ def _select_syntax_sections(message: str, code: str, diagnostics):
         'error_handling': ['try', 'catch', 'throw', 'assert', 'error', 'exception'],
         'file_io': ['write ', 'read file', 'append ', 'file '],
         'enums_ternary': ['enum', 'otherwise', 'ternary', 'if ', 'lambda'],
+        'js_bridge': ['javascript', 'typescript', 'npm', 'use javascript', 'jsinstall', 'node'],
+        'deploy': ['deploy', 'k8s', 'kubernetes', 'aws', 'gcp', 'azure', 'docker', 'ecs'],
+        'observability': ['health', 'metrics', 'prometheus', 'observability', 'monitoring', 'readiness'],
+        'style_layout': ['style', 'css', 'layout', 'responsive', 'grid', 'theme', 'dark mode'],
+        '3d_canvas': ['3d', 'canvas', 'scene', 'webgl', 'draw', 'box ', 'light '],
         'misc': ['wait', 'exit', 'length(', 'type_of(', 'to_text('],
     }
     scored = []
@@ -1187,6 +1192,167 @@ display "Result: " + result
 display "Done!"'''
 
 
+def _match_observability(desc, orig):
+    if re.search(r'health\s*check|metrics|monitoring|observability|prometheus|readiness', desc):
+        return """Create WebApp called app
+
+Import "epl.observability" As obs
+obs.attach(app)
+
+Route "/" shows
+    Page "Home"
+        Heading "My Monitored App"
+        Text "Health: /_health | Ready: /_ready | Metrics: /_metrics"
+    End
+End
+
+Route "/api/data" responds with
+    obs.start_request()
+    Note: Your logic here
+    obs.record_request(0.05, nothing)
+    Send json Map with status = "ok" and data = "hello"
+End
+
+Start app on port 8000"""
+    return None
+
+
+def _match_kubernetes(desc, orig):
+    if re.search(r'kubernetes|k8s|deploy\s*(to\s*)?k8s|container|deployment\s*manifest', desc):
+        return """Note: Kubernetes Deployment via EPL CLI
+Note: Run these commands in your terminal:
+
+Note: Generate K8s manifests for your app
+Note: epl deploy k8s myapp.epl --app-name my-service --image my-registry/my-service:1.0 --port 8000 --host my-service.example.com --tls --replicas 3
+
+Note: This generates:
+Note:   - Namespace
+Note:   - ConfigMap
+Note:   - Deployment (with resource limits and health probes)
+Note:   - Service (ClusterIP)
+Note:   - Ingress (with TLS)
+Note:   - HorizontalPodAutoscaler
+
+Note: Example web app to deploy:
+Create WebApp called app
+
+Import "epl.observability" As obs
+obs.attach(app)
+
+Route "/api/health" responds with
+    Send json Map with status = "ok"
+End
+
+Start app on port 8000"""
+    return None
+
+
+def _match_cloud_deploy(desc, orig):
+    if re.search(r'deploy\s*to\s*(aws|gcp|azure|cloud)|ecs|cloud\s*run|container\s*app', desc):
+        return """Note: Cloud Deployment via EPL CLI
+
+Note: Deploy to AWS ECS:
+Note: epl deploy aws myapp.epl --app-name my-service --image my-registry/my-service:latest --region us-east-1 --port 8000
+
+Note: Deploy to GCP Cloud Run:
+Note: epl deploy gcp myapp.epl --app-name my-service --image my-registry/my-service:latest --region us-central1 --port 8000
+
+Note: Deploy to Azure Container Apps:
+Note: epl deploy azure myapp.epl --app-name my-service --image my-registry/my-service:latest --region eastus --port 8000
+
+Note: Example app with observability for production:
+Create WebApp called app
+
+Import "epl.observability" As obs
+obs.attach(app)
+
+Route "/" shows
+    Page "Production App"
+        Heading "Deployed with EPL"
+        Text "Running on the cloud!"
+    End
+End
+
+Start app on port 8000"""
+    return None
+
+
+def _match_style_layout(desc, orig):
+    if re.search(r'style|css|layout|responsive|grid|theme|dark\s*mode', desc):
+        return """Note: Style and Layout in EPL
+
+Style "primary-button"
+    background "#ff4500"
+    color "#ffffff"
+    padding "12px 24px"
+    border-radius "8px"
+    font-weight "bold"
+End
+
+Style "card"
+    background "#ffffff"
+    border-radius "12px"
+    padding "24px"
+    box-shadow "0 2px 8px rgba(0,0,0,0.1)"
+End
+
+Layout responsive columns 3
+    Text "Feature 1"
+    Text "Feature 2"
+    Text "Feature 3"
+End
+
+Layout responsive columns 2
+    Text "Left content"
+    Text "Right content"
+End"""
+    return None
+
+
+def _match_3d_canvas(desc, orig):
+    if re.search(r'3d|canvas|webgl|scene|draw\s*(rect|circle|shape)|three\.?js', desc):
+        return """Note: 3D Scene with WebGL
+Scene "demo" 800 by 600
+    Box "floor" at 0 -1 0 size 10 0.2 10 color "#888888"
+    Box "cube" at 0 1 0 size 2 2 2 color "#ff4500"
+    Box "pillar" at 3 1.5 -2 size 1 3 1 color "#3498db"
+    Light "sun" at 5 10 5
+    Camera at 0 5 10 look 0 0 0
+End
+
+Note: 2D Canvas Drawing
+Canvas "art" draw rect x 10 y 10 width 200 height 100 fill "#3498db"
+Canvas "art" draw circle x 150 y 200 radius 50 fill "#e74c3c"
+Canvas "art" draw line x1 0 y1 0 x2 300 y2 300 stroke "#2c3e50"
+Canvas "art" draw text x 50 y 350 content "Hello Canvas!" fill "#333333"
+"""
+    return None
+
+
+def _match_js_bridge(desc, orig):
+    if re.search(r'javascript|typescript|npm|node\s*module|lodash|axios|express', desc):
+        return """Note: JavaScript/TypeScript Bridge
+Note: First install packages: epl jsinstall lodash axios
+
+Use javascript "lodash" as _
+Use javascript "axios" as axios
+
+Note: Use lodash utilities
+names = ["alice", "bob", "charlie"]
+capitalized = _.map(names, _.capitalize)
+Say capitalized
+
+Note: Make HTTP requests with axios
+response = axios.get("https://jsonplaceholder.typicode.com/todos/1")
+Say response.data
+
+Note: Manage JS dependencies via CLI:
+Note: epl jsinstall <package>   - Install an npm package
+Note: epl jsremove <package>    - Remove an npm package
+Note: epl jsdeps                - List installed JS packages"""
+    return None
+
+
 # All pattern matchers in priority order
 _MATCHERS = [
     _match_hello,
@@ -1204,6 +1370,12 @@ _MATCHERS = [
     _match_frontend,
     _match_auth,
     _match_chatbot,
+    _match_observability,
+    _match_kubernetes,
+    _match_cloud_deploy,
+    _match_style_layout,
+    _match_3d_canvas,
+    _match_js_bridge,
     _match_class,
     _match_timer,
     _match_loop,

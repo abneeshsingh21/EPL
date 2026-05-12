@@ -96,6 +96,27 @@ Source Code (.epl)
 | Async I/O | `epl/async_io.py` | Async/await support |
 | Concurrency | `epl/concurrency.py`, `epl/concurrency_real.py` | Threading and parallel execution |
 
+### DevOps & Deployment
+
+| Module | File | Description |
+|--------|------|-------------|
+| Observability | `epl/observability.py` | Health checks (`/_health`), readiness probes (`/_ready`), Prometheus metrics (`/_metrics`), structured JSON logging |
+| K8s Generator | `epl/k8s_gen.py` | Generates Namespace, ConfigMap, Deployment, Service, Ingress, HorizontalPodAutoscaler YAML manifests |
+| Cloud Deploy | `epl/cloud_deploy.py` | AWS ECS/ECR, GCP Cloud Run, and Azure Container Apps deployment config generation |
+| JS/TS Bridge | `epl/js_bridge/` | Persistent Node.js subprocess with JSON-RPC protocol for NPM ecosystem interop |
+| Cloudflare Workers | `wrangler.jsonc` | Edge deployment configuration for Cloudflare Workers |
+
+### Code Generation (Cross-Platform)
+
+| Generator | File | Description |
+|-----------|------|-------------|
+| iOS | `epl/ios_gen.py` | SwiftUI project generation (iOS 16+, Swift 5.9) |
+| Desktop | `epl/desktop.py` | Compose Multiplatform (Windows MSI, macOS DMG, Linux DEB/RPM) |
+| Web/WASM | `epl/wasm_web.py` | Pure JS, WASM+JS, or Kotlin/JS web app bundles |
+| MicroPython | `epl/micropython_transpiler.py` | ESP32, Raspberry Pi Pico IoT targets |
+| Style/Layout | parser + `js_transpiler.py` | CSS style blocks, responsive layout containers |
+| 3D/Canvas | parser + `js_transpiler.py` | WebGL Scene3D, Canvas 2D draw commands |
+
 ## AST Node Hierarchy
 
 All nodes inherit from `ASTNode` (base has `line` attribute for error reporting).

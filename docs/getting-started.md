@@ -193,7 +193,65 @@ epl playground
 
 ---
 
-## 9. Next Steps
+## 9. JavaScript/TypeScript Bridge
+
+Access the NPM ecosystem directly from EPL:
+
+```bash
+epl jsinstall lodash
+epl jsinstall axios
+```
+
+```epl
+Use javascript "lodash" as lodash
+Use javascript "axios" as axios
+
+Say lodash.capitalize("hello from epl")
+```
+
+Manage JS dependencies:
+```bash
+epl jsdeps            # List installed JS packages
+epl jsremove lodash   # Remove a package
+```
+
+---
+
+## 10. Deploy to Production
+
+### Kubernetes
+```bash
+epl deploy k8s myapp/main.epl --image myapp:1.0 --host myapp.example.com --tls
+```
+
+### Cloud Providers
+```bash
+epl deploy aws myapp/main.epl --image myapp:latest --region us-east-1
+epl deploy gcp myapp/main.epl --image myapp:latest --region us-central1
+epl deploy azure myapp/main.epl --image myapp:latest --region eastus
+```
+
+---
+
+## 11. Observability
+
+Add health checks, metrics, and structured logging to any web app:
+
+```epl
+Create WebApp called app
+
+Import "epl.observability" As obs
+obs.attach(app)
+
+Note: This auto-adds:
+Note:   /_health  — JSON health status
+Note:   /_ready   — readiness probe
+Note:   /_metrics — Prometheus-format metrics
+```
+
+---
+
+## 12. Next Steps
 
 | Resource | Link |
 | -------- | ---- |
@@ -206,7 +264,7 @@ epl playground
 
 ---
 
-## 10. Get Help
+## 13. Get Help
 
 - 🐛 **Bug?** [Open an issue](https://github.com/abneeshsingh21/EPL/issues)
 - 💡 **Feature request?** [Request here](https://github.com/abneeshsingh21/EPL/issues/new?template=feature_request.yml)

@@ -208,6 +208,31 @@ epl desktop myapp/main.epl   # Generates Compose Multiplatform desktop app
 epl build myapp/main.epl     # Compiles via LLVM to native .exe / binary
 ```
 
+### 🔌 JavaScript/TypeScript Bridge
+```epl
+Use javascript "lodash" as lodash
+Use javascript "axios" as axios
+
+Say lodash.capitalize("hello from epl")
+response = axios.get("https://api.example.com/data")
+Say response.data
+```
+
+### ☸️ Kubernetes Deployment
+```bash
+epl deploy k8s myapp/main.epl --image myapp:1.0 --host myapp.example.com --tls
+```
+
+### 📊 Observability & Monitoring
+```epl
+Create WebApp called app
+
+Import "epl.observability" As obs
+obs.attach(app)
+
+Note: Auto-adds /_health, /_ready, /_metrics endpoints
+```
+
 ---
 
 ## 📦 CLI Reference
@@ -224,9 +249,19 @@ epl fix <file>            # AI Error Diagnostics
 epl check [file]          # Static type checking
 epl fmt <file>            # Format source code
 epl lint [file]           # Lint source code
+epl js <file.epl>         # Transpile to JavaScript
+epl python <file.epl>     # Transpile to Python
+epl kotlin <file.epl>     # Transpile to Kotlin
 epl android <file.epl>    # Generate Android project
 epl ios <file.epl>        # Generate iOS project
 epl desktop <file.epl>    # Generate desktop app
+epl web <file.epl>        # Generate web app (WASM/JS/Kotlin-JS)
+epl deploy k8s <file>     # Generate Kubernetes manifests
+epl deploy aws <file>     # Deploy to AWS ECS
+epl deploy gcp <file>     # Deploy to GCP Cloud Run
+epl deploy azure <file>   # Deploy to Azure Container Apps
+epl playground            # Start browser playground
+epl copilot               # AI code assistant
 epl install <package>     # Install a package
 epl upgrade               # Update EPL
 ```
@@ -246,6 +281,8 @@ epl upgrade               # Update EPL
 | **Targets** | Interpreter, VM, LLVM native, JavaScript, Node.js, Kotlin, Python, WASM, MicroPython |
 | **Packaging** | SemVer package manager, lockfiles, checksums, PyPI integration |
 | **AI** | Built-in `ai` module, AI Error Explainer (`epl fix`), Dual "Thinking" Mode via Groq/Gemini |
+| **DevOps** | K8s manifests, AWS/GCP/Azure deploy, Prometheus metrics, health checks, structured logging |
+| **JS Bridge** | `Use javascript/typescript` for NPM ecosystem access, persistent Node.js subprocess |
 | **Standard Library** | 300+ functions across HTTP, DB, Math, Crypto, File I/O, JSON, Regex, Date |
 
 ---
@@ -309,9 +346,13 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the list of contributors.
 - [x] VS Code extension
 - [x] Official documentation website
 - [x] Online playground (try EPL in browser with AST-Aware AI Copilot)
+- [x] iOS transpiler (SwiftUI project generation)
+- [x] EPL Notebook (Jupyter-style)
+- [x] Kubernetes & Cloud Deploy (AWS/GCP/Azure)
+- [x] JavaScript/TypeScript Bridge (NPM interop)
+- [x] Observability (health checks, metrics, structured logging)
 - [ ] Community package registry
-- [ ] iOS transpiler
-- [ ] EPL Notebook (Jupyter-style)
+- [ ] WebSocket real-time collaboration
 
 ---
 
