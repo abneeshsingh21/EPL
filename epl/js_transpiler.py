@@ -11,6 +11,19 @@ import re
 from epl import ast_nodes as ast
 
 
+def _esc_js(text):
+    """Escape a string for safe use inside JavaScript string literals."""
+    if not isinstance(text, str):
+        return str(text)
+    return (
+        text.replace('\\', '\\\\')
+        .replace('"', '\\"')
+        .replace("'", "\\'")
+        .replace('\n', '\\n')
+        .replace('\r', '\\r')
+    )
+
+
 class JSTranspiler:
     """Transpiles EPL AST to JavaScript source code."""
 
@@ -1172,7 +1185,7 @@ class JSTranspiler:
         for child in node.body:
             if isinstance(child, ast.LightSetup):
                 lt = child.light_type
-                color = child.color
+                color = _esc_js(child.color)
                 intensity = child.intensity
                 if lt == 'ambient':
                     self._line(f'  scene.add(new THREE.AmbientLight("{color}", {intensity}));')
@@ -1194,7 +1207,7 @@ class JSTranspiler:
                     'torus': 'TorusGeometry(1,0.4,16,100)',
                 }
                 geo = geo_map.get(child.shape, 'BoxGeometry(1,1,1)')
-                color = child.color or '#667eea'
+                color = _esc_js(child.color or '#667eea')
                 px, py, pz = child.position
                 sx, sy, sz = child.scale
                 rx, ry, rz = child.rotation
@@ -1225,44 +1238,44 @@ class JSTranspiler:
         if shape == 'rect':
             x, y = props.get('x', 0), props.get('y', 0)
             w, h = props.get('width', 100), props.get('height', 50)
-            fill = props.get('fill', '#000')
+            fill = _esc_js(props.get('fill', '#000'))
             self._line(f'  ctx.fillStyle = "{fill}";')
             self._line(f'  ctx.fillRect({x}, {y}, {w}, {h});')
             if 'stroke' in props:
-                self._line(f'  ctx.strokeStyle = "{props["stroke"]}";')
+                self._line(f'  ctx.strokeStyle = "{_esc_js(props["stroke"])}";')
                 self._line(f'  ctx.strokeRect({x}, {y}, {w}, {h});')
         elif shape == 'circle':
             x, y = props.get('x', 50), props.get('y', 50)
             r = props.get('radius', 25)
-            fill = props.get('fill', '#000')
+            fill = _esc_js(props.get('fill', '#000'))
             self._line(f'  ctx.beginPath();')
             self._line(f'  ctx.arc({x}, {y}, {r}, 0, Math.PI * 2);')
             self._line(f'  ctx.fillStyle = "{fill}"; ctx.fill();')
             if 'stroke' in props:
-                self._line(f'  ctx.strokeStyle = "{props["stroke"]}"; ctx.stroke();')
+                self._line(f'  ctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.stroke();')
         elif shape == 'line':
             x1, y1 = props.get('x1', 0), props.get('y1', 0)
             x2, y2 = props.get('x2', 100), props.get('y2', 100)
-            stroke = props.get('stroke', '#000')
+            stroke = _esc_js(props.get('stroke', '#000'))
             lw = props.get('width', 1)
             self._line(f'  ctx.beginPath();')
             self._line(f'  ctx.moveTo({x1}, {y1}); ctx.lineTo({x2}, {y2});')
             self._line(f'  ctx.strokeStyle = "{stroke}"; ctx.lineWidth = {lw}; ctx.stroke();')
         elif shape == 'text':
             x, y = props.get('x', 10), props.get('y', 30)
-            content = props.get('content', '')
-            font = props.get('font', '16px Arial')
-            fill = props.get('fill', '#000')
+            content = _esc_js(props.get('content', ''))
+            font = _esc_js(props.get('font', '16px Arial'))
+            fill = _esc_js(props.get('fill', '#000'))
             self._line(f'  ctx.font = "{font}";')
             self._line(f'  ctx.fillStyle = "{fill}";')
             self._line(f'  ctx.fillText("{content}", {x}, {y});')
         elif shape == 'path':
-            points = props.get('points', '')
-            fill = props.get('fill', 'transparent')
+            points = _esc_js(props.get('points', ''))
+            fill = _esc_js(props.get('fill', 'transparent'))
             self._line(f'  const p = new Path2D("{points}");')
             self._line(f'  ctx.fillStyle = "{fill}"; ctx.fill(p);')
             if 'stroke' in props:
-                self._line(f'  ctx.strokeStyle = "{props["stroke"]}"; ctx.stroke(p);')
+                self._line(f'  ctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.stroke(p);')
 
         self._line('})();')
 

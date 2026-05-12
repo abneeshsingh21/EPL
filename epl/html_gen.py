@@ -581,6 +581,20 @@ def _esc(text):
     )
 
 
+def _esc_js(text):
+    """Escape a string for safe use inside JavaScript string literals."""
+    if not isinstance(text, str):
+        return str(text)
+    return (
+        text.replace('\\', '\\\\')
+        .replace('"', '\\"')
+        .replace("'", "\\'")
+        .replace('\n', '\\n')
+        .replace('\r', '\\r')
+        .replace('</', '<\\/')
+    )
+
+
 def _safe_href(url):
     """Sanitize href to prevent javascript: URI injection."""
     if not isinstance(url, str):
@@ -879,7 +893,7 @@ def _render_component_use(elem, data_store=None, form_data=None, components=None
 
 def _render_scene_3d(scene):
     """Render a Scene3D node to HTML with Three.js initialization script."""
-    name = _esc(scene.name)
+    name = _esc_js(scene.name)
     w = scene.width
     h = scene.height
 
@@ -898,7 +912,7 @@ def _render_scene_3d(scene):
             )
         elif isinstance(node, ast.LightSetup):
             lt = node.light_type
-            color = node.color
+            color = _esc_js(node.color)
             intensity = node.intensity
             if lt == 'ambient':
                 lights_js.append(
@@ -927,7 +941,7 @@ def _render_scene_3d(scene):
                 'torus': 'TorusGeometry(1,0.4,16,100)',
             }
             geo = geo_map.get(shape, 'BoxGeometry(1,1,1)')
-            color = node.color or '#667eea'
+            color = _esc_js(node.color or '#667eea')
             px, py, pz = node.position
             sx, sy, sz = node.scale
             rx, ry, rz = node.rotation
@@ -980,33 +994,33 @@ def _render_draw_command(cmd):
         y = props.get('y', 0)
         rw = props.get('width', 100)
         rh = props.get('height', 50)
-        fill = props.get('fill', '#000')
+        fill = _esc_js(props.get('fill', '#000'))
         draw_code = (
             f'ctx.fillStyle = "{fill}";\n'
             f'ctx.fillRect({x}, {y}, {rw}, {rh});'
         )
         if 'stroke' in props:
-            draw_code += f'\nctx.strokeStyle = "{props["stroke"]}"; ctx.strokeRect({x}, {y}, {rw}, {rh});'
+            draw_code += f'\nctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.strokeRect({x}, {y}, {rw}, {rh});'
 
     elif shape == 'circle':
         x = props.get('x', 50)
         y = props.get('y', 50)
         r = props.get('radius', 25)
-        fill = props.get('fill', '#000')
+        fill = _esc_js(props.get('fill', '#000'))
         draw_code = (
             f'ctx.beginPath();\n'
             f'ctx.arc({x}, {y}, {r}, 0, Math.PI * 2);\n'
             f'ctx.fillStyle = "{fill}"; ctx.fill();'
         )
         if 'stroke' in props:
-            draw_code += f'\nctx.strokeStyle = "{props["stroke"]}"; ctx.stroke();'
+            draw_code += f'\nctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.stroke();'
 
     elif shape == 'line':
         x1 = props.get('x1', 0)
         y1 = props.get('y1', 0)
         x2 = props.get('x2', 100)
         y2 = props.get('y2', 100)
-        stroke = props.get('stroke', '#000')
+        stroke = _esc_js(props.get('stroke', '#000'))
         lw = props.get('width', 1)
         draw_code = (
             f'ctx.beginPath();\n'
@@ -1017,9 +1031,9 @@ def _render_draw_command(cmd):
     elif shape == 'text':
         x = props.get('x', 10)
         y = props.get('y', 30)
-        content = props.get('content', '')
-        font = props.get('font', '16px Arial')
-        fill = props.get('fill', '#000')
+        content = _esc_js(props.get('content', ''))
+        font = _esc_js(props.get('font', '16px Arial'))
+        fill = _esc_js(props.get('fill', '#000'))
         draw_code = (
             f'ctx.font = "{font}";\n'
             f'ctx.fillStyle = "{fill}";\n'
@@ -1027,14 +1041,14 @@ def _render_draw_command(cmd):
         )
 
     elif shape == 'path':
-        points = props.get('points', '')
-        fill = props.get('fill', 'transparent')
+        points = _esc_js(props.get('points', ''))
+        fill = _esc_js(props.get('fill', 'transparent'))
         draw_code = (
             f'const p = new Path2D("{points}");\n'
             f'ctx.fillStyle = "{fill}"; ctx.fill(p);'
         )
         if 'stroke' in props:
-            draw_code += f'\nctx.strokeStyle = "{props["stroke"]}"; ctx.stroke(p);'
+            draw_code += f'\nctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.stroke(p);'
 
     return (
         f'<canvas id="{canvas_id}" width="{w}" height="{h}"></canvas>\n'
