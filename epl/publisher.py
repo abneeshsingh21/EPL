@@ -392,7 +392,91 @@ def enhanced_publish(
         result.index_pr_content = idx.generate_index_pr_content(entry)
         result.published = True
 
+        # Step 6: Auto-register to central package index
+        _auto_register_to_index(
+            name=name,
+            version=version,
+            description=manifest.get('description', ''),
+            author=manifest.get('author', ''),
+            license_name=manifest.get('license', 'MIT'),
+            repository=f'https://github.com/{repo}' if repo and '://' not in repo else repo,
+            keywords=manifest.get('keywords', []),
+            entry=manifest.get('entry', 'src/main.epl'),
+            download_url=download_url,
+            checksum=checksum,
+            size=size,
+        )
+
     return result
+
+
+INDEX_REPO = 'abneeshsingh21/epl-packages-index'
+
+
+def _auto_register_to_index(
+    name: str,
+    version: str,
+    description: str,
+    author: str,
+    license_name: str,
+    repository: str,
+    keywords: list,
+    entry: str,
+    download_url: str,
+    checksum: str,
+    size: int,
+):
+    """Send a repository_dispatch event to the packages-index repo to auto-register."""
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('EPL_GITHUB_TOKEN')
+    if not token:
+        creds_path = os.path.join(os.path.expanduser('~'), '.epl', 'credentials.json')
+        if os.path.isfile(creds_path):
+            with open(creds_path, 'r', encoding='utf-8') as f:
+                creds = json.load(f)
+            token = creds.get('github_token', '')
+    if not token:
+        print('  [info] Run "epl login" to auto-register packages to the central index.')
+        return
+
+    import urllib.request
+
+    payload = {
+        'event_type': 'register-package',
+        'client_payload': {
+            'name': name,
+            'version': version,
+            'description': description,
+            'author': author,
+            'license': license_name,
+            'repository': repository,
+            'keywords': ','.join(keywords) if isinstance(keywords, list) else str(keywords),
+            'entry': entry,
+            'download_url': download_url,
+            'checksum': checksum,
+            'size': str(size),
+            'epl_version': '>=7.5.0',
+        },
+    }
+
+    url = f'https://api.github.com/repos/{INDEX_REPO}/dispatches'
+    data = json.dumps(payload).encode('utf-8')
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            'Accept': 'application/vnd.github.v3+json',
+            'Authorization': f'token {token}',
+            'Content-Type': 'application/json',
+        },
+        method='POST',
+    )
+
+    try:
+        urllib.request.urlopen(req)
+        print(f'  ✓ Auto-registered {name} v{version} to EPL package index')
+    except Exception as e:
+        print(f'  [warn] Auto-registration failed: {e}')
+        print(f'  [info] You can manually register at https://github.com/{INDEX_REPO}')
 
 
 def _create_github_release(
