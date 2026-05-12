@@ -265,6 +265,7 @@ class TokenType(Enum):
     FILL = auto()  # "Fill"
     STROKE = auto()  # "Stroke"
 
+
     # --- Keywords: Logical ---
     AND = auto()
     OR = auto()

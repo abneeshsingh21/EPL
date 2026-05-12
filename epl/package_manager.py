@@ -1983,6 +1983,24 @@ def list_js_dependencies(path='.'):
     return [(name, str(version)) for name, version in deps.items()]
 
 
+_SAFE_NPM_NAME_RE = re.compile(r'^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$')
+
+
+def _validate_npm_package_name(name):
+    """Validate that a package name is a valid npm package identifier."""
+    if not name or not isinstance(name, str):
+        raise ValueError('npm package name must be a non-empty string')
+    name = name.strip()
+    if not _SAFE_NPM_NAME_RE.match(name.lower()):
+        raise ValueError(
+            f'Invalid npm package name "{name}". '
+            f'Must match @scope/name or bare-name format.'
+        )
+    if '..' in name or '/' in name.split('@')[-1].split('/')[0] if '@' in name else '/' in name:
+        raise ValueError(f'Invalid npm package name "{name}": contains path traversal.')
+    return name
+
+
 def install_js_package(name, version=None, save=True, project_path='.'):
     """Install an npm package and optionally save to epl.toml [js-dependencies].
 
@@ -1992,6 +2010,13 @@ def install_js_package(name, version=None, save=True, project_path='.'):
         save: If True, record the dependency under [js-dependencies].
         project_path: Path to the EPL project.
     """
+    try:
+        name = _validate_npm_package_name(name)
+    except ValueError as e:
+        print(f'Error: {e}')
+        return False
+
+
     npm_bin = shutil.which('npm')
     if not npm_bin:
         print('Error: npm is not installed or not found in PATH.')
