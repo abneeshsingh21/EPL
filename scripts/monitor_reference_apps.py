@@ -1,5 +1,5 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -7,6 +7,5 @@ if str(ROOT) not in sys.path:
 
 from epl.reference_monitor import main
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

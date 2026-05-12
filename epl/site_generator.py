@@ -14,26 +14,23 @@ Usage:
     python main.py site [source_dir]     Generate docs site in docs/site/
 """
 
-import os
-import json
-import time
 import html as html_mod
-from pathlib import Path
-from typing import List, Dict, Optional
-
+import os
+import time
+from typing import List
 
 # ═══════════════════════════════════════════════════════════
 #  Site Configuration
 # ═══════════════════════════════════════════════════════════
 
-SITE_TITLE = "EPL Documentation"
-SITE_DESCRIPTION = "English Programming Language — Write code in plain English"
+SITE_TITLE = 'EPL Documentation'
+SITE_DESCRIPTION = 'English Programming Language — Write code in plain English'
 
 # ═══════════════════════════════════════════════════════════
 #  CSS Theme
 # ═══════════════════════════════════════════════════════════
 
-SITE_CSS = '''
+SITE_CSS = """
 :root {
   --bg: #ffffff; --bg-alt: #f6f8fa; --bg-card: #ffffff;
   --text: #1f2328; --text-muted: #656d76; --text-link: #0969da;
@@ -147,12 +144,13 @@ td{font-size:14px}
 /* Footer */
 .footer{text-align:center;padding:24px;color:var(--text-muted);font-size:13px;
   border-top:1px solid var(--border);margin-top:48px}
-'''
+"""
 
 
 # ═══════════════════════════════════════════════════════════
 #  Site Generator
 # ═══════════════════════════════════════════════════════════
+
 
 class SiteGenerator:
     """Generate a complete static documentation website."""
@@ -198,7 +196,7 @@ class SiteGenerator:
 {content}
 </main>
 </div>
-<footer class="footer">EPL Documentation — Generated {time.strftime("%Y-%m-%d")}</footer>
+<footer class="footer">EPL Documentation — Generated {time.strftime('%Y-%m-%d')}</footer>
 </body>
 </html>'''
 
@@ -219,7 +217,7 @@ class SiteGenerator:
     # ── Content Generators ──
 
     def _gen_index(self) -> str:
-        return '''
+        return """
 <h1>EPL Documentation</h1>
 <p>Welcome to the official documentation for <strong>EPL</strong> — the English Programming Language.
 Write code using natural English syntax. No cryptic symbols, no arcane keywords.</p>
@@ -275,10 +273,10 @@ pip install epl-lang
 git clone https://github.com/epl-lang/epl.git
 cd epl
 python main.py examples/hello.epl</code></pre>
-'''
+"""
 
     def _gen_getting_started(self) -> str:
-        return '''
+        return """
 <h1>Getting Started</h1>
 
 <h2>Installation</h2>
@@ -390,10 +388,10 @@ Print Math::PI()</code></pre>
   <li><a href="packages.html">Packages</a> — Browse 50 official packages</li>
   <li><a href="api.html">API Reference</a> — Built-in functions and modules</li>
 </ul>
-'''
+"""
 
     def _gen_reference(self) -> str:
-        return '''
+        return """
 <h1>Language Reference</h1>
 
 <h2>Data Types</h2>
@@ -575,10 +573,10 @@ Append "more" to file "output.txt"</code></pre>
     Create result equal to Await http_get(url)
     Return result
 End</code></pre>
-'''
+"""
 
     def _gen_tutorials(self) -> str:
-        return '''
+        return """
 <h1>Tutorials</h1>
 <p>Learn EPL by building real projects.</p>
 
@@ -731,7 +729,7 @@ End
 Create chart equal to Charts::BarChart("Sales by Category", labels, values, 800, 400)
 Call Charts::SaveChart(chart, "sales_chart.svg")
 Print "Chart saved to sales_chart.svg"</code></pre>
-'''
+"""
 
     def _gen_packages(self) -> str:
         """Generate the packages directory page."""
@@ -741,22 +739,42 @@ Print "Chart saved to sales_chart.svg"</code></pre>
             BUILTIN_REGISTRY = {}
 
         categories = {
-            'Core': [], 'Data': [], 'Web': [], 'Security': [],
-            'DevTools': [], 'Utility': [], 'Communication': []
+            'Core': [],
+            'Data': [],
+            'Web': [],
+            'Security': [],
+            'DevTools': [],
+            'Utility': [],
+            'Communication': [],
         }
 
         cat_map = {
-            'epl-math': 'Core', 'epl-string': 'Core', 'epl-collections': 'Core',
-            'epl-json': 'Data', 'epl-csv': 'Data', 'epl-xml': 'Data',
-            'epl-db': 'Data', 'epl-database': 'Data', 'epl-orm': 'Data',
-            'epl-http': 'Web', 'epl-web': 'Web', 'epl-wsgi': 'Web',
-            'epl-websocket': 'Web', 'epl-template': 'Web',
-            'epl-crypto': 'Security', 'epl-auth': 'Security',
-            'epl-rate-limit': 'Security', 'epl-validation': 'Security',
-            'epl-testing': 'DevTools', 'epl-debug': 'DevTools',
-            'epl-profiler': 'DevTools', 'epl-types': 'DevTools',
-            'epl-logging': 'DevTools', 'epl-cli': 'DevTools',
-            'epl-email': 'Communication', 'epl-networking': 'Communication',
+            'epl-math': 'Core',
+            'epl-string': 'Core',
+            'epl-collections': 'Core',
+            'epl-json': 'Data',
+            'epl-csv': 'Data',
+            'epl-xml': 'Data',
+            'epl-db': 'Data',
+            'epl-database': 'Data',
+            'epl-orm': 'Data',
+            'epl-http': 'Web',
+            'epl-web': 'Web',
+            'epl-wsgi': 'Web',
+            'epl-websocket': 'Web',
+            'epl-template': 'Web',
+            'epl-crypto': 'Security',
+            'epl-auth': 'Security',
+            'epl-rate-limit': 'Security',
+            'epl-validation': 'Security',
+            'epl-testing': 'DevTools',
+            'epl-debug': 'DevTools',
+            'epl-profiler': 'DevTools',
+            'epl-types': 'DevTools',
+            'epl-logging': 'DevTools',
+            'epl-cli': 'DevTools',
+            'epl-email': 'Communication',
+            'epl-networking': 'Communication',
             'epl-i18n': 'Communication',
         }
 
@@ -785,7 +803,7 @@ Print "Chart saved to sales_chart.svg"</code></pre>
                 html += f'<span class="pkg-desc">{desc}</span>'
                 html += '</div>\n'
 
-        html += '''
+        html += """
 <h2>Installing Packages</h2>
 <pre><code># Install from built-in registry
 python main.py install epl-math
@@ -825,7 +843,7 @@ function filterPkgs(q){
     el.style.display=text.toLowerCase().includes(q)||!q?'flex':'none';
   });
 }
-</script>'''
+</script>"""
         return html
 
     def _gen_api(self, source_dirs: List[str] = None) -> str:
@@ -838,6 +856,7 @@ function filterPkgs(q){
         if source_dirs:
             try:
                 from epl.doc_linter import DocGenerator
+
                 gen = DocGenerator()
                 for d in source_dirs:
                     if os.path.isdir(d):
@@ -904,7 +923,7 @@ function filterPkgs(q){
             html += f'<tr><td><code>{self._esc(sig)}</code></td><td>{self._esc(desc)}</td></tr>\n'
         html += '</table>\n'
 
-        html += '''
+        html += """
 <script>
 function filterEntries(q){
   q=q.toLowerCase();
@@ -913,7 +932,7 @@ function filterEntries(q){
     el.style.display=n.toLowerCase().includes(q)||!q?'block':'none';
   });
 }
-</script>'''
+</script>"""
         return html
 
     def _entry_html(self, entry) -> str:
@@ -950,7 +969,7 @@ function filterEntries(q){
         return h
 
     def _gen_compiler(self) -> str:
-        return '''
+        return """
 <h1>Compiler &amp; VM</h1>
 
 <h2>LLVM Compiler</h2>
@@ -1003,7 +1022,7 @@ python main.py kotlin my_program.epl
 
 # Generate Android project
 python main.py android my_program.epl</code></pre>
-'''
+"""
 
     # ── Build Site ──
 

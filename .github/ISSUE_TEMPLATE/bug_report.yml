@@ -1,66 +1,62 @@
 name: Bug Report
-description: Found a bug in EPL? Tell us what happened.
-title: "[Bug]: "
-labels: ["bug", "needs-triage"]
+description: Create a bug report to help us improve EPL
+title: "[BUG] "
+labels: ["bug", "triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to report a bug! Please fill in as much detail as possible.
-
-  - type: textarea
-    id: description
-    attributes:
-      label: "What happened?"
-      description: "A clear description of the bug."
-      placeholder: "When I write '...', EPL does '...' instead of '...'"
-    validations:
-      required: true
-
-  - type: textarea
-    id: code
-    attributes:
-      label: "EPL code to reproduce"
-      description: "Paste the smallest EPL program that reproduces the bug."
-      render: "text"
-      placeholder: |
-        Set x To 10
-        Say x + y   # error here
-
-  - type: textarea
-    id: error
-    attributes:
-      label: "Error output"
-      description: "Paste the full error message from EPL."
-      render: "shell"
-
+        Thanks for taking the time to fill out this bug report! 
+        Please provide as much detail as possible to help us reproduce the issue.
   - type: input
     id: version
     attributes:
-      label: "EPL version"
-      description: "Run `epl version` to get the version."
-      placeholder: "e.g. 7.0.0"
+      label: EPL Version
+      description: What version of EPL are you using? (Run `epl --version`)
+      placeholder: "e.g., v7.5.1"
     validations:
       required: true
-
   - type: dropdown
     id: os
     attributes:
-      label: "Operating System"
+      label: Operating System
+      description: What operating system are you using?
       options:
         - Windows
         - macOS
         - Linux
-        - Other
     validations:
       required: true
-
-  - type: dropdown
-    id: engine
+  - type: textarea
+    id: description
     attributes:
-      label: "Which engine were you using?"
-      options:
-        - Interpreter (default)
-        - VM (--vm flag)
-        - LLVM compiler (--compile flag)
-        - Not sure
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug? Please provide the exact EPL code.
+      placeholder: |
+        1. Write the following code: `Say "Hello"`
+        2. Run it via `epl run test.epl`
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: A clear and concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Paste any error messages or CLI output here.
+      render: shell
+    validations:
+      required: false

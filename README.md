@@ -6,9 +6,11 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/eplang?color=blue&label=pip%20install%20eplang&style=for-the-badge)](https://pypi.org/project/eplang/)
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue?style=for-the-badge&logo=python)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green?style=for-the-badge)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC?style=for-the-badge&logo=visual-studio-code)](https://marketplace.visualstudio.com/publishers/epl-lang)
 [![GitHub Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=for-the-badge&logo=github)](https://github.com/abneeshsingh21/EPL/stargazers)
+[![CI/CD](https://img.shields.io/github/actions/workflow/status/abneeshsingh21/EPL/ci.yml?style=for-the-badge&logo=github)](https://github.com/abneeshsingh21/EPL/actions/workflows/ci.yml)
+[![Lint](https://img.shields.io/github/actions/workflow/status/abneeshsingh21/EPL/lint.yml?label=Ruff%20Lint&style=for-the-badge)](https://github.com/abneeshsingh21/EPL/actions/workflows/lint.yml)
 
 <br/>
 
@@ -164,6 +166,18 @@ response = ai.chat(messages)
 Say response
 ```
 
+### ☁️ AWS Cloud Integration
+```epl
+Import "epl-cloud"
+
+Note: Use AWS services natively
+s3_bucket = cloud_s3_bucket("my-epl-bucket")
+cloud_s3_upload(s3_bucket, "data.txt", "Hello Cloud!")
+
+queue = cloud_sqs_queue("task-queue")
+cloud_sqs_send(queue, "Start background job")
+```
+
 ### 🗄️ Database Apps
 ```epl
 Import "epl-db"
@@ -206,6 +220,7 @@ epl build <file.epl>      # Compile to native executable
 epl wasm <file.epl>       # Compile to WebAssembly
 epl serve <file.epl>      # Start web server
 epl test [dir]            # Run test suite
+epl fix <file>            # AI Error Diagnostics
 epl check [file]          # Static type checking
 epl fmt <file>            # Format source code
 epl lint [file]           # Lint source code
@@ -230,7 +245,7 @@ epl upgrade               # Update EPL
 | **Tooling** | LSP server, debugger, REPL, test framework, code coverage, formatter |
 | **Targets** | Interpreter, VM, LLVM native, JavaScript, Node.js, Kotlin, Python, WASM, MicroPython |
 | **Packaging** | SemVer package manager, lockfiles, checksums, PyPI integration |
-| **AI** | Built-in `ai` module, Web Playground AST-Aware Copilot, Dual "Thinking" Mode via Groq/Gemini |
+| **AI** | Built-in `ai` module, AI Error Explainer (`epl fix`), Dual "Thinking" Mode via Groq/Gemini |
 | **Standard Library** | 300+ functions across HTTP, DB, Math, Crypto, File I/O, JSON, Regex, Date |
 
 ---
@@ -264,13 +279,19 @@ Install the EPL extension for:
 
 ## 🤝 Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! We have strict enterprise guidelines to maintain code quality. 
+
+Before contributing, please read:
+- [CONTRIBUTING.md](CONTRIBUTING.md) for the automated testing and Ruff formatting requirements.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for our community standards.
+- [CLA.md](CLA.md) for our required Contributor License Agreement.
 
 ```bash
 git clone https://github.com/abneeshsingh21/EPL.git
 cd EPL
-pip install -e ".[dev]"
-python -m pytest tests/
+pip install -e ".[dev,cloud]"
+ruff format .
+pytest tests/
 ```
 
 See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the list of contributors.
@@ -298,9 +319,9 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the list of contributors.
 
 Copyright © 2024–2026 **Abneesh Singh** (<singhabneesh250@gmail.com>)
 
-Licensed under the MIT License with attribution requirements. See [LICENSE](LICENSE) for details.
+Licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
 
-> "EPL" and "English Programming Language" are trademarks of Abneesh Singh.
+> "EPL" and "English Programming Language" are trademarks of Abneesh Singh. See [NOTICE](NOTICE) for strict attribution requirements.
 
 ---
 

@@ -280,6 +280,18 @@
       "repository": "https://github.com/epl-lang/epl-ios",
       "download_url": "https://registry.epl-lang.org/api/v1/download/epl-ios/1.0.0",
       "checksum": ""
+    },
+    "epl-cloud": {
+      "description": "AWS cloud integration: S3 object storage, Lambda serverless functions, SQS message queues",
+      "version": "1.0.0",
+      "type": "builtin",
+      "keywords": ["cloud", "aws", "s3", "lambda", "sqs", "serverless"],
+      "entry": "main.epl",
+      "author": "D1v3shh",
+      "license": "MIT",
+      "repository": "https://github.com/epl-lang/epl-cloud",
+      "download_url": "https://registry.epl-lang.org/api/v1/download/epl-cloud/1.0.0",
+      "checksum": ""
     }
   }
 }

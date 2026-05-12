@@ -5,29 +5,28 @@ ETag/streaming static files, template engine with inheritance, graceful shutdown
 structured access logging, multipart file uploads, WebSocket (RFC 6455), rate limiting,
 PBKDF2 auth, middleware pipeline, CORS, gzip, HTTPS/TLS, CSRF, and full security headers.
 """
-import json
-import os
-import re
-import mimetypes
-import threading
+
+import asyncio
+import base64
+import gzip
 import hashlib
 import hmac
-import time
-import uuid
+import io
+import json
+import logging
+import mimetypes
+import os
+import re
+import secrets
+import signal
 import sqlite3
 import ssl
-import gzip
-import io
-import urllib.parse
-import tempfile
-import secrets
 import struct
-import base64
-import signal
-import logging
-import asyncio
+import threading
+import time
+import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
 from epl import ast_nodes as ast
@@ -36,6 +35,7 @@ from epl.html_gen import generate_html
 # ─── Structured Logger ───────────────────────────────────
 _access_logger = logging.getLogger('epl.web.access')
 _error_logger = logging.getLogger('epl.web.error')
+
 
 def configure_logging(level=logging.INFO, log_file=None):
     """Configure EPL web server logging."""
@@ -52,6 +52,7 @@ def configure_logging(level=logging.INFO, log_file=None):
         _access_logger.addHandler(fh)
         _error_logger.addHandler(fh)
 
+
 # Auto-configure with defaults
 if not _access_logger.handlers:
     configure_logging()
@@ -59,37 +60,53 @@ if not _access_logger.handlers:
 
 # ─── Pluggable Store & Session Backends ──────────────────
 from epl.store_backends import (
-    get_store_backend, get_session_backend, configure_backends as _configure_backends
+    configure_backends as _configure_backends,
 )
+from epl.store_backends import (
+    get_session_backend,
+    get_store_backend,
+)
+
 
 # Legacy compatibility: _data_store still exists as a dict-like proxy
 class _StoreProxy(dict):
     """Dict-like proxy that delegates to the active store backend."""
+
     def __getitem__(self, key):
         return get_store_backend().store_get(key)
+
     def get(self, key, default=None):
         result = get_store_backend().store_get(key)
         return result if result else default
+
     def __setitem__(self, key, value):
         backend = get_store_backend()
         backend.store_clear(key)
         if isinstance(value, list):
             for item in value:
                 backend.store_add(key, item)
+
     def __contains__(self, key):
         return get_store_backend().store_count(key) > 0
+
     def items(self):
         return get_store_backend().all_collections()
+
     def keys(self):
         return [k for k, v in self.items()]
+
     def __len__(self):
         return len(self.keys())
+
     def __bool__(self):
         return any(True for _ in self.items())
+
     def clear(self):
         get_store_backend().clear_all()
+
     def pop(self, key, *args):
         get_store_backend().store_clear(key)
+
 
 _data_store = _StoreProxy()
 
@@ -97,11 +114,12 @@ _data_store = _StoreProxy()
 # ─── SQLite Connection Pool ──────────────────────────────
 class ConnectionPool:
     """Thread-safe SQLite connection pool.
-    
+
     Each thread gets its own connection (required by SQLite).
     Connections are reused across requests on the same thread.
     WAL mode is enabled for concurrent reads + single writer.
     """
+
     def __init__(self, db_path, max_connections=16):
         self._db_path = db_path
         self._max = max_connections
@@ -137,9 +155,9 @@ class ConnectionPool:
         self._local.conn = None
 
 
-_db_pool = None   # type: ConnectionPool | None
+_db_pool = None  # type: ConnectionPool | None
 _db_path = None
-_db_conn = None   # legacy single-connection fallback
+_db_conn = None  # legacy single-connection fallback
 
 
 def _get_db():
@@ -155,27 +173,27 @@ def init_db(path='epl_app.db'):
     _db_path = path
     _db_pool = ConnectionPool(path)
     conn = _db_pool.get()
-    conn.execute('''
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS epl_store (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             collection TEXT NOT NULL,
             data TEXT NOT NULL,
             created_at REAL DEFAULT (strftime('%s','now'))
         )
-    ''')
-    conn.execute('''
+    """)
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS epl_sessions (
             session_id TEXT PRIMARY KEY,
             data TEXT NOT NULL DEFAULT '{}',
             expires_at REAL NOT NULL
         )
-    ''')
-    conn.execute('''
+    """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_store_collection ON epl_store(collection)
-    ''')
-    conn.execute('''
+    """)
+    conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_sessions_expires ON epl_sessions(expires_at)
-    ''')
+    """)
     conn.commit()
     _db_conn = conn  # legacy compatibility
 
@@ -186,34 +204,35 @@ def db_store_add(collection, item):
     if conn:
         conn.execute(
             'INSERT INTO epl_store (collection, data) VALUES (?, ?)',
-            (collection, json.dumps(item, default=str))
+            (collection, json.dumps(item, default=str)),
         )
         conn.commit()
     store_add(collection, item)
+
 
 def db_store_get(collection):
     """Get all items from persistent store."""
     conn = _get_db()
     if conn:
         rows = conn.execute(
-            'SELECT data FROM epl_store WHERE collection = ? ORDER BY id',
-            (collection,)
+            'SELECT data FROM epl_store WHERE collection = ? ORDER BY id', (collection,)
         ).fetchall()
         return [json.loads(r[0]) for r in rows]
     return store_get(collection)
+
 
 def db_store_remove(collection, index):
     """Remove item by index from persistent store."""
     conn = _get_db()
     if conn:
         rows = conn.execute(
-            'SELECT id FROM epl_store WHERE collection = ? ORDER BY id',
-            (collection,)
+            'SELECT id FROM epl_store WHERE collection = ? ORDER BY id', (collection,)
         ).fetchall()
         if 0 <= index < len(rows):
             conn.execute('DELETE FROM epl_store WHERE id = ?', (rows[index][0],))
             conn.commit()
     store_remove(collection, index)
+
 
 def db_store_clear(collection):
     """Clear all items in a collection from persistent store."""
@@ -223,13 +242,13 @@ def db_store_clear(collection):
         conn.commit()
     store_clear(collection)
 
+
 def db_store_count(collection):
     """Count items in persistent store."""
     conn = _get_db()
     if conn:
         row = conn.execute(
-            'SELECT COUNT(*) FROM epl_store WHERE collection = ?',
-            (collection,)
+            'SELECT COUNT(*) FROM epl_store WHERE collection = ?', (collection,)
         ).fetchone()
         return row[0]
     return store_count(collection)
@@ -257,12 +276,14 @@ def session_create():
     return get_session_backend().create(timeout=SESSION_TIMEOUT)
 
 
-def _build_route_env(interpreter, method, path, form_data=None, params=None, headers=None, session_id=None):
+def _build_route_env(
+    interpreter, method, path, form_data=None, params=None, headers=None, session_id=None
+):
     """Create a child interpreter environment populated with request context bindings."""
     if interpreter is None:
         return None
 
-    route_env = interpreter.global_env.create_child("web:route")
+    route_env = interpreter.global_env.create_child('web:route')
     request_data = interpreter._wrap_python_result(form_data or {})
     request_params = interpreter._wrap_python_result(params or {})
 
@@ -277,25 +298,27 @@ def _build_route_env(interpreter, method, path, form_data=None, params=None, hea
             header_map[normalized] = value
     request_headers = interpreter._wrap_python_result(header_map)
 
-    request_obj = interpreter._wrap_python_result({
-        "method": method,
-        "path": path,
-        "data": form_data or {},
-        "params": params or {},
-        "headers": header_map,
-        "session_id": session_id,
-    })
+    request_obj = interpreter._wrap_python_result(
+        {
+            'method': method,
+            'path': path,
+            'data': form_data or {},
+            'params': params or {},
+            'headers': header_map,
+            'session_id': session_id,
+        }
+    )
 
-    route_env.define_variable("request", request_obj)
-    route_env.define_variable("request_data", request_data)
-    route_env.define_variable("form_data", request_data)
-    route_env.define_variable("request_body", request_data)
-    route_env.define_variable("request_params", request_params)
-    route_env.define_variable("query_params", request_params)
-    route_env.define_variable("request_headers", request_headers)
-    route_env.define_variable("request_method", method)
-    route_env.define_variable("request_path", path)
-    route_env.define_variable("session_id", session_id)
+    route_env.define_variable('request', request_obj)
+    route_env.define_variable('request_data', request_data)
+    route_env.define_variable('form_data', request_data)
+    route_env.define_variable('request_body', request_data)
+    route_env.define_variable('request_params', request_params)
+    route_env.define_variable('query_params', request_params)
+    route_env.define_variable('request_headers', request_headers)
+    route_env.define_variable('request_method', method)
+    route_env.define_variable('request_path', path)
+    route_env.define_variable('session_id', session_id)
     return route_env
 
 
@@ -351,7 +374,11 @@ def _resolve_page_def(page_def, interpreter, env):
     """Clone a PageDef and resolve string templates against the route environment."""
     if interpreter is None or env is None or not isinstance(page_def, ast.PageDef):
         return page_def
-    title = interpreter._resolve_template(page_def.title, env) if isinstance(page_def.title, str) else page_def.title
+    title = (
+        interpreter._resolve_template(page_def.title, env)
+        if isinstance(page_def.title, str)
+        else page_def.title
+    )
     elements = [_resolve_page_element(element, interpreter, env) for element in page_def.elements]
     return ast.PageDef(title, elements, page_def.line)
 
@@ -398,10 +425,11 @@ def store_count(collection):
 # ─── Auth Helpers ────────────────────────────────────────
 _users_table_created = False
 
+
 def _ensure_users_table():
     global _users_table_created
     if _db_conn and not _users_table_created:
-        _db_conn.execute('''
+        _db_conn.execute("""
             CREATE TABLE IF NOT EXISTS epl_users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -410,16 +438,18 @@ def _ensure_users_table():
                 role TEXT DEFAULT 'user',
                 created_at REAL DEFAULT (strftime('%s','now'))
             )
-        ''')
+        """)
         _db_conn.commit()
         _users_table_created = True
+
 
 def hash_password(password, salt=None):
     """Hash a password with PBKDF2-SHA256."""
     if salt is None:
         salt = secrets.token_hex(16)
     hashed = hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000)
-    return f"{salt}${hashed.hex()}"
+    return f'{salt}${hashed.hex()}'
+
 
 def verify_password(password, stored_hash):
     """Verify a password against a stored hash (timing-safe)."""
@@ -428,6 +458,7 @@ def verify_password(password, stored_hash):
     salt = stored_hash.split('$')[0]
     computed = hash_password(password, salt)
     return hmac.compare_digest(computed, stored_hash)
+
 
 def register_user(username, password, email='', role='user'):
     """Register a new user. Returns user id or None if exists."""
@@ -438,12 +469,13 @@ def register_user(username, password, email='', role='user'):
         pw_hash = hash_password(password)
         _db_conn.execute(
             'INSERT INTO epl_users (username, password_hash, email, role) VALUES (?, ?, ?, ?)',
-            (username, pw_hash, email, role)
+            (username, pw_hash, email, role),
         )
         _db_conn.commit()
         return _db_conn.execute('SELECT last_insert_rowid()').fetchone()[0]
     except sqlite3.IntegrityError:
         return None
+
 
 def authenticate_user(username, password):
     """Authenticate a user. Returns user dict or None."""
@@ -452,15 +484,16 @@ def authenticate_user(username, password):
     _ensure_users_table()
     row = _db_conn.execute(
         'SELECT id, username, password_hash, email, role FROM epl_users WHERE username = ?',
-        (username,)
+        (username,),
     ).fetchone()
     if row and verify_password(password, row[2]):
         return {'id': row[0], 'username': row[1], 'email': row[3], 'role': row[4]}
     return None
 
+
 def login_user(session_id, username, password):
     """Login a user and store in session. Returns (new_session_id, user) or (None, None).
-    
+
     Regenerates session ID after login to prevent session fixation attacks.
     """
     user = authenticate_user(username, password)
@@ -475,9 +508,11 @@ def login_user(session_id, username, password):
         return new_session_id, user
     return session_id, None
 
+
 def logout_user(session_id):
     """Logout current user from session."""
     get_session_backend().delete(session_id)
+
 
 def get_current_user(session_id):
     """Get current logged-in user from session."""
@@ -495,18 +530,21 @@ def validate_email(email):
     """Basic email validation."""
     return bool(re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email))
 
+
 def validate_length(value, min_len=0, max_len=10000):
     """Check string length bounds."""
     return min_len <= len(str(value)) <= max_len
 
+
 def sanitize_html(text):
     """Strip dangerous HTML — uses allowlist approach for safety.
-    
+
     Removes all HTML tags except a safe allowlist
     (b, i, em, strong, a, br, p, ul, ol, li, code, pre).
     Strips all attributes except href on <a> tags (with safe protocol check).
     """
     import html as _html
+
     text = str(text)
     _SAFE_TAGS = {'b', 'i', 'em', 'strong', 'a', 'br', 'p', 'ul', 'ol', 'li', 'code', 'pre'}
     _SAFE_PROTO = {'http:', 'https:', 'mailto:'}
@@ -518,7 +556,7 @@ def sanitize_html(text):
             if end == -1:
                 result.append(_html.escape(text[i:]))
                 break
-            tag_content = text[i+1:end].strip()
+            tag_content = text[i + 1 : end].strip()
             is_closing = tag_content.startswith('/')
             tag_name = tag_content.lstrip('/').split()[0].lower() if tag_content.lstrip('/') else ''
             if tag_name in _SAFE_TAGS:
@@ -526,11 +564,17 @@ def sanitize_html(text):
                     result.append(f'</{tag_name}>')
                 elif tag_name == 'a':
                     # Extract href, validate protocol
-                    href_match = re.search(r'href\s*=\s*["\']([^"\']*)["\']', tag_content, re.IGNORECASE)
+                    href_match = re.search(
+                        r'href\s*=\s*["\']([^"\']*)["\']', tag_content, re.IGNORECASE
+                    )
                     if href_match:
                         href = href_match.group(1).strip()
-                        proto = href.split('//')[0].lower() if '//' in href else href.split(':')[0].lower() + ':'
-                        if proto in _SAFE_PROTO or not ':' in href:
+                        proto = (
+                            href.split('//')[0].lower()
+                            if '//' in href
+                            else href.split(':')[0].lower() + ':'
+                        )
+                        if proto in _SAFE_PROTO or ':' not in href:
                             result.append(f'<a href="{_html.escape(href)}">')
                         else:
                             result.append('<a href="#">')
@@ -547,6 +591,7 @@ def sanitize_html(text):
             i += 1
     return ''.join(result)
 
+
 def csrf_token(session_id=None):
     """Generate a CSRF token and optionally store it in the session."""
     token = secrets.token_hex(32)
@@ -557,14 +602,32 @@ def csrf_token(session_id=None):
 
 # ─── Request / Response Abstractions ─────────────────────
 
+
 class Request:
     """Structured HTTP request object passed to handlers and middleware."""
-    __slots__ = ('method', 'path', 'query_string', 'query', 'headers',
-                 'body_raw', 'body', 'form', 'files', 'params', 'session_id',
-                 'user', 'client_ip', 'content_type', 'cookies', 'app')
 
-    def __init__(self, method='GET', path='/', headers=None, body_raw=b'',
-                 client_ip='127.0.0.1', app=None):
+    __slots__ = (
+        'method',
+        'path',
+        'query_string',
+        'query',
+        'headers',
+        'body_raw',
+        'body',
+        'form',
+        'files',
+        'params',
+        'session_id',
+        'user',
+        'client_ip',
+        'content_type',
+        'cookies',
+        'app',
+    )
+
+    def __init__(
+        self, method='GET', path='/', headers=None, body_raw=b'', client_ip='127.0.0.1', app=None
+    ):
         self.method = method.upper()
         self.path = path.split('?')[0]
         self.query_string = path.split('?')[1] if '?' in path else ''
@@ -578,8 +641,9 @@ class Request:
         self.session_id = None
         self.user = None
         self.client_ip = client_ip
-        self.content_type = (headers or {}).get('Content-Type',
-                             (headers or {}).get('content-type', ''))
+        self.content_type = (headers or {}).get(
+            'Content-Type', (headers or {}).get('content-type', '')
+        )
         self.cookies = self._parse_cookies()
         self.app = app
 
@@ -598,7 +662,9 @@ class Request:
         if self.body is not None:
             return self.body
         if self.body_raw:
-            raw = self.body_raw.decode('utf-8') if isinstance(self.body_raw, bytes) else self.body_raw
+            raw = (
+                self.body_raw.decode('utf-8') if isinstance(self.body_raw, bytes) else self.body_raw
+            )
             try:
                 self.body = json.loads(raw)
             except (json.JSONDecodeError, ValueError):
@@ -608,6 +674,7 @@ class Request:
 
 class Response:
     """Structured HTTP response builder."""
+
     __slots__ = ('status', 'headers', '_body', 'content_type', '_cookies')
 
     def __init__(self, body='', status=200, content_type='text/html; charset=utf-8'):
@@ -621,8 +688,9 @@ class Response:
         self.headers[name] = value
         return self
 
-    def set_cookie(self, name, value, max_age=3600, httponly=True, secure=False,
-                   samesite='Strict', path='/'):
+    def set_cookie(
+        self, name, value, max_age=3600, httponly=True, secure=False, samesite='Strict', path='/'
+    ):
         flags = f'{name}={value}; Path={path}; Max-Age={max_age}; SameSite={samesite}'
         if httponly:
             flags += '; HttpOnly'
@@ -656,18 +724,20 @@ class Response:
 
 # ─── Blueprint (Modular Route Groups) ────────────────────
 
+
 class Blueprint:
     """Group related routes under a URL prefix with shared middleware.
-    
+
     Usage:
         api = Blueprint('/api/v1')
         api.route('/users', 'json', handler, method='GET')
         app.register_blueprint(api)
     """
+
     def __init__(self, prefix=''):
         self.prefix = prefix.rstrip('/')
-        self.routes = []       # (path, response_type, body, method)
-        self.middleware = []    # (name, before_fn, after_fn)
+        self.routes = []  # (path, response_type, body, method)
+        self.middleware = []  # (name, before_fn, after_fn)
         self.error_handlers = {}
 
     def route(self, path, response_type, body, method='GET'):
@@ -686,9 +756,10 @@ class Blueprint:
 
 # ─── Template Engine ─────────────────────────────────────
 
+
 class TemplateEngine:
     """Simple template engine with variable substitution, blocks, and includes.
-    
+
     Syntax:
         {{ variable }}          - Variable substitution (auto-escaped)
         {{ variable|safe }}     - Raw output (no escaping)
@@ -699,6 +770,7 @@ class TemplateEngine:
         {% for item in items %}...{% endfor %} - Loop
         {% raw %}...{% endraw %}           - Raw output without processing
     """
+
     def __init__(self, template_dir='templates'):
         self.template_dir = template_dir
         self._cache = {}  # path → (mtime, compiled)
@@ -736,6 +808,7 @@ class TemplateEngine:
     def _process(self, template, ctx, depth=0):
         """Process template string with context. Depth prevents infinite recursion."""
         import html as _html
+
         if depth > 10:
             return '<!-- Max template nesting depth exceeded -->'
 
@@ -745,18 +818,23 @@ class TemplateEngine:
             parent_name = extends_match.group(1)
             parent = self._load(parent_name)
             # Extract child blocks
-            child_blocks = dict(re.findall(
-                r'\{%\s*block\s+(\w+)\s*%\}(.*?)\{%\s*endblock\s*%\}',
-                template, re.DOTALL
-            ))
+            child_blocks = dict(
+                re.findall(
+                    r'\{%\s*block\s+(\w+)\s*%\}(.*?)\{%\s*endblock\s*%\}', template, re.DOTALL
+                )
+            )
+
             # Replace parent blocks with child overrides
             def replace_block(m):
                 bname = m.group(1)
                 default = m.group(2)
                 return child_blocks.get(bname, default)
+
             result = re.sub(
                 r'\{%\s*block\s+(\w+)\s*%\}(.*?)\{%\s*endblock\s*%\}',
-                replace_block, parent, flags=re.DOTALL
+                replace_block,
+                parent,
+                flags=re.DOTALL,
             )
             return self._process(result, ctx, depth + 1)
 
@@ -765,18 +843,22 @@ class TemplateEngine:
             inc_name = m.group(1)
             inc_content = self._load(inc_name)
             return self._process(inc_content, ctx, depth + 1)
+
         template = re.sub(r'\{%\s*include\s+"([^"]+)"\s*%\}', do_include, template)
 
         # Handle {% raw %}...{% endraw %}
         raw_blocks = {}
         raw_counter = [0]
+
         def save_raw(m):
             key = f'__RAW_{raw_counter[0]}__'
             raw_blocks[key] = m.group(1)
             raw_counter[0] += 1
             return key
-        template = re.sub(r'\{%\s*raw\s*%\}(.*?)\{%\s*endraw\s*%\}',
-                          save_raw, template, flags=re.DOTALL)
+
+        template = re.sub(
+            r'\{%\s*raw\s*%\}(.*?)\{%\s*endraw\s*%\}', save_raw, template, flags=re.DOTALL
+        )
 
         # Handle {% for item in items %}...{% endfor %}
         def do_for(m):
@@ -788,14 +870,21 @@ class TemplateEngine:
             for i, item in enumerate(items):
                 loop_ctx = dict(ctx)
                 loop_ctx[var_name] = item
-                loop_ctx['loop'] = {'index': i, 'index1': i + 1,
-                                    'first': i == 0, 'last': i == len(items) - 1,
-                                    'length': len(items)}
+                loop_ctx['loop'] = {
+                    'index': i,
+                    'index1': i + 1,
+                    'first': i == 0,
+                    'last': i == len(items) - 1,
+                    'length': len(items),
+                }
                 result_parts.append(self._process(body, loop_ctx, depth + 1))
             return ''.join(result_parts)
+
         template = re.sub(
             r'\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}(.*?)\{%\s*endfor\s*%\}',
-            do_for, template, flags=re.DOTALL
+            do_for,
+            template,
+            flags=re.DOTALL,
         )
 
         # Handle {% if condition %}...{% else %}...{% endif %}
@@ -806,9 +895,12 @@ class TemplateEngine:
             # Simple condition evaluation (variable truthiness or comparison)
             val = self._eval_condition(cond_expr, ctx)
             return self._process(true_body if val else false_body, ctx, depth + 1)
+
         template = re.sub(
             r'\{%\s*if\s+(.+?)\s*%\}(.*?)(?:\{%\s*else\s*%\}(.*?))?\{%\s*endif\s*%\}',
-            do_if, template, flags=re.DOTALL
+            do_if,
+            template,
+            flags=re.DOTALL,
         )
 
         # Handle {% set var = expr %}
@@ -816,8 +908,9 @@ class TemplateEngine:
             var_name = m.group(1).strip()
             expr = m.group(2).strip()
             # Simple expression evaluation: string literal, number, or variable lookup
-            if (expr.startswith('"') and expr.endswith('"')) or \
-               (expr.startswith("'") and expr.endswith("'")):
+            if (expr.startswith('"') and expr.endswith('"')) or (
+                expr.startswith("'") and expr.endswith("'")
+            ):
                 ctx[var_name] = expr[1:-1]
             else:
                 try:
@@ -828,6 +921,7 @@ class TemplateEngine:
                     except ValueError:
                         ctx[var_name] = self._resolve(expr, ctx)
             return ''
+
         template = re.sub(r'\{%\s*set\s+(\w+)\s*=\s*(.+?)\s*%\}', do_set, template)
 
         # Handle {{ variable }}, {{ variable|filter }}, {{ x if cond else y }}
@@ -840,9 +934,17 @@ class TemplateEngine:
                 cond = ternary.group(2).strip()
                 false_val = ternary.group(3).strip()
                 if self._eval_condition(cond, ctx):
-                    val = self._resolve(true_val, ctx) if not true_val.startswith('"') else true_val.strip('"').strip("'")
+                    val = (
+                        self._resolve(true_val, ctx)
+                        if not true_val.startswith('"')
+                        else true_val.strip('"').strip("'")
+                    )
                 else:
-                    val = self._resolve(false_val, ctx) if not false_val.startswith('"') else false_val.strip('"').strip("'")
+                    val = (
+                        self._resolve(false_val, ctx)
+                        if not false_val.startswith('"')
+                        else false_val.strip('"').strip("'")
+                    )
                 return _html.escape(str(val)) if val is not None else ''
 
             # Filter chain: {{ variable|filter1|filter2:arg }}
@@ -858,6 +960,7 @@ class TemplateEngine:
             if len(parts) == 1:
                 return _html.escape(str(val)) if val is not None else ''
             return str(val) if val is not None else ''
+
         template = re.sub(r'\{\{\s*(.+?)\s*\}\}', do_var, template)
 
         # Restore raw blocks
@@ -887,7 +990,7 @@ class TemplateEngine:
 
     def _apply_filter(self, filter_expr, val):
         """Apply a template filter to a value.
-        
+
         Supported filters:
             safe        — No HTML escaping (raw output)
             upper       — Uppercase
@@ -977,6 +1080,7 @@ class TemplateEngine:
             fmt = args[0] if args else '%Y-%m-%d'
             try:
                 import datetime
+
                 if isinstance(val, (int, float)):
                     dt = datetime.datetime.fromtimestamp(val)
                 elif isinstance(val, str):
@@ -1025,9 +1129,14 @@ class TemplateEngine:
         if expr.startswith('not '):
             return not self._eval_condition(expr[4:], ctx)
         # Handle "a == b"
-        for op, fn in [('==', lambda a, b: a == b), ('!=', lambda a, b: a != b),
-                       ('>=', lambda a, b: a >= b), ('<=', lambda a, b: a <= b),
-                       ('>', lambda a, b: a > b), ('<', lambda a, b: a < b)]:
+        for op, fn in [
+            ('==', lambda a, b: a == b),
+            ('!=', lambda a, b: a != b),
+            ('>=', lambda a, b: a >= b),
+            ('<=', lambda a, b: a <= b),
+            ('>', lambda a, b: a > b),
+            ('<', lambda a, b: a < b),
+        ]:
             if op in expr:
                 left, right = expr.split(op, 1)
                 l_val = self._resolve(left.strip(), ctx)
@@ -1046,17 +1155,17 @@ class EPLWebApp:
 
     def __init__(self, name):
         self.name = name
-        self.routes = {}       # path → (type, method, handler_data)
-        self.param_routes = {} # method → [(pattern_re, param_names, response_type, body)]
+        self.routes = {}  # path → (type, method, handler_data)
+        self.param_routes = {}  # method → [(pattern_re, param_names, response_type, body)]
         self.static_dir = 'static'
         self.public_dir = 'public'
         self.cors_enabled = True
         self.cors_origins = 'same-origin'
         self.sessions_enabled = True
-        self.middleware = []    # list of (name, before_fn, after_fn)
+        self.middleware = []  # list of (name, before_fn, after_fn)
         self.db_enabled = False
         self.db_path = 'epl_app.db'
-        self.rate_limit = 0    # requests per minute per IP (0 = disabled)
+        self.rate_limit = 0  # requests per minute per IP (0 = disabled)
         self.upload_dir = 'uploads'
         self.upload_max_size = 10 * 1024 * 1024  # 10MB per file
         self.ssl_cert = None
@@ -1066,17 +1175,17 @@ class EPLWebApp:
         self.secret_key = secrets.token_hex(32)
         self.error_handlers = {}  # status_code → handler_fn
         self.websocket_handlers = {}  # path → handler_fn
-        self.blueprints = []   # registered Blueprint instances
+        self.blueprints = []  # registered Blueprint instances
         self.template_engine = TemplateEngine()
-        self.before_request_hooks = []   # [fn(request) → request|None]
-        self.after_request_hooks = []    # [fn(request, response) → response|None]
-        self.teardown_hooks = []         # [fn(exc) → None]
-        self._health_path = '/_health'   # built-in health check
+        self.before_request_hooks = []  # [fn(request) → request|None]
+        self.after_request_hooks = []  # [fn(request, response) → response|None]
+        self.teardown_hooks = []  # [fn(exc) → None]
+        self._health_path = '/_health'  # built-in health check
         self._metrics = {'requests': 0, 'errors': 0, 'start_time': time.time()}
 
     def configure_backends(self, store='memory', session='memory', **kwargs):
         """Configure store and session backends.
-        
+
         Args:
             store: 'memory', 'sqlite', or 'redis'
             session: 'memory', 'sqlite', or 'redis'
@@ -1110,7 +1219,7 @@ class EPLWebApp:
         if ':' in path:
             self._compile_param_route(path, method, response_type, body)
             return
-        key = f"{method}:{path}"
+        key = f'{method}:{path}'
         self.routes[key] = (response_type, body)
         # Also store under path for GET fallback
         if method == 'GET':
@@ -1119,7 +1228,7 @@ class EPLWebApp:
     def get_route(self, path, method='GET'):
         """Get route data for a path + method. Returns (response_type, body, params) or None."""
         # Try exact method-specific first
-        key = f"{method}:{path}"
+        key = f'{method}:{path}'
         if key in self.routes:
             rtype, body = self.routes[key]
             return (rtype, body, {})
@@ -1190,6 +1299,7 @@ class EPLWebApp:
     def health_check(self):
         """Return health status for monitoring/load balancer probes."""
         from epl import __version__
+
         uptime = time.time() - self._metrics['start_time']
         return {
             'status': 'healthy',
@@ -1366,6 +1476,7 @@ class WebSocketRoom:
 _ws_rooms = {}
 _ws_rooms_lock = threading.Lock()
 
+
 def get_ws_room(name):
     """Get or create a WebSocket room by name."""
     with _ws_rooms_lock:
@@ -1391,9 +1502,9 @@ def _handle_websocket_upgrade(handler):
         return False
 
     # Compute accept key (RFC 6455 §4.2.2)
-    accept_raw = base64.b64encode(
-        hashlib.sha1(ws_key.encode('ascii') + WS_MAGIC).digest()
-    ).decode('ascii')
+    accept_raw = base64.b64encode(hashlib.sha1(ws_key.encode('ascii') + WS_MAGIC).digest()).decode(
+        'ascii'
+    )
 
     # Send 101 Switching Protocols
     response = (
@@ -1448,8 +1559,9 @@ def _handle_websocket_upgrade(handler):
             else:
                 # Simple handler: call with (ws) and let it manage the loop
                 ws_handler(ws)
-        except Exception as e:
+        except Exception:
             import traceback
+
             traceback.print_exc()
         finally:
             ws.is_open = False
@@ -1465,6 +1577,7 @@ def _handle_websocket_upgrade(handler):
 
 # ─── Rate Limiter ────────────────────────────────────────
 _rate_tracker = {}  # ip → [timestamps]
+
 
 def _check_rate_limit(ip, limit):
     """Check if IP exceeds rate limit. Returns True if allowed."""
@@ -1489,7 +1602,7 @@ def _check_rate_limit(ip, limit):
 class EPLHandler(BaseHTTPRequestHandler):
     """HTTP request handler for EPL web apps."""
 
-    app = None          # set by the server factory
+    app = None  # set by the server factory
     interpreter = None  # set to evaluate expressions
 
     MAX_BODY_SIZE = 10 * 1024 * 1024  # 10MB max request body
@@ -1521,20 +1634,20 @@ class EPLHandler(BaseHTTPRequestHandler):
         if self.app and self.app.rate_limit > 0:
             ip = self.client_address[0]
             if not _check_rate_limit(ip, self.app.rate_limit):
-                self._send_error(429, "Too many requests. Please slow down.")
+                self._send_error(429, 'Too many requests. Please slow down.')
                 return False
         return True
 
     def _run_middleware_before(self):
         """Run before-middleware. Returns False if request should be aborted."""
-        for name, before_fn, after_fn in (self.app.middleware if self.app else []):
+        for name, before_fn, after_fn in self.app.middleware if self.app else []:
             if before_fn:
                 try:
                     result = before_fn(self)
                     if result is False:
                         return False
                 except Exception as e:
-                    print(f"  [middleware:{name}] Error: {e}")
+                    print(f'  [middleware:{name}] Error: {e}')
         # Also run global middleware
         for name, func in _middleware:
             try:
@@ -1542,7 +1655,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 if result is False:
                     return False
             except Exception as e:
-                print(f"  [middleware:{name}] Error: {e}")
+                print(f'  [middleware:{name}] Error: {e}')
         return True
 
     def _add_security_headers(self):
@@ -1551,7 +1664,9 @@ class EPLHandler(BaseHTTPRequestHandler):
         self.send_header('X-Frame-Options', 'SAMEORIGIN')
         self.send_header('X-XSS-Protection', '0')  # Deprecated; CSP is used instead
         self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
-        self.send_header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()')
+        self.send_header(
+            'Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()'
+        )
         # HSTS when HTTPS is enabled
         if self.app and self.app.ssl_cert:
             self.send_header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
@@ -1613,7 +1728,7 @@ class EPLHandler(BaseHTTPRequestHandler):
             self._log_access('GET', path, 200, start_time)
             return
 
-        self._send_error(404, f"Route not found: {path}")
+        self._send_error(404, f'Route not found: {path}')
         self._log_access('GET', path, 404, start_time)
 
     def _read_body(self):
@@ -1691,7 +1806,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 upload_dir = self.app.upload_dir if self.app else 'uploads'
                 os.makedirs(upload_dir, exist_ok=True)
                 # Add unique prefix to prevent overwrites
-                safe_name = f"{secrets.token_hex(8)}_{filename}"
+                safe_name = f'{secrets.token_hex(8)}_{filename}'
                 filepath = os.path.join(upload_dir, safe_name)
                 # Path traversal check
                 abs_upload = os.path.normpath(os.path.abspath(upload_dir))
@@ -1705,11 +1820,11 @@ class EPLHandler(BaseHTTPRequestHandler):
                     'saved_as': safe_name,
                     'path': filepath,
                     'size': len(body),
-                    'content_type': re.search(
-                        r'Content-Type:\s*(.+)', headers_text, re.IGNORECASE
-                    ).group(1).strip() if re.search(
-                        r'Content-Type:', headers_text, re.IGNORECASE
-                    ) else 'application/octet-stream'
+                    'content_type': re.search(r'Content-Type:\s*(.+)', headers_text, re.IGNORECASE)
+                    .group(1)
+                    .strip()
+                    if re.search(r'Content-Type:', headers_text, re.IGNORECASE)
+                    else 'application/octet-stream',
                 }
             else:
                 # Regular form field
@@ -1747,7 +1862,7 @@ class EPLHandler(BaseHTTPRequestHandler):
             self._handle_route(response_type, body, form_data=form_data, params=request_params)
             return
 
-        self._send_error(404, f"Route not found: {path}")
+        self._send_error(404, f'Route not found: {path}')
 
     def do_PUT(self):
         if not self._check_rate():
@@ -1771,7 +1886,7 @@ class EPLHandler(BaseHTTPRequestHandler):
             request_params.update(route_params)
             self._handle_route(response_type, body, form_data=form_data, params=request_params)
             return
-        self._send_error(404, f"Route not found: {path}")
+        self._send_error(404, f'Route not found: {path}')
 
     def do_DELETE(self):
         if not self._check_rate():
@@ -1795,7 +1910,7 @@ class EPLHandler(BaseHTTPRequestHandler):
             request_params.update(route_params)
             self._handle_route(response_type, body, form_data=form_data, params=request_params)
             return
-        self._send_error(404, f"Route not found: {path}")
+        self._send_error(404, f'Route not found: {path}')
 
     def _handle_route(self, response_type, body, form_data=None, params=None):
         """Process a matched route."""
@@ -1807,7 +1922,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 headers=dict(self.headers),
                 body_raw=b'',
                 client_ip=self.client_address[0] if self.client_address else '127.0.0.1',
-                app=self.app
+                app=self.app,
             )
             req.form = form_data or {}
             req.params = params or {}
@@ -1828,7 +1943,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         if response_type == 'page':
             html = self._build_page(body, form_data=form_data, params=params)
             if html.startswith('REDIRECT:'):
-                location = html[len('REDIRECT:'):]
+                location = html[len('REDIRECT:') :]
                 self._send_redirect(location)
             else:
                 self._send_html(html)
@@ -1839,7 +1954,7 @@ class EPLHandler(BaseHTTPRequestHandler):
             # Execute action statements, then check for redirect
             result = self._execute_action(body, form_data=form_data)
             if result and result.startswith('REDIRECT:'):
-                self._send_redirect(result[len('REDIRECT:'):])
+                self._send_redirect(result[len('REDIRECT:') :])
             else:
                 self._send_html(result or '<p>OK</p>')
 
@@ -1875,14 +1990,18 @@ class EPLHandler(BaseHTTPRequestHandler):
         signal = _execute_route_block(self.interpreter, body, route_env)
         if signal is not None:
             if signal.response_type == 'redirect':
-                redirect_url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                redirect_url = (
+                    self.interpreter._eval(signal.payload, route_env)
+                    if self.interpreter
+                    else signal.payload
+                )
                 return f'REDIRECT:{redirect_url}'
             if signal.response_type == 'text' and self.interpreter is not None:
                 text_value = self.interpreter._eval(signal.payload, route_env)
                 return str(text_value)
             if signal.response_type == 'json' and self.interpreter is not None:
                 data = self._normalize_json_value(self.interpreter._eval(signal.payload, route_env))
-                return f"<pre>{json.dumps(data, indent=2, default=str)}</pre>"
+                return f'<pre>{json.dumps(data, indent=2, default=str)}</pre>'
 
         # Build page
         for stmt in body:
@@ -1896,13 +2015,14 @@ class EPLHandler(BaseHTTPRequestHandler):
         # If no PageDef, check for elements
         elements = [
             _resolve_page_element(s, self.interpreter, route_env)
-            for s in body if isinstance(s, ast.HtmlElement)
+            for s in body
+            if isinstance(s, ast.HtmlElement)
         ]
         if elements:
-            page = ast.PageDef("EPL Page", elements)
+            page = ast.PageDef('EPL Page', elements)
             return generate_html(page, data_store=_data_store, form_data=form_data)
 
-        return generate_html(ast.PageDef("EPL Page", []), data_store=_data_store)
+        return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
 
     def _execute_stores(self, body, form_data=None, route_env=None):
         """Execute Store and Delete statements in route body."""
@@ -1930,7 +2050,8 @@ class EPLHandler(BaseHTTPRequestHandler):
                     store_add(collection, val)
             except Exception as e:
                 import sys
-                print(f"Warning: Store evaluation error: {e}", file=sys.stderr)
+
+                print(f'Warning: Store evaluation error: {e}', file=sys.stderr)
 
     def _exec_delete(self, stmt, form_data=None, route_env=None):
         """Execute a single Delete statement (in-memory + SQLite if enabled)."""
@@ -1953,7 +2074,8 @@ class EPLHandler(BaseHTTPRequestHandler):
                     store_remove(collection, int(index))
             except Exception as e:
                 import sys
-                print(f"Warning: Delete evaluation error: {e}", file=sys.stderr)
+
+                print(f'Warning: Delete evaluation error: {e}', file=sys.stderr)
 
     def _execute_action(self, body, form_data=None):
         """Execute action route body and return redirect or HTML."""
@@ -1977,7 +2099,11 @@ class EPLHandler(BaseHTTPRequestHandler):
         signal = _execute_route_block(self.interpreter, body, route_env)
         if signal is not None:
             if signal.response_type == 'redirect':
-                redirect_url = self.interpreter._eval(signal.payload, route_env) if self.interpreter else signal.payload
+                redirect_url = (
+                    self.interpreter._eval(signal.payload, route_env)
+                    if self.interpreter
+                    else signal.payload
+                )
                 return f'REDIRECT:{redirect_url}'
             if self.interpreter is not None and signal.response_type == 'text':
                 return str(self.interpreter._eval(signal.payload, route_env))
@@ -2001,16 +2127,16 @@ class EPLHandler(BaseHTTPRequestHandler):
                     if signal.response_type == 'fetch':
                         items = store_get(signal.payload)
                         return self._normalize_json_value(
-                            {"collection": signal.payload, "count": len(items), "items": items}
+                            {'collection': signal.payload, 'count': len(items), 'items': items}
                         )
                     if signal.response_type == 'redirect':
-                        return {"redirect": self.interpreter._eval(signal.payload, route_env)}
+                        return {'redirect': self.interpreter._eval(signal.payload, route_env)}
                     result = self.interpreter._eval(signal.payload, route_env)
                     return self._normalize_json_value(result)
             except Exception as e:
-                return {"error": str(e)}
+                return {'error': str(e)}
         # Fallback: return all store data
-        return self._normalize_json_value({"store": {k: list(v) for k, v in _data_store.items()}})
+        return self._normalize_json_value({'store': {k: list(v) for k, v in _data_store.items()}})
 
     def _normalize_json_value(self, value):
         """Convert EPL runtime values into JSON-safe Python structures."""
@@ -2062,7 +2188,10 @@ class EPLHandler(BaseHTTPRequestHandler):
             self._set_session_cookie(session_id)
         self._apply_cors()
         self._add_security_headers()
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'")
+        self.send_header(
+            'Content-Security-Policy',
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+        )
         self.end_headers()
         self.wfile.write(compressed)
 
@@ -2070,7 +2199,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         try:
             body = json.dumps(data, indent=2, default=str)
         except Exception:
-            body = json.dumps({"error": "Could not serialize data"})
+            body = json.dumps({'error': 'Could not serialize data'})
         raw = body.encode('utf-8')
         compressed, is_gzipped = self._compress_response(raw)
         self.send_response(200)
@@ -2133,9 +2262,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                     etag = '"' + hashlib.md5(etag_raw).hexdigest() + '"'
 
                     # Last-Modified
-                    last_modified = time.strftime(
-                        '%a, %d %b %Y %H:%M:%S GMT', time.gmtime(mtime)
-                    )
+                    last_modified = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(mtime))
 
                     # 304 Not Modified: ETag match
                     if_none = self.headers.get('If-None-Match', '')
@@ -2149,8 +2276,10 @@ class EPLHandler(BaseHTTPRequestHandler):
                     ims = self.headers.get('If-Modified-Since', '')
                     if ims:
                         try:
-                            ims_time = time.mktime(time.strptime(
-                                ims, '%a, %d %b %Y %H:%M:%S GMT')) - time.timezone
+                            ims_time = (
+                                time.mktime(time.strptime(ims, '%a, %d %b %Y %H:%M:%S GMT'))
+                                - time.timezone
+                            )
                             if mtime <= ims_time:
                                 self.send_response(304)
                                 self.send_header('ETag', etag)
@@ -2196,8 +2325,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                     # Cache headers by type
                     if ctype.startswith('image/') or ctype.startswith('font/'):
                         cache_control = 'public, max-age=604800, immutable'  # 7 days
-                    elif ctype in ('text/css', 'application/javascript',
-                                   'text/javascript'):
+                    elif ctype in ('text/css', 'application/javascript', 'text/javascript'):
                         cache_control = 'public, max-age=86400'  # 1 day
                     else:
                         cache_control = 'public, max-age=3600'  # 1 hour
@@ -2226,19 +2354,20 @@ class EPLHandler(BaseHTTPRequestHandler):
 
     def _send_error(self, code, message):
         import html as _html_mod
+
         safe_message = _html_mod.escape(str(message))
         error_css = (
-            "body { font-family: Inter, system-ui, sans-serif; background: #0f172a; color: #f1f5f9; "
-            "display: flex; justify-content: center; align-items: center; min-height: 100vh; }"
-            ".err { text-align: center; }"
-            "h1 { font-size: 4rem; color: #ef4444; }"
-            "p { color: #94a3b8; }"
+            'body { font-family: Inter, system-ui, sans-serif; background: #0f172a; color: #f1f5f9; '
+            'display: flex; justify-content: center; align-items: center; min-height: 100vh; }'
+            '.err { text-align: center; }'
+            'h1 { font-size: 4rem; color: #ef4444; }'
+            'p { color: #94a3b8; }'
         )
         html = (
-            f"<!DOCTYPE html><html><head><title>Error {code}</title>"
-            f"<style>{error_css}</style></head><body>"
+            f'<!DOCTYPE html><html><head><title>Error {code}</title>'
+            f'<style>{error_css}</style></head><body>'
             f'<div class="err"><h1>{code}</h1><p>{safe_message}</p></div>'
-            f"</body></html>"
+            f'</body></html>'
         )
         self.send_response(code)
         self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -2253,13 +2382,12 @@ class EPLHandler(BaseHTTPRequestHandler):
         """Structured access log entry."""
         elapsed_ms = (time.time() - start_time) * 1000
         ip = self.client_address[0] if self.client_address else '-'
-        _access_logger.info(
-            f'{ip} "{method} {path}" {status} {elapsed_ms:.1f}ms'
-        )
+        _access_logger.info(f'{ip} "{method} {path}" {status} {elapsed_ms:.1f}ms')
 
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Multi-threaded HTTP server for concurrent request handling."""
+
     daemon_threads = True
     allow_reuse_address = True
     # Thread pool executor for bounded concurrency
@@ -2289,7 +2417,7 @@ def _graceful_shutdown(signum, frame):
 
 def start_server(app, port=3000, interpreter=None, threaded=True, workers=32):
     """Start the EPL web server (v4.0 production-grade).
-    
+
     Args:
         app: EPLWebApp instance
         port: Port number
@@ -2329,30 +2457,30 @@ def start_server(app, port=3000, interpreter=None, threaded=True, workers=32):
         protocol = 'https'
 
     total_routes = len(app.routes) + sum(len(v) for v in app.param_routes.values())
-    print(f"\n  ╔══════════════════════════════════════╗")
-    print(f"  ║  EPL Web Server v4.0                 ║")
-    print(f"  ║  {app.name:<36} ║")
-    print(f"  ╠══════════════════════════════════════╣")
-    print(f"  ║  {protocol}://localhost:{port:<22} ║")
-    print(f"  ║  Routes: {total_routes:<28}║")
-    print(f"  ║  Workers: {workers:<27}║")
-    print(f"  ║  HTTPS: {'Yes' if protocol == 'https' else 'No':<29}║")
-    print(f"  ║  Gzip: {'Yes' if app.gzip_enabled else 'No':<30}║")
-    print(f"  ║  Health: {app._health_path:<28}║")
+    print('\n  ╔══════════════════════════════════════╗')
+    print('  ║  EPL Web Server v4.0                 ║')
+    print(f'  ║  {app.name:<36} ║')
+    print('  ╠══════════════════════════════════════╣')
+    print(f'  ║  {protocol}://localhost:{port:<22} ║')
+    print(f'  ║  Routes: {total_routes:<28}║')
+    print(f'  ║  Workers: {workers:<27}║')
+    print(f'  ║  HTTPS: {"Yes" if protocol == "https" else "No":<29}║')
+    print(f'  ║  Gzip: {"Yes" if app.gzip_enabled else "No":<30}║')
+    print(f'  ║  Health: {app._health_path:<28}║')
     ws_count = len(app.websocket_handlers)
     if ws_count:
-        print(f"  ║  WebSocket: {ws_count} endpoint(s){' '*(22-len(str(ws_count)))}║")
+        print(f'  ║  WebSocket: {ws_count} endpoint(s){" " * (22 - len(str(ws_count)))}║')
     for key in app.routes:
         if ':' not in key:  # skip method-specific duplicates
             rtype = app.routes[key][0]
-            icon = "PAGE" if rtype == 'page' else "API" if rtype == 'json' else "ACT"
-            print(f"  ║    [{icon}] {key:<30}║")
+            icon = 'PAGE' if rtype == 'page' else 'API' if rtype == 'json' else 'ACT'
+            print(f'  ║    [{icon}] {key:<30}║')
     for method, routes in app.param_routes.items():
         for pattern, params, rtype, body in routes:
-            icon = "PAGE" if rtype == 'page' else "API" if rtype == 'json' else "ACT"
-            print(f"  ║    [{icon}] {method} {pattern.pattern:<24}║")
-    print(f"  ║  Press Ctrl+C to stop               ║")
-    print(f"  ╚══════════════════════════════════════╝\n")
+            icon = 'PAGE' if rtype == 'page' else 'API' if rtype == 'json' else 'ACT'
+            print(f'  ║    [{icon}] {method} {pattern.pattern:<24}║')
+    print('  ║  Press Ctrl+C to stop               ║')
+    print('  ╚══════════════════════════════════════╝\n')
 
     try:
         server.serve_forever()
@@ -2369,8 +2497,9 @@ def start_server(app, port=3000, interpreter=None, threaded=True, workers=32):
         _access_logger.info('Server stopped.')
 
 
-def start_production_server(app, port=8000, host='0.0.0.0', interpreter=None,
-                            workers=4, server_type='auto'):
+def start_production_server(
+    app, port=8000, host='0.0.0.0', interpreter=None, workers=4, server_type='auto'
+):
     """Start EPL with the authoritative deployment runtime from epl.deploy."""
     from epl.deploy import serve as deploy_serve
 
@@ -2388,12 +2517,13 @@ def start_production_server(app, port=8000, host='0.0.0.0', interpreter=None,
 # Async Web Server (asyncio-based, production-grade)
 # ═══════════════════════════════════════════════════════════
 
+
 class AsyncEPLServer:
     """Full asyncio-based HTTP server with thread-pool for sync work.
-    
+
     Uses asyncio for I/O multiplexing and a thread-pool executor
     for CPU-bound or blocking operations (template rendering, DB queries).
-    
+
     Usage:
         server = AsyncEPLServer(app, port=3000)
         asyncio.run(server.run())
@@ -2425,17 +2555,17 @@ class AsyncEPLServer:
             self._handle_connection, '0.0.0.0', self.port, ssl=ssl_ctx
         )
         total_routes = len(self.app.routes) + sum(len(v) for v in self.app.param_routes.values())
-        print(f"\n  ╔══════════════════════════════════════╗")
-        print(f"  ║  EPL Async Web Server v4.0           ║")
-        print(f"  ║  {self.app.name:<36} ║")
-        print(f"  ╠══════════════════════════════════════╣")
-        print(f"  ║  {protocol}://localhost:{self.port:<22} ║")
-        print(f"  ║  Routes: {total_routes:<28}║")
-        print(f"  ║  Workers: {self.workers:<27}║")
-        print(f"  ║  Engine: asyncio + ThreadPool        ║")
-        print(f"  ║  Health: {self.app._health_path:<28}║")
-        print(f"  ║  Press Ctrl+C to stop               ║")
-        print(f"  ╚══════════════════════════════════════╝\n")
+        print('\n  ╔══════════════════════════════════════╗')
+        print('  ║  EPL Async Web Server v4.0           ║')
+        print(f'  ║  {self.app.name:<36} ║')
+        print('  ╠══════════════════════════════════════╣')
+        print(f'  ║  {protocol}://localhost:{self.port:<22} ║')
+        print(f'  ║  Routes: {total_routes:<28}║')
+        print(f'  ║  Workers: {self.workers:<27}║')
+        print('  ║  Engine: asyncio + ThreadPool        ║')
+        print(f'  ║  Health: {self.app._health_path:<28}║')
+        print('  ║  Press Ctrl+C to stop               ║')
+        print('  ╚══════════════════════════════════════╝\n')
 
         async with self._server:
             await self._server.serve_forever()
@@ -2513,27 +2643,27 @@ class AsyncEPLServer:
 
             # Read body if present
             body = b''
-            content_length = int(headers.get('Content-Length',
-                                headers.get('content-length', '0')))
+            content_length = int(headers.get('Content-Length', headers.get('content-length', '0')))
             if content_length > 0:
                 if content_length > 10 * 1024 * 1024:  # 10MB limit
                     await self._write_error(writer, 413, 'Request body too large')
                     return False
-                body = await asyncio.wait_for(
-                    reader.readexactly(content_length), timeout=30.0
-                )
+                body = await asyncio.wait_for(reader.readexactly(content_length), timeout=30.0)
 
             # Build Request object
-            req = Request(method=method, path=path, headers=headers,
-                          body_raw=body, client_ip=client_ip, app=self.app)
+            req = Request(
+                method=method,
+                path=path,
+                headers=headers,
+                body_raw=body,
+                client_ip=client_ip,
+                app=self.app,
+            )
             req.session_id = req.cookies.get('epl_session')
 
             # Route the request in thread pool (blocking operations)
             loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(
-                self._executor,
-                self._sync_route, req
-            )
+            response = await loop.run_in_executor(self._executor, self._sync_route, req)
 
             # Write response
             await self._write_response(writer, response)
@@ -2552,7 +2682,7 @@ class AsyncEPLServer:
 
         except (asyncio.TimeoutError, ConnectionResetError, asyncio.IncompleteReadError):
             return False
-        except Exception as e:
+        except Exception:
             if self.app:
                 self.app._metrics['errors'] += 1
             try:
@@ -2564,6 +2694,7 @@ class AsyncEPLServer:
     def _sync_route(self, req):
         """Synchronous route handling (runs in thread pool)."""
         import html as _html_mod
+
         app = self.app
         path = req.path
         method = req.method
@@ -2574,7 +2705,9 @@ class AsyncEPLServer:
             if app.cors_enabled:
                 resp.set_header('Access-Control-Allow-Origin', app.cors_origins)
                 resp.set_header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-                resp.set_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token')
+                resp.set_header(
+                    'Access-Control-Allow-Headers', 'Content-Type, Authorization, X-CSRF-Token'
+                )
             return resp
 
         # Parse body for POST/PUT/DELETE
@@ -2631,7 +2764,7 @@ class AsyncEPLServer:
             html = self._build_page_sync(route_body, form_data, all_params)
             if html.startswith('REDIRECT:'):
                 resp = Response(status=303)
-                resp.set_header('Location', html[len('REDIRECT:'):])
+                resp.set_header('Location', html[len('REDIRECT:') :])
             else:
                 resp = Response(status=200)
                 resp.html_body(html)
@@ -2639,7 +2772,7 @@ class AsyncEPLServer:
             result = self._exec_action_sync(route_body, form_data)
             if result and result.startswith('REDIRECT:'):
                 resp = Response(status=303)
-                resp.set_header('Location', result[len('REDIRECT:'):])
+                resp.set_header('Location', result[len('REDIRECT:') :])
             else:
                 resp = Response(status=200)
                 resp.html_body(result or '<p>OK</p>')
@@ -2673,10 +2806,10 @@ class AsyncEPLServer:
 
         elements = [s for s in body if isinstance(s, ast.HtmlElement)]
         if elements:
-            page = ast.PageDef("EPL Page", elements)
+            page = ast.PageDef('EPL Page', elements)
             return generate_html(page, data_store=_data_store, form_data=form_data)
 
-        return generate_html(ast.PageDef("EPL Page", []), data_store=_data_store)
+        return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
 
     def _build_json_sync(self, body, params):
         """Synchronous JSON building."""
@@ -2684,7 +2817,7 @@ class AsyncEPLServer:
             if isinstance(stmt, ast.FetchStatement):
                 items = store_get(stmt.collection)
                 return self._normalize_json_value(
-                    {"collection": stmt.collection, "count": len(items), "items": items}
+                    {'collection': stmt.collection, 'count': len(items), 'items': items}
                 )
             if isinstance(stmt, ast.SendResponse):
                 if self.interpreter:
@@ -2692,8 +2825,8 @@ class AsyncEPLServer:
                         result = self.interpreter._eval(stmt.data, self.interpreter.global_env)
                         return self._normalize_json_value(result)
                     except Exception as e:
-                        return {"error": str(e)}
-        return self._normalize_json_value({"store": {k: list(v) for k, v in _data_store.items()}})
+                        return {'error': str(e)}
+        return self._normalize_json_value({'store': {k: list(v) for k, v in _data_store.items()}})
 
     def _exec_action_sync(self, body, form_data):
         for stmt in body:
@@ -2738,25 +2871,36 @@ class AsyncEPLServer:
 
     def _error_html(self, code, message):
         import html as _html_mod
+
         safe = _html_mod.escape(str(message))
         return (
-            f"<!DOCTYPE html><html><head><title>Error {code}</title>"
-            f"<style>body{{font-family:system-ui;background:#0f172a;color:#f1f5f9;"
-            f"display:flex;justify-content:center;align-items:center;min-height:100vh}}"
-            f".err{{text-align:center}}h1{{font-size:4rem;color:#ef4444}}"
-            f"p{{color:#94a3b8}}</style></head><body>"
+            f'<!DOCTYPE html><html><head><title>Error {code}</title>'
+            f'<style>body{{font-family:system-ui;background:#0f172a;color:#f1f5f9;'
+            f'display:flex;justify-content:center;align-items:center;min-height:100vh}}'
+            f'.err{{text-align:center}}h1{{font-size:4rem;color:#ef4444}}'
+            f'p{{color:#94a3b8}}</style></head><body>'
             f'<div class="err"><h1>{code}</h1><p>{safe}</p></div></body></html>'
         )
 
     async def _write_response(self, writer, response):
         """Write a Response object to the stream."""
         status_text = {
-            200: 'OK', 201: 'Created', 204: 'No Content',
-            301: 'Moved Permanently', 302: 'Found', 303: 'See Other', 304: 'Not Modified',
-            400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
-            404: 'Not Found', 405: 'Method Not Allowed', 413: 'Payload Too Large',
-            429: 'Too Many Requests', 431: 'Request Header Fields Too Large',
-            500: 'Internal Server Error'
+            200: 'OK',
+            201: 'Created',
+            204: 'No Content',
+            301: 'Moved Permanently',
+            302: 'Found',
+            303: 'See Other',
+            304: 'Not Modified',
+            400: 'Bad Request',
+            401: 'Unauthorized',
+            403: 'Forbidden',
+            404: 'Not Found',
+            405: 'Method Not Allowed',
+            413: 'Payload Too Large',
+            429: 'Too Many Requests',
+            431: 'Request Header Fields Too Large',
+            500: 'Internal Server Error',
         }.get(response.status, 'Unknown')
 
         body = response.encode()
@@ -2792,9 +2936,13 @@ class AsyncEPLServer:
     async def _write_error(self, writer, code, message):
         """Write an error response."""
         html = self._error_html(code, message)
-        status_text = {400: 'Bad Request', 413: 'Payload Too Large',
-                       429: 'Too Many Requests', 431: 'Request Header Fields Too Large',
-                       500: 'Internal Server Error'}.get(code, 'Error')
+        status_text = {
+            400: 'Bad Request',
+            413: 'Payload Too Large',
+            429: 'Too Many Requests',
+            431: 'Request Header Fields Too Large',
+            500: 'Internal Server Error',
+        }.get(code, 'Error')
         resp = (
             f'HTTP/1.1 {code} {status_text}\r\n'
             f'Content-Type: text/html; charset=utf-8\r\n'
@@ -2838,12 +2986,13 @@ def start_async_server(app, port=3000, interpreter=None, workers=32):
 # HTTP/2 Server (h2 library)
 # ═══════════════════════════════════════════════════════════
 
+
 class HTTP2Server:
     """HTTP/2 server using the h2 library for multiplexed connections.
-    
+
     Requires: pip install h2
     Falls back to HTTP/1.1 AsyncEPLServer if h2 is not installed.
-    
+
     Features:
     - Full HTTP/2 multiplexing (concurrent streams per connection)
     - Server push support
@@ -2853,8 +3002,7 @@ class HTTP2Server:
     - Graceful shutdown
     """
 
-    def __init__(self, app, port=3000, interpreter=None, workers=32,
-                 ssl_cert=None, ssl_key=None):
+    def __init__(self, app, port=3000, interpreter=None, workers=32, ssl_cert=None, ssl_key=None):
         self.app = app
         self.port = port
         self.interpreter = interpreter
@@ -2871,9 +3019,10 @@ class HTTP2Server:
     def _load_h2(self):
         """Lazy-load the h2 library."""
         try:
-            import h2.connection    # type: ignore[import-not-found]
-            import h2.events        # type: ignore[import-not-found]
-            import h2.config        # type: ignore[import-not-found]
+            import h2.config  # type: ignore[import-not-found]
+            import h2.connection  # type: ignore[import-not-found]
+            import h2.events  # type: ignore[import-not-found]
+
             self._h2 = h2.connection
             self._h2_events = h2.events
             self._h2_config = h2.config
@@ -2886,8 +3035,7 @@ class HTTP2Server:
         if not self._load_h2():
             _access_logger.warning('h2 library not found. Install: pip install h2')
             _access_logger.warning('Falling back to HTTP/1.1 async server.')
-            server = AsyncEPLServer(self.app, self.port, self.interpreter,
-                                     workers=self.workers)
+            server = AsyncEPLServer(self.app, self.port, self.interpreter, workers=self.workers)
             await server.run()
             return
 
@@ -2906,17 +3054,17 @@ class HTTP2Server:
         )
 
         total_routes = len(self.app.routes) + sum(len(v) for v in self.app.param_routes.values())
-        print(f"\n  ╔══════════════════════════════════════╗")
-        print(f"  ║  EPL HTTP/2 Web Server v1.0          ║")
-        print(f"  ║  {self.app.name:<36} ║")
-        print(f"  ╠══════════════════════════════════════╣")
-        print(f"  ║  {protocol}://localhost:{self.port:<22} ║")
-        print(f"  ║  Routes: {total_routes:<28}║")
-        print(f"  ║  Workers: {self.workers:<27}║")
-        print(f"  ║  Protocol: HTTP/2 + HTTP/1.1         ║")
-        print(f"  ║  TLS: {'enabled' if ssl_ctx else 'disabled':<31}║")
-        print(f"  ║  Press Ctrl+C to stop               ║")
-        print(f"  ╚══════════════════════════════════════╝\n")
+        print('\n  ╔══════════════════════════════════════╗')
+        print('  ║  EPL HTTP/2 Web Server v1.0          ║')
+        print(f'  ║  {self.app.name:<36} ║')
+        print('  ╠══════════════════════════════════════╣')
+        print(f'  ║  {protocol}://localhost:{self.port:<22} ║')
+        print(f'  ║  Routes: {total_routes:<28}║')
+        print(f'  ║  Workers: {self.workers:<27}║')
+        print('  ║  Protocol: HTTP/2 + HTTP/1.1         ║')
+        print(f'  ║  TLS: {"enabled" if ssl_ctx else "disabled":<31}║')
+        print('  ║  Press Ctrl+C to stop               ║')
+        print('  ╚══════════════════════════════════════╝\n')
 
         async with self._server:
             await self._server.serve_forever()
@@ -2950,14 +3098,15 @@ class HTTP2Server:
                         if event.stream_id in streams:
                             streams[event.stream_id]['data'] += event.data
                             conn.acknowledge_received_data(
-                                event.flow_controlled_length, event.stream_id)
+                                event.flow_controlled_length, event.stream_id
+                            )
 
                     elif isinstance(event, self._h2_events.StreamEnded):
                         if event.stream_id in streams:
                             stream = streams.pop(event.stream_id)
                             await self._handle_h2_request(
-                                conn, writer, event.stream_id,
-                                stream['headers'], stream['data'])
+                                conn, writer, event.stream_id, stream['headers'], stream['data']
+                            )
 
                     elif isinstance(event, self._h2_events.WindowUpdated):
                         pass
@@ -2998,8 +3147,14 @@ class HTTP2Server:
 
         # Build Request
         client_ip = '0.0.0.0'
-        req = Request(method=method, path=path, headers=req_headers,
-                      body_raw=body, client_ip=client_ip, app=self.app)
+        req = Request(
+            method=method,
+            path=path,
+            headers=req_headers,
+            body_raw=body,
+            client_ip=client_ip,
+            app=self.app,
+        )
 
         # Route in thread pool
         loop = asyncio.get_event_loop()
@@ -3009,8 +3164,7 @@ class HTTP2Server:
             async_server.app = self.app
             async_server.interpreter = self.interpreter
             async_server._executor = self._executor
-            response = await loop.run_in_executor(
-                self._executor, async_server._sync_route, req)
+            response = await loop.run_in_executor(self._executor, async_server._sync_route, req)
         except Exception as e:
             response = Response(status=500)
             response.html_body(f'<h1>500</h1><p>{e}</p>')
@@ -3029,8 +3183,8 @@ class HTTP2Server:
         # Send body in chunks respecting flow control
         chunk_size = min(conn.local_settings.max_frame_size, 16384)
         for i in range(0, len(resp_body), chunk_size):
-            chunk = resp_body[i:i + chunk_size]
-            end_stream = (i + chunk_size >= len(resp_body))
+            chunk = resp_body[i : i + chunk_size]
+            end_stream = i + chunk_size >= len(resp_body)
             conn.send_data(stream_id, chunk, end_stream=end_stream)
 
         writer.write(conn.data_to_send())
@@ -3049,13 +3203,12 @@ class HTTP2Server:
         self._executor.shutdown(wait=False)
 
 
-def start_h2_server(app, port=3000, interpreter=None, workers=32,
-                     ssl_cert=None, ssl_key=None):
+def start_h2_server(app, port=3000, interpreter=None, workers=32, ssl_cert=None, ssl_key=None):
     """Start the EPL HTTP/2 server.
-    
+
     Requires: pip install h2
     Falls back to HTTP/1.1 async server if h2 is not available.
-    
+
     Args:
         app: EPL web application instance
         port: Port to listen on (default 3000)
@@ -3063,8 +3216,9 @@ def start_h2_server(app, port=3000, interpreter=None, workers=32,
         ssl_cert: Path to TLS certificate file
         ssl_key: Path to TLS key file
     """
-    server = HTTP2Server(app, port, interpreter, workers=workers,
-                          ssl_cert=ssl_cert, ssl_key=ssl_key)
+    server = HTTP2Server(
+        app, port, interpreter, workers=workers, ssl_cert=ssl_cert, ssl_key=ssl_key
+    )
     try:
         asyncio.run(server.run())
     except KeyboardInterrupt:

@@ -12,25 +12,26 @@ Bytecode format: list of (opcode, operand) tuples
 Stack-based execution with call frames and local variable slots
 """
 
-from enum import IntEnum, auto
-from dataclasses import dataclass, field
-from typing import Any, Optional
-import time
 import math
 import operator
+import time
+from dataclasses import dataclass, field
+from enum import IntEnum, auto
+from typing import Any, Optional
 
 # ─── Opcodes ──────────────────────────────────────────────────
 
+
 class Op(IntEnum):
     # Stack manipulation
-    LOAD_CONST = auto()       # Push constant onto stack
-    LOAD_VAR = auto()         # Push variable value
-    STORE_VAR = auto()        # Pop and store in variable
-    LOAD_GLOBAL = auto()      # Load global variable
-    STORE_GLOBAL = auto()     # Store global variable
-    POP = auto()              # Discard top of stack
-    DUP = auto()              # Duplicate top of stack
-    ROT_TWO = auto()          # Swap top two items
+    LOAD_CONST = auto()  # Push constant onto stack
+    LOAD_VAR = auto()  # Push variable value
+    STORE_VAR = auto()  # Pop and store in variable
+    LOAD_GLOBAL = auto()  # Load global variable
+    STORE_GLOBAL = auto()  # Store global variable
+    POP = auto()  # Discard top of stack
+    DUP = auto()  # Duplicate top of stack
+    ROT_TWO = auto()  # Swap top two items
 
     # Arithmetic
     ADD = auto()
@@ -40,7 +41,7 @@ class Op(IntEnum):
     MOD = auto()
     POW = auto()
     FLOOR_DIV = auto()
-    NEG = auto()              # Unary negate
+    NEG = auto()  # Unary negate
 
     # Comparison
     EQ = auto()
@@ -56,57 +57,57 @@ class Op(IntEnum):
     NOT = auto()
 
     # String
-    CONCAT = auto()           # String concatenation
-    STR_INTERP = auto()       # String interpolation (n items)
+    CONCAT = auto()  # String concatenation
+    STR_INTERP = auto()  # String interpolation (n items)
 
     # Control flow
-    JUMP = auto()             # Unconditional jump
-    JUMP_IF_FALSE = auto()    # Conditional jump
-    JUMP_IF_TRUE = auto()     # Conditional jump (short-circuit)
-    LOOP_BACK = auto()        # Jump backwards (loop)
+    JUMP = auto()  # Unconditional jump
+    JUMP_IF_FALSE = auto()  # Conditional jump
+    JUMP_IF_TRUE = auto()  # Conditional jump (short-circuit)
+    LOOP_BACK = auto()  # Jump backwards (loop)
 
     # Functions
-    CALL = auto()             # Call function with n args
-    RETURN = auto()           # Return from function
-    CALL_BUILTIN = auto()     # Call builtin function
+    CALL = auto()  # Call function with n args
+    RETURN = auto()  # Return from function
+    CALL_BUILTIN = auto()  # Call builtin function
 
     # Data structures
-    BUILD_LIST = auto()       # Build list from n items on stack
-    BUILD_DICT = auto()       # Build dict from n key-value pairs
-    INDEX = auto()            # Index into list/dict
-    INDEX_STORE = auto()      # Store at index
-    SLICE = auto()            # Slice operation
+    BUILD_LIST = auto()  # Build list from n items on stack
+    BUILD_DICT = auto()  # Build dict from n key-value pairs
+    INDEX = auto()  # Index into list/dict
+    INDEX_STORE = auto()  # Store at index
+    SLICE = auto()  # Slice operation
 
     # Object/Class
-    BUILD_CLASS = auto()      # Define a class
-    NEW_INSTANCE = auto()     # Create class instance
-    GET_ATTR = auto()         # Get attribute
-    SET_ATTR = auto()         # Set attribute
-    CALL_METHOD = auto()      # Call method
+    BUILD_CLASS = auto()  # Define a class
+    NEW_INSTANCE = auto()  # Create class instance
+    GET_ATTR = auto()  # Get attribute
+    SET_ATTR = auto()  # Set attribute
+    CALL_METHOD = auto()  # Call method
 
     # I/O
-    PRINT = auto()            # Print top of stack
-    INPUT = auto()            # Read input
+    PRINT = auto()  # Print top of stack
+    INPUT = auto()  # Read input
 
     # Iterator/Loop
-    GET_ITER = auto()         # Get iterator from iterable
-    FOR_ITER = auto()         # Advance iterator or jump
-    RANGE = auto()            # Build range object
+    GET_ITER = auto()  # Get iterator from iterable
+    FOR_ITER = auto()  # Advance iterator or jump
+    RANGE = auto()  # Build range object
 
     # Special
-    IMPORT = auto()           # Import module
-    NOP = auto()              # No operation
-    HALT = auto()             # Stop execution
+    IMPORT = auto()  # Import module
+    NOP = auto()  # No operation
+    HALT = auto()  # Stop execution
 
     # Exception handling
-    SETUP_TRY = auto()        # Push exception handler address
-    POP_TRY = auto()          # Pop exception handler
-    THROW = auto()            # Throw exception
-    
+    SETUP_TRY = auto()  # Push exception handler address
+    POP_TRY = auto()  # Pop exception handler
+    THROW = auto()  # Throw exception
+
     # Closure
-    MAKE_CLOSURE = auto()     # Create closure capturing variables
-    LOAD_FREE = auto()        # Load from closure cell
-    STORE_FREE = auto()       # Store to closure cell
+    MAKE_CLOSURE = auto()  # Create closure capturing variables
+    LOAD_FREE = auto()  # Load from closure cell
+    STORE_FREE = auto()  # Store to closure cell
 
     # Augmented assignment
     ADD_ASSIGN = auto()
@@ -115,23 +116,25 @@ class Op(IntEnum):
     DIV_ASSIGN = auto()
 
     # Unpack
-    UNPACK_SEQ = auto()       # Unpack sequence into n values
+    UNPACK_SEQ = auto()  # Unpack sequence into n values
 
     # Phase 6: Full feature parity
-    YIELD = auto()            # Yield value from generator
-    AWAIT = auto()            # Await async result
-    CALL_STDLIB = auto()      # Call stdlib function by name
-    IMPORT_MODULE = auto()    # Full import with execution
-    FILE_READ = auto()        # Read file expression
-    SUPER_CALL = auto()       # Call parent class method
-    MODULE_ACCESS = auto()    # Access module member (::)
+    YIELD = auto()  # Yield value from generator
+    AWAIT = auto()  # Await async result
+    CALL_STDLIB = auto()  # Call stdlib function by name
+    IMPORT_MODULE = auto()  # Full import with execution
+    FILE_READ = auto()  # Read file expression
+    SUPER_CALL = auto()  # Call parent class method
+    MODULE_ACCESS = auto()  # Access module member (::)
 
 
 # ─── Bytecode Data Structures ────────────────────────────────
 
+
 @dataclass
 class Instruction:
     """Single bytecode instruction."""
+
     __slots__ = ('op', 'arg', 'line')
     op: Op
     arg: Any
@@ -139,18 +142,19 @@ class Instruction:
 
     def __repr__(self):
         if self.arg is not None:
-            return f"{self.op.name:20s} {self.arg!r}"
-        return f"{self.op.name}"
+            return f'{self.op.name:20s} {self.arg!r}'
+        return f'{self.op.name}'
 
 
 @dataclass
 class CompiledFunction:
     """A compiled function/method."""
+
     name: str
     param_count: int
     param_names: list
     defaults: list
-    code: list          # List[Instruction]
+    code: list  # List[Instruction]
     local_count: int
     is_method: bool = False
     free_vars: list = field(default_factory=list)
@@ -159,9 +163,10 @@ class CompiledFunction:
 @dataclass
 class CompiledClass:
     """A compiled class definition."""
+
     name: str
-    methods: dict       # name -> CompiledFunction
-    properties: dict    # name -> default value
+    methods: dict  # name -> CompiledFunction
+    properties: dict  # name -> default value
     parent: Optional[str] = None
     constructor: Optional[CompiledFunction] = None
 
@@ -169,16 +174,18 @@ class CompiledClass:
 @dataclass
 class CallFrame:
     """Execution call frame on the VM call stack."""
+
     __slots__ = ('func', 'ip', 'base_pointer', 'locals', 'cells')
     func: CompiledFunction
     ip: int
     base_pointer: int
     locals: list
-    cells: list         # For closures
+    cells: list  # For closures
 
 
 class VMError(Exception):
     """Runtime error in the VM."""
+
     def __init__(self, message, line=0, call_stack=None):
         self.message = message
         self.line = line
@@ -186,15 +193,15 @@ class VMError(Exception):
         super().__init__(self._format_message())
 
     def _format_message(self):
-        base = f"VM Error (line {self.line}): {self.message}"
+        base = f'VM Error (line {self.line}): {self.message}'
         if not self.call_stack:
             return base
-        lines = [base, "", "  Call stack:"]
+        lines = [base, '', '  Call stack:']
         for idx, (func_name, func_line) in enumerate(self.call_stack):
-            marker = "-> " if idx == len(self.call_stack) - 1 else "   "
-            loc = f" (line {func_line})" if func_line else ""
-            lines.append(f"    {marker}{func_name}{loc}")
-        return "\n".join(lines)
+            marker = '-> ' if idx == len(self.call_stack) - 1 else '   '
+            loc = f' (line {func_line})' if func_line else ''
+            lines.append(f'    {marker}{func_name}{loc}')
+        return '\n'.join(lines)
 
     def with_call_stack(self, call_stack):
         if not self.call_stack:
@@ -205,23 +212,24 @@ class VMError(Exception):
 
 # ─── Bytecode Compiler (AST → Bytecodes) ─────────────────────
 
+
 class BytecodeCompiler:
     """Compiles AST nodes into bytecode instructions."""
 
     def __init__(self):
         self.instructions: list = []
-        self.constants: list = []       # Constant pool
-        self.functions: dict = {}       # name -> CompiledFunction
-        self.classes: dict = {}         # name -> CompiledClass
+        self.constants: list = []  # Constant pool
+        self.functions: dict = {}  # name -> CompiledFunction
+        self.classes: dict = {}  # name -> CompiledClass
         self.locals_stack: list = [{}]  # Stack of local variable scopes
-        self.loop_stack: list = []      # (continue_addr, break_addr) stack
+        self.loop_stack: list = []  # (continue_addr, break_addr) stack
         self._const_cache: dict = {}
         self._label_counter = 0
         self._current_line = 0
 
     def compile(self, program):
         """Compile a full AST program into bytecode."""
-        from epl import ast_nodes as ast
+
         if hasattr(program, 'statements'):
             for stmt in program.statements:
                 self._compile_stmt(stmt)
@@ -244,8 +252,8 @@ class BytecodeCompiler:
 
     def _constant_fold(self, code):
         """Constant folding optimization: evaluate compile-time constant expressions.
-        
-        Replaces patterns like LOAD_CONST(a) + LOAD_CONST(b) + OP 
+
+        Replaces patterns like LOAD_CONST(a) + LOAD_CONST(b) + OP
         with a single LOAD_CONST(result).
         """
         _FOLDABLE_OPS = {
@@ -256,10 +264,10 @@ class BytecodeCompiler:
             Op.FLOOR_DIV: operator.floordiv,
             Op.MOD: operator.mod,
             Op.POW: operator.pow,
-            Op.EQ:  operator.eq,
+            Op.EQ: operator.eq,
             Op.NEQ: operator.ne,
-            Op.LT:  operator.lt,
-            Op.GT:  operator.gt,
+            Op.LT: operator.lt,
+            Op.GT: operator.gt,
             Op.LTE: operator.le,
             Op.GTE: operator.ge,
         }
@@ -272,10 +280,12 @@ class BytecodeCompiler:
             new_idx = 0
             while i < len(code):
                 # Pattern: LOAD_CONST(a) + LOAD_CONST(b) + BINARY_OP → LOAD_CONST(result)
-                if (i + 2 < len(code)
-                        and code[i].op == Op.LOAD_CONST
-                        and code[i + 1].op == Op.LOAD_CONST
-                        and code[i + 2].op in _FOLDABLE_OPS):
+                if (
+                    i + 2 < len(code)
+                    and code[i].op == Op.LOAD_CONST
+                    and code[i + 1].op == Op.LOAD_CONST
+                    and code[i + 2].op in _FOLDABLE_OPS
+                ):
                     a = self.constants[code[i].arg]
                     b = self.constants[code[i + 1].arg]
                     op_fn = _FOLDABLE_OPS[code[i + 2].op]
@@ -295,10 +305,12 @@ class BytecodeCompiler:
                         pass  # Skip folding if operation would error
 
                 # Pattern: LOAD_CONST(s1) + LOAD_CONST(s2) + CONCAT → LOAD_CONST(s1+s2)
-                if (i + 2 < len(code)
-                        and code[i].op == Op.LOAD_CONST
-                        and code[i + 1].op == Op.LOAD_CONST
-                        and code[i + 2].op == Op.CONCAT):
+                if (
+                    i + 2 < len(code)
+                    and code[i].op == Op.LOAD_CONST
+                    and code[i + 1].op == Op.LOAD_CONST
+                    and code[i + 2].op == Op.CONCAT
+                ):
                     a = self.constants[code[i].arg]
                     b = self.constants[code[i + 1].arg]
                     if isinstance(a, str) and isinstance(b, str):
@@ -313,9 +325,7 @@ class BytecodeCompiler:
                         continue
 
                 # Pattern: LOAD_CONST(bool) + NOT → LOAD_CONST(!bool)
-                if (i + 1 < len(code)
-                        and code[i].op == Op.LOAD_CONST
-                        and code[i + 1].op == Op.NOT):
+                if i + 1 < len(code) and code[i].op == Op.LOAD_CONST and code[i + 1].op == Op.NOT:
                     val = self.constants[code[i].arg]
                     if isinstance(val, bool):
                         result_idx = self._add_const(not val)
@@ -328,9 +338,7 @@ class BytecodeCompiler:
                         continue
 
                 # Pattern: LOAD_CONST(num) + NEG → LOAD_CONST(-num)
-                if (i + 1 < len(code)
-                        and code[i].op == Op.LOAD_CONST
-                        and code[i + 1].op == Op.NEG):
+                if i + 1 < len(code) and code[i].op == Op.LOAD_CONST and code[i + 1].op == Op.NEG:
                     val = self.constants[code[i].arg]
                     if isinstance(val, (int, float)):
                         result_idx = self._add_const(-val)
@@ -351,7 +359,14 @@ class BytecodeCompiler:
 
             if changed:
                 # Reindex jump targets
-                jump_ops = (Op.JUMP, Op.JUMP_IF_FALSE, Op.JUMP_IF_TRUE, Op.LOOP_BACK, Op.FOR_ITER, Op.SETUP_TRY)
+                jump_ops = (
+                    Op.JUMP,
+                    Op.JUMP_IF_FALSE,
+                    Op.JUMP_IF_TRUE,
+                    Op.LOOP_BACK,
+                    Op.FOR_ITER,
+                    Op.SETUP_TRY,
+                )
                 for inst in optimized:
                     if inst.op in jump_ops and isinstance(inst.arg, int) and inst.arg >= 0:
                         old_target = inst.arg
@@ -378,39 +393,38 @@ class BytecodeCompiler:
                 inst = code[i]
 
                 # Pattern: LOAD_CONST + POP → remove both (dead expression)
-                if (inst.op == Op.LOAD_CONST and i + 1 < len(code)
-                        and code[i + 1].op == Op.POP):
+                if inst.op == Op.LOAD_CONST and i + 1 < len(code) and code[i + 1].op == Op.POP:
                     i += 2
                     changed = True
                     continue
 
                 # Pattern: NOT + JUMP_IF_FALSE → JUMP_IF_TRUE
-                if (inst.op == Op.NOT and i + 1 < len(code)
-                        and code[i + 1].op == Op.JUMP_IF_FALSE):
+                if inst.op == Op.NOT and i + 1 < len(code) and code[i + 1].op == Op.JUMP_IF_FALSE:
                     optimized.append(Instruction(Op.JUMP_IF_TRUE, code[i + 1].arg, inst.line))
                     i += 2
                     changed = True
                     continue
 
                 # Pattern: NOT + JUMP_IF_TRUE → JUMP_IF_FALSE
-                if (inst.op == Op.NOT and i + 1 < len(code)
-                        and code[i + 1].op == Op.JUMP_IF_TRUE):
+                if inst.op == Op.NOT and i + 1 < len(code) and code[i + 1].op == Op.JUMP_IF_TRUE:
                     optimized.append(Instruction(Op.JUMP_IF_FALSE, code[i + 1].arg, inst.line))
                     i += 2
                     changed = True
                     continue
 
                 # Pattern: LOAD_VAR x + STORE_VAR x → remove (self-assign)
-                if (inst.op == Op.LOAD_VAR and i + 1 < len(code)
-                        and code[i + 1].op == Op.STORE_VAR
-                        and inst.arg == code[i + 1].arg):
+                if (
+                    inst.op == Op.LOAD_VAR
+                    and i + 1 < len(code)
+                    and code[i + 1].op == Op.STORE_VAR
+                    and inst.arg == code[i + 1].arg
+                ):
                     i += 2
                     changed = True
                     continue
 
                 # Pattern: double POP → skip
-                if (inst.op == Op.POP and i + 1 < len(code)
-                        and code[i + 1].op == Op.POP):
+                if inst.op == Op.POP and i + 1 < len(code) and code[i + 1].op == Op.POP:
                     # Keep both, but check for sequences of redundant pops
                     pass
 
@@ -426,22 +440,22 @@ class BytecodeCompiler:
 
     def _reindex_jumps(self, code):
         """Rebuild jump targets after peephole optimization.
-        
+
         Builds an offset map from old indices to new indices,
         then adjusts all jump targets accordingly.
         """
         # Build mapping: old_index -> new_index
         # We need to know which instructions from the original were kept
         # Since peephole removes instructions, we track via line/identity
-        
+
         # Actually, the peephole pass builds 'optimized' list which is shorter.
         # Jump targets in 'code' already point to old indices.
         # We need to map old absolute indices to new absolute indices.
-        
+
         # Strategy: walk old code, build old_idx -> new_idx map, then fix jumps
         # But we lost the old code... We need the offset map built during peephole.
         # Instead, use a simpler approach: mark which old positions map to new ones.
-        
+
         # Since this method gets called with already-optimized code but with stale
         # jump targets, we just need to return it. The real fix is to track removals
         # in peephole and adjust. Let's integrate properly.
@@ -461,8 +475,7 @@ class BytecodeCompiler:
                 inst = code[i]
 
                 # Pattern: LOAD_CONST + POP → remove both (dead expression)
-                if (inst.op == Op.LOAD_CONST and i + 1 < len(code)
-                        and code[i + 1].op == Op.POP):
+                if inst.op == Op.LOAD_CONST and i + 1 < len(code) and code[i + 1].op == Op.POP:
                     old_to_new[i] = new_idx
                     old_to_new[i + 1] = new_idx
                     i += 2
@@ -470,8 +483,7 @@ class BytecodeCompiler:
                     continue
 
                 # Pattern: NOT + JUMP_IF_FALSE → JUMP_IF_TRUE
-                if (inst.op == Op.NOT and i + 1 < len(code)
-                        and code[i + 1].op == Op.JUMP_IF_FALSE):
+                if inst.op == Op.NOT and i + 1 < len(code) and code[i + 1].op == Op.JUMP_IF_FALSE:
                     old_to_new[i] = new_idx
                     old_to_new[i + 1] = new_idx
                     optimized.append(Instruction(Op.JUMP_IF_TRUE, code[i + 1].arg, inst.line))
@@ -481,8 +493,7 @@ class BytecodeCompiler:
                     continue
 
                 # Pattern: NOT + JUMP_IF_TRUE → JUMP_IF_FALSE
-                if (inst.op == Op.NOT and i + 1 < len(code)
-                        and code[i + 1].op == Op.JUMP_IF_TRUE):
+                if inst.op == Op.NOT and i + 1 < len(code) and code[i + 1].op == Op.JUMP_IF_TRUE:
                     old_to_new[i] = new_idx
                     old_to_new[i + 1] = new_idx
                     optimized.append(Instruction(Op.JUMP_IF_FALSE, code[i + 1].arg, inst.line))
@@ -492,9 +503,12 @@ class BytecodeCompiler:
                     continue
 
                 # Pattern: LOAD_VAR x + STORE_VAR x → remove (self-assign)
-                if (inst.op == Op.LOAD_VAR and i + 1 < len(code)
-                        and code[i + 1].op == Op.STORE_VAR
-                        and inst.arg == code[i + 1].arg):
+                if (
+                    inst.op == Op.LOAD_VAR
+                    and i + 1 < len(code)
+                    and code[i + 1].op == Op.STORE_VAR
+                    and inst.arg == code[i + 1].arg
+                ):
                     old_to_new[i] = new_idx
                     old_to_new[i + 1] = new_idx
                     i += 2
@@ -511,7 +525,14 @@ class BytecodeCompiler:
 
             # Reindex jump targets
             if changed:
-                jump_ops = (Op.JUMP, Op.JUMP_IF_FALSE, Op.JUMP_IF_TRUE, Op.LOOP_BACK, Op.FOR_ITER, Op.SETUP_TRY)
+                jump_ops = (
+                    Op.JUMP,
+                    Op.JUMP_IF_FALSE,
+                    Op.JUMP_IF_TRUE,
+                    Op.LOOP_BACK,
+                    Op.FOR_ITER,
+                    Op.SETUP_TRY,
+                )
                 for inst in optimized:
                     if inst.op in jump_ops and isinstance(inst.arg, int) and inst.arg >= 0:
                         old_target = inst.arg
@@ -531,14 +552,21 @@ class BytecodeCompiler:
 
     def _dead_code_eliminate(self, code):
         """Remove unreachable code after unconditional RETURN/JUMP/HALT.
-        
+
         Instructions after RETURN/HALT that are not jump targets are dead.
         """
         if not code:
             return code
 
         # Find all jump targets (these are reachable entry points)
-        jump_ops = (Op.JUMP, Op.JUMP_IF_FALSE, Op.JUMP_IF_TRUE, Op.LOOP_BACK, Op.FOR_ITER, Op.SETUP_TRY)
+        jump_ops = (
+            Op.JUMP,
+            Op.JUMP_IF_FALSE,
+            Op.JUMP_IF_TRUE,
+            Op.LOOP_BACK,
+            Op.FOR_ITER,
+            Op.SETUP_TRY,
+        )
         jump_targets = set()
         for inst in code:
             if inst.op in jump_ops and isinstance(inst.arg, int) and inst.arg >= 0:
@@ -583,7 +611,11 @@ class BytecodeCompiler:
 
     def _add_const(self, value):
         """Add a constant to the pool and return its index."""
-        key = (type(value).__name__, value) if isinstance(value, (int, float, str, bool)) else id(value)
+        key = (
+            (type(value).__name__, value)
+            if isinstance(value, (int, float, str, bool))
+            else id(value)
+        )
         if key in self._const_cache:
             return self._const_cache[key]
         idx = len(self.constants)
@@ -599,7 +631,7 @@ class BytecodeCompiler:
 
     def _emit_jump(self, op):
         """Emit a jump instruction and return its index for patching."""
-        return self._emit(op, -1)   # placeholder
+        return self._emit(op, -1)  # placeholder
 
     def _patch_jump(self, idx):
         """Patch a jump instruction to point to the current position."""
@@ -672,12 +704,12 @@ class BytecodeCompiler:
             if self.loop_stack:
                 self.loop_stack[-1]['breaks'].append(self._emit_jump(Op.JUMP))
             else:
-                raise VMError("Break outside of loop", self._current_line)
+                raise VMError('Break outside of loop', self._current_line)
         elif isinstance(node, ast.ContinueStatement):
             if self.loop_stack:
                 self._emit(Op.LOOP_BACK, self.loop_stack[-1]['continue'])
             else:
-                raise VMError("Continue outside of loop", self._current_line)
+                raise VMError('Continue outside of loop', self._current_line)
         elif isinstance(node, ast.ImportStatement):
             self._emit(Op.IMPORT, node.path)
         elif isinstance(node, ast.IndexSet):
@@ -722,7 +754,7 @@ class BytecodeCompiler:
             if node.prompt:
                 self._emit(Op.LOAD_CONST, self._add_const(node.prompt))
             else:
-                self._emit(Op.LOAD_CONST, self._add_const(""))
+                self._emit(Op.LOAD_CONST, self._add_const(''))
             self._emit(Op.INPUT)
             idx = self._declare_local(node.variable_name)
             self._emit(Op.STORE_VAR, idx)
@@ -763,8 +795,11 @@ class BytecodeCompiler:
             pass  # Export is a compile-time annotation, no runtime effect
         elif hasattr(ast, 'InterfaceDefNode') and isinstance(node, ast.InterfaceDefNode):
             # Interface definition — store as metadata, no runtime code needed
-            iface = {'__is_interface__': True, 'name': node.name,
-                     'methods': [m.name if hasattr(m, 'name') else str(m) for m in node.methods]}
+            iface = {
+                '__is_interface__': True,
+                'name': node.name,
+                'methods': [m.name if hasattr(m, 'name') else str(m) for m in node.methods],
+            }
             self._emit(Op.LOAD_CONST, self._add_const(iface))
             idx = self._declare_local(node.name)
             self._emit(Op.STORE_VAR, idx)
@@ -783,16 +818,34 @@ class BytecodeCompiler:
         elif isinstance(node, (ast.WebApp, ast.Route, ast.StartServer)):
             self._emit(Op.LOAD_CONST, self._add_const('__web_node__'))
             self._emit(Op.POP)
-            raise VMError("Web framework requires interpreter mode", getattr(node, 'line', 0))
+            raise VMError('Web framework requires interpreter mode', getattr(node, 'line', 0))
         # GUI nodes — delegate to interpreter via fallback marker
-        elif hasattr(ast, 'WindowCreate') and isinstance(node, (
-                ast.WindowCreate, ast.WidgetAdd, ast.LayoutBlock,
-                ast.BindEvent, ast.DialogShow, ast.MenuDef, ast.CanvasDraw)):
-            raise VMError("GUI requires interpreter mode", getattr(node, 'line', 0))
+        elif hasattr(ast, 'WindowCreate') and isinstance(
+            node,
+            (
+                ast.WindowCreate,
+                ast.WidgetAdd,
+                ast.LayoutBlock,
+                ast.BindEvent,
+                ast.DialogShow,
+                ast.MenuDef,
+                ast.CanvasDraw,
+            ),
+        ):
+            raise VMError('GUI requires interpreter mode', getattr(node, 'line', 0))
         # Page/HTML/Script — no-ops in VM (semantic only)
-        elif isinstance(node, (ast.PageDef, ast.HtmlElement, ast.SendResponse,
-                               ast.ScriptBlock, ast.StoreStatement,
-                               ast.FetchStatement, ast.DeleteStatement)):
+        elif isinstance(
+            node,
+            (
+                ast.PageDef,
+                ast.HtmlElement,
+                ast.SendResponse,
+                ast.ScriptBlock,
+                ast.StoreStatement,
+                ast.FetchStatement,
+                ast.DeleteStatement,
+            ),
+        ):
             pass  # These are web DSL nodes, no-op in VM
         elif isinstance(node, ast.FileRead):
             self._compile_expr(node)
@@ -804,7 +857,8 @@ class BytecodeCompiler:
                 self._emit(Op.POP)
             except Exception:
                 import warnings as _w
-                _w.warn(f"VM: skipping unsupported statement {type(node).__name__}")
+
+                _w.warn(f'VM: skipping unsupported statement {type(node).__name__}')
 
     def _compile_print(self, node):
         # PrintStatement has .expression (single expr), not .values
@@ -830,11 +884,17 @@ class BytecodeCompiler:
             self._emit(Op.STORE_GLOBAL, node.name)
 
     def _compile_aug_assign(self, node):
-        op_map = {'Plus': Op.ADD, 'Minus': Op.SUB,
-                  'Multiply': Op.MUL, 'Divide': Op.DIV,
-                  '+=': Op.ADD, '-=': Op.SUB,
-                  '*=': Op.MUL, '/=': Op.DIV,
-                  '%=': Op.MOD}
+        op_map = {
+            'Plus': Op.ADD,
+            'Minus': Op.SUB,
+            'Multiply': Op.MUL,
+            'Divide': Op.DIV,
+            '+=': Op.ADD,
+            '-=': Op.SUB,
+            '*=': Op.MUL,
+            '/=': Op.DIV,
+            '%=': Op.MOD,
+        }
         idx = self._resolve_local(node.name)
         if idx is not None:
             self._emit(Op.LOAD_VAR, idx)
@@ -981,12 +1041,12 @@ class BytecodeCompiler:
     def _compile_repeat(self, node):
         # Repeat <count> Times ... EndRepeat
         self._compile_expr(node.count)
-        counter_idx = self._declare_local(f"__repeat_{self._label_counter}")
+        counter_idx = self._declare_local(f'__repeat_{self._label_counter}')
         self._label_counter += 1
         self._emit(Op.STORE_VAR, counter_idx)
 
         # Initialize loop var to 0
-        iter_idx = self._declare_local(f"__iter_{self._label_counter}")
+        iter_idx = self._declare_local(f'__iter_{self._label_counter}')
         self._emit(Op.LOAD_CONST, self._add_const(0))
         self._emit(Op.STORE_VAR, iter_idx)
 
@@ -1026,6 +1086,7 @@ class BytecodeCompiler:
 
         # Declare parameters as locals
         from epl.ast_nodes import RestParameter
+
         params = node.params if hasattr(node, 'params') else getattr(node, 'parameters', [])
         param_names = []
         defaults = []
@@ -1139,8 +1200,9 @@ class BytecodeCompiler:
         properties = {}
         constructor = None
 
-        for member in (node.body if isinstance(node.body, list) else []):
+        for member in node.body if isinstance(node.body, list) else []:
             from epl import ast_nodes as ast
+
             if isinstance(member, ast.FunctionDef):
                 # Save state
                 outer_instr = self.instructions
@@ -1148,7 +1210,11 @@ class BytecodeCompiler:
                 self.locals_stack.append({})
                 self._declare_local('this')  # 'this' is always local 0 in methods
 
-                params = member.params if hasattr(member, 'params') else getattr(member, 'parameters', [])
+                params = (
+                    member.params
+                    if hasattr(member, 'params')
+                    else getattr(member, 'parameters', [])
+                )
                 param_names = ['this']
                 defaults = [None]
                 for p in params:
@@ -1246,7 +1312,7 @@ class BytecodeCompiler:
 
             self._emit(Op.POP)  # Pop matched value
             body = case.body if hasattr(case, 'body') else case[1]
-            for stmt in (body if isinstance(body, list) else [body]):
+            for stmt in body if isinstance(body, list) else [body]:
                 self._compile_stmt(stmt)
             end_jumps.append(self._emit_jump(Op.JUMP))
 
@@ -1359,8 +1425,12 @@ class BytecodeCompiler:
 
         elif isinstance(node, ast.SliceAccess):
             self._compile_expr(node.object)
-            self._compile_expr(node.start) if node.start else self._emit(Op.LOAD_CONST, self._add_const(None))
-            self._compile_expr(node.end) if node.end else self._emit(Op.LOAD_CONST, self._add_const(None))
+            self._compile_expr(node.start) if node.start else self._emit(
+                Op.LOAD_CONST, self._add_const(None)
+            )
+            self._compile_expr(node.end) if node.end else self._emit(
+                Op.LOAD_CONST, self._add_const(None)
+            )
             self._emit(Op.SLICE)
 
         elif hasattr(ast, 'TypeCast') and isinstance(node, ast.TypeCast):
@@ -1406,6 +1476,7 @@ class BytecodeCompiler:
     def _compile_interpolated_string(self, template):
         """Compile a string with {expr} interpolation."""
         import re
+
         parts = re.split(r'\{([^}]+)\}', template)
         count = 0
         for i, part in enumerate(parts):
@@ -1420,7 +1491,7 @@ class BytecodeCompiler:
                 self._emit(Op.CALL_BUILTIN, ('to_string', 1))
                 count += 1
         if count == 0:
-            self._emit(Op.LOAD_CONST, self._add_const(""))
+            self._emit(Op.LOAD_CONST, self._add_const(''))
         elif count == 1:
             pass  # Already on stack
         else:
@@ -1428,32 +1499,56 @@ class BytecodeCompiler:
 
     def _compile_binary(self, node):
         from epl import ast_nodes as ast_mod
+
         op_map = {
-            'Plus': Op.ADD, 'Minus': Op.SUB,
-            'Multiply': Op.MUL, 'Divide': Op.DIV,
-            'Modulo': Op.MOD, 'Power': Op.POW,
+            'Plus': Op.ADD,
+            'Minus': Op.SUB,
+            'Multiply': Op.MUL,
+            'Divide': Op.DIV,
+            'Modulo': Op.MOD,
+            'Power': Op.POW,
             'FloorDivide': Op.FLOOR_DIV,
-            'PLUS': Op.ADD, 'MINUS': Op.SUB,
-            'MULTIPLY': Op.MUL, 'DIVIDE': Op.DIV,
-            'MODULO': Op.MOD, 'POWER': Op.POW,
-            '+': Op.ADD, '-': Op.SUB,
-            '*': Op.MUL, '/': Op.DIV,
-            '%': Op.MOD, '**': Op.POW, '//': Op.FLOOR_DIV,
+            'PLUS': Op.ADD,
+            'MINUS': Op.SUB,
+            'MULTIPLY': Op.MUL,
+            'DIVIDE': Op.DIV,
+            'MODULO': Op.MOD,
+            'POWER': Op.POW,
+            '+': Op.ADD,
+            '-': Op.SUB,
+            '*': Op.MUL,
+            '/': Op.DIV,
+            '%': Op.MOD,
+            '**': Op.POW,
+            '//': Op.FLOOR_DIV,
             # Comparison
-            'Equals': Op.EQ, 'NotEquals': Op.NEQ,
-            'LessThan': Op.LT, 'GreaterThan': Op.GT,
-            'LessThanOrEqual': Op.LTE, 'GreaterThanOrEqual': Op.GTE,
-            'EQUALS': Op.EQ, 'NOT_EQUALS': Op.NEQ,
-            'LESS_THAN': Op.LT, 'GREATER_THAN': Op.GT,
-            '==': Op.EQ, '!=': Op.NEQ,
-            '<': Op.LT, '>': Op.GT,
-            '<=': Op.LTE, '>=': Op.GTE,
-            'Is': Op.EQ, 'IsNot': Op.NEQ,
+            'Equals': Op.EQ,
+            'NotEquals': Op.NEQ,
+            'LessThan': Op.LT,
+            'GreaterThan': Op.GT,
+            'LessThanOrEqual': Op.LTE,
+            'GreaterThanOrEqual': Op.GTE,
+            'EQUALS': Op.EQ,
+            'NOT_EQUALS': Op.NEQ,
+            'LESS_THAN': Op.LT,
+            'GREATER_THAN': Op.GT,
+            '==': Op.EQ,
+            '!=': Op.NEQ,
+            '<': Op.LT,
+            '>': Op.GT,
+            '<=': Op.LTE,
+            '>=': Op.GTE,
+            'Is': Op.EQ,
+            'IsNot': Op.NEQ,
             # Logical
-            'And': Op.AND, 'Or': Op.OR,
-            'AND': Op.AND, 'OR': Op.OR,
-            'and': Op.AND, 'or': Op.OR,
-            '&&': Op.AND, '||': Op.OR,
+            'And': Op.AND,
+            'Or': Op.OR,
+            'AND': Op.AND,
+            'OR': Op.OR,
+            'and': Op.AND,
+            'or': Op.OR,
+            '&&': Op.AND,
+            '||': Op.OR,
         }
 
         # Constant folding: if both sides are literals, compute at compile time
@@ -1463,13 +1558,26 @@ class BytecodeCompiler:
             if isinstance(lv, (int, float)) and isinstance(rv, (int, float)):
                 try:
                     fold_ops = {
-                        '+': operator.add, 'Plus': operator.add, 'PLUS': operator.add,
-                        '-': operator.sub, 'Minus': operator.sub, 'MINUS': operator.sub,
-                        '*': operator.mul, 'Multiply': operator.mul, 'MULTIPLY': operator.mul,
-                        '/': operator.truediv, 'Divide': operator.truediv, 'DIVIDE': operator.truediv,
-                        '%': operator.mod, 'Modulo': operator.mod, 'MODULO': operator.mod,
-                        '**': operator.pow, 'Power': operator.pow, 'POWER': operator.pow,
-                        '//': operator.floordiv, 'FloorDivide': operator.floordiv,
+                        '+': operator.add,
+                        'Plus': operator.add,
+                        'PLUS': operator.add,
+                        '-': operator.sub,
+                        'Minus': operator.sub,
+                        'MINUS': operator.sub,
+                        '*': operator.mul,
+                        'Multiply': operator.mul,
+                        'MULTIPLY': operator.mul,
+                        '/': operator.truediv,
+                        'Divide': operator.truediv,
+                        'DIVIDE': operator.truediv,
+                        '%': operator.mod,
+                        'Modulo': operator.mod,
+                        'MODULO': operator.mod,
+                        '**': operator.pow,
+                        'Power': operator.pow,
+                        'POWER': operator.pow,
+                        '//': operator.floordiv,
+                        'FloorDivide': operator.floordiv,
                     }
                     if op_str in fold_ops and (op_str not in ('/', 'Divide', 'DIVIDE') or rv != 0):
                         result = fold_ops[op_str](lv, rv)
@@ -1478,12 +1586,24 @@ class BytecodeCompiler:
                         return
                     # Comparison constant folding
                     cmp_fold = {
-                        '==': operator.eq, 'Equals': operator.eq, 'EQUALS': operator.eq, 'Is': operator.eq,
-                        '!=': operator.ne, 'NotEquals': operator.ne, 'NOT_EQUALS': operator.ne, 'IsNot': operator.ne,
-                        '<': operator.lt, 'LessThan': operator.lt, 'LESS_THAN': operator.lt,
-                        '>': operator.gt, 'GreaterThan': operator.gt, 'GREATER_THAN': operator.gt,
-                        '<=': operator.le, 'LessThanOrEqual': operator.le,
-                        '>=': operator.ge, 'GreaterThanOrEqual': operator.ge,
+                        '==': operator.eq,
+                        'Equals': operator.eq,
+                        'EQUALS': operator.eq,
+                        'Is': operator.eq,
+                        '!=': operator.ne,
+                        'NotEquals': operator.ne,
+                        'NOT_EQUALS': operator.ne,
+                        'IsNot': operator.ne,
+                        '<': operator.lt,
+                        'LessThan': operator.lt,
+                        'LESS_THAN': operator.lt,
+                        '>': operator.gt,
+                        'GreaterThan': operator.gt,
+                        'GREATER_THAN': operator.gt,
+                        '<=': operator.le,
+                        'LessThanOrEqual': operator.le,
+                        '>=': operator.ge,
+                        'GreaterThanOrEqual': operator.ge,
                     }
                     if op_str in cmp_fold:
                         result = cmp_fold[op_str](lv, rv)
@@ -1506,15 +1626,24 @@ class BytecodeCompiler:
 
     def _compile_comparison(self, node):
         cmp_map = {
-            'Equals': Op.EQ, 'NotEquals': Op.NEQ,
-            'LessThan': Op.LT, 'GreaterThan': Op.GT,
-            'LessThanOrEqual': Op.LTE, 'GreaterThanOrEqual': Op.GTE,
-            'EQUALS': Op.EQ, 'NOT_EQUALS': Op.NEQ,
-            'LESS_THAN': Op.LT, 'GREATER_THAN': Op.GT,
-            '==': Op.EQ, '!=': Op.NEQ,
-            '<': Op.LT, '>': Op.GT,
-            '<=': Op.LTE, '>=': Op.GTE,
-            'Is': Op.EQ, 'IsNot': Op.NEQ,
+            'Equals': Op.EQ,
+            'NotEquals': Op.NEQ,
+            'LessThan': Op.LT,
+            'GreaterThan': Op.GT,
+            'LessThanOrEqual': Op.LTE,
+            'GreaterThanOrEqual': Op.GTE,
+            'EQUALS': Op.EQ,
+            'NOT_EQUALS': Op.NEQ,
+            'LESS_THAN': Op.LT,
+            'GREATER_THAN': Op.GT,
+            '==': Op.EQ,
+            '!=': Op.NEQ,
+            '<': Op.LT,
+            '>': Op.GT,
+            '<=': Op.LTE,
+            '>=': Op.GTE,
+            'Is': Op.EQ,
+            'IsNot': Op.NEQ,
         }
         self._compile_expr(node.left)
         self._compile_expr(node.right)
@@ -1535,7 +1664,9 @@ class BytecodeCompiler:
             self._patch_jump(jump)
 
     def _compile_call(self, node):
-        name = node.name if isinstance(node.name, str) else getattr(node.name, 'name', str(node.name))
+        name = (
+            node.name if isinstance(node.name, str) else getattr(node.name, 'name', str(node.name))
+        )
         args = node.args if hasattr(node, 'args') else getattr(node, 'arguments', [])
 
         for arg in args:
@@ -1553,7 +1684,11 @@ class BytecodeCompiler:
         args = node.arguments if hasattr(node, 'arguments') else getattr(node, 'args', [])
         for arg in args:
             self._compile_expr(arg)
-        method = node.method_name if isinstance(node.method_name, str) else getattr(node.method_name, 'name', str(node.method_name))
+        method = (
+            node.method_name
+            if isinstance(node.method_name, str)
+            else getattr(node.method_name, 'name', str(node.method_name))
+        )
         self._emit(Op.CALL_METHOD, (method, len(args)))
 
     def _compile_lambda(self, node):
@@ -1579,7 +1714,7 @@ class BytecodeCompiler:
             self._emit(Op.LOAD_CONST, self._add_const(None))
             self._emit(Op.RETURN)
 
-        lname = f"__lambda_{self._label_counter}"
+        lname = f'__lambda_{self._label_counter}'
         self._label_counter += 1
 
         func = CompiledFunction(
@@ -1602,14 +1737,16 @@ class BytecodeCompiler:
         code = code or self.instructions
         lines = []
         for i, inst in enumerate(code):
-            lines.append(f"{i:4d}  {inst}")
+            lines.append(f'{i:4d}  {inst}')
         return '\n'.join(lines)
 
 
 # ─── Virtual Machine ─────────────────────────────────────────
 
+
 class VMInstance:
     """Represents a class instance in the VM."""
+
     __slots__ = ('class_def', 'attrs')
 
     def __init__(self, class_def):
@@ -1619,6 +1756,7 @@ class VMInstance:
 
 class VMIterator:
     """Iterator wrapper for the VM."""
+
     __slots__ = ('items', 'index')
 
     def __init__(self, items):
@@ -1636,6 +1774,7 @@ class VMIterator:
 
 class VMClosure:
     """Represents a closure capturing free variables."""
+
     __slots__ = ('func', 'cells')
 
     def __init__(self, func, cells):
@@ -1665,7 +1804,7 @@ class VM:
         self.functions: dict = {}
         self.classes: dict = {}
         self.constants: list = []
-        self.try_stack: list = []   # Exception handler addresses
+        self.try_stack: list = []  # Exception handler addresses
         self.const_names: set = set()  # Track constant variable names
         self._builtins = self._init_builtins()
         self._builtin_dispatch = self._build_builtin_dispatch()
@@ -1920,7 +2059,7 @@ class VM:
     def _op_div(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
         if b == 0:
-            raise VMError("Division by zero", inst.line)
+            raise VMError('Division by zero', inst.line)
         result = a / b
         self.stack.append(int(result) if result == int(result) else result)
 
@@ -1930,7 +2069,7 @@ class VM:
 
     def _op_pow(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
-        self.stack.append(a ** b)
+        self.stack.append(a**b)
 
     def _op_floor_div(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
@@ -2021,14 +2160,16 @@ class VM:
                 self._call_constructor(func, arg_count)
                 return
             else:
-                raise VMError(f"Undefined function: {name}", inst.line)
+                raise VMError(f'Undefined function: {name}', inst.line)
 
         self._call_function(func, arg_count)
 
     def _call_function(self, func, arg_count):
         """Set up call frame and execute function."""
         if len(self.call_stack) >= self.MAX_CALL_DEPTH:
-            raise VMError(f"Maximum recursion depth ({self.MAX_CALL_DEPTH}) exceeded in '{func.name}'.", 0)
+            raise VMError(
+                f"Maximum recursion depth ({self.MAX_CALL_DEPTH}) exceeded in '{func.name}'.", 0
+            )
 
         locals_list = [None] * max(func.local_count + 16, arg_count + 16)
 
@@ -2115,7 +2256,7 @@ class VM:
         # Special builtins
         if name == 'to_string':
             val = self.stack.pop()
-            self.stack.append(str(val) if val is not None else "")
+            self.stack.append(str(val) if val is not None else '')
             return
 
         if name == 'type_cast':
@@ -2258,7 +2399,7 @@ class VM:
         cls_name = inst.arg
         cls = self.classes.get(cls_name)
         if not cls:
-            raise VMError(f"Unknown class: {cls_name}", inst.line)
+            raise VMError(f'Unknown class: {cls_name}', inst.line)
         self.stack.append(VMInstance(cls))
 
     # I/O
@@ -2273,7 +2414,7 @@ class VM:
         print(line)
 
     def _op_input(self, inst):
-        prompt = self.stack.pop() if self.stack else ""
+        prompt = self.stack.pop() if self.stack else ''
         self.stack.append(input(str(prompt)))
 
     # Iterator
@@ -2313,6 +2454,7 @@ class VM:
         self._imported_modules.add(filepath)
 
         import os
+
         # Try to resolve path
         abs_path = filepath
         if not os.path.isabs(filepath):
@@ -2321,9 +2463,12 @@ class VM:
                 filepath_epl = filepath + '.epl'
             else:
                 filepath_epl = filepath
-            candidates = [filepath_epl, filepath,
-                          os.path.join('examples', filepath_epl),
-                          os.path.join('epl', 'stdlib', filepath_epl)]
+            candidates = [
+                filepath_epl,
+                filepath,
+                os.path.join('examples', filepath_epl),
+                os.path.join('epl', 'stdlib', filepath_epl),
+            ]
             for c in candidates:
                 if os.path.isfile(c):
                     abs_path = os.path.abspath(c)
@@ -2339,6 +2484,7 @@ class VM:
                 source = f.read()
             from epl.lexer import Lexer
             from epl.parser import Parser
+
             tokens = Lexer(source).tokenize()
             program = Parser(tokens).parse()
             compiler = BytecodeCompiler()
@@ -2472,7 +2618,7 @@ class VM:
         val = self.stack.pop()
         current = frame.locals.get(inst.arg, 0)
         if val == 0:
-            raise VMError("Division by zero", inst.line)
+            raise VMError('Division by zero', inst.line)
         frame.locals[inst.arg] = current / val
 
     # ─── Unpack opcode ────────────────────────────────────────
@@ -2501,14 +2647,15 @@ class VM:
         """Await an async result — if it's a Future, block for result."""
         val = self.stack.pop()
         import concurrent.futures as _futures
+
         if isinstance(val, _futures.Future):
             try:
                 result = val.result(timeout=60)
                 self.stack.append(result)
             except _futures.TimeoutError:
-                raise VMError("Await timed out", inst.line)
+                raise VMError('Await timed out', inst.line)
             except Exception as e:
-                raise VMError(f"Async error: {e}", inst.line)
+                raise VMError(f'Async error: {e}', inst.line)
         elif hasattr(val, 'result') and callable(val.result):
             # EPLFuture or similar
             self.stack.append(val.result(timeout=60))
@@ -2524,6 +2671,7 @@ class VM:
             args.append(self.stack.pop())
         args.reverse()
         from epl.stdlib import call_stdlib
+
         result = call_stdlib(name, args, inst.line)
         self.stack.append(result)
 
@@ -2538,7 +2686,7 @@ class VM:
             with open(str(path), 'r', encoding='utf-8') as f:
                 self.stack.append(f.read())
         except (OSError, IOError) as e:
-            raise VMError(f"Cannot read file: {e}", inst.line)
+            raise VMError(f'Cannot read file: {e}', inst.line)
 
     def _op_super_call(self, inst):
         """Call parent class method."""
@@ -2580,195 +2728,399 @@ class VM:
 
     def _init_builtins(self):
         return {
-            'true': True, 'false': False, 'none': None, 'null': None,
-            'yes': True, 'no': False, 'on': True, 'off': False,
-            'pi': math.pi, 'euler': math.e, 'infinity': math.inf,
+            'true': True,
+            'false': False,
+            'none': None,
+            'null': None,
+            'yes': True,
+            'no': False,
+            'on': True,
+            'off': False,
+            'pi': math.pi,
+            'euler': math.e,
+            'infinity': math.inf,
         }
 
     def _build_builtin_dispatch(self):
         """Build name → handler dict for O(1) builtin dispatch."""
-        import random as _random
         import json as _json
         import os as _os
+        import random as _random
 
-        def _length(args, line): return len(args[0]) if args else 0
-        def _type_of(args, line): return self._type_name(args[0]) if args else "None"
-        def _to_text(args, line): return str(args[0]) if args else ""
-        def _to_number(args, line): return int(float(args[0])) if args else 0
-        def _to_decimal(args, line): return float(args[0]) if args else 0.0
+        def _length(args, line):
+            return len(args[0]) if args else 0
+
+        def _type_of(args, line):
+            return self._type_name(args[0]) if args else 'None'
+
+        def _to_text(args, line):
+            return str(args[0]) if args else ''
+
+        def _to_number(args, line):
+            return int(float(args[0])) if args else 0
+
+        def _to_decimal(args, line):
+            return float(args[0]) if args else 0.0
+
         def _is_number(args, line):
-            try: float(args[0]); return True
-            except (ValueError, TypeError): return False
-        def _is_text(args, line): return isinstance(args[0], str) if args else False
-        def _is_list(args, line): return isinstance(args[0], list) if args else False
-        def _is_none(args, line): return args[0] is None if args else True
+            try:
+                float(args[0])
+                return True
+            except (ValueError, TypeError):
+                return False
+
+        def _is_text(args, line):
+            return isinstance(args[0], str) if args else False
+
+        def _is_list(args, line):
+            return isinstance(args[0], list) if args else False
+
+        def _is_none(args, line):
+            return args[0] is None if args else True
 
         # Math
-        def _abs(args, line): return abs(args[0])
-        def _round(args, line): return round(args[0], int(args[1])) if len(args) > 1 else round(args[0])
-        def _floor(args, line): return math.floor(args[0])
-        def _ceil(args, line): return math.ceil(args[0])
-        def _sqrt(args, line): return math.sqrt(args[0])
-        def _sin(args, line): return math.sin(args[0])
-        def _cos(args, line): return math.cos(args[0])
-        def _tan(args, line): return math.tan(args[0])
-        def _log(args, line): return math.log(args[0])
-        def _log10(args, line): return math.log10(args[0])
-        def _max(args, line): return max(args[0]) if len(args) == 1 and isinstance(args[0], list) else max(args)
-        def _min(args, line): return min(args[0]) if len(args) == 1 and isinstance(args[0], list) else min(args)
-        def _random(args, line): return _random.random()
-        def _random_int(args, line): return _random.randint(int(args[0]), int(args[1]))
-        def _power(args, line): return args[0] ** args[1]
+        def _abs(args, line):
+            return abs(args[0])
+
+        def _round(args, line):
+            return round(args[0], int(args[1])) if len(args) > 1 else round(args[0])
+
+        def _floor(args, line):
+            return math.floor(args[0])
+
+        def _ceil(args, line):
+            return math.ceil(args[0])
+
+        def _sqrt(args, line):
+            return math.sqrt(args[0])
+
+        def _sin(args, line):
+            return math.sin(args[0])
+
+        def _cos(args, line):
+            return math.cos(args[0])
+
+        def _tan(args, line):
+            return math.tan(args[0])
+
+        def _log(args, line):
+            return math.log(args[0])
+
+        def _log10(args, line):
+            return math.log10(args[0])
+
+        def _max(args, line):
+            return max(args[0]) if len(args) == 1 and isinstance(args[0], list) else max(args)
+
+        def _min(args, line):
+            return min(args[0]) if len(args) == 1 and isinstance(args[0], list) else min(args)
+
+        def _random(args, line):
+            return _random.random()
+
+        def _random_int(args, line):
+            return _random.randint(int(args[0]), int(args[1]))
+
+        def _power(args, line):
+            return args[0] ** args[1]
 
         # String
-        def _upper(args, line): return str(args[0]).upper()
-        def _lower(args, line): return str(args[0]).lower()
-        def _trim(args, line): return str(args[0]).strip()
-        def _split(args, line): return str(args[0]).split(str(args[1]) if len(args) > 1 else None)
-        def _join(args, line): return str(args[1]).join(str(x) for x in args[0])
-        def _replace(args, line): return str(args[0]).replace(str(args[1]), str(args[2]))
-        def _contains(args, line): return str(args[1]) in str(args[0])
-        def _starts_with(args, line): return str(args[0]).startswith(str(args[1]))
-        def _ends_with(args, line): return str(args[0]).endswith(str(args[1]))
+        def _upper(args, line):
+            return str(args[0]).upper()
+
+        def _lower(args, line):
+            return str(args[0]).lower()
+
+        def _trim(args, line):
+            return str(args[0]).strip()
+
+        def _split(args, line):
+            return str(args[0]).split(str(args[1]) if len(args) > 1 else None)
+
+        def _join(args, line):
+            return str(args[1]).join(str(x) for x in args[0])
+
+        def _replace(args, line):
+            return str(args[0]).replace(str(args[1]), str(args[2]))
+
+        def _contains(args, line):
+            return str(args[1]) in str(args[0])
+
+        def _starts_with(args, line):
+            return str(args[0]).startswith(str(args[1]))
+
+        def _ends_with(args, line):
+            return str(args[0]).endswith(str(args[1]))
+
         def _substring(args, line):
-            s = str(args[0]); start = int(args[1])
+            s = str(args[0])
+            start = int(args[1])
             end = int(args[2]) if len(args) > 2 else len(s)
             return s[start:end]
-        def _char_at(args, line): return str(args[0])[int(args[1])]
-        def _index_of(args, line): return str(args[0]).find(str(args[1]))
+
+        def _char_at(args, line):
+            return str(args[0])[int(args[1])]
+
+        def _index_of(args, line):
+            return str(args[0]).find(str(args[1]))
+
         def _reverse(args, line):
-            if isinstance(args[0], list): return list(reversed(args[0]))
+            if isinstance(args[0], list):
+                return list(reversed(args[0]))
             return str(args[0])[::-1]
 
         # List
-        def _append(args, line): args[0].append(args[1]); return args[0]
-        def _pop(args, line): return args[0].pop() if isinstance(args[0], list) else None
-        def _insert(args, line): args[0].insert(int(args[1]), args[2]); return args[0]
-        def _remove(args, line): args[0].remove(args[1]); return args[0]
-        def _sort(args, line): return sorted(args[0])
+        def _append(args, line):
+            args[0].append(args[1])
+            return args[0]
+
+        def _pop(args, line):
+            return args[0].pop() if isinstance(args[0], list) else None
+
+        def _insert(args, line):
+            args[0].insert(int(args[1]), args[2])
+            return args[0]
+
+        def _remove(args, line):
+            args[0].remove(args[1])
+            return args[0]
+
+        def _sort(args, line):
+            return sorted(args[0])
+
         def _range(args, line):
-            if len(args) == 1: return list(range(int(args[0])))
-            elif len(args) == 2: return list(range(int(args[0]), int(args[1])))
-            else: return list(range(int(args[0]), int(args[1]), int(args[2])))
-        def _map(args, line): return [self._call_vm_function(args[0], [x]) for x in args[1]]
-        def _filter(args, line): return [x for x in args[1] if self._call_vm_function(args[0], [x])]
+            if len(args) == 1:
+                return list(range(int(args[0])))
+            elif len(args) == 2:
+                return list(range(int(args[0]), int(args[1])))
+            else:
+                return list(range(int(args[0]), int(args[1]), int(args[2])))
+
+        def _map(args, line):
+            return [self._call_vm_function(args[0], [x]) for x in args[1]]
+
+        def _filter(args, line):
+            return [x for x in args[1] if self._call_vm_function(args[0], [x])]
+
         def _reduce(args, line):
             func, lst = args[0], args[1]
             acc = args[2] if len(args) > 2 else lst[0]
             start = 0 if len(args) > 2 else 1
-            for item in lst[start:]: acc = self._call_vm_function(func, [acc, item])
+            for item in lst[start:]:
+                acc = self._call_vm_function(func, [acc, item])
             return acc
-        def _sum(args, line): return sum(args[0]) if isinstance(args[0], list) else sum(args)
+
+        def _sum(args, line):
+            return sum(args[0]) if isinstance(args[0], list) else sum(args)
+
         def _flatten(args, line):
             result = []
             for item in args[0]:
-                if isinstance(item, list): result.extend(item)
-                else: result.append(item)
+                if isinstance(item, list):
+                    result.extend(item)
+                else:
+                    result.append(item)
             return result
+
         def _unique(args, line):
             seen = []
             for item in args[0]:
-                if item not in seen: seen.append(item)
+                if item not in seen:
+                    seen.append(item)
             return seen
 
         # Dict
-        def _keys(args, line): return list(args[0].keys()) if isinstance(args[0], dict) else []
-        def _values(args, line): return list(args[0].values()) if isinstance(args[0], dict) else []
-        def _has_key(args, line): return args[1] in args[0] if isinstance(args[0], dict) else False
-        def _merge(args, line): d = dict(args[0]); d.update(args[1]); return d
+        def _keys(args, line):
+            return list(args[0].keys()) if isinstance(args[0], dict) else []
+
+        def _values(args, line):
+            return list(args[0].values()) if isinstance(args[0], dict) else []
+
+        def _has_key(args, line):
+            return args[1] in args[0] if isinstance(args[0], dict) else False
+
+        def _merge(args, line):
+            d = dict(args[0])
+            d.update(args[1])
+            return d
 
         # I/O
-        def _read_input(args, line): return input(str(args[0]) if args else "")
+        def _read_input(args, line):
+            return input(str(args[0]) if args else '')
+
         def _read_file(args, line):
-            with open(str(args[0]), 'r') as f: return f.read()
+            with open(str(args[0]), 'r') as f:
+                return f.read()
+
         def _write_file(args, line):
-            with open(str(args[0]), 'w') as f: f.write(str(args[1]))
+            with open(str(args[0]), 'w') as f:
+                f.write(str(args[1]))
             return True
-        def _file_exists(args, line): return _os.path.exists(str(args[0]))
-        def _delete_file(args, line): _os.remove(str(args[0])); return True
+
+        def _file_exists(args, line):
+            return _os.path.exists(str(args[0]))
+
+        def _delete_file(args, line):
+            _os.remove(str(args[0]))
+            return True
+
         def _append_file(args, line):
-            with open(str(args[0]), 'a') as f: f.write(str(args[1]))
+            with open(str(args[0]), 'a') as f:
+                f.write(str(args[1]))
             return True
 
         # JSON
-        def _json_parse(args, line): return _json.loads(str(args[0]))
-        def _json_stringify(args, line): return _json.dumps(args[0])
+        def _json_parse(args, line):
+            return _json.loads(str(args[0]))
+
+        def _json_stringify(args, line):
+            return _json.dumps(args[0])
 
         # Time
-        def _time_fn(args, line): return time.time()
-        def _sleep(args, line): time.sleep(float(args[0])); return None
+        def _time_fn(args, line):
+            return time.time()
+
+        def _sleep(args, line):
+            time.sleep(float(args[0]))
+            return None
 
         # Assert
         def _assert(args, line):
             if not args[0]:
-                raise VMError(str(args[1]) if len(args) > 1 else "Assertion failed", line)
+                raise VMError(str(args[1]) if len(args) > 1 else 'Assertion failed', line)
             return True
+
         def _assert_equal(args, line):
             if args[0] != args[1]:
-                raise VMError(f"Expected {args[1]}, got {args[0]}", line)
+                raise VMError(f'Expected {args[1]}, got {args[0]}', line)
             return True
 
         # Error
-        def _error(args, line): raise VMError(str(args[0]) if args else "Error", line)
+        def _error(args, line):
+            raise VMError(str(args[0]) if args else 'Error', line)
 
         # Conversion
-        def _to_list(args, line): return list(args[0]) if args else []
-        def _to_dict(args, line): return dict(args[0]) if args else {}
+        def _to_list(args, line):
+            return list(args[0]) if args else []
+
+        def _to_dict(args, line):
+            return dict(args[0]) if args else {}
 
         dispatch = {
             # Type functions
-            'length': _length, 'type_of': _type_of,
-            'to_text': _to_text, 'to_string': _to_text, 'Text': _to_text,
-            'to_number': _to_number, 'to_integer': _to_number, 'Integer': _to_number,
-            'to_decimal': _to_decimal, 'Decimal': _to_decimal, 'Float': _to_decimal,
-            'is_number': _is_number, 'is_text': _is_text, 'is_list': _is_list,
-            'is_none': _is_none, 'is_null': _is_none,
+            'length': _length,
+            'type_of': _type_of,
+            'to_text': _to_text,
+            'to_string': _to_text,
+            'Text': _to_text,
+            'to_number': _to_number,
+            'to_integer': _to_number,
+            'Integer': _to_number,
+            'to_decimal': _to_decimal,
+            'Decimal': _to_decimal,
+            'Float': _to_decimal,
+            'is_number': _is_number,
+            'is_text': _is_text,
+            'is_list': _is_list,
+            'is_none': _is_none,
+            'is_null': _is_none,
             # Math
-            'abs': _abs, 'absolute': _abs, 'round': _round,
-            'floor': _floor, 'ceil': _ceil, 'ceiling': _ceil,
-            'sqrt': _sqrt, 'sin': _sin, 'cos': _cos, 'tan': _tan,
-            'log': _log, 'log10': _log10,
-            'max': _max, 'min': _min,
-            'random': _random, 'random_int': _random_int, 'power': _power,
+            'abs': _abs,
+            'absolute': _abs,
+            'round': _round,
+            'floor': _floor,
+            'ceil': _ceil,
+            'ceiling': _ceil,
+            'sqrt': _sqrt,
+            'sin': _sin,
+            'cos': _cos,
+            'tan': _tan,
+            'log': _log,
+            'log10': _log10,
+            'max': _max,
+            'min': _min,
+            'random': _random,
+            'random_int': _random_int,
+            'power': _power,
             # String
-            'upper': _upper, 'lower': _lower, 'trim': _trim,
-            'split': _split, 'join': _join, 'replace': _replace,
-            'contains': _contains, 'starts_with': _starts_with, 'ends_with': _ends_with,
-            'substring': _substring, 'char_at': _char_at, 'index_of': _index_of,
+            'upper': _upper,
+            'lower': _lower,
+            'trim': _trim,
+            'split': _split,
+            'join': _join,
+            'replace': _replace,
+            'contains': _contains,
+            'starts_with': _starts_with,
+            'ends_with': _ends_with,
+            'substring': _substring,
+            'char_at': _char_at,
+            'index_of': _index_of,
             'reverse': _reverse,
             # List
-            'append': _append, 'pop': _pop, 'insert': _insert, 'remove': _remove,
-            'sort': _sort, 'sorted': _sort, 'range': _range,
-            'map': _map, 'filter': _filter, 'reduce': _reduce,
-            'sum': _sum, 'flatten': _flatten, 'unique': _unique,
+            'append': _append,
+            'pop': _pop,
+            'insert': _insert,
+            'remove': _remove,
+            'sort': _sort,
+            'sorted': _sort,
+            'range': _range,
+            'map': _map,
+            'filter': _filter,
+            'reduce': _reduce,
+            'sum': _sum,
+            'flatten': _flatten,
+            'unique': _unique,
             # Dict
-            'keys': _keys, 'values': _values, 'has_key': _has_key, 'merge': _merge,
+            'keys': _keys,
+            'values': _values,
+            'has_key': _has_key,
+            'merge': _merge,
             # I/O
-            'read_input': _read_input, 'input': _read_input,
-            'read_file': _read_file, 'write_file': _write_file,
-            'file_exists': _file_exists, 'delete_file': _delete_file,
+            'read_input': _read_input,
+            'input': _read_input,
+            'read_file': _read_file,
+            'write_file': _write_file,
+            'file_exists': _file_exists,
+            'delete_file': _delete_file,
             # JSON
-            'json_parse': _json_parse, 'parse_json': _json_parse,
-            'json_stringify': _json_stringify, 'to_json': _json_stringify,
+            'json_parse': _json_parse,
+            'parse_json': _json_parse,
+            'json_stringify': _json_stringify,
+            'to_json': _json_stringify,
             # Time
-            'time': _time_fn, 'time_now': _time_fn, 'sleep': _sleep,
+            'time': _time_fn,
+            'time_now': _time_fn,
+            'sleep': _sleep,
             # Assert
-            'assert': _assert, 'assert_equal': _assert_equal,
+            'assert': _assert,
+            'assert_equal': _assert_equal,
             # Error
-            'error': _error, 'Error': _error, 'throw': _error,
+            'error': _error,
+            'Error': _error,
+            'throw': _error,
             # Conversion
-            'List': _to_list, 'Dict': _to_dict,
+            'List': _to_list,
+            'Dict': _to_dict,
             # Phase 6: Missing builtin aliases for interpreter parity
             'to_boolean': lambda args, line: bool(args[0]) if args else False,
             'typeof': _type_of,
-            'is_integer': lambda args, line: isinstance(args[0], int) and not isinstance(args[0], bool) if args else False,
+            'is_integer': lambda args, line: (
+                isinstance(args[0], int) and not isinstance(args[0], bool) if args else False
+            ),
             'is_decimal': lambda args, line: isinstance(args[0], float) if args else False,
             'is_boolean': lambda args, line: isinstance(args[0], bool) if args else False,
             'is_map': lambda args, line: isinstance(args[0], dict) if args else False,
             'is_nothing': lambda args, line: args[0] is None if args else True,
             'is_none': lambda args, line: args[0] is None if args else True,
-            'uppercase': _upper, 'lowercase': _lower,
-            'reversed': lambda args, line: list(reversed(args[0])) if args and isinstance(args[0], list) else str(args[0])[::-1] if args else [],
+            'uppercase': _upper,
+            'lowercase': _lower,
+            'reversed': lambda args, line: (
+                list(reversed(args[0]))
+                if args and isinstance(args[0], list)
+                else str(args[0])[::-1]
+                if args
+                else []
+            ),
             'sorted': lambda args, line: sorted(args[0]) if args else [],
             'char_code': lambda args, line: ord(str(args[0])[0]) if args and args[0] else 0,
             'from_char_code': lambda args, line: chr(int(args[0])) if args else '',
@@ -2778,20 +3130,32 @@ class VM:
 
         # C FFI builtins
         try:
-            from epl.ffi import ffi_open, ffi_call, ffi_close, ffi_find, ffi_types
-            dispatch['ffi_open'] = lambda args, line: ffi_open(args[0]) if args else (_ for _ in ()).throw(
-                ValueError("ffi_open requires a library path argument"))
+            from epl.ffi import ffi_call, ffi_close, ffi_find, ffi_open, ffi_types
+
+            dispatch['ffi_open'] = lambda args, line: (
+                ffi_open(args[0])
+                if args
+                else (_ for _ in ()).throw(ValueError('ffi_open requires a library path argument'))
+            )
+
             def _ffi_call_dispatch(args, line):
                 if len(args) < 2:
-                    raise ValueError("ffi_call requires at least (library, function_name)")
-                return ffi_call(args[0], args[1],
+                    raise ValueError('ffi_call requires at least (library, function_name)')
+                return ffi_call(
+                    args[0],
+                    args[1],
                     args[2] if len(args) > 2 else 'void',
                     args[3] if len(args) > 3 else [],
-                    args[4] if len(args) > 4 else [])
+                    args[4] if len(args) > 4 else [],
+                )
+
             dispatch['ffi_call'] = _ffi_call_dispatch
             dispatch['ffi_close'] = lambda args, line: ffi_close(args[0]) if args else None
-            dispatch['ffi_find'] = lambda args, line: ffi_find(args[0]) if args else (_ for _ in ()).throw(
-                ValueError("ffi_find requires a library name argument"))
+            dispatch['ffi_find'] = lambda args, line: (
+                ffi_find(args[0])
+                if args
+                else (_ for _ in ()).throw(ValueError('ffi_find requires a library name argument'))
+            )
             dispatch['ffi_types'] = lambda args, line: ffi_types()
         except ImportError:
             pass
@@ -2809,6 +3173,7 @@ class VM:
         # Phase 6: Delegate unknown builtins to stdlib
         try:
             from epl.stdlib import STDLIB_FUNCTIONS, call_stdlib
+
             if name in STDLIB_FUNCTIONS:
                 return call_stdlib(name, args, line)
         except ImportError:
@@ -2858,86 +3223,166 @@ class VM:
         raise VMError(f"Unknown method '{method}' on {self._type_name(obj)}", line)
 
     def _str_method(self, obj, method, args, line):
-        if method == 'length': return len(obj)
-        if method == 'upper' or method == 'to_upper': return obj.upper()
-        if method == 'lower' or method == 'to_lower': return obj.lower()
-        if method == 'trim' or method == 'strip': return obj.strip()
-        if method == 'split': return obj.split(args[0] if args else None)
-        if method == 'replace': return obj.replace(args[0], args[1])
-        if method == 'contains': return args[0] in obj
-        if method == 'starts_with': return obj.startswith(args[0])
-        if method == 'ends_with': return obj.endswith(args[0])
-        if method == 'index_of': return obj.find(args[0])
-        if method == 'substring': return obj[int(args[0]):int(args[1]) if len(args) > 1 else None]
-        if method == 'reverse': return obj[::-1]
-        if method == 'repeat': return obj * int(args[0])
-        if method == 'char_at': return obj[int(args[0])]
-        if method == 'to_number' or method == 'to_integer': return int(float(obj))
-        if method == 'to_decimal': return float(obj)
-        if method == 'lstrip': return obj.lstrip()
-        if method == 'rstrip': return obj.rstrip()
-        if method == 'count': return obj.count(args[0])
-        if method == 'is_empty': return len(obj) == 0
-        if method == 'pad_left': return obj.rjust(int(args[0]), args[1] if len(args) > 1 else ' ')
-        if method == 'pad_right': return obj.ljust(int(args[0]), args[1] if len(args) > 1 else ' ')
+        if method == 'length':
+            return len(obj)
+        if method == 'upper' or method == 'to_upper':
+            return obj.upper()
+        if method == 'lower' or method == 'to_lower':
+            return obj.lower()
+        if method == 'trim' or method == 'strip':
+            return obj.strip()
+        if method == 'split':
+            return obj.split(args[0] if args else None)
+        if method == 'replace':
+            return obj.replace(args[0], args[1])
+        if method == 'contains':
+            return args[0] in obj
+        if method == 'starts_with':
+            return obj.startswith(args[0])
+        if method == 'ends_with':
+            return obj.endswith(args[0])
+        if method == 'index_of':
+            return obj.find(args[0])
+        if method == 'substring':
+            return obj[int(args[0]) : int(args[1]) if len(args) > 1 else None]
+        if method == 'reverse':
+            return obj[::-1]
+        if method == 'repeat':
+            return obj * int(args[0])
+        if method == 'char_at':
+            return obj[int(args[0])]
+        if method == 'to_number' or method == 'to_integer':
+            return int(float(obj))
+        if method == 'to_decimal':
+            return float(obj)
+        if method == 'lstrip':
+            return obj.lstrip()
+        if method == 'rstrip':
+            return obj.rstrip()
+        if method == 'count':
+            return obj.count(args[0])
+        if method == 'is_empty':
+            return len(obj) == 0
+        if method == 'pad_left':
+            return obj.rjust(int(args[0]), args[1] if len(args) > 1 else ' ')
+        if method == 'pad_right':
+            return obj.ljust(int(args[0]), args[1] if len(args) > 1 else ' ')
         raise VMError(f"Unknown method '{method}' on string", line)
 
     def _list_method(self, obj, method, args, line):
-        if method == 'length' or method == 'count': return len(obj)
+        if method == 'length' or method == 'count':
+            return len(obj)
         if method == 'append' or method == 'add' or method == 'push':
-            obj.append(args[0]); return obj
-        if method == 'pop': return obj.pop()
-        if method == 'insert': obj.insert(int(args[0]), args[1]); return obj
-        if method == 'remove': obj.remove(args[0]); return obj
-        if method == 'remove_at': return obj.pop(int(args[0]))
-        if method == 'contains': return args[0] in obj
-        if method == 'index_of': return obj.index(args[0]) if args[0] in obj else -1
-        if method == 'sort': return sorted(obj)
-        if method == 'reverse': return list(reversed(obj))
-        if method == 'join': return (args[0] if args else ',').join(str(x) for x in obj)
-        if method == 'map': return [self._call_vm_function(args[0], [x]) for x in obj]
-        if method == 'filter': return [x for x in obj if self._call_vm_function(args[0], [x])]
-        if method == 'reduce': return self._exec_builtin('reduce', [args[0], obj] + list(args[1:]), 0)
-        if method == 'sum': return sum(obj)
-        if method == 'first': return obj[0] if obj else None
-        if method == 'last': return obj[-1] if obj else None
-        if method == 'slice': return obj[int(args[0]):int(args[1]) if len(args) > 1 else None]
-        if method == 'flatten': return [item for sublist in obj for item in (sublist if isinstance(sublist, list) else [sublist])]
-        if method == 'unique': return list(dict.fromkeys(obj))
-        if method == 'is_empty': return len(obj) == 0
-        if method == 'clear': obj.clear(); return obj
-        if method == 'copy': return list(obj)
-        if method == 'each': return [self._call_vm_function(args[0], [x]) for x in obj]
-        if method == 'find': return next((x for x in obj if self._call_vm_function(args[0], [x])), None)
-        if method == 'every': return all(self._call_vm_function(args[0], [x]) for x in obj)
-        if method == 'some': return any(self._call_vm_function(args[0], [x]) for x in obj)
+            obj.append(args[0])
+            return obj
+        if method == 'pop':
+            return obj.pop()
+        if method == 'insert':
+            obj.insert(int(args[0]), args[1])
+            return obj
+        if method == 'remove':
+            obj.remove(args[0])
+            return obj
+        if method == 'remove_at':
+            return obj.pop(int(args[0]))
+        if method == 'contains':
+            return args[0] in obj
+        if method == 'index_of':
+            return obj.index(args[0]) if args[0] in obj else -1
+        if method == 'sort':
+            return sorted(obj)
+        if method == 'reverse':
+            return list(reversed(obj))
+        if method == 'join':
+            return (args[0] if args else ',').join(str(x) for x in obj)
+        if method == 'map':
+            return [self._call_vm_function(args[0], [x]) for x in obj]
+        if method == 'filter':
+            return [x for x in obj if self._call_vm_function(args[0], [x])]
+        if method == 'reduce':
+            return self._exec_builtin('reduce', [args[0], obj] + list(args[1:]), 0)
+        if method == 'sum':
+            return sum(obj)
+        if method == 'first':
+            return obj[0] if obj else None
+        if method == 'last':
+            return obj[-1] if obj else None
+        if method == 'slice':
+            return obj[int(args[0]) : int(args[1]) if len(args) > 1 else None]
+        if method == 'flatten':
+            return [
+                item
+                for sublist in obj
+                for item in (sublist if isinstance(sublist, list) else [sublist])
+            ]
+        if method == 'unique':
+            return list(dict.fromkeys(obj))
+        if method == 'is_empty':
+            return len(obj) == 0
+        if method == 'clear':
+            obj.clear()
+            return obj
+        if method == 'copy':
+            return list(obj)
+        if method == 'each':
+            return [self._call_vm_function(args[0], [x]) for x in obj]
+        if method == 'find':
+            return next((x for x in obj if self._call_vm_function(args[0], [x])), None)
+        if method == 'every':
+            return all(self._call_vm_function(args[0], [x]) for x in obj)
+        if method == 'some':
+            return any(self._call_vm_function(args[0], [x]) for x in obj)
         raise VMError(f"Unknown method '{method}' on list", line)
 
     def _dict_method(self, obj, method, args, line):
-        if method == 'keys': return list(obj.keys())
-        if method == 'values': return list(obj.values())
-        if method == 'items': return [[k, v] for k, v in obj.items()]
-        if method == 'has_key': return args[0] in obj
-        if method == 'get': return obj.get(args[0], args[1] if len(args) > 1 else None)
-        if method == 'set': obj[args[0]] = args[1]; return obj
-        if method == 'remove': obj.pop(args[0], None); return obj
-        if method == 'merge': return {**obj, **args[0]}
-        if method == 'length': return len(obj)
-        if method == 'is_empty': return len(obj) == 0
-        if method == 'clear': obj.clear(); return obj
-        if method == 'copy': return dict(obj)
-        if method == 'to_json': return __import__('json').dumps(obj)
+        if method == 'keys':
+            return list(obj.keys())
+        if method == 'values':
+            return list(obj.values())
+        if method == 'items':
+            return [[k, v] for k, v in obj.items()]
+        if method == 'has_key':
+            return args[0] in obj
+        if method == 'get':
+            return obj.get(args[0], args[1] if len(args) > 1 else None)
+        if method == 'set':
+            obj[args[0]] = args[1]
+            return obj
+        if method == 'remove':
+            obj.pop(args[0], None)
+            return obj
+        if method == 'merge':
+            return {**obj, **args[0]}
+        if method == 'length':
+            return len(obj)
+        if method == 'is_empty':
+            return len(obj) == 0
+        if method == 'clear':
+            obj.clear()
+            return obj
+        if method == 'copy':
+            return dict(obj)
+        if method == 'to_json':
+            return __import__('json').dumps(obj)
         raise VMError(f"Unknown method '{method}' on dict", line)
 
     def _num_method(self, obj, method, args, line):
-        if method == 'to_text' or method == 'to_string': return str(obj)
-        if method == 'abs': return abs(obj)
-        if method == 'round': return round(obj, int(args[0])) if args else round(obj)
-        if method == 'floor': return math.floor(obj)
-        if method == 'ceil': return math.ceil(obj)
-        if method == 'is_even': return obj % 2 == 0
-        if method == 'is_odd': return obj % 2 != 0
-        if method == 'clamp': return max(args[0], min(obj, args[1]))
+        if method == 'to_text' or method == 'to_string':
+            return str(obj)
+        if method == 'abs':
+            return abs(obj)
+        if method == 'round':
+            return round(obj, int(args[0])) if args else round(obj)
+        if method == 'floor':
+            return math.floor(obj)
+        if method == 'ceil':
+            return math.ceil(obj)
+        if method == 'is_even':
+            return obj % 2 == 0
+        if method == 'is_odd':
+            return obj % 2 != 0
+        if method == 'clamp':
+            return max(args[0], min(obj, args[1]))
         raise VMError(f"Unknown method '{method}' on {self._type_name(obj)}", line)
 
     def _type_cast(self, val, target):
@@ -2947,7 +3392,7 @@ class VM:
         elif target in ('Decimal', 'Float', 'float'):
             return float(val) if val is not None else 0.0
         elif target in ('Text', 'String', 'str'):
-            return str(val) if val is not None else ""
+            return str(val) if val is not None else ''
         elif target in ('Boolean', 'Bool', 'bool'):
             return bool(val)
         elif target in ('List', 'list'):
@@ -2957,9 +3402,9 @@ class VM:
     def _format_value(self, val):
         """Format a value for output."""
         if val is None:
-            return "none"
+            return 'none'
         elif isinstance(val, bool):
-            return "true" if val else "false"
+            return 'true' if val else 'false'
         elif isinstance(val, float):
             if val == int(val):
                 return str(int(val))
@@ -2971,39 +3416,40 @@ class VM:
             return '{' + items + '}'
         elif isinstance(val, VMInstance):
             attrs = ', '.join(f'{k}: {self._format_value(v)}' for k, v in val.attrs.items())
-            return f"{val.class_def.name}({attrs})"
+            return f'{val.class_def.name}({attrs})'
         elif isinstance(val, CompiledFunction):
-            return f"<function {val.name}>"
+            return f'<function {val.name}>'
         elif isinstance(val, CompiledClass):
-            return f"<class {val.name}>"
+            return f'<class {val.name}>'
         return str(val)
 
     def _type_name(self, val):
         """Get EPL type name for a value."""
         if val is None:
-            return "None"
+            return 'None'
         elif isinstance(val, bool):
-            return "Boolean"
+            return 'Boolean'
         elif isinstance(val, int):
-            return "Integer"
+            return 'Integer'
         elif isinstance(val, float):
-            return "Decimal"
+            return 'Decimal'
         elif isinstance(val, str):
-            return "Text"
+            return 'Text'
         elif isinstance(val, list):
-            return "List"
+            return 'List'
         elif isinstance(val, dict):
-            return "Dict"
+            return 'Dict'
         elif isinstance(val, VMInstance):
             return val.class_def.name
         elif isinstance(val, CompiledFunction):
-            return "Function"
+            return 'Function'
         elif isinstance(val, CompiledClass):
-            return "Class"
-        return "Unknown"
+            return 'Class'
+        return 'Unknown'
 
 
 # ─── Convenience functions ────────────────────────────────────
+
 
 def compile_and_run(source: str) -> dict:
     """Compile and execute EPL source code using the bytecode VM."""

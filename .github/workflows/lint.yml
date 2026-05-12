@@ -1,0 +1,27 @@
+name: Code Quality (Ruff)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          
+      - name: Install Ruff
+        run: pip install ruff
+        
+      - name: Run Ruff Format Check
+        run: ruff format --check .
+        
+      - name: Run Ruff Linter
+        run: ruff check .

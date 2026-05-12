@@ -13,25 +13,24 @@ Spec: https://microsoft.github.io/language-server-protocol/
 """
 
 import json
-import sys
-import re
 import os
+import re
+import sys
 import threading
 import traceback
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple
 
 # ─── EPL Imports ────────────────────────────────────────
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from epl import ast_nodes as ast
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl import ast_nodes as ast
-from epl.tokens import TokenType
-
 
 # ═══════════════════════════════════════════════════════════
 # EPL Language Intelligence
 # ═══════════════════════════════════════════════════════════
+
 
 class EPLAnalyzer:
     """Analyzes EPL source code for IDE features."""
@@ -58,7 +57,7 @@ class EPLAnalyzer:
         'random': {'sig': 'random() -> number', 'doc': 'Random float between 0 and 1.'},
         'random_int': {'sig': 'random_int(min, max) -> integer', 'doc': 'Random integer in range.'},
         'pi': {'sig': 'pi() -> number', 'doc': 'Returns 3.14159265358979...'},
-        'euler': {'sig': 'euler() -> number', 'doc': 'Returns Euler\'s number e.'},
+        'euler': {'sig': 'euler() -> number', 'doc': "Returns Euler's number e."},
         'sign': {'sig': 'sign(n) -> integer', 'doc': 'Returns -1, 0, or 1.'},
         'clamp': {'sig': 'clamp(value, min, max) -> number', 'doc': 'Clamp value within range.'},
         'lerp': {'sig': 'lerp(a, b, t) -> number', 'doc': 'Linear interpolation.'},
@@ -70,16 +69,31 @@ class EPLAnalyzer:
         'to_integer': {'sig': 'to_integer(value) -> integer', 'doc': 'Convert value to integer.'},
         'to_decimal': {'sig': 'to_decimal(value) -> decimal', 'doc': 'Convert value to decimal.'},
         'type_of': {'sig': 'type_of(value) -> string', 'doc': 'Get the type name.'},
-        'char_code': {'sig': 'char_code(s) -> integer', 'doc': 'Get ASCII code of first character.'},
-        'from_char_code': {'sig': 'from_char_code(n) -> string', 'doc': 'Character from ASCII code.'},
-        'format': {'sig': 'format(template, ...args) -> string', 'doc': 'Format string with {} placeholders.'},
+        'char_code': {
+            'sig': 'char_code(s) -> integer',
+            'doc': 'Get ASCII code of first character.',
+        },
+        'from_char_code': {
+            'sig': 'from_char_code(n) -> string',
+            'doc': 'Character from ASCII code.',
+        },
+        'format': {
+            'sig': 'format(template, ...args) -> string',
+            'doc': 'Format string with {} placeholders.',
+        },
         # Collections
-        'range': {'sig': 'range(n) or range(start, end, step) -> list', 'doc': 'Generate a range of numbers.'},
+        'range': {
+            'sig': 'range(n) or range(start, end, step) -> list',
+            'doc': 'Generate a range of numbers.',
+        },
         'sorted': {'sig': 'sorted(list) -> list', 'doc': 'Return a sorted copy.'},
         'reversed': {'sig': 'reversed(list) -> list', 'doc': 'Return a reversed copy.'},
         'sum': {'sig': 'sum(list) -> number', 'doc': 'Sum all elements.'},
         'zip_lists': {'sig': 'zip_lists(a, b) -> list', 'doc': 'Combine two lists into pairs.'},
-        'enumerate_list': {'sig': 'enumerate_list(list) -> list', 'doc': 'Pairs of [index, value].'},
+        'enumerate_list': {
+            'sig': 'enumerate_list(list) -> list',
+            'doc': 'Pairs of [index, value].',
+        },
         'keys': {'sig': 'keys(map) -> list', 'doc': 'Get map keys.'},
         'values': {'sig': 'values(map) -> list', 'doc': 'Get map values.'},
         # DateTime
@@ -94,10 +108,19 @@ class EPLAnalyzer:
         'base64_encode': {'sig': 'base64_encode(s) -> string', 'doc': 'Encode to Base64.'},
         'base64_decode': {'sig': 'base64_decode(s) -> string', 'doc': 'Decode from Base64.'},
         # Regex
-        'regex_test': {'sig': 'regex_test(pattern, text) -> boolean', 'doc': 'Test if pattern matches.'},
+        'regex_test': {
+            'sig': 'regex_test(pattern, text) -> boolean',
+            'doc': 'Test if pattern matches.',
+        },
         'regex_match': {'sig': 'regex_match(pattern, text) -> list', 'doc': 'Find first match.'},
-        'regex_find_all': {'sig': 'regex_find_all(pattern, text) -> list', 'doc': 'Find all matches.'},
-        'regex_replace': {'sig': 'regex_replace(pattern, replacement, text) -> string', 'doc': 'Replace matches.'},
+        'regex_find_all': {
+            'sig': 'regex_find_all(pattern, text) -> list',
+            'doc': 'Find all matches.',
+        },
+        'regex_replace': {
+            'sig': 'regex_replace(pattern, replacement, text) -> string',
+            'doc': 'Replace matches.',
+        },
         # File I/O
         'file_exists': {'sig': 'file_exists(path) -> boolean', 'doc': 'Check if file exists.'},
         'read_lines': {'sig': 'read_lines(path) -> list', 'doc': 'Read file lines.'},
@@ -113,10 +136,22 @@ class EPLAnalyzer:
         # Database
         'db_open': {'sig': 'db_open(path) -> database', 'doc': 'Open/create SQLite database.'},
         'db_close': {'sig': 'db_close(db)', 'doc': 'Close database connection.'},
-        'db_query': {'sig': 'db_query(db, sql, params?) -> list', 'doc': 'Execute query, return rows.'},
-        'db_query_one': {'sig': 'db_query_one(db, sql, params?) -> map', 'doc': 'Execute query, return first row.'},
-        'db_execute': {'sig': 'db_execute(db, sql, params?)', 'doc': 'Execute statement (INSERT/UPDATE/DELETE).'},
-        'db_create_table': {'sig': 'db_create_table(db, name, columns)', 'doc': 'Create table with column definitions.'},
+        'db_query': {
+            'sig': 'db_query(db, sql, params?) -> list',
+            'doc': 'Execute query, return rows.',
+        },
+        'db_query_one': {
+            'sig': 'db_query_one(db, sql, params?) -> map',
+            'doc': 'Execute query, return first row.',
+        },
+        'db_execute': {
+            'sig': 'db_execute(db, sql, params?)',
+            'doc': 'Execute statement (INSERT/UPDATE/DELETE).',
+        },
+        'db_create_table': {
+            'sig': 'db_create_table(db, name, columns)',
+            'doc': 'Create table with column definitions.',
+        },
         'db_insert': {'sig': 'db_insert(db, table, data)', 'doc': 'Insert a row into table.'},
         'db_count': {'sig': 'db_count(db, table) -> integer', 'doc': 'Count rows in table.'},
         # ORM
@@ -125,22 +160,49 @@ class EPLAnalyzer:
         'orm_migrate': {'sig': 'orm_migrate(db)', 'doc': 'Run database migrations.'},
         'orm_create': {'sig': 'orm_create(db, model, data) -> map', 'doc': 'Create a record.'},
         'orm_find': {'sig': 'orm_find(db, model) -> list', 'doc': 'Find all records.'},
-        'orm_find_by_id': {'sig': 'orm_find_by_id(db, model, id) -> map', 'doc': 'Find record by ID.'},
+        'orm_find_by_id': {
+            'sig': 'orm_find_by_id(db, model, id) -> map',
+            'doc': 'Find record by ID.',
+        },
         'orm_update': {'sig': 'orm_update(db, model, id, data)', 'doc': 'Update a record.'},
         'orm_delete': {'sig': 'orm_delete(db, model, id)', 'doc': 'Delete a record.'},
         # Production DB
-        'real_db_connect': {'sig': 'real_db_connect(url) -> database', 'doc': 'Connect to PostgreSQL/MySQL/SQLite.'},
+        'real_db_connect': {
+            'sig': 'real_db_connect(url) -> database',
+            'doc': 'Connect to PostgreSQL/MySQL/SQLite.',
+        },
         # Web Server
         'web_set_cors': {'sig': 'web_set_cors(app, origin)', 'doc': 'Enable CORS headers.'},
-        'web_middleware': {'sig': 'web_middleware(app, handler)', 'doc': 'Add middleware function.'},
+        'web_middleware': {
+            'sig': 'web_middleware(app, handler)',
+            'doc': 'Add middleware function.',
+        },
         'request_body': {'sig': 'request_body() -> map', 'doc': 'Get parsed request body (JSON).'},
-        'json_response': {'sig': 'json_response(data, status?) -> response', 'doc': 'Create JSON response.'},
-        'html_response': {'sig': 'html_response(html, status?) -> response', 'doc': 'Create HTML response.'},
+        'json_response': {
+            'sig': 'json_response(data, status?) -> response',
+            'doc': 'Create JSON response.',
+        },
+        'html_response': {
+            'sig': 'html_response(html, status?) -> response',
+            'doc': 'Create HTML response.',
+        },
         # Auth & Crypto
-        'auth_hash_password': {'sig': 'auth_hash_password(password) -> string', 'doc': 'Hash password with bcrypt.'},
-        'auth_verify_password': {'sig': 'auth_verify_password(password, hash) -> boolean', 'doc': 'Verify password.'},
-        'auth_jwt_create': {'sig': 'auth_jwt_create(payload, secret) -> string', 'doc': 'Create JWT token.'},
-        'auth_jwt_verify': {'sig': 'auth_jwt_verify(token, secret) -> map', 'doc': 'Verify and decode JWT.'},
+        'auth_hash_password': {
+            'sig': 'auth_hash_password(password) -> string',
+            'doc': 'Hash password with bcrypt.',
+        },
+        'auth_verify_password': {
+            'sig': 'auth_verify_password(password, hash) -> boolean',
+            'doc': 'Verify password.',
+        },
+        'auth_jwt_create': {
+            'sig': 'auth_jwt_create(payload, secret) -> string',
+            'doc': 'Create JWT token.',
+        },
+        'auth_jwt_verify': {
+            'sig': 'auth_jwt_verify(token, secret) -> map',
+            'doc': 'Verify and decode JWT.',
+        },
         'aes_encrypt': {'sig': 'aes_encrypt(data, key) -> string', 'doc': 'AES-256 encrypt.'},
         'aes_decrypt': {'sig': 'aes_decrypt(data, key) -> string', 'doc': 'AES-256 decrypt.'},
         # File I/O extended
@@ -152,14 +214,26 @@ class EPLAnalyzer:
         'dir_list': {'sig': 'dir_list(path) -> list', 'doc': 'List directory contents.'},
         'dir_create': {'sig': 'dir_create(path)', 'doc': 'Create directory (with parents).'},
         # Concurrency
-        'thread_create': {'sig': 'thread_create(func) -> thread', 'doc': 'Create and start a thread.'},
+        'thread_create': {
+            'sig': 'thread_create(func) -> thread',
+            'doc': 'Create and start a thread.',
+        },
         'thread_join': {'sig': 'thread_join(thread)', 'doc': 'Wait for thread to finish.'},
-        'channel_create': {'sig': 'channel_create() -> channel', 'doc': 'Create a message channel.'},
+        'channel_create': {
+            'sig': 'channel_create() -> channel',
+            'doc': 'Create a message channel.',
+        },
         'channel_send': {'sig': 'channel_send(ch, value)', 'doc': 'Send value to channel.'},
-        'channel_receive': {'sig': 'channel_receive(ch) -> value', 'doc': 'Receive value from channel.'},
+        'channel_receive': {
+            'sig': 'channel_receive(ch) -> value',
+            'doc': 'Receive value from channel.',
+        },
         'mutex_create': {'sig': 'mutex_create() -> mutex', 'doc': 'Create a mutex lock.'},
         # GUI
-        'gui_window': {'sig': 'gui_window(title, width, height) -> window', 'doc': 'Create a GUI window.'},
+        'gui_window': {
+            'sig': 'gui_window(title, width, height) -> window',
+            'doc': 'Create a GUI window.',
+        },
         'gui_button': {'sig': 'gui_button(window, text, callback)', 'doc': 'Add a button.'},
         'gui_label': {'sig': 'gui_label(window, text)', 'doc': 'Add a text label.'},
         'gui_input': {'sig': 'gui_input(window, placeholder) -> input', 'doc': 'Add a text input.'},
@@ -179,7 +253,10 @@ class EPLAnalyzer:
         # Machine Learning
         'ml_load_data': {'sig': 'ml_load_data(name) -> dataset', 'doc': 'Load built-in dataset.'},
         'ml_split': {'sig': 'ml_split(data, ratio) -> map', 'doc': 'Train/test split.'},
-        'ml_random_forest': {'sig': 'ml_random_forest(data) -> model', 'doc': 'Create Random Forest model.'},
+        'ml_random_forest': {
+            'sig': 'ml_random_forest(data) -> model',
+            'doc': 'Create Random Forest model.',
+        },
         'ml_train': {'sig': 'ml_train(model)', 'doc': 'Train the model.'},
         'ml_predict': {'sig': 'ml_predict(model, input) -> value', 'doc': 'Make prediction.'},
         'ml_accuracy': {'sig': 'ml_accuracy(model, test_data) -> number', 'doc': 'Model accuracy.'},
@@ -190,10 +267,16 @@ class EPLAnalyzer:
         'has_key': {'sig': 'has_key(map, key) -> boolean', 'doc': 'Check if map contains key.'},
         'get': {'sig': 'get(collection, key) -> value', 'doc': 'Get value by key/index.'},
         'is_empty': {'sig': 'is_empty(value) -> boolean', 'doc': 'Check if empty.'},
-        'contains': {'sig': 'contains(collection, value) -> boolean', 'doc': 'Check if contains value.'},
+        'contains': {
+            'sig': 'contains(collection, value) -> boolean',
+            'doc': 'Check if contains value.',
+        },
         'join': {'sig': 'join(list, separator) -> string', 'doc': 'Join list elements.'},
         'split': {'sig': 'split(string, separator) -> list', 'doc': 'Split string into list.'},
-        'map_list': {'sig': 'map_list(list, func) -> list', 'doc': 'Apply function to each element.'},
+        'map_list': {
+            'sig': 'map_list(list, func) -> list',
+            'doc': 'Apply function to each element.',
+        },
         'filter_list': {'sig': 'filter_list(list, func) -> list', 'doc': 'Filter by predicate.'},
         'flatten': {'sig': 'flatten(list) -> list', 'doc': 'Flatten nested list.'},
         'unique': {'sig': 'unique(list) -> list', 'doc': 'Remove duplicates.'},
@@ -202,23 +285,104 @@ class EPLAnalyzer:
 
     # EPL keywords for completion
     KEYWORDS = [
-        'Set', 'to', 'Create', 'equal', 'Display', 'Print', 'Input', 'with',
-        'If', 'then', 'Else', 'End', 'While', 'For', 'from', 'to', 'step',
-        'each', 'in', 'Repeat', 'times', 'Function', 'takes', 'and', 'Return',
-        'Class', 'extends', 'new', 'Call', 'Try', 'Catch', 'Throw',
-        'Match', 'When', 'Default', 'Break', 'Continue', 'Exit',
-        'Constant', 'Enum', 'as', 'Import', 'Export', 'Assert',
-        'Async', 'Await', 'Super', 'Write', 'Read', 'Append', 'file',
-        'Wait', 'seconds', 'true', 'false', 'null', 'nothing',
-        'or', 'not', 'is', 'Lambda', 'Web', 'Start', 'Route', 'Port',
+        'Set',
+        'to',
+        'Create',
+        'equal',
+        'Display',
+        'Print',
+        'Input',
+        'with',
+        'If',
+        'then',
+        'Else',
+        'End',
+        'While',
+        'For',
+        'from',
+        'to',
+        'step',
+        'each',
+        'in',
+        'Repeat',
+        'times',
+        'Function',
+        'takes',
+        'and',
+        'Return',
+        'Class',
+        'extends',
+        'new',
+        'Call',
+        'Try',
+        'Catch',
+        'Throw',
+        'Match',
+        'When',
+        'Default',
+        'Break',
+        'Continue',
+        'Exit',
+        'Constant',
+        'Enum',
+        'as',
+        'Import',
+        'Export',
+        'Assert',
+        'Async',
+        'Await',
+        'Super',
+        'Write',
+        'Read',
+        'Append',
+        'file',
+        'Wait',
+        'seconds',
+        'true',
+        'false',
+        'null',
+        'nothing',
+        'or',
+        'not',
+        'is',
+        'Lambda',
+        'Web',
+        'Start',
+        'Route',
+        'Port',
     ]
 
     # Method completions for common types
-    STRING_METHODS = ['upper', 'lower', 'trim', 'split', 'contains', 'replace',
-                      'starts_with', 'ends_with', 'substring', 'index_of',
-                      'repeat', 'char_at', 'to_list', 'length']
-    LIST_METHODS = ['add', 'remove', 'push', 'pop', 'length', 'sort', 'reverse',
-                    'contains', 'index_of', 'join', 'find', 'slice']
+    STRING_METHODS = [
+        'upper',
+        'lower',
+        'trim',
+        'split',
+        'contains',
+        'replace',
+        'starts_with',
+        'ends_with',
+        'substring',
+        'index_of',
+        'repeat',
+        'char_at',
+        'to_list',
+        'length',
+    ]
+    LIST_METHODS = [
+        'add',
+        'remove',
+        'push',
+        'pop',
+        'length',
+        'sort',
+        'reverse',
+        'contains',
+        'index_of',
+        'join',
+        'find',
+        'slice',
+    ]
     MAP_METHODS = ['keys', 'values', 'has_key', 'remove', 'length', 'entries']
 
     def __init__(self):
@@ -256,18 +420,22 @@ class EPLAnalyzer:
         self.symbols[uri] = symbols
         self.diagnostics[uri] = diagnostics
 
-    def make_internal_diagnostics(self, source: str, message: str, source_name: str = 'epl-lsp') -> List[dict]:
+    def make_internal_diagnostics(
+        self, source: str, message: str, source_name: str = 'epl-lsp'
+    ) -> List[dict]:
         """Build a safe diagnostic payload for internal analysis failures."""
         line = self._extract_line_from_error(message, source)
-        return [{
-            'range': {
-                'start': {'line': max(0, line - 1), 'character': 0},
-                'end': {'line': max(0, line - 1), 'character': 1000}
-            },
-            'severity': 1,
-            'source': source_name,
-            'message': message,
-        }]
+        return [
+            {
+                'range': {
+                    'start': {'line': max(0, line - 1), 'character': 0},
+                    'end': {'line': max(0, line - 1), 'character': 1000},
+                },
+                'severity': 1,
+                'source': source_name,
+                'message': message,
+            }
+        ]
 
     def _get_diagnostics(self, source: str) -> List[dict]:
         """Parse source and return diagnostics (errors/warnings/type checks)."""
@@ -280,32 +448,37 @@ class EPLAnalyzer:
             except Exception as e:
                 msg = str(e)
                 line = self._extract_line_from_error(msg, source)
-                diagnostics.append({
-                    'range': {
-                        'start': {'line': max(0, line - 1), 'character': 0},
-                        'end': {'line': max(0, line - 1), 'character': 1000}
-                    },
-                    'severity': 1,  # Error
-                    'source': 'epl',
-                    'message': msg
-                })
+                diagnostics.append(
+                    {
+                        'range': {
+                            'start': {'line': max(0, line - 1), 'character': 0},
+                            'end': {'line': max(0, line - 1), 'character': 1000},
+                        },
+                        'severity': 1,  # Error
+                        'source': 'epl',
+                        'message': msg,
+                    }
+                )
         except Exception as e:
             msg = str(e)
             line = self._extract_line_from_error(msg, source)
-            diagnostics.append({
-                'range': {
-                    'start': {'line': max(0, line - 1), 'character': 0},
-                    'end': {'line': max(0, line - 1), 'character': 1000}
-                },
-                'severity': 1,  # Error
-                'source': 'epl',
-                'message': msg
-            })
+            diagnostics.append(
+                {
+                    'range': {
+                        'start': {'line': max(0, line - 1), 'character': 0},
+                        'end': {'line': max(0, line - 1), 'character': 1000},
+                    },
+                    'severity': 1,  # Error
+                    'source': 'epl',
+                    'message': msg,
+                }
+            )
 
         # Type checking pass (runs on successfully parsed AST)
         if program is not None:
             try:
                 from epl.type_checker import TypeChecker
+
                 checker = TypeChecker(strict=False)
                 checker.check(program)
                 diagnostics.extend(checker.to_lsp_diagnostics())
@@ -326,38 +499,44 @@ class EPLAnalyzer:
             if stripped.startswith('Return ') and i + 1 < len(lines):
                 next_line = lines[i + 1].strip()
                 if next_line and not next_line.startswith('End') and not next_line.startswith('#'):
-                    warnings.append({
-                        'range': {
-                            'start': {'line': i + 1, 'character': 0},
-                            'end': {'line': i + 1, 'character': len(lines[i + 1])}
-                        },
-                        'severity': 2,  # Warning
-                        'source': 'epl-lint',
-                        'message': 'Unreachable code after Return statement.'
-                    })
+                    warnings.append(
+                        {
+                            'range': {
+                                'start': {'line': i + 1, 'character': 0},
+                                'end': {'line': i + 1, 'character': len(lines[i + 1])},
+                            },
+                            'severity': 2,  # Warning
+                            'source': 'epl-lint',
+                            'message': 'Unreachable code after Return statement.',
+                        }
+                    )
             # Warn about empty loops
             if stripped.startswith('While ') or stripped.startswith('For '):
                 if i + 1 < len(lines) and lines[i + 1].strip() in ('End', 'End.'):
-                    warnings.append({
-                        'range': {
-                            'start': {'line': i, 'character': 0},
-                            'end': {'line': i, 'character': len(line)}
-                        },
-                        'severity': 2,
-                        'source': 'epl-lint',
-                        'message': 'Empty loop body.'
-                    })
+                    warnings.append(
+                        {
+                            'range': {
+                                'start': {'line': i, 'character': 0},
+                                'end': {'line': i, 'character': len(line)},
+                            },
+                            'severity': 2,
+                            'source': 'epl-lint',
+                            'message': 'Empty loop body.',
+                        }
+                    )
             # Warn about very long lines
             if len(line) > 120:
-                warnings.append({
-                    'range': {
-                        'start': {'line': i, 'character': 120},
-                        'end': {'line': i, 'character': len(line)}
-                    },
-                    'severity': 3,  # Information
-                    'source': 'epl-lint',
-                    'message': f'Line exceeds 120 characters ({len(line)}).'
-                })
+                warnings.append(
+                    {
+                        'range': {
+                            'start': {'line': i, 'character': 120},
+                            'end': {'line': i, 'character': len(line)},
+                        },
+                        'severity': 3,  # Information
+                        'source': 'epl-lint',
+                        'message': f'Line exceeds 120 characters ({len(line)}).',
+                    }
+                )
         return warnings
 
     def _extract_line_from_error(self, msg: str, source: str) -> int:
@@ -384,22 +563,26 @@ class EPLAnalyzer:
         """Recursively collect symbols from AST."""
         if isinstance(node, ast.FunctionDef):
             params = ', '.join(p[0] if isinstance(p, (list, tuple)) else p for p in node.params)
-            symbols.append({
-                'name': node.name,
-                'kind': 12,  # Function
-                'detail': f'Function {node.name}({params})',
-                'range': self._node_range(node, source),
-                'selectionRange': self._node_range(node, source),
-            })
+            symbols.append(
+                {
+                    'name': node.name,
+                    'kind': 12,  # Function
+                    'detail': f'Function {node.name}({params})',
+                    'range': self._node_range(node, source),
+                    'selectionRange': self._node_range(node, source),
+                }
+            )
         elif isinstance(node, ast.AsyncFunctionDef):
             params = ', '.join(p[0] if isinstance(p, (list, tuple)) else p for p in node.params)
-            symbols.append({
-                'name': node.name,
-                'kind': 12,  # Function
-                'detail': f'Async Function {node.name}({params})',
-                'range': self._node_range(node, source),
-                'selectionRange': self._node_range(node, source),
-            })
+            symbols.append(
+                {
+                    'name': node.name,
+                    'kind': 12,  # Function
+                    'detail': f'Async Function {node.name}({params})',
+                    'range': self._node_range(node, source),
+                    'selectionRange': self._node_range(node, source),
+                }
+            )
         elif isinstance(node, ast.ClassDef):
             cls_sym = {
                 'name': node.name,
@@ -413,36 +596,42 @@ class EPLAnalyzer:
                 self._collect_symbols(child, cls_sym['children'], source, container=node.name)
             symbols.append(cls_sym)
         elif isinstance(node, ast.VarDeclaration):
-            symbols.append({
-                'name': node.name,
-                'kind': 13,  # Variable
-                'detail': f'Variable {node.name}',
-                'range': self._node_range(node, source),
-                'selectionRange': self._node_range(node, source),
-            })
+            symbols.append(
+                {
+                    'name': node.name,
+                    'kind': 13,  # Variable
+                    'detail': f'Variable {node.name}',
+                    'range': self._node_range(node, source),
+                    'selectionRange': self._node_range(node, source),
+                }
+            )
         elif isinstance(node, ast.ConstDeclaration):
-            symbols.append({
-                'name': node.name,
-                'kind': 14,  # Constant
-                'detail': f'Constant {node.name}',
-                'range': self._node_range(node, source),
-                'selectionRange': self._node_range(node, source),
-            })
+            symbols.append(
+                {
+                    'name': node.name,
+                    'kind': 14,  # Constant
+                    'detail': f'Constant {node.name}',
+                    'range': self._node_range(node, source),
+                    'selectionRange': self._node_range(node, source),
+                }
+            )
         elif isinstance(node, ast.EnumDef):
-            symbols.append({
-                'name': node.name,
-                'kind': 10,  # Enum
-                'detail': f'Enum {node.name}',
-                'range': self._node_range(node, source),
-                'selectionRange': self._node_range(node, source),
-            })
+            symbols.append(
+                {
+                    'name': node.name,
+                    'kind': 10,  # Enum
+                    'detail': f'Enum {node.name}',
+                    'range': self._node_range(node, source),
+                    'selectionRange': self._node_range(node, source),
+                }
+            )
 
     def _node_range(self, node, source):
         """Get LSP range for a node."""
         line = getattr(node, 'line', 1)
         return {
             'start': {'line': max(0, line - 1), 'character': 0},
-            'end': {'line': max(0, line - 1), 'character': 1000}
+            'end': {'line': max(0, line - 1), 'character': 1000},
         }
 
     def _regex_extract_symbols(self, source: str) -> List[dict]:
@@ -453,30 +642,57 @@ class EPLAnalyzer:
             # Function
             m = re.match(r'(?:Async\s+)?Function\s+(\w+)', stripped)
             if m:
-                symbols.append({
-                    'name': m.group(1), 'kind': 12,
-                    'detail': f'Function {m.group(1)}',
-                    'range': {'start': {'line': i, 'character': 0}, 'end': {'line': i, 'character': len(line)}},
-                    'selectionRange': {'start': {'line': i, 'character': 0}, 'end': {'line': i, 'character': len(line)}},
-                })
+                symbols.append(
+                    {
+                        'name': m.group(1),
+                        'kind': 12,
+                        'detail': f'Function {m.group(1)}',
+                        'range': {
+                            'start': {'line': i, 'character': 0},
+                            'end': {'line': i, 'character': len(line)},
+                        },
+                        'selectionRange': {
+                            'start': {'line': i, 'character': 0},
+                            'end': {'line': i, 'character': len(line)},
+                        },
+                    }
+                )
             # Class
             m = re.match(r'Class\s+(\w+)', stripped)
             if m:
-                symbols.append({
-                    'name': m.group(1), 'kind': 5,
-                    'detail': f'Class {m.group(1)}',
-                    'range': {'start': {'line': i, 'character': 0}, 'end': {'line': i, 'character': len(line)}},
-                    'selectionRange': {'start': {'line': i, 'character': 0}, 'end': {'line': i, 'character': len(line)}},
-                })
+                symbols.append(
+                    {
+                        'name': m.group(1),
+                        'kind': 5,
+                        'detail': f'Class {m.group(1)}',
+                        'range': {
+                            'start': {'line': i, 'character': 0},
+                            'end': {'line': i, 'character': len(line)},
+                        },
+                        'selectionRange': {
+                            'start': {'line': i, 'character': 0},
+                            'end': {'line': i, 'character': len(line)},
+                        },
+                    }
+                )
             # Variable
             m = re.match(r'(?:Set|Create)\s+(\w+)', stripped)
             if m:
-                symbols.append({
-                    'name': m.group(1), 'kind': 13,
-                    'detail': f'Variable {m.group(1)}',
-                    'range': {'start': {'line': i, 'character': 0}, 'end': {'line': i, 'character': len(line)}},
-                    'selectionRange': {'start': {'line': i, 'character': 0}, 'end': {'line': i, 'character': len(line)}},
-                })
+                symbols.append(
+                    {
+                        'name': m.group(1),
+                        'kind': 13,
+                        'detail': f'Variable {m.group(1)}',
+                        'range': {
+                            'start': {'line': i, 'character': 0},
+                            'end': {'line': i, 'character': len(line)},
+                        },
+                        'selectionRange': {
+                            'start': {'line': i, 'character': 0},
+                            'end': {'line': i, 'character': len(line)},
+                        },
+                    }
+                )
         return symbols
 
     def get_completions(self, uri: str, line: int, character: int) -> List[dict]:
@@ -498,42 +714,50 @@ class EPLAnalyzer:
             obj_name = parts[0].split()[-1] if parts[0] else ''
             # Determine type of object for method suggestions
             for method in self.STRING_METHODS + self.LIST_METHODS:
-                completions.append({
-                    'label': method,
-                    'kind': 2,  # Method
-                    'detail': f'.{method}()',
-                    'insertText': f'{method}($0)',
-                    'insertTextFormat': 2,  # Snippet
-                })
+                completions.append(
+                    {
+                        'label': method,
+                        'kind': 2,  # Method
+                        'detail': f'.{method}()',
+                        'insertText': f'{method}($0)',
+                        'insertTextFormat': 2,  # Snippet
+                    }
+                )
         else:
             # Keywords
             for kw in self.KEYWORDS:
                 if not word or kw.lower().startswith(word.lower()):
-                    completions.append({
-                        'label': kw,
-                        'kind': 14,  # Keyword
-                        'detail': 'keyword',
-                    })
+                    completions.append(
+                        {
+                            'label': kw,
+                            'kind': 14,  # Keyword
+                            'detail': 'keyword',
+                        }
+                    )
             # Builtins
             for name, info in self.BUILTINS.items():
                 if not word or name.lower().startswith(word.lower()):
-                    completions.append({
-                        'label': name,
-                        'kind': 3,  # Function
-                        'detail': info['sig'],
-                        'documentation': info['doc'],
-                        'insertText': f'{name}($0)',
-                        'insertTextFormat': 2,
-                    })
+                    completions.append(
+                        {
+                            'label': name,
+                            'kind': 3,  # Function
+                            'detail': info['sig'],
+                            'documentation': info['doc'],
+                            'insertText': f'{name}($0)',
+                            'insertTextFormat': 2,
+                        }
+                    )
             # User-defined symbols from current document
             for sym in self.symbols.get(uri, []):
                 if not word or sym['name'].lower().startswith(word.lower()):
                     kind_map = {5: 7, 12: 3, 13: 6, 14: 21, 10: 13}
-                    completions.append({
-                        'label': sym['name'],
-                        'kind': kind_map.get(sym['kind'], 1),
-                        'detail': sym.get('detail', ''),
-                    })
+                    completions.append(
+                        {
+                            'label': sym['name'],
+                            'kind': kind_map.get(sym['kind'], 1),
+                            'detail': sym.get('detail', ''),
+                        }
+                    )
 
         return completions
 
@@ -554,28 +778,18 @@ class EPLAnalyzer:
             return {
                 'contents': {
                     'kind': 'markdown',
-                    'value': f'```epl\n{info["sig"]}\n```\n\n{info["doc"]}'
+                    'value': f'```epl\n{info["sig"]}\n```\n\n{info["doc"]}',
                 }
             }
 
         # Check document symbols
         for sym in self.symbols.get(uri, []):
             if sym['name'] == word:
-                return {
-                    'contents': {
-                        'kind': 'markdown',
-                        'value': f'```epl\n{sym["detail"]}\n```'
-                    }
-                }
+                return {'contents': {'kind': 'markdown', 'value': f'```epl\n{sym["detail"]}\n```'}}
 
         # Check keywords
         if word in self.KEYWORDS:
-            return {
-                'contents': {
-                    'kind': 'markdown',
-                    'value': f'**{word}** — EPL keyword'
-                }
-            }
+            return {'contents': {'kind': 'markdown', 'value': f'**{word}** — EPL keyword'}}
 
         return None
 
@@ -590,17 +804,11 @@ class EPLAnalyzer:
             return None
         for sym in self.symbols.get(uri, []):
             if sym['name'] == word:
-                return {
-                    'uri': uri,
-                    'range': sym['range']
-                }
+                return {'uri': uri, 'range': sym['range']}
             # Check children (class methods)
             for child in sym.get('children', []):
                 if child['name'] == word:
-                    return {
-                        'uri': uri,
-                        'range': child['range']
-                    }
+                    return {'uri': uri, 'range': child['range']}
         return None
 
     def _get_word_at(self, line: str, character: int) -> str:
@@ -637,14 +845,18 @@ class EPLAnalyzer:
                     # Check word boundaries
                     before = doc_line[idx - 1] if idx > 0 else ' '
                     after = doc_line[idx + len(word)] if idx + len(word) < len(doc_line) else ' '
-                    if not (before.isalnum() or before == '_') and not (after.isalnum() or after == '_'):
-                        results.append({
-                            'uri': doc_uri,
-                            'range': {
-                                'start': {'line': i, 'character': idx},
-                                'end': {'line': i, 'character': idx + len(word)}
+                    if not (before.isalnum() or before == '_') and not (
+                        after.isalnum() or after == '_'
+                    ):
+                        results.append(
+                            {
+                                'uri': doc_uri,
+                                'range': {
+                                    'start': {'line': i, 'character': idx},
+                                    'end': {'line': i, 'character': idx + len(word)},
+                                },
                             }
-                        })
+                        )
                     col = idx + len(word)
         return results
 
@@ -656,10 +868,7 @@ class EPLAnalyzer:
         changes = {}
         for ref in refs:
             ref_uri = ref['uri']
-            changes.setdefault(ref_uri, []).append({
-                'range': ref['range'],
-                'newText': new_name
-            })
+            changes.setdefault(ref_uri, []).append({'range': ref['range'], 'newText': new_name})
         return {'changes': changes}
 
     def get_code_actions(self, uri: str, diagnostics: List[dict]) -> List[dict]:
@@ -669,36 +878,35 @@ class EPLAnalyzer:
             msg = diag.get('message', '')
             # Quick fix: suggest Run with --strict for type errors
             if 'unreachable' in msg.lower():
-                actions.append({
-                    'title': 'Remove unreachable code',
-                    'kind': 'quickfix',
-                    'diagnostics': [diag],
-                    'edit': {
-                        'changes': {
-                            uri: [{
-                                'range': diag['range'],
-                                'newText': ''
-                            }]
-                        }
+                actions.append(
+                    {
+                        'title': 'Remove unreachable code',
+                        'kind': 'quickfix',
+                        'diagnostics': [diag],
+                        'edit': {'changes': {uri: [{'range': diag['range'], 'newText': ''}]}},
                     }
-                })
+                )
             if 'empty loop' in msg.lower():
-                actions.append({
-                    'title': 'Add TODO comment in empty loop',
-                    'kind': 'quickfix',
-                    'diagnostics': [diag],
-                    'edit': {
-                        'changes': {
-                            uri: [{
-                                'range': {
-                                    'start': diag['range']['end'],
-                                    'end': diag['range']['end']
-                                },
-                                'newText': '\n    // TODO: implement'
-                            }]
-                        }
+                actions.append(
+                    {
+                        'title': 'Add TODO comment in empty loop',
+                        'kind': 'quickfix',
+                        'diagnostics': [diag],
+                        'edit': {
+                            'changes': {
+                                uri: [
+                                    {
+                                        'range': {
+                                            'start': diag['range']['end'],
+                                            'end': diag['range']['end'],
+                                        },
+                                        'newText': '\n    // TODO: implement',
+                                    }
+                                ]
+                            }
+                        },
                     }
-                })
+                )
         return actions
 
     def get_signature_help(self, uri: str, line: int, character: int) -> Optional[dict]:
@@ -724,7 +932,9 @@ class EPLAnalyzer:
         # Extract function name
         name_end = func_end
         name_start = name_end
-        while name_start > 0 and (current_line[name_start - 1].isalnum() or current_line[name_start - 1] == '_'):
+        while name_start > 0 and (
+            current_line[name_start - 1].isalnum() or current_line[name_start - 1] == '_'
+        ):
             name_start -= 1
         func_name = current_line[name_start:name_end]
         if not func_name:
@@ -733,14 +943,16 @@ class EPLAnalyzer:
         if func_name in self.BUILTINS:
             info = self.BUILTINS[func_name]
             # Count commas to determine active parameter
-            args_text = current_line[func_end + 1:]
+            args_text = current_line[func_end + 1 :]
             active_param = args_text.count(',')
             return {
-                'signatures': [{
-                    'label': info['sig'],
-                    'documentation': info['doc'],
-                    'parameters': [],
-                }],
+                'signatures': [
+                    {
+                        'label': info['sig'],
+                        'documentation': info['doc'],
+                        'parameters': [],
+                    }
+                ],
                 'activeSignature': 0,
                 'activeParameter': active_param,
             }
@@ -748,13 +960,15 @@ class EPLAnalyzer:
         for sym in self.symbols.get(uri, []):
             if sym['name'] == func_name and sym['kind'] == 12:
                 detail = sym.get('detail', '')
-                args_text = current_line[func_end + 1:]
+                args_text = current_line[func_end + 1 :]
                 active_param = args_text.count(',')
                 return {
-                    'signatures': [{
-                        'label': detail,
-                        'parameters': [],
-                    }],
+                    'signatures': [
+                        {
+                            'label': detail,
+                            'parameters': [],
+                        }
+                    ],
                     'activeSignature': 0,
                     'activeParameter': active_param,
                 }
@@ -778,37 +992,61 @@ class EPLAnalyzer:
                 continue
 
             # Decrease indent before End
-            if stripped.startswith('End') or stripped == 'Else' or stripped.startswith('Catch') or stripped.startswith('Default') or stripped.startswith('When '):
+            if (
+                stripped.startswith('End')
+                or stripped == 'Else'
+                or stripped.startswith('Catch')
+                or stripped.startswith('Default')
+                or stripped.startswith('When ')
+            ):
                 if stripped.startswith('End'):
                     indent = max(0, indent - 1)
 
             formatted_lines.append(indent_char * indent + stripped)
 
             # Increase indent after block openers
-            if any(stripped.startswith(kw) for kw in [
-                'If ', 'While ', 'For ', 'Repeat ', 'Function ', 'Async Function ',
-                'Class ', 'Try', 'Match '
-            ]):
+            if any(
+                stripped.startswith(kw)
+                for kw in [
+                    'If ',
+                    'While ',
+                    'For ',
+                    'Repeat ',
+                    'Function ',
+                    'Async Function ',
+                    'Class ',
+                    'Try',
+                    'Match ',
+                ]
+            ):
                 indent += 1
-            elif stripped in ('Else', 'Else.') or stripped.startswith('Catch') or stripped.startswith('Default') or stripped.startswith('When '):
+            elif (
+                stripped in ('Else', 'Else.')
+                or stripped.startswith('Catch')
+                or stripped.startswith('Default')
+                or stripped.startswith('When ')
+            ):
                 indent += 1
 
         # Build a single edit replacing entire document
         formatted_text = '\n'.join(formatted_lines)
         if formatted_text == source:
             return []
-        return [{
-            'range': {
-                'start': {'line': 0, 'character': 0},
-                'end': {'line': len(lines), 'character': 0}
-            },
-            'newText': formatted_text
-        }]
+        return [
+            {
+                'range': {
+                    'start': {'line': 0, 'character': 0},
+                    'end': {'line': len(lines), 'character': 0},
+                },
+                'newText': formatted_text,
+            }
+        ]
 
 
 # ═══════════════════════════════════════════════════════════
 # JSON-RPC Transport Layer
 # ═══════════════════════════════════════════════════════════
+
 
 class JSONRPC:
     """JSON-RPC 2.0 message handling over stdio/TCP."""
@@ -855,6 +1093,7 @@ class JSONRPC:
 # EPL Language Server
 # ═══════════════════════════════════════════════════════════
 
+
 class EPLLanguageServer:
     """LSP server for EPL language."""
 
@@ -871,11 +1110,13 @@ class EPLLanguageServer:
         self.shutdown_requested = False
         self.change_debounce_seconds = (
             float(os.environ.get('EPL_LSP_DEBOUNCE_SECONDS', '0.05'))
-            if change_debounce_seconds is None else change_debounce_seconds
+            if change_debounce_seconds is None
+            else change_debounce_seconds
         )
         self.analysis_timeout_seconds = (
             float(os.environ.get('EPL_LSP_ANALYSIS_TIMEOUT_SECONDS', '1.0'))
-            if analysis_timeout_seconds is None else analysis_timeout_seconds
+            if analysis_timeout_seconds is None
+            else analysis_timeout_seconds
         )
         self._analysis_lock = threading.Lock()
         self._pending_lock = threading.Lock()
@@ -939,11 +1180,11 @@ class EPLLanguageServer:
                 'textDocumentSync': {
                     'openClose': True,
                     'change': 1,  # Full content sync
-                    'save': {'includeText': True}
+                    'save': {'includeText': True},
                 },
                 'completionProvider': {
                     'triggerCharacters': ['.', '(', '"'],
-                    'resolveProvider': False
+                    'resolveProvider': False,
                 },
                 'hoverProvider': True,
                 'definitionProvider': True,
@@ -956,10 +1197,7 @@ class EPLLanguageServer:
                 'documentSymbolProvider': True,
                 'documentFormattingProvider': True,
             },
-            'serverInfo': {
-                'name': 'EPL Language Server',
-                'version': '2.0.0'
-            }
+            'serverInfo': {'name': 'EPL Language Server', 'version': '2.0.0'},
         }
 
     def _on_initialized(self, params: dict):
@@ -997,9 +1235,7 @@ class EPLLanguageServer:
         self.analyzer.documents.pop(uri, None)
         self.analyzer.symbols.pop(uri, None)
         self.analyzer.diagnostics.pop(uri, None)
-        self._notify('textDocument/publishDiagnostics', {
-            'uri': uri, 'diagnostics': []
-        })
+        self._notify('textDocument/publishDiagnostics', {'uri': uri, 'diagnostics': []})
 
     def _on_did_save(self, params: dict):
         td = params.get('textDocument', {})
@@ -1061,7 +1297,9 @@ class EPLLanguageServer:
         self._ensure_document_analyzed(uri)
         pos = params.get('position', {})
         new_name = params.get('newName', '')
-        return self.analyzer.get_rename_edits(uri, pos.get('line', 0), pos.get('character', 0), new_name)
+        return self.analyzer.get_rename_edits(
+            uri, pos.get('line', 0), pos.get('character', 0), new_name
+        )
 
     def _on_code_action(self, params: dict) -> List[dict]:
         td = params.get('textDocument', {})
@@ -1100,7 +1338,9 @@ class EPLLanguageServer:
             timer = self._debounce_timers.pop(uri, None)
             if timer is not None:
                 timer.cancel()
-            timer = threading.Timer(self.change_debounce_seconds, self._flush_document_update, args=(uri,))
+            timer = threading.Timer(
+                self.change_debounce_seconds, self._flush_document_update, args=(uri,)
+            )
             timer.daemon = True
             self._debounce_timers[uri] = timer
             timer.start()
@@ -1143,7 +1383,11 @@ class EPLLanguageServer:
 
         thread = threading.Thread(target=worker, daemon=True)
         thread.start()
-        timeout = self.analysis_timeout_seconds if self.analysis_timeout_seconds and self.analysis_timeout_seconds > 0 else None
+        timeout = (
+            self.analysis_timeout_seconds
+            if self.analysis_timeout_seconds and self.analysis_timeout_seconds > 0
+            else None
+        )
         thread.join(timeout)
 
         if thread.is_alive():
@@ -1168,39 +1412,28 @@ class EPLLanguageServer:
     def _publish_diagnostics(self, uri: str):
         """Send diagnostics to client."""
         diagnostics = self.analyzer.diagnostics.get(uri, [])
-        self._notify('textDocument/publishDiagnostics', {
-            'uri': uri,
-            'diagnostics': diagnostics
-        })
+        self._notify('textDocument/publishDiagnostics', {'uri': uri, 'diagnostics': diagnostics})
 
     def _send_response(self, msg_id, result):
-        self.transport.write_message({
-            'jsonrpc': '2.0',
-            'id': msg_id,
-            'result': result
-        })
+        self.transport.write_message({'jsonrpc': '2.0', 'id': msg_id, 'result': result})
 
     def _send_error(self, msg_id, code, message):
-        self.transport.write_message({
-            'jsonrpc': '2.0',
-            'id': msg_id,
-            'error': {'code': code, 'message': message}
-        })
+        self.transport.write_message(
+            {'jsonrpc': '2.0', 'id': msg_id, 'error': {'code': code, 'message': message}}
+        )
 
     def _notify(self, method, params):
-        self.transport.write_message({
-            'jsonrpc': '2.0',
-            'method': method,
-            'params': params
-        })
+        self.transport.write_message({'jsonrpc': '2.0', 'method': method, 'params': params})
 
 
 # ═══════════════════════════════════════════════════════════
 # CLI Entry Point
 # ═══════════════════════════════════════════════════════════
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description='EPL Language Server')
     parser.add_argument('--tcp', action='store_true', help='Use TCP transport on port 2087')
     parser.add_argument('--port', type=int, default=2087, help='TCP port (default: 2087)')
@@ -1208,6 +1441,7 @@ def main():
 
     if args.tcp:
         import socket
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(('127.0.0.1', args.port))

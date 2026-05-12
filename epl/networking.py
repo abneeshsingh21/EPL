@@ -12,19 +12,17 @@ Provides:
 - WebSocket client
 """
 
+import json
 import socket
 import ssl
-import json
 import threading
 import time
-import urllib.request
-import urllib.parse
 import urllib.error
-from typing import Any, Optional
-from io import BytesIO
-
+import urllib.parse
+import urllib.request
 
 # ─── TCP Server ───────────────────────────────────────────────
+
 
 class TCPServer:
     """
@@ -40,9 +38,15 @@ class TCPServer:
         server.start()
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8080,
-                 backlog: int = 128, use_ssl: bool = False,
-                 certfile: str = None, keyfile: str = None):
+    def __init__(
+        self,
+        host: str = '0.0.0.0',
+        port: int = 8080,
+        backlog: int = 128,
+        use_ssl: bool = False,
+        certfile: str = None,
+        keyfile: str = None,
+    ):
         self.host = host
         self.port = port
         self.backlog = backlog
@@ -67,7 +71,7 @@ class TCPServer:
         self._socket.bind((self.host, self.port))
         self._socket.listen(self.backlog)
         self._running = True
-        print(f"TCP Server listening on {self.host}:{self.port}")
+        print(f'TCP Server listening on {self.host}:{self.port}')
 
         if blocking:
             self._accept_loop()
@@ -85,9 +89,7 @@ class TCPServer:
                 with self._lock:
                     self._clients.append(client)
                 if self._handler:
-                    t = threading.Thread(
-                        target=self._handle_client, args=(client,), daemon=True
-                    )
+                    t = threading.Thread(target=self._handle_client, args=(client,), daemon=True)
                     t.start()
             except socket.timeout:
                 continue
@@ -99,7 +101,7 @@ class TCPServer:
             if self._handler:
                 self._handler(client)
         except Exception as e:
-            print(f"TCP client error: {e}")
+            print(f'TCP client error: {e}')
         finally:
             client.close()
             with self._lock:
@@ -130,8 +132,7 @@ class TCPConnection:
         self.connected = sock is not None
         self._buffer_size = 65536
 
-    def connect(self, host: str, port: int, timeout: float = 30.0,
-                use_ssl: bool = False):
+    def connect(self, host: str, port: int, timeout: float = 30.0, use_ssl: bool = False):
         """Connect to a TCP server."""
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.settimeout(timeout)
@@ -191,7 +192,7 @@ class TCPConnection:
         while len(data) < size:
             chunk = self._socket.recv(size - len(data))
             if not chunk:
-                raise ConnectionError("Connection closed")
+                raise ConnectionError('Connection closed')
             data += chunk
         return data
 
@@ -217,10 +218,11 @@ class TCPConnection:
         return self.address
 
     def __repr__(self):
-        return f"<TCPConnection to={self.address} connected={self.connected}>"
+        return f'<TCPConnection to={self.address} connected={self.connected}>'
 
 
 # ─── UDP ──────────────────────────────────────────────────────
+
 
 class UDPSocket:
     """
@@ -237,7 +239,7 @@ class UDPSocket:
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._buffer_size = 65536
 
-    def bind(self, host: str = "0.0.0.0", port: int = 0):
+    def bind(self, host: str = '0.0.0.0', port: int = 0):
         """Bind to address. Port 0 = auto-assign."""
         self._socket.bind((host, port))
 
@@ -271,6 +273,7 @@ class UDPSocket:
 
 
 # ─── HTTP Client ──────────────────────────────────────────────
+
 
 class HTTPResponse:
     """Represents an HTTP response."""
@@ -319,7 +322,7 @@ class HTTPClient:
         Print resp.json()
     """
 
-    def __init__(self, base_url: str = "", timeout: float = 30.0):
+    def __init__(self, base_url: str = '', timeout: float = 30.0):
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
         self._headers: dict = {
@@ -341,14 +344,15 @@ class HTTPClient:
     def set_auth(self, username: str, password: str):
         """Set basic authentication."""
         import base64
-        credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
-        self._headers['Authorization'] = f"Basic {credentials}"
+
+        credentials = base64.b64encode(f'{username}:{password}'.encode()).decode()
+        self._headers['Authorization'] = f'Basic {credentials}'
         self._auth = (username, password)
         return self
 
     def set_bearer_token(self, token: str):
         """Set bearer token authentication."""
-        self._headers['Authorization'] = f"Bearer {token}"
+        self._headers['Authorization'] = f'Bearer {token}'
         return self
 
     def set_cookie(self, name: str, value: str):
@@ -366,10 +370,11 @@ class HTTPClient:
     def _build_url(self, path: str) -> str:
         if path.startswith(('http://', 'https://')):
             return path
-        return f"{self.base_url}/{path.lstrip('/')}" if self.base_url else path
+        return f'{self.base_url}/{path.lstrip("/")}' if self.base_url else path
 
-    def _make_request(self, method: str, url: str, data=None,
-                      headers: dict = None, params: dict = None) -> HTTPResponse:
+    def _make_request(
+        self, method: str, url: str, data=None, headers: dict = None, params: dict = None
+    ) -> HTTPResponse:
         """Make an HTTP request."""
         full_url = self._build_url(url)
 
@@ -386,7 +391,7 @@ class HTTPClient:
 
         # Add cookies
         if self._cookies:
-            cookie_str = '; '.join(f"{k}={v}" for k, v in self._cookies.items())
+            cookie_str = '; '.join(f'{k}={v}' for k, v in self._cookies.items())
             req_headers['Cookie'] = cookie_str
 
         # Prepare body
@@ -403,10 +408,7 @@ class HTTPClient:
 
         # Build request
         req = urllib.request.Request(
-            full_url,
-            data=body,
-            headers=req_headers,
-            method=method.upper()
+            full_url, data=body, headers=req_headers, method=method.upper()
         )
 
         # SSL context
@@ -436,7 +438,7 @@ class HTTPClient:
             return HTTPResponse(e.code, resp_headers, resp_body, full_url)
 
         except urllib.error.URLError as e:
-            raise ConnectionError(f"HTTP request failed: {e.reason}")
+            raise ConnectionError(f'HTTP request failed: {e.reason}')
 
     def get(self, url: str, params: dict = None, headers: dict = None) -> HTTPResponse:
         return self._make_request('GET', url, params=params, headers=headers)
@@ -481,20 +483,25 @@ class HTTPClient:
                 total += len(chunk)
         return total
 
-    def upload(self, url: str, filepath: str, field_name: str = "file") -> HTTPResponse:
+    def upload(self, url: str, filepath: str, field_name: str = 'file') -> HTTPResponse:
         """Upload a file using multipart/form-data."""
         import os
+
         filename = os.path.basename(filepath)
-        boundary = f"----EPLBoundary{int(time.time()*1000)}"
+        boundary = f'----EPLBoundary{int(time.time() * 1000)}'
 
         with open(filepath, 'rb') as f:
             file_data = f.read()
 
         body = (
-            f"--{boundary}\r\n"
-            f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'
-            f"Content-Type: application/octet-stream\r\n\r\n"
-        ).encode('utf-8') + file_data + f"\r\n--{boundary}--\r\n".encode('utf-8')
+            (
+                f'--{boundary}\r\n'
+                f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'
+                f'Content-Type: application/octet-stream\r\n\r\n'
+            ).encode('utf-8')
+            + file_data
+            + f'\r\n--{boundary}--\r\n'.encode('utf-8')
+        )
 
         headers = {'Content-Type': f'multipart/form-data; boundary={boundary}'}
         return self._make_request('POST', url, data=body, headers=headers)
@@ -504,6 +511,7 @@ class HTTPClient:
 
 
 # ─── DNS ──────────────────────────────────────────────────────
+
 
 def dns_lookup(hostname: str) -> str:
     """Resolve hostname to IP address."""
@@ -541,12 +549,12 @@ def get_local_ip() -> str:
     """Get local IP address."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
+        s.connect(('8.8.8.8', 80))
         ip = s.getsockname()[0]
         s.close()
         return ip
     except Exception:
-        return "127.0.0.1"
+        return '127.0.0.1'
 
 
 def get_hostname() -> str:
@@ -555,6 +563,7 @@ def get_hostname() -> str:
 
 
 # ─── Convenience Functions ────────────────────────────────────
+
 
 def http_get(url: str, headers: dict = None, timeout: float = 30.0) -> HTTPResponse:
     """Quick HTTP GET request."""
@@ -588,8 +597,9 @@ def http_delete(url: str, headers: dict = None, timeout: float = 30.0) -> HTTPRe
     return client.delete(url)
 
 
-def tcp_connect(host: str, port: int, timeout: float = 30.0,
-                use_ssl: bool = False) -> TCPConnection:
+def tcp_connect(
+    host: str, port: int, timeout: float = 30.0, use_ssl: bool = False
+) -> TCPConnection:
     """Quick TCP connection."""
     conn = TCPConnection()
     conn.connect(host, port, timeout, use_ssl)

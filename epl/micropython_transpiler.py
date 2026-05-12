@@ -13,27 +13,26 @@ Upload with: mpremote cp <output>.py :main.py
 
 from epl import ast_nodes as ast
 
-
 # ─── Platform-specific headers ────────────────────────────
 
 _HEADERS = {
-    'esp32': '''\
+    'esp32': """\
 # EPL → MicroPython (ESP32)
 # Upload: mpremote cp {filename} :main.py
 import machine
 import time
 import gc
-''',
-    'pico': '''\
+""",
+    'pico': """\
 # EPL → MicroPython (Raspberry Pi Pico)
 # Upload: mpremote cp {filename} :main.py
 import machine
 import time
 import gc
-''',
+""",
 }
 
-_GPIO_HELPERS = '''\
+_GPIO_HELPERS = """\
 # ─── EPL GPIO helpers ────────────────────────────────
 def pin_setup(num, mode="out"):
     m = machine.Pin.OUT if mode == "out" else machine.Pin.IN
@@ -60,7 +59,7 @@ def pwm_write(pin_num, duty, freq=1000):
 def wait(ms):
     time.sleep_ms(int(ms))
 
-'''
+"""
 
 
 class MicroPythonTranspiler:
@@ -133,7 +132,7 @@ class MicroPythonTranspiler:
 
     def _wifi_helper(self):
         if self.target == 'pico':
-            return '''\
+            return """\
 import network
 def wifi_connect(ssid, password):
     wlan = network.WLAN(network.STA_IF)
@@ -143,8 +142,8 @@ def wifi_connect(ssid, password):
         time.sleep_ms(100)
     return wlan.ifconfig()[0]
 
-'''
-        return '''\
+"""
+        return """\
 import network
 def wifi_connect(ssid, password):
     sta = network.WLAN(network.STA_IF)
@@ -154,11 +153,11 @@ def wifi_connect(ssid, password):
         time.sleep_ms(100)
     return sta.ifconfig()[0]
 
-'''
+"""
 
     def _i2c_helper(self):
         if self.target == 'pico':
-            return '''\
+            return """\
 def i2c_setup(sda=0, scl=1, freq=400000):
     return machine.I2C(0, sda=machine.Pin(sda), scl=machine.Pin(scl), freq=freq)
 
@@ -171,8 +170,8 @@ def i2c_write(bus, addr, data):
 def i2c_read(bus, addr, n):
     return list(bus.readfrom(addr, n))
 
-'''
-        return '''\
+"""
+        return """\
 def i2c_setup(sda=21, scl=22, freq=400000):
     return machine.I2C(0, sda=machine.Pin(sda), scl=machine.Pin(scl), freq=freq)
 
@@ -185,7 +184,7 @@ def i2c_write(bus, addr, data):
 def i2c_read(bus, addr, n):
     return list(bus.readfrom(addr, n))
 
-'''
+"""
 
     def _line(self, code):
         self.output.append('    ' * self.indent + code)
@@ -266,7 +265,9 @@ def i2c_read(bus, addr, n):
             self.indent -= 1
 
         elif isinstance(node, ast.FunctionDef):
-            params = ', '.join(self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params)
+            params = ', '.join(
+                self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params
+            )
             self._line(f'def {self._safe_name(node.name)}({params}):')
             self.indent += 1
             self.functions_defined.add(node.name)
@@ -347,7 +348,9 @@ def i2c_read(bus, addr, n):
             self._line(f'{self._expr(node.obj)}.{node.property_name} = {self._expr(node.value)}')
 
         elif isinstance(node, ast.IndexSet):
-            self._line(f'{self._expr(node.obj)}[{self._expr(node.index)}] = {self._expr(node.value)}')
+            self._line(
+                f'{self._expr(node.obj)}[{self._expr(node.index)}] = {self._expr(node.value)}'
+            )
 
         elif isinstance(node, ast.MethodCall):
             obj = self._expr(node.obj)
@@ -434,7 +437,9 @@ def i2c_read(bus, addr, n):
 
         elif isinstance(node, ast.AsyncFunctionDef):
             # MicroPython has limited async — emit as uasyncio coroutine
-            params = ', '.join(self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params)
+            params = ', '.join(
+                self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params
+            )
             self._line(f'async def {self._safe_name(node.name)}({params}):')
             self.indent += 1
             for s in node.body:
@@ -468,7 +473,9 @@ def i2c_read(bus, addr, n):
             self._compile_stmt(node.statement)
 
         elif isinstance(node, ast.StaticMethodDef):
-            params = ', '.join(self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params)
+            params = ', '.join(
+                self._safe_name(p[0] if isinstance(p, tuple) else p) for p in node.params
+            )
             self._line('@staticmethod')
             self._line(f'def {self._safe_name(node.name)}({params}):')
             self.indent += 1
@@ -510,12 +517,23 @@ def i2c_read(bus, addr, n):
             l = self._expr(node.left)
             r = self._expr(node.right)
             op_map = {
-                'Plus': '+', 'Minus': '-', 'Multiply': '*', 'Divide': '/',
-                'Modulo': '%', 'Power': '**', 'FloorDivide': '//',
-                'Equals': '==', 'NotEquals': '!=', 'Is': '==', 'IsNot': '!=',
-                'LessThan': '<', 'GreaterThan': '>',
-                'LessThanOrEqual': '<=', 'GreaterThanOrEqual': '>=',
-                'And': 'and', 'Or': 'or',
+                'Plus': '+',
+                'Minus': '-',
+                'Multiply': '*',
+                'Divide': '/',
+                'Modulo': '%',
+                'Power': '**',
+                'FloorDivide': '//',
+                'Equals': '==',
+                'NotEquals': '!=',
+                'Is': '==',
+                'IsNot': '!=',
+                'LessThan': '<',
+                'GreaterThan': '>',
+                'LessThanOrEqual': '<=',
+                'GreaterThanOrEqual': '>=',
+                'And': 'and',
+                'Or': 'or',
             }
             op = op_map.get(str(node.operator), '+')
             return f'({l} {op} {r})'
@@ -594,10 +612,17 @@ def i2c_read(bus, addr, n):
     def _func_name(self, name):
         """Map EPL builtin function names to MicroPython equivalents."""
         mapping = {
-            'length': 'len', 'append': 'list.append', 'to_text': 'str',
-            'to_integer': 'int', 'to_decimal': 'float', 'to_boolean': 'bool',
-            'uppercase': 'str.upper', 'lowercase': 'str.lower',
-            'type_of': 'type', 'absolute': 'abs', 'power': 'pow',
+            'length': 'len',
+            'append': 'list.append',
+            'to_text': 'str',
+            'to_integer': 'int',
+            'to_decimal': 'float',
+            'to_boolean': 'bool',
+            'uppercase': 'str.upper',
+            'lowercase': 'str.lower',
+            'type_of': 'type',
+            'absolute': 'abs',
+            'power': 'pow',
             'random': '__import__("random").random',
             'sqrt': '__import__("math").sqrt',
             'floor': '__import__("math").floor',
@@ -608,15 +633,26 @@ def i2c_read(bus, addr, n):
             'join': 'lambda lst, sep: sep.join(str(x) for x in lst)',
             'split': 'lambda s, d: s.split(d)',
             'replace': 'lambda s, old, new: s.replace(old, new)',
-            'sorted': 'sorted', 'reversed': 'list(reversed',
-            'range': 'range', 'sum': 'sum', 'min': 'min', 'max': 'max',
-            'round': 'round', 'print': 'print',
-            'pin_setup': 'pin_setup', 'pin_on': 'pin_on', 'pin_off': 'pin_off',
-            'pin_read': 'pin_read', 'analog_read': 'analog_read',
-            'pwm_write': 'pwm_write', 'wait': 'wait',
+            'sorted': 'sorted',
+            'reversed': 'list(reversed',
+            'range': 'range',
+            'sum': 'sum',
+            'min': 'min',
+            'max': 'max',
+            'round': 'round',
+            'print': 'print',
+            'pin_setup': 'pin_setup',
+            'pin_on': 'pin_on',
+            'pin_off': 'pin_off',
+            'pin_read': 'pin_read',
+            'analog_read': 'analog_read',
+            'pwm_write': 'pwm_write',
+            'wait': 'wait',
             'wifi_connect': 'wifi_connect',
-            'i2c_setup': 'i2c_setup', 'i2c_scan': 'i2c_scan',
-            'i2c_write': 'i2c_write', 'i2c_read': 'i2c_read',
+            'i2c_setup': 'i2c_setup',
+            'i2c_scan': 'i2c_scan',
+            'i2c_write': 'i2c_write',
+            'i2c_read': 'i2c_read',
             'time_now': 'time.ticks_ms',
         }
         return mapping.get(name, self._safe_name(name))
@@ -625,12 +661,43 @@ def i2c_read(bus, addr, n):
         """Ensure name is valid Python identifier."""
         if isinstance(name, str):
             name = name.replace(' ', '_').replace('-', '_')
-            if name in ('class', 'def', 'return', 'import', 'from', 'as',
-                        'if', 'else', 'elif', 'while', 'for', 'in',
-                        'try', 'except', 'finally', 'raise', 'with',
-                        'pass', 'break', 'continue', 'and', 'or', 'not',
-                        'True', 'False', 'None', 'is', 'lambda', 'del',
-                        'global', 'nonlocal', 'assert', 'yield', 'async', 'await'):
+            if name in (
+                'class',
+                'def',
+                'return',
+                'import',
+                'from',
+                'as',
+                'if',
+                'else',
+                'elif',
+                'while',
+                'for',
+                'in',
+                'try',
+                'except',
+                'finally',
+                'raise',
+                'with',
+                'pass',
+                'break',
+                'continue',
+                'and',
+                'or',
+                'not',
+                'True',
+                'False',
+                'None',
+                'is',
+                'lambda',
+                'del',
+                'global',
+                'nonlocal',
+                'assert',
+                'yield',
+                'async',
+                'await',
+            ):
                 return name + '_'
         return name
 

@@ -14,20 +14,19 @@ Supports:
   - epl.toml manifest creation on install
 """
 
+import hashlib
 import json
 import os
 import re
+import shutil
+import tempfile
 import time
-import hashlib
-import urllib.request
 import urllib.error
 import urllib.parse
-import tempfile
+import urllib.request
 import zipfile
-import shutil
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
-
+from typing import List, Optional, Tuple
 
 # ═══════════════════════════════════════════════════════════
 #  Configuration
@@ -50,6 +49,7 @@ def _ensure_dirs():
 # ═══════════════════════════════════════════════════════════
 #  Registry Cache
 # ═══════════════════════════════════════════════════════════
+
 
 class RegistryCache:
     """Local cache for registry metadata with TTL-based invalidation."""
@@ -100,6 +100,7 @@ class RegistryCache:
 #  Download Statistics
 # ═══════════════════════════════════════════════════════════
 
+
 class DownloadStats:
     """Track package download counts locally."""
 
@@ -146,6 +147,7 @@ class DownloadStats:
 #  GitHub Registry Client
 # ═══════════════════════════════════════════════════════════
 
+
 class GitHubRegistry:
     """Interface to the GitHub-based EPL package registry."""
 
@@ -154,8 +156,9 @@ class GitHubRegistry:
         self._cache = RegistryCache()
         self._stats = DownloadStats()
 
-    def _github_request(self, url: str, method: str = 'GET',
-                        data: bytes = None, retries: int = 2) -> Optional[dict]:
+    def _github_request(
+        self, url: str, method: str = 'GET', data: bytes = None, retries: int = 2
+    ) -> Optional[dict]:
         """Make an authenticated GitHub API request with retry."""
         headers = {
             'Accept': 'application/vnd.github.v3+json',
@@ -175,10 +178,12 @@ class GitHubRegistry:
                 if e.code == 404:
                     return None
                 if e.code == 403:
-                    print("  Rate limited by GitHub. Set EPL_GITHUB_TOKEN env var for higher limits.")
+                    print(
+                        '  Rate limited by GitHub. Set EPL_GITHUB_TOKEN env var for higher limits.'
+                    )
                     return None
                 if e.code == 429 and attempt < retries:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                     continue
                 return None
             except (urllib.error.URLError, OSError):
@@ -216,8 +221,9 @@ class GitHubRegistry:
 
         # Try fetching official index
         try:
-            req = urllib.request.Request(REGISTRY_INDEX_URL,
-                                        headers={'User-Agent': 'EPL-PackageManager/5.0'})
+            req = urllib.request.Request(
+                REGISTRY_INDEX_URL, headers={'User-Agent': 'EPL-PackageManager/5.0'}
+            )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode('utf-8'))
                 packages = data.get('packages', data)
@@ -242,14 +248,16 @@ class GitHubRegistry:
         for name, info in BUILTIN_REGISTRY.items():
             score = self._score_match(name, info, query_lower, query_words)
             if score > 0:
-                results.append({
-                    'name': name,
-                    'version': info.get('version', '1.0.0'),
-                    'description': info.get('description', ''),
-                    'source': 'builtin',
-                    'downloads': self._stats.get_count(name),
-                    'score': score,
-                })
+                results.append(
+                    {
+                        'name': name,
+                        'version': info.get('version', '1.0.0'),
+                        'description': info.get('description', ''),
+                        'source': 'builtin',
+                        'downloads': self._stats.get_count(name),
+                        'score': score,
+                    }
+                )
 
         # Search remote index
         remote = self.fetch_index()
@@ -258,14 +266,16 @@ class GitHubRegistry:
                 continue  # already in results
             score = self._score_match(name, info, query_lower, query_words)
             if score > 0:
-                results.append({
-                    'name': name,
-                    'version': info.get('version', '1.0.0'),
-                    'description': info.get('description', ''),
-                    'source': info.get('source', 'registry'),
-                    'downloads': self._stats.get_count(name),
-                    'score': score,
-                })
+                results.append(
+                    {
+                        'name': name,
+                        'version': info.get('version', '1.0.0'),
+                        'description': info.get('description', ''),
+                        'source': info.get('source', 'registry'),
+                        'downloads': self._stats.get_count(name),
+                        'score': score,
+                    }
+                )
 
         # Sort by score descending, then by downloads
         results.sort(key=lambda r: (r['score'], r['downloads']), reverse=True)
@@ -305,8 +315,7 @@ class GitHubRegistry:
 
     # ── GitHub Release Install ──
 
-    def install_from_github_release(self, owner: str, repo: str,
-                                     version: str = None) -> bool:
+    def install_from_github_release(self, owner: str, repo: str, version: str = None) -> bool:
         """Install a package from GitHub releases with verification."""
         _ensure_dirs()
 
@@ -323,11 +332,11 @@ class GitHubRegistry:
 
         if not release:
             # Fall back to downloading main branch
-            print(f"  No releases found, installing from main branch...")
+            print('  No releases found, installing from main branch...')
             return self._install_from_branch(owner, repo)
 
         tag = release.get('tag_name', '').lstrip('v')
-        print(f"  Found release: {repo} v{tag}")
+        print(f'  Found release: {repo} v{tag}')
 
         # Look for an .epl.zip asset or source tarball
         assets = release.get('assets', [])
@@ -352,7 +361,7 @@ class GitHubRegistry:
             if zipball:
                 return self._download_and_install(zipball, repo, tag)
 
-        print(f"  No downloadable assets in release.")
+        print('  No downloadable assets in release.')
         return False
 
     def _install_from_branch(self, owner: str, repo: str, branch: str = 'main') -> bool:
@@ -362,10 +371,10 @@ class GitHubRegistry:
 
     def _download_and_install(self, url: str, pkg_name: str, version: str) -> bool:
         """Download a zip, verify, and install it."""
-        print(f"  Downloading {pkg_name}...")
+        print(f'  Downloading {pkg_name}...')
         raw = self._fetch_raw(url)
         if not raw:
-            print(f"  Failed to download from {url}")
+            print(f'  Failed to download from {url}')
             return False
 
         # Verify checksum
@@ -386,12 +395,15 @@ class GitHubRegistry:
                         if os.path.isabs(member_path) or '..' in member_path.split(os.sep):
                             continue
                         dest_path = os.path.realpath(os.path.join(extract_root, member_path))
-                        if not dest_path.startswith(extract_root + os.sep) and dest_path != extract_root:
+                        if (
+                            not dest_path.startswith(extract_root + os.sep)
+                            and dest_path != extract_root
+                        ):
                             continue
                         safe_members.append(member)
                     z.extractall(os.path.join(tmp, 'extract'), members=safe_members)
             except zipfile.BadZipFile:
-                print(f"  Invalid zip file")
+                print('  Invalid zip file')
                 return False
 
             # Find the package root (may be nested in a directory)
@@ -414,7 +426,7 @@ class GitHubRegistry:
                 manifest = {
                     'name': pkg_name,
                     'version': version,
-                    'description': f'Installed from GitHub',
+                    'description': 'Installed from GitHub',
                     'checksum': checksum,
                 }
                 with open(json_path, 'w', encoding='utf-8') as f:
@@ -422,34 +434,34 @@ class GitHubRegistry:
 
             # Record download
             self._stats.record_download(pkg_name, version)
-            print(f"  Installed: {pkg_name} @ {version}")
-            print(f"  SHA256: {checksum[:16]}...")
+            print(f'  Installed: {pkg_name} @ {version}')
+            print(f'  SHA256: {checksum[:16]}...')
             return True
 
     # ── Publish ──
 
     def publish_to_registry(self, path: str = '.', github_repo: str = None) -> bool:
         """Publish a package to the EPL registry via GitHub releases.
-        
+
         This creates a GitHub release with the packaged .zip attached.
         Requires EPL_GITHUB_TOKEN environment variable.
         """
         if not self._token:
-            print("  Error: EPL_GITHUB_TOKEN environment variable required for publishing.")
-            print("  Create a token at: https://github.com/settings/tokens")
+            print('  Error: EPL_GITHUB_TOKEN environment variable required for publishing.')
+            print('  Create a token at: https://github.com/settings/tokens')
             print("  Set it: $env:EPL_GITHUB_TOKEN = 'your-token'")
             return False
 
-        from epl.package_manager import validate_package, pack_package, load_manifest
+        from epl.package_manager import load_manifest, pack_package, validate_package
 
         # Validate
         validation = validate_package(path)
         if not validation['valid']:
             for e in validation['errors']:
-                print(f"  Error: {e}")
+                print(f'  Error: {e}')
             return False
         for w in validation.get('warnings', []):
-            print(f"  Warning: {w}")
+            print(f'  Warning: {w}')
 
         manifest = load_manifest(path)
         name = manifest['name']
@@ -458,8 +470,8 @@ class GitHubRegistry:
         if not github_repo:
             github_repo = manifest.get('repository', '')
             if not github_repo:
-                print("  Error: No GitHub repository specified.")
-                print("  Add repository to epl.toml [project], or use --repo owner/repo")
+                print('  Error: No GitHub repository specified.')
+                print('  Add repository to epl.toml [project], or use --repo owner/repo')
                 return False
 
         # Normalize repo format
@@ -476,66 +488,73 @@ class GitHubRegistry:
 
         # Create GitHub release
         owner, repo = github_repo.split('/', 1)
-        release_data = json.dumps({
-            'tag_name': f'v{version}',
-            'name': f'{name} v{version}',
-            'body': manifest.get('description', f'{name} version {version}'),
-            'draft': False,
-            'prerelease': '-' in version,  # pre-release if version has pre-release segment
-        }).encode('utf-8')
+        release_data = json.dumps(
+            {
+                'tag_name': f'v{version}',
+                'name': f'{name} v{version}',
+                'body': manifest.get('description', f'{name} version {version}'),
+                'draft': False,
+                'prerelease': '-' in version,  # pre-release if version has pre-release segment
+            }
+        ).encode('utf-8')
 
         release_url = f'{GITHUB_API}/repos/{owner}/{repo}/releases'
         release = self._github_request(release_url, method='POST', data=release_data)
 
         if not release:
-            print(f"  Failed to create GitHub release. Check your token permissions.")
+            print('  Failed to create GitHub release. Check your token permissions.')
             return False
 
         # Upload the archive as a release asset
         upload_url = release.get('upload_url', '').split('{')[0]
         if upload_url and archive_path:
             archive_name = os.path.basename(archive_path)
-            upload_url = f"{upload_url}?name={urllib.parse.quote(archive_name)}"
+            upload_url = f'{upload_url}?name={urllib.parse.quote(archive_name)}'
             with open(archive_path, 'rb') as f:
                 asset_data = f.read()
 
             req = urllib.request.Request(
-                upload_url, data=asset_data, method='POST',
+                upload_url,
+                data=asset_data,
+                method='POST',
                 headers={
                     'Authorization': f'token {self._token}',
                     'Content-Type': 'application/zip',
                     'User-Agent': 'EPL-PackageManager/5.0',
-                }
+                },
             )
             try:
                 with urllib.request.urlopen(req, timeout=60) as resp:
                     resp.read()
-                print(f"  Asset uploaded: {archive_name}")
+                print(f'  Asset uploaded: {archive_name}')
             except (urllib.error.URLError, OSError) as e:
-                print(f"  Warning: Could not upload release asset: {e}")
+                print(f'  Warning: Could not upload release asset: {e}')
 
         # Submit to registry index (if official registry configured)
         self._submit_to_index(name, version, manifest, github_repo)
 
-        print(f"\n  Published: {name} @ {version}")
-        print(f"  GitHub: https://github.com/{github_repo}/releases/tag/v{version}")
-        print(f"  Install: epl install github:{github_repo}")
+        print(f'\n  Published: {name} @ {version}')
+        print(f'  GitHub: https://github.com/{github_repo}/releases/tag/v{version}')
+        print(f'  Install: epl install github:{github_repo}')
         return True
 
     def _submit_to_index(self, name: str, version: str, manifest: dict, repo: str):
         """Submit package metadata to the central registry index."""
-        # In production, this would open a PR to the registry repo 
+        # In production, this would open a PR to the registry repo
         # or call a registry API. For now, register locally.
-        from epl.package_manager import register_installed_package
-        self._cache.set_package(name, {
-            'version': version,
-            'description': manifest.get('description', ''),
-            'github': repo,
-            'keywords': manifest.get('keywords', []),
-            'author': manifest.get('author', ''),
-            'license': manifest.get('license', ''),
-            'published_at': time.time(),
-        })
+
+        self._cache.set_package(
+            name,
+            {
+                'version': version,
+                'description': manifest.get('description', ''),
+                'github': repo,
+                'keywords': manifest.get('keywords', []),
+                'author': manifest.get('author', ''),
+                'license': manifest.get('license', ''),
+                'published_at': time.time(),
+            },
+        )
 
     # ── Package Info ──
 
@@ -573,6 +592,7 @@ class GitHubRegistry:
         data = self._github_request(url)
         if data and data.get('content'):
             import base64
+
             try:
                 return base64.b64decode(data['content']).decode('utf-8')
             except Exception:
@@ -607,27 +627,28 @@ class GitHubRegistry:
 #  CLI Interface Functions
 # ═══════════════════════════════════════════════════════════
 
+
 def registry_search(query: str):
     """Search the package registry and display results."""
     reg = GitHubRegistry()
     results = reg.search(query)
     if not results:
         print(f"\n  No packages found matching '{query}'")
-        print(f"  Try: epl search math")
+        print('  Try: epl search math')
         return
 
     print(f"\n  Package Search Results for '{query}':")
-    print(f"  {'─' * 60}")
+    print(f'  {"─" * 60}')
     for r in results:
         dl = r['downloads']
-        dl_str = f"({dl} downloads)" if dl > 0 else ""
-        src = f"[{r['source']}]" if r['source'] != 'builtin' else '[builtin]'
-        print(f"  {r['name']:<30} v{r['version']:<10} {src}")
+        dl_str = f'({dl} downloads)' if dl > 0 else ''
+        src = f'[{r["source"]}]' if r['source'] != 'builtin' else '[builtin]'
+        print(f'  {r["name"]:<30} v{r["version"]:<10} {src}')
         if r['description']:
-            print(f"    {r['description'][:70]}")
+            print(f'    {r["description"][:70]}')
         if dl_str:
-            print(f"    {dl_str}")
-    print(f"\n  Install with: epl install <package-name>")
+            print(f'    {dl_str}')
+    print('\n  Install with: epl install <package-name>')
 
 
 def registry_info(name: str):
@@ -635,24 +656,24 @@ def registry_info(name: str):
     reg = GitHubRegistry()
     info = reg.get_package_info(name)
     if not info:
-        print(f"  Package not found: {name}")
+        print(f'  Package not found: {name}')
         return
 
-    print(f"\n  Package: {info.get('name', name)}")
-    print(f"  Version: {info.get('version', '?')}")
-    print(f"  Description: {info.get('description', 'No description')}")
+    print(f'\n  Package: {info.get("name", name)}')
+    print(f'  Version: {info.get("version", "?")}')
+    print(f'  Description: {info.get("description", "No description")}')
     if info.get('author'):
-        print(f"  Author: {info['author']}")
+        print(f'  Author: {info["author"]}')
     if info.get('license'):
-        print(f"  License: {info['license']}")
+        print(f'  License: {info["license"]}')
     if info.get('keywords'):
-        print(f"  Keywords: {', '.join(info['keywords'])}")
+        print(f'  Keywords: {", ".join(info["keywords"])}')
     dl = info.get('downloads', 0)
     if dl > 0:
-        print(f"  Downloads: {dl}")
+        print(f'  Downloads: {dl}')
     if info.get('github'):
-        print(f"  GitHub: https://github.com/{info['github']}")
-    print(f"\n  Install: epl install {name}")
+        print(f'  GitHub: https://github.com/{info["github"]}')
+    print(f'\n  Install: epl install {name}')
 
 
 def registry_publish(path: str = '.', repo: str = None):
@@ -665,11 +686,11 @@ def registry_stats():
     """Show download statistics."""
     reg = GitHubRegistry()
     stats = reg.get_stats()
-    print(f"\n  EPL Package Statistics")
-    print(f"  {'─' * 40}")
-    print(f"  Total downloads: {stats['total_downloads']}")
-    print(f"  Unique packages: {stats['unique_packages']}")
+    print('\n  EPL Package Statistics')
+    print(f'  {"─" * 40}')
+    print(f'  Total downloads: {stats["total_downloads"]}')
+    print(f'  Unique packages: {stats["unique_packages"]}')
     if stats['top_packages']:
-        print(f"\n  Top Packages:")
+        print('\n  Top Packages:')
         for name, count in stats['top_packages']:
-            print(f"    {name:<30} {count} downloads")
+            print(f'    {name:<30} {count} downloads')

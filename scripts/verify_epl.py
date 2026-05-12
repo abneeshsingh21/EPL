@@ -1,13 +1,14 @@
 import os
+
 from epl.lexer import Lexer
 from epl.parser import Parser
 
 errors = []
-for root, _, files in os.walk("examples"):
+for root, _, files in os.walk('examples'):
     for file in files:
-        if file.endswith(".epl"):
+        if file.endswith('.epl'):
             filepath = os.path.join(root, file)
-            with open(filepath, "r", encoding="utf-8") as f:
+            with open(filepath, 'r', encoding='utf-8') as f:
                 code = f.read()
             try:
                 lexer = Lexer(code)
@@ -18,5 +19,5 @@ for root, _, files in os.walk("examples"):
                 errors.append((filepath, str(e)))
 
 for filepath, err in errors:
-    print(f"File: {filepath}")
-    print(f"ERROR: {err}\n")
+    print(f'File: {filepath}')
+    print(f'ERROR: {err}\n')

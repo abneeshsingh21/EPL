@@ -8,106 +8,122 @@ Tests for EPL v3.0 new modules:
   - stdlib integration (all wired functions)
 """
 
-import sys
 import os
-import time
-import threading
-import tempfile
 import subprocess
+import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from epl.stdlib import call_stdlib, STDLIB_FUNCTIONS
 from epl.interpreter import EPLDict
+from epl.stdlib import STDLIB_FUNCTIONS, call_stdlib
 
 # ═══════════════════════════════════════════════════════════
 #  Test Infrastructure
 # ═══════════════════════════════════════════════════════════
 
-RESULTS = {"passed": 0, "failed": 0, "errors": []}
+RESULTS = {'passed': 0, 'failed': 0, 'errors': []}
 
 
 def test(name, fn):
     """Run a test function and record results."""
     try:
         fn()
-        RESULTS["passed"] += 1
-        print(f"  PASS: {name}")
+        RESULTS['passed'] += 1
+        print(f'  PASS: {name}')
     except AssertionError as e:
-        RESULTS["failed"] += 1
-        RESULTS["errors"].append((name, str(e)))
-        print(f"  FAIL: {name} — {e}")
+        RESULTS['failed'] += 1
+        RESULTS['errors'].append((name, str(e)))
+        print(f'  FAIL: {name} — {e}')
     except Exception as e:
-        RESULTS["failed"] += 1
-        RESULTS["errors"].append((name, f"ERROR: {e}"))
-        print(f"  ERROR: {name} — {e}")
-
-
+        RESULTS['failed'] += 1
+        RESULTS['errors'].append((name, f'ERROR: {e}'))
+        print(f'  ERROR: {name} — {e}')
 
 
 test.__test__ = False
 
-def assert_eq(actual, expected, msg=""):
+
+def assert_eq(actual, expected, msg=''):
     if actual != expected:
-        raise AssertionError(f"Expected {expected!r}, got {actual!r}. {msg}")
+        raise AssertionError(f'Expected {expected!r}, got {actual!r}. {msg}')
 
 
-def assert_true(val, msg=""):
+def assert_true(val, msg=''):
     if not val:
-        raise AssertionError(f"Expected truthy, got {val!r}. {msg}")
+        raise AssertionError(f'Expected truthy, got {val!r}. {msg}')
 
 
-def assert_false(val, msg=""):
+def assert_false(val, msg=''):
     if val:
-        raise AssertionError(f"Expected falsy, got {val!r}. {msg}")
+        raise AssertionError(f'Expected falsy, got {val!r}. {msg}')
 
 
-def assert_in(item, container, msg=""):
+def assert_in(item, container, msg=''):
     if item not in container:
-        raise AssertionError(f"{item!r} not in {container!r}. {msg}")
+        raise AssertionError(f'{item!r} not in {container!r}. {msg}')
 
 
-def assert_gt(a, b, msg=""):
+def assert_gt(a, b, msg=''):
     if not (a > b):
-        raise AssertionError(f"Expected {a} > {b}. {msg}")
+        raise AssertionError(f'Expected {a} > {b}. {msg}')
 
 
-def assert_isinstance(obj, cls, msg=""):
+def assert_isinstance(obj, cls, msg=''):
     if not isinstance(obj, cls):
-        raise AssertionError(f"Expected {cls.__name__}, got {type(obj).__name__}. {msg}")
+        raise AssertionError(f'Expected {cls.__name__}, got {type(obj).__name__}. {msg}')
 
 
 # ═══════════════════════════════════════════════════════════
 #  I. STDLIB Integration Tests
 # ═══════════════════════════════════════════════════════════
 
+
 def test_stdlib_has_new_functions():
     """Verify all new function groups are registered."""
+
     def run():
-        new_prefixes = ['real_db_', 'real_thread_', 'real_mutex_', 'real_rwlock_',
-                        'real_semaphore_', 'real_barrier_', 'real_event_',
-                        'real_channel_', 'real_atomic_', 'real_waitgroup_',
-                        'real_parallel_', 'real_sleep', 'real_cpu_',
-                        'real_process_', 'real_timer', 'real_interval',
-                        'net_', 'vm_']
+        new_prefixes = [
+            'real_db_',
+            'real_thread_',
+            'real_mutex_',
+            'real_rwlock_',
+            'real_semaphore_',
+            'real_barrier_',
+            'real_event_',
+            'real_channel_',
+            'real_atomic_',
+            'real_waitgroup_',
+            'real_parallel_',
+            'real_sleep',
+            'real_cpu_',
+            'real_process_',
+            'real_timer',
+            'real_interval',
+            'net_',
+            'vm_',
+        ]
         for prefix in new_prefixes:
             matches = [f for f in STDLIB_FUNCTIONS if f.startswith(prefix)]
             assert_true(len(matches) > 0, f"No functions with prefix '{prefix}'")
         # Total should be > 300
-        assert_gt(len(STDLIB_FUNCTIONS), 300, "Expected > 300 stdlib functions")
-    test("stdlib_has_new_functions", run)
+        assert_gt(len(STDLIB_FUNCTIONS), 300, 'Expected > 300 stdlib functions')
+
+    test('stdlib_has_new_functions', run)
 
 
 # ═══════════════════════════════════════════════════════════
 #  II. Real Database Tests
 # ═══════════════════════════════════════════════════════════
 
+
 def test_db_connect_close():
     def run():
         db = call_stdlib('real_db_connect', [':memory:', 'test_conn'], 0)
         assert_eq(db, 'test_conn')
         call_stdlib('real_db_close', ['test_conn'], 0)
-    test("db_connect_close", run)
+
+    test('db_connect_close', run)
 
 
 def test_db_create_table_and_insert():
@@ -125,7 +141,8 @@ def test_db_create_table_and_insert():
         assert_eq(row_id2, 2)
 
         call_stdlib('real_db_close', [db], 0)
-    test("db_create_table_and_insert", run)
+
+    test('db_create_table_and_insert', run)
 
 
 def test_db_query_and_query_one():
@@ -145,7 +162,8 @@ def test_db_query_and_query_one():
         assert_true(one is not None)
 
         call_stdlib('real_db_close', [db], 0)
-    test("db_query_and_query_one", run)
+
+    test('db_query_and_query_one', run)
 
 
 def test_db_update_and_delete():
@@ -156,7 +174,9 @@ def test_db_update_and_delete():
         call_stdlib('real_db_insert', [db, 'items', EPLDict({'name': 'x', 'val': 1})], 0)
         call_stdlib('real_db_insert', [db, 'items', EPLDict({'name': 'y', 'val': 2})], 0)
 
-        call_stdlib('real_db_update', [db, 'items', EPLDict({'val': 99}), EPLDict({'name': 'x'})], 0)
+        call_stdlib(
+            'real_db_update', [db, 'items', EPLDict({'val': 99}), EPLDict({'name': 'x'})], 0
+        )
         one = call_stdlib('real_db_query_one', [db, 'SELECT val FROM items WHERE name=?', ['x']], 0)
         assert_true(one is not None)
 
@@ -165,7 +185,8 @@ def test_db_update_and_delete():
         assert_eq(count, 1)
 
         call_stdlib('real_db_close', [db], 0)
-    test("db_update_and_delete", run)
+
+    test('db_update_and_delete', run)
 
 
 def test_db_find_by_id():
@@ -180,7 +201,8 @@ def test_db_find_by_id():
         assert_true(row is not None)
 
         call_stdlib('real_db_close', [db], 0)
-    test("db_find_by_id", run)
+
+    test('db_find_by_id', run)
 
 
 def test_db_table_exists():
@@ -191,7 +213,8 @@ def test_db_table_exists():
         call_stdlib('real_db_create_table', [db, 'real_table', cols], 0)
         assert_true(call_stdlib('real_db_table_exists', [db, 'real_table'], 0))
         call_stdlib('real_db_close', [db], 0)
-    test("db_table_exists", run)
+
+    test('db_table_exists', run)
 
 
 def test_db_transactions():
@@ -209,7 +232,8 @@ def test_db_transactions():
         assert_eq(count, 2)
 
         call_stdlib('real_db_close', [db], 0)
-    test("db_transactions", run)
+
+    test('db_transactions', run)
 
 
 def test_db_model_crud():
@@ -218,7 +242,9 @@ def test_db_model_crud():
         fields = EPLDict({'name': 'TEXT NOT NULL', 'age': 'INTEGER DEFAULT 0'})
         call_stdlib('real_db_model_define', [db, 'person', fields], 0)
 
-        result = call_stdlib('real_db_model_create', [db, 'person', EPLDict({'name': 'Alice', 'age': 30})], 0)
+        result = call_stdlib(
+            'real_db_model_create', [db, 'person', EPLDict({'name': 'Alice', 'age': 30})], 0
+        )
         assert_true(result is not None)
 
         call_stdlib('real_db_model_create', [db, 'person', EPLDict({'name': 'Bob', 'age': 25})], 0)
@@ -233,12 +259,14 @@ def test_db_model_crud():
         assert_true(first is not None)
 
         call_stdlib('real_db_close', [db], 0)
-    test("db_model_crud", run)
+
+    test('db_model_crud', run)
 
 
 # ═══════════════════════════════════════════════════════════
 #  III. Concurrency Tests
 # ═══════════════════════════════════════════════════════════
+
 
 def test_mutex_lock_unlock():
     def run():
@@ -246,7 +274,8 @@ def test_mutex_lock_unlock():
         assert_true(mid.startswith('mtx_'))
         call_stdlib('real_mutex_lock', [mid], 0)
         call_stdlib('real_mutex_unlock', [mid], 0)
-    test("mutex_lock_unlock", run)
+
+    test('mutex_lock_unlock', run)
 
 
 def test_atomic_int_operations():
@@ -272,7 +301,8 @@ def test_atomic_int_operations():
         ok = call_stdlib('real_atomic_int_cas', [aid, 999, 0], 0)
         assert_false(ok)
         assert_eq(call_stdlib('real_atomic_int_get', [aid], 0), 100)
-    test("atomic_int_operations", run)
+
+    test('atomic_int_operations', run)
 
 
 def test_atomic_bool_operations():
@@ -285,7 +315,8 @@ def test_atomic_bool_operations():
 
         call_stdlib('real_atomic_bool_toggle', [aid], 0)
         assert_false(call_stdlib('real_atomic_bool_get', [aid], 0))
-    test("atomic_bool_operations", run)
+
+    test('atomic_bool_operations', run)
 
 
 def test_channel_send_receive():
@@ -310,7 +341,8 @@ def test_channel_send_receive():
             assert_eq(val, 42)
 
         call_stdlib('real_channel_close', [ch], 0)
-    test("channel_send_receive", run)
+
+    test('channel_send_receive', run)
 
 
 def test_event_set_wait():
@@ -323,7 +355,8 @@ def test_event_set_wait():
         assert_true(result)
         call_stdlib('real_event_clear', [eid], 0)
         assert_false(call_stdlib('real_event_is_set', [eid], 0))
-    test("event_set_wait", run)
+
+    test('event_set_wait', run)
 
 
 def test_semaphore_acquire_release():
@@ -334,7 +367,8 @@ def test_semaphore_acquire_release():
         # Now at capacity — release one
         call_stdlib('real_semaphore_release', [sid], 0)
         call_stdlib('real_semaphore_release', [sid], 0)
-    test("semaphore_acquire_release", run)
+
+    test('semaphore_acquire_release', run)
 
 
 def test_waitgroup():
@@ -346,14 +380,16 @@ def test_waitgroup():
         call_stdlib('real_waitgroup_done', [wg], 0)
         result = call_stdlib('real_waitgroup_wait', [wg, 1.0], 0)
         assert_true(result)
-    test("waitgroup", run)
+
+    test('waitgroup', run)
 
 
 def test_cpu_count():
     def run():
         cpus = call_stdlib('real_cpu_count', [], 0)
         assert_gt(cpus, 0)
-    test("cpu_count", run)
+
+    test('cpu_count', run)
 
 
 def test_current_thread():
@@ -361,14 +397,16 @@ def test_current_thread():
         name = call_stdlib('real_current_thread', [], 0)
         assert_isinstance(name, str)
         assert_true(len(name) > 0)
-    test("current_thread", run)
+
+    test('current_thread', run)
 
 
 def test_active_threads():
     def run():
         count = call_stdlib('real_active_threads', [], 0)
         assert_gt(count, 0)
-    test("active_threads", run)
+
+    test('active_threads', run)
 
 
 def test_sleep_ms():
@@ -377,14 +415,16 @@ def test_sleep_ms():
         call_stdlib('real_sleep_ms', [50], 0)
         elapsed = time.time() - start
         assert_gt(elapsed, 0.03)  # at least 30ms
-    test("sleep_ms", run)
+
+    test('sleep_ms', run)
 
 
 def test_process_run():
     def run():
         result = call_stdlib('real_process_run', ['python -c "print(42)"'], 0)
         assert_true(result is not None)
-    test("process_run", run)
+
+    test('process_run', run)
 
 
 def test_rwlock():
@@ -394,7 +434,8 @@ def test_rwlock():
         call_stdlib('real_rwlock_read_unlock', [rid], 0)
         call_stdlib('real_rwlock_write_lock', [rid], 0)
         call_stdlib('real_rwlock_write_unlock', [rid], 0)
-    test("rwlock", run)
+
+    test('rwlock', run)
 
 
 def test_barrier():
@@ -403,32 +444,37 @@ def test_barrier():
         # With parties=1, a single wait should pass
         call_stdlib('real_barrier_wait', [bid], 0)
         call_stdlib('real_barrier_reset', [bid], 0)
-    test("barrier", run)
+
+    test('barrier', run)
 
 
 # ═══════════════════════════════════════════════════════════
 #  IV. Networking Tests
 # ═══════════════════════════════════════════════════════════
 
+
 def test_dns_lookup():
     def run():
         ip = call_stdlib('net_dns_lookup', ['localhost'], 0)
         assert_in(ip, ['127.0.0.1', '::1'])
-    test("dns_lookup", run)
+
+    test('dns_lookup', run)
 
 
 def test_hostname():
     def run():
         name = call_stdlib('net_hostname', [], 0)
         assert_true(len(name) > 0)
-    test("hostname", run)
+
+    test('hostname', run)
 
 
 def test_local_ip():
     def run():
         ip = call_stdlib('net_local_ip', [], 0)
         assert_true('.' in ip or ':' in ip)
-    test("local_ip", run)
+
+    test('local_ip', run)
 
 
 def test_is_port_open():
@@ -436,7 +482,8 @@ def test_is_port_open():
         # Port 1 should be closed on localhost
         result = call_stdlib('net_is_port_open', ['127.0.0.1', 1, 0.5], 0)
         assert_false(result)
-    test("is_port_open", run)
+
+    test('is_port_open', run)
 
 
 def test_udp_socket_create_close():
@@ -444,32 +491,37 @@ def test_udp_socket_create_close():
         sid = call_stdlib('net_udp_socket', [], 0)
         assert_true(sid.startswith('nudp_'))
         call_stdlib('net_udp_close', [sid], 0)
-    test("udp_socket_create_close", run)
+
+    test('udp_socket_create_close', run)
 
 
 def test_http_client_create():
     def run():
         cid = call_stdlib('net_http_client', ['https://httpbin.org', 10], 0)
         assert_true(cid.startswith('httpc_'))
-    test("http_client_create", run)
+
+    test('http_client_create', run)
 
 
 # ═══════════════════════════════════════════════════════════
 #  V. Bytecode VM Tests
 # ═══════════════════════════════════════════════════════════
 
+
 def test_vm_run():
     def run():
         result = call_stdlib('vm_run', ['set x to 42.\nshow x.'], 0)
         assert_true(result is not None)
-    test("vm_run", run)
+
+    test('vm_run', run)
 
 
 def test_vm_compile():
     def run():
         result = call_stdlib('vm_compile', ['set x to 10.'], 0)
         assert_true(result is not None)
-    test("vm_compile", run)
+
+    test('vm_compile', run)
 
 
 def test_vm_disassemble():
@@ -477,16 +529,19 @@ def test_vm_disassemble():
         disasm = call_stdlib('vm_disassemble', ['set x to 5.'], 0)
         assert_isinstance(disasm, str)
         assert_true(len(disasm) > 0)
-    test("vm_disassemble", run)
+
+    test('vm_disassemble', run)
 
 
 # ═══════════════════════════════════════════════════════════
 #  VI. Direct Module Tests (bypass stdlib)
 # ═══════════════════════════════════════════════════════════
 
+
 def test_database_real_direct():
     def run():
-        from epl.database_real import db_connect, db_close
+        from epl.database_real import db_close, db_connect
+
         db = db_connect(':memory:', 'direct_test')
         db.create_table('items', {'name': 'TEXT', 'qty': 'INTEGER'})
         db.insert('items', {'name': 'Widget', 'qty': 100})
@@ -497,12 +552,14 @@ def test_database_real_direct():
         count = db.count('items')
         assert_eq(count, 2)
         db_close('direct_test')
-    test("database_real_direct", run)
+
+    test('database_real_direct', run)
 
 
 def test_database_real_query_builder():
     def run():
-        from epl.database_real import db_connect, db_close
+        from epl.database_real import db_close, db_connect
+
         db = db_connect(':memory:', 'qb_test')
         db.create_table('products', {'name': 'TEXT', 'price': 'REAL', 'category': 'TEXT'})
         db.insert('products', {'name': 'A', 'price': 10.0, 'category': 'x'})
@@ -517,14 +574,18 @@ def test_database_real_query_builder():
         assert_eq(total, 3)
 
         db_close('qb_test')
-    test("database_real_query_builder", run)
+
+    test('database_real_query_builder', run)
 
 
 def test_database_real_model():
     def run():
-        from epl.database_real import db_connect, db_close, Model
+        from epl.database_real import Model, db_close, db_connect
+
         db = db_connect(':memory:', 'model_test')
-        User = Model(db, 'users', {'name': 'TEXT NOT NULL', 'email': 'TEXT', 'active': 'INTEGER DEFAULT 1'})
+        User = Model(
+            db, 'users', {'name': 'TEXT NOT NULL', 'email': 'TEXT', 'active': 'INTEGER DEFAULT 1'}
+        )
 
         User.create({'name': 'Alice', 'email': 'a@b.com'})
         User.create({'name': 'Bob', 'email': 'b@b.com'})
@@ -543,13 +604,16 @@ def test_database_real_model():
         assert_eq(User.count(), 1)
 
         db_close('model_test')
-    test("database_real_model", run)
+
+    test('database_real_model', run)
 
 
 def test_concurrency_real_thread():
     def run():
         from epl.concurrency_real import run_in_thread
+
         results = []
+
         def worker(val):
             results.append(val * 2)
             return val * 2
@@ -558,20 +622,24 @@ def test_concurrency_real_thread():
         t.join(5.0)
         assert_eq(t.result, 42)
         assert_true(t.is_finished)
-    test("concurrency_real_thread", run)
+
+    test('concurrency_real_thread', run)
 
 
 def test_concurrency_real_parallel_map():
     def run():
         from epl.concurrency_real import parallel_map
-        results = parallel_map(lambda x: x ** 2, [1, 2, 3, 4, 5])
+
+        results = parallel_map(lambda x: x**2, [1, 2, 3, 4, 5])
         assert_eq(results, [1, 4, 9, 16, 25])
-    test("concurrency_real_parallel_map", run)
+
+    test('concurrency_real_parallel_map', run)
 
 
 def test_concurrency_real_channel():
     def run():
         from epl.concurrency_real import Channel, run_in_thread
+
         ch = Channel(10)
 
         def producer():
@@ -586,38 +654,41 @@ def test_concurrency_real_channel():
 
         t.join(5.0)
         assert_eq(received, [0, 1, 2, 3, 4])
-    test("concurrency_real_channel", run)
+
+    test('concurrency_real_channel', run)
 
 
 def test_concurrency_real_race():
     def run():
         from epl.concurrency_real import race
-        result = race(
-            lambda: 'first',
-            lambda: 'second'
-        )
+
+        result = race(lambda: 'first', lambda: 'second')
         assert_in(result, ['first', 'second'])
-    test("concurrency_real_race", run)
+
+    test('concurrency_real_race', run)
 
 
 def test_concurrency_real_all_settled():
     def run():
         from epl.concurrency_real import all_settled
+
         results = all_settled(
             lambda: 42,
-            lambda: 1/0,  # will error
-            lambda: 'ok'
+            lambda: 1 / 0,  # will error
+            lambda: 'ok',
         )
         assert_eq(len(results), 3)
         assert_eq(results[0][0], 42)
         assert_true(results[1][1] is not None)  # error
         assert_eq(results[2][0], 'ok')
-    test("concurrency_real_all_settled", run)
+
+    test('concurrency_real_all_settled', run)
 
 
 def test_networking_direct():
     def run():
-        from epl.networking import dns_lookup, get_hostname, get_local_ip, is_port_open, UDPSocket
+        from epl.networking import UDPSocket, dns_lookup, get_hostname, get_local_ip, is_port_open
+
         ip = dns_lookup('localhost')
         assert_in(ip, ['127.0.0.1', '::1'])
         hostname = get_hostname()
@@ -627,12 +698,14 @@ def test_networking_direct():
         assert_false(is_port_open('127.0.0.1', 1, 0.3))
         sock = UDPSocket()
         sock.close()
-    test("networking_direct", run)
+
+    test('networking_direct', run)
 
 
 def test_vm_direct():
     def run():
         from epl.vm import compile_and_run, compile_to_bytecode, disassemble
+
         result = compile_and_run('set x to 42.\nshow x.')
         assert_true('output' in result or 'error' in result)
 
@@ -641,15 +714,18 @@ def test_vm_direct():
 
         dis = disassemble('set x to 5.')
         assert_isinstance(dis, str)
-    test("vm_direct", run)
+
+    test('vm_direct', run)
 
 
 def test_packager_imports():
     def run():
-        from epl.packager import BuildConfig, DependencyScanner, package
+        from epl.packager import BuildConfig
+
         config = BuildConfig(source_file='test.epl', name='test', version='1.0.0')
         assert_eq(config.output_name, 'test')
-    test("packager_imports", run)
+
+    test('packager_imports', run)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -700,18 +776,19 @@ test_networking_direct.__test__ = False
 test_vm_direct.__test__ = False
 test_packager_imports.__test__ = False
 
-def run_all():
-    RESULTS["passed"] = 0
-    RESULTS["failed"] = 0
-    RESULTS["errors"].clear()
-    print("\n" + "=" * 60)
-    print("  EPL v3.0 New Modules Test Suite")
-    print("=" * 60)
 
-    print("\n── I. STDLIB Integration ──")
+def run_all():
+    RESULTS['passed'] = 0
+    RESULTS['failed'] = 0
+    RESULTS['errors'].clear()
+    print('\n' + '=' * 60)
+    print('  EPL v3.0 New Modules Test Suite')
+    print('=' * 60)
+
+    print('\n── I. STDLIB Integration ──')
     test_stdlib_has_new_functions()
 
-    print("\n── II. Real Database ──")
+    print('\n── II. Real Database ──')
     test_db_connect_close()
     test_db_create_table_and_insert()
     test_db_query_and_query_one()
@@ -721,7 +798,7 @@ def run_all():
     test_db_transactions()
     test_db_model_crud()
 
-    print("\n── III. Concurrency ──")
+    print('\n── III. Concurrency ──')
     test_mutex_lock_unlock()
     test_atomic_int_operations()
     test_atomic_bool_operations()
@@ -737,7 +814,7 @@ def run_all():
     test_rwlock()
     test_barrier()
 
-    print("\n── IV. Networking ──")
+    print('\n── IV. Networking ──')
     test_dns_lookup()
     test_hostname()
     test_local_ip()
@@ -745,12 +822,12 @@ def run_all():
     test_udp_socket_create_close()
     test_http_client_create()
 
-    print("\n── V. Bytecode VM ──")
+    print('\n── V. Bytecode VM ──')
     test_vm_run()
     test_vm_compile()
     test_vm_disassemble()
 
-    print("\n── VI. Direct Module Tests ──")
+    print('\n── VI. Direct Module Tests ──')
     test_database_real_direct()
     test_database_real_query_builder()
     test_database_real_model()
@@ -763,20 +840,20 @@ def run_all():
     test_vm_direct()
     test_packager_imports()
 
-    print("\n" + "=" * 60)
-    total = RESULTS["passed"] + RESULTS["failed"]
-    print(f"  Results: {RESULTS['passed']}/{total} passed, {RESULTS['failed']} failed")
+    print('\n' + '=' * 60)
+    total = RESULTS['passed'] + RESULTS['failed']
+    print(f'  Results: {RESULTS["passed"]}/{total} passed, {RESULTS["failed"]} failed')
 
-    if RESULTS["errors"]:
-        print("\n  Failures:")
-        for name, err in RESULTS["errors"]:
-            print(f"    {name}: {err}")
+    if RESULTS['errors']:
+        print('\n  Failures:')
+        for name, err in RESULTS['errors']:
+            print(f'    {name}: {err}')
 
-    if RESULTS["failed"] == 0:
-        print("  All tests passed!")
-    print("=" * 60)
+    if RESULTS['failed'] == 0:
+        print('  All tests passed!')
+    print('=' * 60)
 
-    return RESULTS["failed"] == 0
+    return RESULTS['failed'] == 0
 
 
 def test_new_modules_suite():
@@ -789,5 +866,5 @@ def test_new_modules_suite():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(0 if run_all() else 1)

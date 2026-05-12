@@ -62,5 +62,26 @@
       "End"
     ],
     "description": "Create an EPL test block"
+  },
+  "AWS Cloud S3": {
+    "prefix": "s3",
+    "body": [
+      "Import \"epl-cloud\"",
+      "",
+      "s3_bucket = cloud_s3_bucket(\"${1:bucket-name}\")",
+      "cloud_s3_upload(s3_bucket, \"${2:file.txt}\", \"${3:content}\")"
+    ],
+    "description": "Upload a file to AWS S3"
+  },
+  "AI Chat": {
+    "prefix": "ai",
+    "body": [
+      "Import \"epl.ai\" As ai",
+      "",
+      "messages = [Map with role = \"user\" and content = \"${1:prompt}\"]",
+      "response = ai.chat(messages)",
+      "Say response"
+    ],
+    "description": "Chat with AI using EPL"
   }
 }

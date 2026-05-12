@@ -8,11 +8,10 @@ Run: python -m pytest tests/test_phase7.py -v
 
 import json
 import os
-import sys
 import shutil
+import sys
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock
 
 # Ensure project root is on path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,11 +21,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 #  7a: Package Index Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestPackageMetadata(unittest.TestCase):
     """Tests for PackageMetadata data class."""
 
     def test_create_metadata(self):
         from epl.package_index import PackageMetadata
+
         m = PackageMetadata('test-pkg', description='A test', author='Alice')
         self.assertEqual(m.name, 'test-pkg')
         self.assertEqual(m.description, 'A test')
@@ -35,6 +36,7 @@ class TestPackageMetadata(unittest.TestCase):
 
     def test_metadata_to_dict(self):
         from epl.package_index import PackageMetadata
+
         m = PackageMetadata('pkg', description='desc', author='Bob', license_='Apache-2.0')
         d = m.to_dict()
         self.assertEqual(d['name'], 'pkg')
@@ -43,6 +45,7 @@ class TestPackageMetadata(unittest.TestCase):
 
     def test_metadata_from_dict(self):
         from epl.package_index import PackageMetadata
+
         d = {'name': 'pkg', 'description': 'hi', 'author': 'X', 'license': 'MIT'}
         m = PackageMetadata.from_dict(d)
         self.assertEqual(m.name, 'pkg')
@@ -50,6 +53,7 @@ class TestPackageMetadata(unittest.TestCase):
 
     def test_metadata_roundtrip(self):
         from epl.package_index import PackageMetadata
+
         m1 = PackageMetadata('pkg', 'desc', 'auth', 'ISC', 'repo/url', 'http://hp', ['web'])
         d = m1.to_dict()
         m2 = PackageMetadata.from_dict(d)
@@ -59,6 +63,7 @@ class TestPackageMetadata(unittest.TestCase):
 
     def test_metadata_defaults(self):
         from epl.package_index import PackageMetadata
+
         m = PackageMetadata('x')
         self.assertEqual(m.description, '')
         self.assertEqual(m.author, '')
@@ -71,6 +76,7 @@ class TestVersionEntry(unittest.TestCase):
 
     def test_create_version(self):
         from epl.package_index import VersionEntry
+
         v = VersionEntry('1.0.0', checksum='abc123')
         self.assertEqual(v.version, '1.0.0')
         self.assertEqual(v.checksum, 'abc123')
@@ -78,6 +84,7 @@ class TestVersionEntry(unittest.TestCase):
 
     def test_version_to_dict(self):
         from epl.package_index import VersionEntry
+
         v = VersionEntry('2.0.0', dependencies={'epl-http': '^1.0.0'})
         d = v.to_dict()
         self.assertEqual(d['version'], '2.0.0')
@@ -85,6 +92,7 @@ class TestVersionEntry(unittest.TestCase):
 
     def test_version_from_dict(self):
         from epl.package_index import VersionEntry
+
         d = {'version': '1.5.0', 'checksum': 'sha', 'yanked': True}
         v = VersionEntry.from_dict(d)
         self.assertEqual(v.version, '1.5.0')
@@ -92,6 +100,7 @@ class TestVersionEntry(unittest.TestCase):
 
     def test_version_roundtrip(self):
         from epl.package_index import VersionEntry
+
         v1 = VersionEntry('3.0.0', 'cs', 'http://dl', dependencies={'a': '1.0.0'})
         d = v1.to_dict()
         v2 = VersionEntry.from_dict(d)
@@ -100,6 +109,7 @@ class TestVersionEntry(unittest.TestCase):
 
     def test_yanked_version(self):
         from epl.package_index import VersionEntry
+
         v = VersionEntry('0.1.0', yanked=True)
         self.assertTrue(v.yanked)
         d = v.to_dict()
@@ -110,7 +120,8 @@ class TestPackageIndexEntry(unittest.TestCase):
     """Tests for PackageIndexEntry."""
 
     def test_create_entry(self):
-        from epl.package_index import PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import PackageIndexEntry, PackageMetadata, VersionEntry
+
         m = PackageMetadata('test')
         v1 = VersionEntry('1.0.0')
         v2 = VersionEntry('2.0.0')
@@ -119,7 +130,8 @@ class TestPackageIndexEntry(unittest.TestCase):
         self.assertEqual(len(entry.versions), 2)
 
     def test_latest_version(self):
-        from epl.package_index import PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import PackageIndexEntry, PackageMetadata, VersionEntry
+
         m = PackageMetadata('test')
         v1 = VersionEntry('1.0.0')
         v2 = VersionEntry('2.0.0')
@@ -127,7 +139,8 @@ class TestPackageIndexEntry(unittest.TestCase):
         self.assertEqual(entry.latest_version.version, '2.0.0')
 
     def test_latest_version_skips_yanked(self):
-        from epl.package_index import PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import PackageIndexEntry, PackageMetadata, VersionEntry
+
         m = PackageMetadata('test')
         v1 = VersionEntry('1.0.0')
         v2 = VersionEntry('2.0.0', yanked=True)
@@ -135,7 +148,8 @@ class TestPackageIndexEntry(unittest.TestCase):
         self.assertEqual(entry.latest_version.version, '1.0.0')
 
     def test_get_version(self):
-        from epl.package_index import PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import PackageIndexEntry, PackageMetadata, VersionEntry
+
         m = PackageMetadata('test')
         v1 = VersionEntry('1.0.0')
         v2 = VersionEntry('2.0.0')
@@ -144,9 +158,14 @@ class TestPackageIndexEntry(unittest.TestCase):
         self.assertIsNone(entry.get_version('3.0.0'))
 
     def test_available_versions(self):
-        from epl.package_index import PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import PackageIndexEntry, PackageMetadata, VersionEntry
+
         m = PackageMetadata('test')
-        versions = [VersionEntry('1.0.0'), VersionEntry('2.0.0', yanked=True), VersionEntry('3.0.0')]
+        versions = [
+            VersionEntry('1.0.0'),
+            VersionEntry('2.0.0', yanked=True),
+            VersionEntry('3.0.0'),
+        ]
         entry = PackageIndexEntry(m, versions)
         available = entry.available_versions()
         self.assertEqual(available, ['1.0.0', '3.0.0'])
@@ -154,7 +173,8 @@ class TestPackageIndexEntry(unittest.TestCase):
         self.assertEqual(len(all_versions), 3)
 
     def test_entry_roundtrip(self):
-        from epl.package_index import PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import PackageIndexEntry, PackageMetadata, VersionEntry
+
         m = PackageMetadata('pkg', 'desc')
         v = VersionEntry('1.0.0', checksum='abc')
         entry = PackageIndexEntry(m, [v])
@@ -176,12 +196,14 @@ class TestIndexCache(unittest.TestCase):
 
     def test_empty_cache(self):
         from epl.package_index import IndexCache
+
         cache = IndexCache(self.cache_path)
         self.assertEqual(cache.package_count, 0)
         self.assertTrue(cache.is_stale())
 
     def test_set_and_get_package(self):
-        from epl.package_index import IndexCache, PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import IndexCache, PackageIndexEntry, PackageMetadata, VersionEntry
+
         cache = IndexCache(self.cache_path)
         m = PackageMetadata('test-pkg')
         v = VersionEntry('1.0.0')
@@ -192,7 +214,8 @@ class TestIndexCache(unittest.TestCase):
         self.assertEqual(got.name, 'test-pkg')
 
     def test_cache_persistence(self):
-        from epl.package_index import IndexCache, PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import IndexCache, PackageIndexEntry, PackageMetadata, VersionEntry
+
         cache1 = IndexCache(self.cache_path)
         m = PackageMetadata('persisted')
         v = VersionEntry('1.0.0')
@@ -204,7 +227,8 @@ class TestIndexCache(unittest.TestCase):
         self.assertEqual(got.name, 'persisted')
 
     def test_cache_search(self):
-        from epl.package_index import IndexCache, PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import IndexCache, PackageIndexEntry, PackageMetadata, VersionEntry
+
         cache = IndexCache(self.cache_path)
         for name in ['epl-math', 'epl-http', 'epl-json']:
             m = PackageMetadata(name, description=f'{name} package')
@@ -216,7 +240,8 @@ class TestIndexCache(unittest.TestCase):
         self.assertEqual(results[0].name, 'epl-math')
 
     def test_cache_clear(self):
-        from epl.package_index import IndexCache, PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import IndexCache, PackageIndexEntry, PackageMetadata
+
         cache = IndexCache(self.cache_path)
         m = PackageMetadata('test')
         cache.set_package('test', PackageIndexEntry(m, []))
@@ -225,7 +250,8 @@ class TestIndexCache(unittest.TestCase):
         self.assertEqual(cache.package_count, 0)
 
     def test_set_all(self):
-        from epl.package_index import IndexCache, PackageMetadata, VersionEntry, PackageIndexEntry
+        from epl.package_index import IndexCache, PackageIndexEntry, PackageMetadata, VersionEntry
+
         cache = IndexCache(self.cache_path)
         entries = {
             'a': PackageIndexEntry(PackageMetadata('a'), [VersionEntry('1.0.0')]),
@@ -247,14 +273,21 @@ class TestPackageIndex(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_offline_mode(self):
-        from epl.package_index import PackageIndex, IndexCache
+        from epl.package_index import IndexCache, PackageIndex
+
         cache = IndexCache(self.cache_path)
         idx = PackageIndex(offline=True, cache=cache)
         self.assertTrue(idx.offline)
 
     def test_fetch_from_cache(self):
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry, PackageIndexEntry)
+        from epl.package_index import (
+            IndexCache,
+            PackageIndex,
+            PackageIndexEntry,
+            PackageMetadata,
+            VersionEntry,
+        )
+
         cache = IndexCache(self.cache_path)
         m = PackageMetadata('cached-pkg')
         v = VersionEntry('1.0.0')
@@ -266,8 +299,14 @@ class TestPackageIndex(unittest.TestCase):
         self.assertEqual(result.name, 'cached-pkg')
 
     def test_get_versions(self):
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry, PackageIndexEntry)
+        from epl.package_index import (
+            IndexCache,
+            PackageIndex,
+            PackageIndexEntry,
+            PackageMetadata,
+            VersionEntry,
+        )
+
         cache = IndexCache(self.cache_path)
         m = PackageMetadata('multi-ver')
         versions = [VersionEntry('1.0.0'), VersionEntry('2.0.0'), VersionEntry('3.0.0')]
@@ -278,8 +317,14 @@ class TestPackageIndex(unittest.TestCase):
         self.assertEqual(result, ['1.0.0', '2.0.0', '3.0.0'])
 
     def test_get_dependencies(self):
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry, PackageIndexEntry)
+        from epl.package_index import (
+            IndexCache,
+            PackageIndex,
+            PackageIndexEntry,
+            PackageMetadata,
+            VersionEntry,
+        )
+
         cache = IndexCache(self.cache_path)
         m = PackageMetadata('dep-pkg')
         v = VersionEntry('1.0.0', dependencies={'epl-math': '^1.0.0'})
@@ -290,8 +335,14 @@ class TestPackageIndex(unittest.TestCase):
         self.assertEqual(deps, {'epl-math': '^1.0.0'})
 
     def test_get_checksum(self):
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry, PackageIndexEntry)
+        from epl.package_index import (
+            IndexCache,
+            PackageIndex,
+            PackageIndexEntry,
+            PackageMetadata,
+            VersionEntry,
+        )
+
         cache = IndexCache(self.cache_path)
         m = PackageMetadata('check-pkg')
         v = VersionEntry('1.0.0', checksum='abc123def456')
@@ -302,8 +353,14 @@ class TestPackageIndex(unittest.TestCase):
         self.assertEqual(cs, 'abc123def456')
 
     def test_search(self):
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry, PackageIndexEntry)
+        from epl.package_index import (
+            IndexCache,
+            PackageIndex,
+            PackageIndexEntry,
+            PackageMetadata,
+            VersionEntry,
+        )
+
         cache = IndexCache(self.cache_path)
         for name in ['epl-math', 'epl-http', 'epl-json', 'epl-csv']:
             m = PackageMetadata(name, description=f'{name} module')
@@ -315,8 +372,8 @@ class TestPackageIndex(unittest.TestCase):
         self.assertIn('epl-http', names)
 
     def test_create_index_entry(self):
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry)
+        from epl.package_index import IndexCache, PackageIndex, PackageMetadata, VersionEntry
+
         cache = IndexCache(self.cache_path)
         idx = PackageIndex(offline=True, cache=cache)
         m = PackageMetadata('new-pkg', description='New')
@@ -326,8 +383,8 @@ class TestPackageIndex(unittest.TestCase):
         self.assertEqual(len(entry.versions), 1)
 
     def test_generate_pr_content(self):
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry)
+        from epl.package_index import IndexCache, PackageIndex, PackageMetadata, VersionEntry
+
         cache = IndexCache(self.cache_path)
         idx = PackageIndex(offline=True, cache=cache)
         m = PackageMetadata('pr-pkg', description='PR test', author='Dev')
@@ -345,6 +402,7 @@ class TestScopedName(unittest.TestCase):
 
     def test_plain_name(self):
         from epl.package_index import ScopedName
+
         s = ScopedName('epl-math')
         self.assertFalse(s.is_scoped)
         self.assertIsNone(s.scope)
@@ -353,6 +411,7 @@ class TestScopedName(unittest.TestCase):
 
     def test_scoped_name(self):
         from epl.package_index import ScopedName
+
         s = ScopedName('@myorg/utils')
         self.assertTrue(s.is_scoped)
         self.assertEqual(s.scope, 'myorg')
@@ -361,11 +420,13 @@ class TestScopedName(unittest.TestCase):
 
     def test_safe_dir_name(self):
         from epl.package_index import ScopedName
+
         self.assertEqual(ScopedName('plain').safe_dir_name, 'plain')
         self.assertEqual(ScopedName('@org/pkg').safe_dir_name, '@org__pkg')
 
     def test_validate(self):
         from epl.package_index import ScopedName
+
         self.assertTrue(ScopedName.validate('epl-math'))
         self.assertTrue(ScopedName.validate('@org/pkg'))
         self.assertFalse(ScopedName.validate(''))
@@ -374,17 +435,20 @@ class TestScopedName(unittest.TestCase):
 
     def test_equality(self):
         from epl.package_index import ScopedName
+
         self.assertEqual(ScopedName('a'), ScopedName('a'))
         self.assertEqual(ScopedName('@o/p'), ScopedName('@o/p'))
         self.assertNotEqual(ScopedName('a'), ScopedName('b'))
 
     def test_hash(self):
         from epl.package_index import ScopedName
+
         s = {ScopedName('a'), ScopedName('a'), ScopedName('b')}
         self.assertEqual(len(s), 2)
 
     def test_str(self):
         from epl.package_index import ScopedName
+
         self.assertEqual(str(ScopedName('@org/pkg')), '@org/pkg')
         self.assertEqual(str(ScopedName('simple')), 'simple')
 
@@ -394,6 +458,7 @@ class TestParsePackageSpec(unittest.TestCase):
 
     def test_simple_name(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('epl-math')
         self.assertEqual(name, 'epl-math')
         self.assertIsNone(ver)
@@ -401,41 +466,48 @@ class TestParsePackageSpec(unittest.TestCase):
 
     def test_name_with_version(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('epl-math@1.0.0')
         self.assertEqual(name, 'epl-math')
         self.assertEqual(ver, '1.0.0')
 
     def test_name_with_caret_version(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('epl-math@^2.0.0')
         self.assertEqual(name, 'epl-math')
         self.assertEqual(ver, '^2.0.0')
 
     def test_scoped_name(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('@org/pkg')
         self.assertEqual(name, '@org/pkg')
         self.assertIsNone(ver)
 
     def test_scoped_name_with_version(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('@org/pkg@1.0.0')
         self.assertEqual(name, '@org/pkg')
         self.assertEqual(ver, '1.0.0')
 
     def test_registry_prefix(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('company:utils')
         self.assertEqual(name, 'utils')
         self.assertEqual(reg, 'company')
 
     def test_http_url_not_registry(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('http://example.com/pkg')
         self.assertIsNone(reg)
 
     def test_github_prefix_not_registry(self):
         from epl.package_index import parse_package_spec
+
         name, ver, reg = parse_package_spec('github:user/repo')
         self.assertIsNone(reg)
 
@@ -445,17 +517,20 @@ class TestMultiRegistry(unittest.TestCase):
 
     def test_default_registry(self):
         from epl.package_index import MultiRegistry
+
         mr = MultiRegistry()
         self.assertIn('default', mr.registry_names())
 
     def test_add_registry(self):
         from epl.package_index import MultiRegistry, RegistryConfig
+
         mr = MultiRegistry()
         mr.add_registry(RegistryConfig('company', 'https://git.company.com/index.git'))
         self.assertIn('company', mr.registry_names())
 
     def test_load_from_manifest(self):
         from epl.package_index import MultiRegistry
+
         mr = MultiRegistry()
         manifest = {
             'registries': {
@@ -471,28 +546,35 @@ class TestRegistryConfig(unittest.TestCase):
 
     def test_create(self):
         from epl.package_index import RegistryConfig
+
         rc = RegistryConfig('test', 'https://github.com/test/index.git')
         self.assertEqual(rc.name, 'test')
         self.assertEqual(rc.url, 'https://github.com/test/index.git')
 
     def test_from_dict_string(self):
         from epl.package_index import RegistryConfig
+
         rc = RegistryConfig.from_dict('simple', 'https://example.com/idx.git')
         self.assertEqual(rc.name, 'simple')
         self.assertEqual(rc.url, 'https://example.com/idx.git')
 
     def test_from_dict_map(self):
         from epl.package_index import RegistryConfig
-        rc = RegistryConfig.from_dict('corp', {
-            'url': 'https://corp.com/idx.git',
-            'token_env': 'CORP_TOKEN',
-            'priority': 5,
-        })
+
+        rc = RegistryConfig.from_dict(
+            'corp',
+            {
+                'url': 'https://corp.com/idx.git',
+                'token_env': 'CORP_TOKEN',
+                'priority': 5,
+            },
+        )
         self.assertEqual(rc.token_env, 'CORP_TOKEN')
         self.assertEqual(rc.priority, 5)
 
     def test_to_dict(self):
         from epl.package_index import RegistryConfig
+
         rc = RegistryConfig('x', 'url', token_env='TOK', priority=3)
         d = rc.to_dict()
         self.assertEqual(d['url'], 'url')
@@ -505,6 +587,7 @@ class TestBuildIndexFromBuiltin(unittest.TestCase):
 
     def test_builds_entries(self):
         from epl.package_index import build_index_from_builtin_registry
+
         entries = build_index_from_builtin_registry()
         self.assertTrue(len(entries) > 0)
         self.assertIn('epl-math', entries)
@@ -515,43 +598,49 @@ class TestBuildIndexFromBuiltin(unittest.TestCase):
     def test_all_builtin_covered(self):
         from epl.package_index import build_index_from_builtin_registry
         from epl.package_manager import BUILTIN_REGISTRY
+
         entries = build_index_from_builtin_registry()
         for name in BUILTIN_REGISTRY:
-            self.assertIn(name, entries, f"Missing builtin: {name}")
+            self.assertIn(name, entries, f'Missing builtin: {name}')
 
 
 # ═══════════════════════════════════════════════════════════
 #  7c: Resolver Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestVersionConstraint(unittest.TestCase):
     """Tests for VersionConstraint."""
 
     def test_wildcard(self):
-        from epl.resolver import VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import VersionConstraint
+
         vc = VersionConstraint('*')
         self.assertTrue(vc.matches(SemVer(1, 0, 0)))
         self.assertTrue(vc.matches(SemVer(99, 0, 0)))
 
     def test_exact(self):
-        from epl.resolver import VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import VersionConstraint
+
         vc = VersionConstraint('1.0.0')
         self.assertTrue(vc.matches(SemVer(1, 0, 0)))
         self.assertFalse(vc.matches(SemVer(2, 0, 0)))
 
     def test_caret(self):
-        from epl.resolver import VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import VersionConstraint
+
         vc = VersionConstraint('^1.0.0')
         self.assertTrue(vc.matches(SemVer(1, 0, 0)))
         self.assertTrue(vc.matches(SemVer(1, 5, 0)))
         self.assertFalse(vc.matches(SemVer(2, 0, 0)))
 
     def test_tilde(self):
-        from epl.resolver import VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import VersionConstraint
+
         vc = VersionConstraint('~1.2.0')
         self.assertTrue(vc.matches(SemVer(1, 2, 0)))
         self.assertTrue(vc.matches(SemVer(1, 2, 5)))
@@ -559,11 +648,13 @@ class TestVersionConstraint(unittest.TestCase):
 
     def test_equality(self):
         from epl.resolver import VersionConstraint
+
         self.assertEqual(VersionConstraint('^1.0.0'), VersionConstraint('^1.0.0'))
         self.assertNotEqual(VersionConstraint('^1.0.0'), VersionConstraint('^2.0.0'))
 
     def test_hash(self):
         from epl.resolver import VersionConstraint
+
         s = {VersionConstraint('^1.0.0'), VersionConstraint('^1.0.0')}
         self.assertEqual(len(s), 1)
 
@@ -572,16 +663,18 @@ class TestConstraintSet(unittest.TestCase):
     """Tests for ConstraintSet."""
 
     def test_single_constraint(self):
-        from epl.resolver import ConstraintSet, VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import ConstraintSet, VersionConstraint
+
         cs = ConstraintSet('pkg')
         cs.add(VersionConstraint('^1.0.0', source='root'))
         self.assertTrue(cs.matches(SemVer(1, 5, 0)))
         self.assertFalse(cs.matches(SemVer(2, 0, 0)))
 
     def test_multiple_constraints(self):
-        from epl.resolver import ConstraintSet, VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import ConstraintSet, VersionConstraint
+
         cs = ConstraintSet('pkg')
         cs.add(VersionConstraint('>=1.0.0', source='A'))
         cs.add(VersionConstraint('<2.0.0', source='B'))
@@ -590,8 +683,9 @@ class TestConstraintSet(unittest.TestCase):
         self.assertFalse(cs.matches(SemVer(0, 5, 0)))
 
     def test_filter_versions(self):
-        from epl.resolver import ConstraintSet, VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import ConstraintSet, VersionConstraint
+
         cs = ConstraintSet('pkg')
         cs.add(VersionConstraint('^1.0.0'))
         versions = [SemVer(0, 9, 0), SemVer(1, 0, 0), SemVer(1, 5, 0), SemVer(2, 0, 0)]
@@ -599,8 +693,9 @@ class TestConstraintSet(unittest.TestCase):
         self.assertEqual(len(filtered), 2)
 
     def test_explain_conflict(self):
-        from epl.resolver import ConstraintSet, VersionConstraint
         from epl.package_manager import SemVer
+        from epl.resolver import ConstraintSet, VersionConstraint
+
         cs = ConstraintSet('pkg')
         cs.add(VersionConstraint('^1.0.0', source='A'))
         cs.add(VersionConstraint('^2.0.0', source='B'))
@@ -613,6 +708,7 @@ class TestResolvedPackage(unittest.TestCase):
 
     def test_create(self):
         from epl.resolver import ResolvedPackage
+
         rp = ResolvedPackage('pkg', None, '1.0.0', {'a': '1.0.0'}, ['root'])
         self.assertEqual(rp.name, 'pkg')
         self.assertEqual(rp.version_str, '1.0.0')
@@ -620,6 +716,7 @@ class TestResolvedPackage(unittest.TestCase):
 
     def test_to_dict(self):
         from epl.resolver import ResolvedPackage
+
         rp = ResolvedPackage('pkg', None, '1.0.0')
         d = rp.to_dict()
         self.assertEqual(d['name'], 'pkg')
@@ -631,18 +728,21 @@ class TestResolutionResult(unittest.TestCase):
 
     def test_empty_is_success(self):
         from epl.resolver import ResolutionResult
+
         r = ResolutionResult()
         self.assertTrue(r.success)
         self.assertEqual(r.package_count, 0)
 
     def test_add_error(self):
         from epl.resolver import ResolutionResult
+
         r = ResolutionResult()
-        r.errors.append("bad")
+        r.errors.append('bad')
         self.assertFalse(r.success)
 
     def test_install_order(self):
         from epl.resolver import ResolutionResult, ResolvedPackage
+
         r = ResolutionResult()
         r.add_package(ResolvedPackage('b', None, '1.0.0', {'a': '1.0.0'}))
         r.add_package(ResolvedPackage('a', None, '1.0.0'))
@@ -653,6 +753,7 @@ class TestResolutionResult(unittest.TestCase):
 
     def test_to_dict(self):
         from epl.resolver import ResolutionResult, ResolvedPackage
+
         r = ResolutionResult()
         r.add_package(ResolvedPackage('pkg', None, '1.0.0'))
         d = r.to_dict()
@@ -664,18 +765,21 @@ class TestBuiltinVersionProvider(unittest.TestCase):
 
     def test_get_versions(self):
         from epl.resolver import BuiltinVersionProvider
+
         p = BuiltinVersionProvider()
         versions = p.get_versions('epl-math')
         self.assertTrue(len(versions) > 0)
 
     def test_unknown_package(self):
         from epl.resolver import BuiltinVersionProvider
+
         p = BuiltinVersionProvider()
         versions = p.get_versions('nonexistent-pkg-xyz')
         self.assertEqual(versions, [])
 
     def test_get_dependencies(self):
         from epl.resolver import BuiltinVersionProvider
+
         p = BuiltinVersionProvider()
         deps = p.get_dependencies('epl-math', '1.0.0')
         self.assertIsInstance(deps, dict)
@@ -685,7 +789,8 @@ class TestCompositeVersionProvider(unittest.TestCase):
     """Tests for CompositeVersionProvider."""
 
     def test_combines_providers(self):
-        from epl.resolver import CompositeVersionProvider, BuiltinVersionProvider
+        from epl.resolver import BuiltinVersionProvider, CompositeVersionProvider
+
         cp = CompositeVersionProvider()
         cp.add_provider(BuiltinVersionProvider())
         versions = cp.get_versions('epl-math')
@@ -693,6 +798,7 @@ class TestCompositeVersionProvider(unittest.TestCase):
 
     def test_empty_provider(self):
         from epl.resolver import CompositeVersionProvider
+
         cp = CompositeVersionProvider()
         versions = cp.get_versions('anything')
         self.assertEqual(versions, [])
@@ -702,34 +808,39 @@ class TestDependencyResolver(unittest.TestCase):
     """Tests for the backtracking DependencyResolver."""
 
     def test_empty_deps(self):
-        from epl.resolver import DependencyResolver, BuiltinVersionProvider
+        from epl.resolver import BuiltinVersionProvider, DependencyResolver
+
         r = DependencyResolver(BuiltinVersionProvider())
         result = r.resolve({})
         self.assertTrue(result.success)
         self.assertEqual(result.package_count, 0)
 
     def test_single_dep(self):
-        from epl.resolver import DependencyResolver, BuiltinVersionProvider
+        from epl.resolver import BuiltinVersionProvider, DependencyResolver
+
         r = DependencyResolver(BuiltinVersionProvider())
         result = r.resolve({'epl-math': '*'})
         self.assertTrue(result.success)
         self.assertIn('epl-math', result.packages)
 
     def test_multiple_deps(self):
-        from epl.resolver import DependencyResolver, BuiltinVersionProvider
+        from epl.resolver import BuiltinVersionProvider, DependencyResolver
+
         r = DependencyResolver(BuiltinVersionProvider())
         result = r.resolve({'epl-math': '*', 'epl-http': '*', 'epl-json': '*'})
         self.assertTrue(result.success)
         self.assertEqual(result.package_count, 3)
 
     def test_caret_constraint(self):
-        from epl.resolver import DependencyResolver, BuiltinVersionProvider
+        from epl.resolver import BuiltinVersionProvider, DependencyResolver
+
         r = DependencyResolver(BuiltinVersionProvider())
         result = r.resolve({'epl-math': '^1.0.0'})
         self.assertTrue(result.success)
 
     def test_unknown_package_fails(self):
-        from epl.resolver import DependencyResolver, BuiltinVersionProvider
+        from epl.resolver import BuiltinVersionProvider, DependencyResolver
+
         r = DependencyResolver(BuiltinVersionProvider())
         result = r.resolve({'nonexistent-xyz': '*'})
         self.assertFalse(result.success)
@@ -737,10 +848,13 @@ class TestDependencyResolver(unittest.TestCase):
 
     def test_max_iterations_guard(self):
         from epl.resolver import DependencyResolver, VersionProvider
+
         class InfiniteProvider(VersionProvider):
             def get_versions(self, name):
                 from epl.package_manager import SemVer
+
                 return [SemVer(1, 0, 0)]
+
             def get_dependencies(self, name, version):
                 return {'loop-' + name: '*'}
 
@@ -750,8 +864,8 @@ class TestDependencyResolver(unittest.TestCase):
 
     def test_backtracking_with_conflict(self):
         """Test backtracking when initial choice leads to conflict."""
-        from epl.resolver import DependencyResolver, VersionProvider
         from epl.package_manager import SemVer
+        from epl.resolver import DependencyResolver, VersionProvider
 
         class ConflictProvider(VersionProvider):
             """
@@ -765,6 +879,7 @@ class TestDependencyResolver(unittest.TestCase):
             => A@2.0.0 + B@1.0.0 conflicts on C (^2 vs ^1)
             => backtrack to A@1.0.0 + B@1.0.0 + C@1.0.0
             """
+
             _versions = {
                 'A': [SemVer(1, 0, 0), SemVer(2, 0, 0)],
                 'B': [SemVer(1, 0, 0)],
@@ -786,7 +901,7 @@ class TestDependencyResolver(unittest.TestCase):
 
         r = DependencyResolver(ConflictProvider())
         result = r.resolve({'A': '*', 'B': '*'})
-        self.assertTrue(result.success, f"Resolution failed: {result.errors}")
+        self.assertTrue(result.success, f'Resolution failed: {result.errors}')
         self.assertIn('A', result.packages)
         self.assertIn('B', result.packages)
         self.assertIn('C', result.packages)
@@ -795,12 +910,13 @@ class TestDependencyResolver(unittest.TestCase):
         self.assertEqual(result.packages['C'].version_str, '1.0.0')
 
     def test_resolve_install_order(self):
-        from epl.resolver import DependencyResolver, VersionProvider
         from epl.package_manager import SemVer
+        from epl.resolver import DependencyResolver, VersionProvider
 
         class OrderProvider(VersionProvider):
             def get_versions(self, name):
                 return [SemVer(1, 0, 0)]
+
             def get_dependencies(self, name, version):
                 if name == 'app':
                     return {'lib': '^1.0.0'}
@@ -819,11 +935,13 @@ class TestResolveDeps(unittest.TestCase):
 
     def test_resolve_builtin(self):
         from epl.resolver import resolve_deps
+
         result = resolve_deps({'epl-math': '*'})
         self.assertTrue(result.success)
 
     def test_resolve_empty(self):
         from epl.resolver import resolve_deps
+
         result = resolve_deps({})
         self.assertTrue(result.success)
         self.assertEqual(result.package_count, 0)
@@ -833,11 +951,13 @@ class TestResolveDeps(unittest.TestCase):
 #  7b: Publisher Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestPublishChecks(unittest.TestCase):
     """Tests for pre-publish validation checks."""
 
     def test_valid_manifest(self):
         from epl.publisher import run_publish_checks
+
         manifest = {
             'name': 'my-pkg',
             'version': '1.0.0',
@@ -855,6 +975,7 @@ class TestPublishChecks(unittest.TestCase):
 
     def test_missing_name(self):
         from epl.publisher import run_publish_checks
+
         manifest = {'version': '1.0.0'}
         checks = run_publish_checks(manifest)
         name_check = [c for c in checks if c.name == 'name']
@@ -863,6 +984,7 @@ class TestPublishChecks(unittest.TestCase):
 
     def test_invalid_name(self):
         from epl.publisher import run_publish_checks
+
         manifest = {'name': '123invalid', 'version': '1.0.0'}
         checks = run_publish_checks(manifest)
         name_check = [c for c in checks if c.name == 'name']
@@ -870,6 +992,7 @@ class TestPublishChecks(unittest.TestCase):
 
     def test_reserved_name(self):
         from epl.publisher import run_publish_checks
+
         manifest = {'name': 'epl', 'version': '1.0.0'}
         checks = run_publish_checks(manifest)
         name_check = [c for c in checks if c.name == 'name']
@@ -877,6 +1000,7 @@ class TestPublishChecks(unittest.TestCase):
 
     def test_missing_version(self):
         from epl.publisher import run_publish_checks
+
         manifest = {'name': 'valid-pkg'}
         checks = run_publish_checks(manifest)
         ver_check = [c for c in checks if c.name == 'version']
@@ -884,6 +1008,7 @@ class TestPublishChecks(unittest.TestCase):
 
     def test_invalid_version(self):
         from epl.publisher import run_publish_checks
+
         manifest = {'name': 'pkg', 'version': 'not-semver'}
         checks = run_publish_checks(manifest)
         ver_check = [c for c in checks if c.name == 'version']
@@ -891,6 +1016,7 @@ class TestPublishChecks(unittest.TestCase):
 
     def test_sensitive_files_detected(self):
         from epl.publisher import run_publish_checks
+
         manifest = {'name': 'pkg', 'version': '1.0.0'}
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, '.env'), 'w') as f:
@@ -901,6 +1027,7 @@ class TestPublishChecks(unittest.TestCase):
 
     def test_scoped_name_valid(self):
         from epl.publisher import run_publish_checks
+
         manifest = {'name': '@myorg/utils', 'version': '1.0.0'}
         checks = run_publish_checks(manifest)
         name_check = [c for c in checks if c.name == 'name']
@@ -912,6 +1039,7 @@ class TestPackForPublish(unittest.TestCase):
 
     def test_pack_basic(self):
         from epl.publisher import pack_for_publish
+
         with tempfile.TemporaryDirectory() as tmp:
             # Create a minimal epl.toml
             toml_path = os.path.join(tmp, 'epl.toml')
@@ -930,8 +1058,10 @@ class TestPackForPublish(unittest.TestCase):
             self.assertTrue(len(checksum) == 64)
 
     def test_pack_ignores_git(self):
-        from epl.publisher import pack_for_publish
         import zipfile
+
+        from epl.publisher import pack_for_publish
+
         with tempfile.TemporaryDirectory() as tmp:
             toml_path = os.path.join(tmp, 'epl.toml')
             with open(toml_path, 'w') as f:
@@ -959,12 +1089,14 @@ class TestPublishResult(unittest.TestCase):
 
     def test_empty_result(self):
         from epl.publisher import PublishResult
+
         r = PublishResult()
         self.assertTrue(r.checks_passed)
         self.assertFalse(r.published)
 
     def test_checks_passed_with_warnings(self):
         from epl.publisher import PublishResult
+
         r = PublishResult()
         r.add_check('name', True, 'OK')
         r.add_check('desc', False, 'Missing', severity='warning')
@@ -972,6 +1104,7 @@ class TestPublishResult(unittest.TestCase):
 
     def test_checks_failed_with_errors(self):
         from epl.publisher import PublishResult
+
         r = PublishResult()
         r.add_check('name', False, 'Bad name', severity='error')
         self.assertFalse(r.checks_passed)
@@ -982,12 +1115,15 @@ class TestEnhancedPublish(unittest.TestCase):
 
     def test_dry_run(self):
         from epl.publisher import enhanced_publish
+
         with tempfile.TemporaryDirectory() as tmp:
             toml_path = os.path.join(tmp, 'epl.toml')
             with open(toml_path, 'w') as f:
-                f.write('[project]\nname = "dry-pkg"\nversion = "1.0.0"\n'
-                        'description = "Test"\nlicense = "MIT"\n'
-                        'repository = "user/repo"\n')
+                f.write(
+                    '[project]\nname = "dry-pkg"\nversion = "1.0.0"\n'
+                    'description = "Test"\nlicense = "MIT"\n'
+                    'repository = "user/repo"\n'
+                )
             with open(os.path.join(tmp, 'main.epl'), 'w') as f:
                 f.write('Display "hello"\n')
 
@@ -998,9 +1134,10 @@ class TestEnhancedPublish(unittest.TestCase):
 
     def test_no_manifest_fails(self):
         from epl.publisher import enhanced_publish
+
         with tempfile.TemporaryDirectory() as tmp:
             result = enhanced_publish(tmp)
-            self.assertEqual(result.error, "No manifest found")
+            self.assertEqual(result.error, 'No manifest found')
 
 
 class TestGeneratePublishPrMarkdown(unittest.TestCase):
@@ -1008,6 +1145,7 @@ class TestGeneratePublishPrMarkdown(unittest.TestCase):
 
     def test_generates_markdown(self):
         from epl.publisher import PublishResult, generate_publish_pr_markdown
+
         r = PublishResult()
         r.add_check('name', True, 'OK')
         r.archive_size = 10240
@@ -1023,11 +1161,13 @@ class TestGeneratePublishPrMarkdown(unittest.TestCase):
 #  7e: Workspace Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestWorkspaceMember(unittest.TestCase):
     """Tests for WorkspaceMember."""
 
     def test_create(self):
         from epl.workspace import WorkspaceMember
+
         m = WorkspaceMember('lib-a', 'packages/lib-a', '1.0.0', {'epl-math': '^1.0.0'})
         self.assertEqual(m.name, 'lib-a')
         self.assertEqual(m.path, 'packages/lib-a')
@@ -1035,6 +1175,7 @@ class TestWorkspaceMember(unittest.TestCase):
 
     def test_to_dict(self):
         from epl.workspace import WorkspaceMember
+
         m = WorkspaceMember('x', 'p/x', '2.0.0')
         d = m.to_dict()
         self.assertEqual(d['name'], 'x')
@@ -1076,6 +1217,7 @@ class TestWorkspace(unittest.TestCase):
     def test_load_workspace(self):
         self._create_workspace()
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         self.assertTrue(ws.load())
         self.assertTrue(ws.is_workspace)
@@ -1084,6 +1226,7 @@ class TestWorkspace(unittest.TestCase):
     def test_member_discovery(self):
         self._create_workspace()
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         ws.load()
         self.assertIn('lib-a', ws.members)
@@ -1092,6 +1235,7 @@ class TestWorkspace(unittest.TestCase):
     def test_internal_deps(self):
         self._create_workspace()
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         ws.load()
         internal = ws.get_internal_deps()
@@ -1101,6 +1245,7 @@ class TestWorkspace(unittest.TestCase):
     def test_build_order(self):
         self._create_workspace()
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         ws.load()
         order = ws.get_build_order()
@@ -1108,11 +1253,14 @@ class TestWorkspace(unittest.TestCase):
         self.assertTrue(names.index('lib-a') < names.index('lib-b'))
 
     def test_get_all_deps(self):
-        self._create_workspace({
-            'a': {'epl-math': '^1.0.0'},
-            'b': {'epl-http': '^1.0.0'},
-        })
+        self._create_workspace(
+            {
+                'a': {'epl-math': '^1.0.0'},
+                'b': {'epl-http': '^1.0.0'},
+            }
+        )
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         ws.load()
         all_deps = ws.get_all_dependencies()
@@ -1122,6 +1270,7 @@ class TestWorkspace(unittest.TestCase):
     def test_validate_valid_workspace(self):
         self._create_workspace()
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         ws.load()
         errors = ws.validate()
@@ -1131,6 +1280,7 @@ class TestWorkspace(unittest.TestCase):
         with open(os.path.join(self.tmp, 'epl.toml'), 'w') as f:
             f.write('[project]\nname = "ws"\n[workspace]\nmembers = []\n')
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         ws.load()
         errors = ws.validate()
@@ -1140,6 +1290,7 @@ class TestWorkspace(unittest.TestCase):
         with open(os.path.join(self.tmp, 'epl.toml'), 'w') as f:
             f.write('[project]\nname = "not-ws"\nversion = "1.0.0"\n')
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         result = ws.load()
         self.assertFalse(result)
@@ -1147,6 +1298,7 @@ class TestWorkspace(unittest.TestCase):
 
     def test_cycle_detection(self):
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         # Direct cycle test through the method
         graph = {'a': ['b'], 'b': ['a']}
@@ -1154,6 +1306,7 @@ class TestWorkspace(unittest.TestCase):
 
     def test_no_cycle(self):
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         graph = {'a': ['b'], 'b': ['c'], 'c': []}
         self.assertFalse(ws._has_cycle(graph))
@@ -1161,6 +1314,7 @@ class TestWorkspace(unittest.TestCase):
     def test_to_dict(self):
         self._create_workspace({'pkg': {}})
         from epl.workspace import Workspace
+
         ws = Workspace(self.tmp)
         ws.load()
         d = ws.to_dict()
@@ -1174,12 +1328,14 @@ class TestLoadWorkspace(unittest.TestCase):
 
     def test_load_nonexistent(self):
         from epl.workspace import load_workspace
+
         with tempfile.TemporaryDirectory() as tmp:
             result = load_workspace(tmp)
             self.assertIsNone(result)
 
     def test_load_valid(self):
         from epl.workspace import load_workspace
+
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'epl.toml'), 'w') as f:
                 f.write('[project]\nname = "ws"\n[workspace]\nmembers = ["p/*"]\n')
@@ -1192,6 +1348,7 @@ class TestInitWorkspace(unittest.TestCase):
 
     def test_init_creates_toml(self):
         from epl.workspace import init_workspace
+
         with tempfile.TemporaryDirectory() as tmp:
             path = init_workspace(tmp)
             self.assertTrue(os.path.isfile(path))
@@ -1201,6 +1358,7 @@ class TestInitWorkspace(unittest.TestCase):
 
     def test_init_creates_dirs(self):
         from epl.workspace import init_workspace
+
         with tempfile.TemporaryDirectory() as tmp:
             init_workspace(tmp, ['packages/*', 'apps/*'])
             self.assertTrue(os.path.isdir(os.path.join(tmp, 'packages')))
@@ -1208,6 +1366,7 @@ class TestInitWorkspace(unittest.TestCase):
 
     def test_init_adds_to_existing_toml(self):
         from epl.workspace import init_workspace
+
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'epl.toml'), 'w') as f:
                 f.write('[project]\nname = "existing"\nversion = "1.0.0"\n')
@@ -1221,11 +1380,13 @@ class TestInitWorkspace(unittest.TestCase):
 #  7f: CI Generation Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestCIWorkflowGeneration(unittest.TestCase):
     """Tests for CI workflow template generation."""
 
     def test_index_validation_workflow(self):
         from epl.ci_gen import generate_index_validation_workflow
+
         wf = generate_index_validation_workflow()
         self.assertIn('name:', wf)
         self.assertIn('validate', wf.lower())
@@ -1234,12 +1395,14 @@ class TestCIWorkflowGeneration(unittest.TestCase):
 
     def test_auto_merge_workflow(self):
         from epl.ci_gen import generate_auto_merge_workflow
+
         wf = generate_auto_merge_workflow()
         self.assertIn('auto-merge', wf.lower())
         self.assertIn('epl-publish-bot', wf)
 
     def test_package_ci_workflow(self):
         from epl.ci_gen import generate_package_ci_workflow
+
         wf = generate_package_ci_workflow('my-pkg', '7.0.0')
         self.assertIn('my-pkg', wf)
         self.assertIn('epl install', wf)
@@ -1248,6 +1411,7 @@ class TestCIWorkflowGeneration(unittest.TestCase):
 
     def test_workspace_ci_workflow(self):
         from epl.ci_gen import generate_workspace_ci_workflow
+
         wf = generate_workspace_ci_workflow('my-ws', ['core', 'utils'])
         self.assertIn('my-ws', wf)
         self.assertIn('core', wf)
@@ -1257,6 +1421,7 @@ class TestCIWorkflowGeneration(unittest.TestCase):
 
     def test_validation_script(self):
         from epl.ci_gen import generate_validation_script
+
         script = generate_validation_script()
         self.assertIn('validate_package_dir', script)
         self.assertIn('metadata.json', script)
@@ -1269,6 +1434,7 @@ class TestCIForProject(unittest.TestCase):
 
     def test_generate_for_package(self):
         from epl.ci_gen import generate_ci_for_project
+
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'epl.toml'), 'w') as f:
                 f.write('[project]\nname = "test-pkg"\nversion = "1.0.0"\n')
@@ -1278,6 +1444,7 @@ class TestCIForProject(unittest.TestCase):
 
     def test_generate_for_workspace(self):
         from epl.ci_gen import generate_ci_for_project
+
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'epl.toml'), 'w') as f:
                 f.write('[project]\nname = "ws"\n[workspace]\nmembers = ["p/*"]\n')
@@ -1295,6 +1462,7 @@ class TestWriteCIFiles(unittest.TestCase):
 
     def test_write_files(self):
         from epl.ci_gen import write_ci_files
+
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'epl.toml'), 'w') as f:
                 f.write('[project]\nname = "ci-test"\nversion = "1.0.0"\n')
@@ -1305,6 +1473,7 @@ class TestWriteCIFiles(unittest.TestCase):
 
     def test_no_manifest(self):
         from epl.ci_gen import write_ci_files
+
         with tempfile.TemporaryDirectory() as tmp:
             count = write_ci_files(tmp)
             self.assertEqual(count, 0)
@@ -1315,6 +1484,7 @@ class TestCIForIndex(unittest.TestCase):
 
     def test_generates_files(self):
         from epl.ci_gen import generate_ci_for_index
+
         files = generate_ci_for_index()
         self.assertIn('.github/workflows/validate-pr.yml', files)
         self.assertIn('.github/workflows/auto-merge.yml', files)
@@ -1325,13 +1495,20 @@ class TestCIForIndex(unittest.TestCase):
 #  Integration Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestResolverWithIndex(unittest.TestCase):
     """Integration: resolver + package index."""
 
     def test_index_provider(self):
+        from epl.package_index import (
+            IndexCache,
+            PackageIndex,
+            PackageIndexEntry,
+            PackageMetadata,
+            VersionEntry,
+        )
         from epl.resolver import IndexVersionProvider
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry, PackageIndexEntry)
+
         with tempfile.TemporaryDirectory() as tmp:
             cache_path = os.path.join(tmp, 'cache.json')
             cache = IndexCache(cache_path)
@@ -1346,10 +1523,20 @@ class TestResolverWithIndex(unittest.TestCase):
             self.assertTrue(len(versions) >= 2)
 
     def test_composite_resolver(self):
-        from epl.resolver import (DependencyResolver, CompositeVersionProvider,
-                                   BuiltinVersionProvider, IndexVersionProvider)
-        from epl.package_index import (PackageIndex, IndexCache, PackageMetadata,
-                                        VersionEntry, PackageIndexEntry)
+        from epl.package_index import (
+            IndexCache,
+            PackageIndex,
+            PackageIndexEntry,
+            PackageMetadata,
+            VersionEntry,
+        )
+        from epl.resolver import (
+            BuiltinVersionProvider,
+            CompositeVersionProvider,
+            DependencyResolver,
+            IndexVersionProvider,
+        )
+
         with tempfile.TemporaryDirectory() as tmp:
             cache_path = os.path.join(tmp, 'cache.json')
             cache = IndexCache(cache_path)
@@ -1375,11 +1562,14 @@ class TestPublisherWithIndex(unittest.TestCase):
 
     def test_dry_run_generates_index_content(self):
         from epl.publisher import enhanced_publish
+
         with tempfile.TemporaryDirectory() as tmp:
             with open(os.path.join(tmp, 'epl.toml'), 'w') as f:
-                f.write('[project]\nname = "integ-pkg"\nversion = "1.0.0"\n'
-                        'description = "Test"\nlicense = "MIT"\n'
-                        'repository = "user/repo"\n')
+                f.write(
+                    '[project]\nname = "integ-pkg"\nversion = "1.0.0"\n'
+                    'description = "Test"\nlicense = "MIT"\n'
+                    'repository = "user/repo"\n'
+                )
             with open(os.path.join(tmp, 'main.epl'), 'w') as f:
                 f.write('Display "hello"\n')
 
@@ -1406,6 +1596,7 @@ class TestWorkspaceResolve(unittest.TestCase):
                     json.dump({'name': pkg_name, 'version': '1.0.0', 'dependencies': deps}, f)
 
             from epl.workspace import Workspace
+
             ws = Workspace(tmp)
             ws.load()
             all_deps = ws.get_all_dependencies()
@@ -1435,17 +1626,20 @@ class TestEndToEnd(unittest.TestCase):
                 f.write('Display "e2e"\n')
 
             # 2. Resolve
-            from epl.resolver import resolve_deps, BuiltinVersionProvider
+            from epl.resolver import BuiltinVersionProvider, resolve_deps
+
             result = resolve_deps({'epl-math': '*'}, BuiltinVersionProvider())
             self.assertTrue(result.success)
 
             # 3. Publish (dry run)
             from epl.publisher import enhanced_publish
+
             pub_result = enhanced_publish(tmp, dry_run=True)
             self.assertTrue(len(pub_result.index_pr_content) > 0)
 
             # 4. Generate CI
             from epl.ci_gen import generate_ci_for_project
+
             ci_files = generate_ci_for_project(tmp)
             self.assertIn('ci.yml', ci_files)
 
@@ -1454,42 +1648,53 @@ class TestEndToEnd(unittest.TestCase):
 #  CLI Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestResolveCommand(unittest.TestCase):
     """Tests for the resolve CLI command."""
 
     def test_main_py_delegates_to_cli(self):
         """Verify the source entry point delegates to the authoritative CLI."""
-        import main as main_module
         import inspect
-        source = inspect.getsource(main_module.main)
-        self.assertIn("cli_main", source)
 
-    def test_resolve_legacy_dispatcher(self):
-        """Verify the resolve command remains available in the legacy dispatcher."""
         import main as main_module
+
+        source = inspect.getsource(main_module.main)
+        self.assertIn('cli_main', source)
+
+    def test_resolve_authoritative_dispatcher(self):
+        """Verify the resolve command remains available in the authoritative dispatcher."""
         import inspect
-        source = inspect.getsource(main_module.legacy_main)
+
+        from epl.cli import cli_main
+
+        source = inspect.getsource(cli_main)
         self.assertIn("'resolve'", source)
 
-    def test_workspace_legacy_dispatcher(self):
-        """Verify the workspace command remains available in the legacy dispatcher."""
-        import main as main_module
+    def test_workspace_authoritative_dispatcher(self):
+        """Verify the workspace command remains available in the authoritative dispatcher."""
         import inspect
-        source = inspect.getsource(main_module.legacy_main)
+
+        from epl.cli import cli_main
+
+        source = inspect.getsource(cli_main)
         self.assertIn("'workspace'", source)
 
-    def test_ci_legacy_dispatcher(self):
-        """Verify the ci command remains available in the legacy dispatcher."""
-        import main as main_module
+    def test_ci_authoritative_dispatcher(self):
+        """Verify the ci command remains available in the authoritative dispatcher."""
         import inspect
-        source = inspect.getsource(main_module.legacy_main)
+
+        from epl.cli import cli_main
+
+        source = inspect.getsource(cli_main)
         self.assertIn("'ci'", source)
 
-    def test_sync_index_legacy_dispatcher(self):
-        """Verify the sync-index command remains available in the legacy dispatcher."""
-        import main as main_module
+    def test_sync_index_authoritative_dispatcher(self):
+        """Verify the sync-index command remains available in the authoritative dispatcher."""
         import inspect
-        source = inspect.getsource(main_module.legacy_main)
+
+        from epl.cli import cli_main
+
+        source = inspect.getsource(cli_main)
         self.assertIn("'sync-index'", source)
 
 
@@ -1497,26 +1702,34 @@ class TestCLICommands(unittest.TestCase):
     """Tests for CLI dispatch table."""
 
     def test_cli_has_resolve(self):
-        from epl.cli import cli_main
         import inspect
+
+        from epl.cli import cli_main
+
         source = inspect.getsource(cli_main)
         self.assertIn("'resolve'", source)
 
     def test_cli_has_workspace(self):
-        from epl.cli import cli_main
         import inspect
+
+        from epl.cli import cli_main
+
         source = inspect.getsource(cli_main)
         self.assertIn("'workspace'", source)
 
     def test_cli_has_ci(self):
-        from epl.cli import cli_main
         import inspect
+
+        from epl.cli import cli_main
+
         source = inspect.getsource(cli_main)
         self.assertIn("'ci'", source)
 
     def test_cli_has_sync_index(self):
-        from epl.cli import cli_main
         import inspect
+
+        from epl.cli import cli_main
+
         source = inspect.getsource(cli_main)
         self.assertIn("'sync-index'", source)
 
@@ -1525,11 +1738,13 @@ class TestCLICommands(unittest.TestCase):
 #  Module Import Tests
 # ═══════════════════════════════════════════════════════════
 
+
 class TestModuleImports(unittest.TestCase):
     """Verify all Phase 7 modules import cleanly."""
 
     def test_import_package_index(self):
         import epl.package_index
+
         self.assertTrue(hasattr(epl.package_index, 'PackageIndex'))
         self.assertTrue(hasattr(epl.package_index, 'PackageMetadata'))
         self.assertTrue(hasattr(epl.package_index, 'VersionEntry'))
@@ -1539,6 +1754,7 @@ class TestModuleImports(unittest.TestCase):
 
     def test_import_resolver(self):
         import epl.resolver
+
         self.assertTrue(hasattr(epl.resolver, 'DependencyResolver'))
         self.assertTrue(hasattr(epl.resolver, 'VersionConstraint'))
         self.assertTrue(hasattr(epl.resolver, 'ConstraintSet'))
@@ -1548,6 +1764,7 @@ class TestModuleImports(unittest.TestCase):
 
     def test_import_publisher(self):
         import epl.publisher
+
         self.assertTrue(hasattr(epl.publisher, 'enhanced_publish'))
         self.assertTrue(hasattr(epl.publisher, 'run_publish_checks'))
         self.assertTrue(hasattr(epl.publisher, 'pack_for_publish'))
@@ -1555,6 +1772,7 @@ class TestModuleImports(unittest.TestCase):
 
     def test_import_workspace(self):
         import epl.workspace
+
         self.assertTrue(hasattr(epl.workspace, 'Workspace'))
         self.assertTrue(hasattr(epl.workspace, 'WorkspaceMember'))
         self.assertTrue(hasattr(epl.workspace, 'load_workspace'))
@@ -1562,6 +1780,7 @@ class TestModuleImports(unittest.TestCase):
 
     def test_import_ci_gen(self):
         import epl.ci_gen
+
         self.assertTrue(hasattr(epl.ci_gen, 'generate_package_ci_workflow'))
         self.assertTrue(hasattr(epl.ci_gen, 'generate_workspace_ci_workflow'))
         self.assertTrue(hasattr(epl.ci_gen, 'generate_ci_for_project'))

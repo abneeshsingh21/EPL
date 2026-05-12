@@ -1,0 +1,10 @@
+[package]
+name = "epl-cloud"
+version = "1.0.0"
+description = "AWS cloud integration for EPL — S3, Lambda, SQS"
+author = "D1v3shh"
+license = "MIT"
+entry = "src/main.epl"
+keywords = ["cloud", "aws", "s3", "lambda", "sqs"]
+
+[dependencies]

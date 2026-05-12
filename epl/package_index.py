@@ -14,18 +14,16 @@ The index is cloned/fetched locally to ~/.epl/index/ and cached.
 Packages themselves are hosted by their authors (GitHub releases).
 """
 
+import hashlib
 import json
 import os
 import re
-import time
-import hashlib
-import shutil
 import tempfile
-import urllib.request
+import time
 import urllib.error
+import urllib.request
 import zipfile
-from typing import Dict, List, Optional, Tuple, Any
-
+from typing import Dict, List, Optional, Tuple
 
 # ═══════════════════════════════════════════════════════════
 #  Constants
@@ -48,16 +46,34 @@ def _ensure_dirs():
 #  Index Entry — Per-Package Metadata
 # ═══════════════════════════════════════════════════════════
 
+
 class PackageMetadata:
     """Metadata for a package in the index."""
 
-    __slots__ = ('name', 'description', 'author', 'license', 'repository',
-                 'homepage', 'keywords', 'created_at', 'updated_at')
+    __slots__ = (
+        'name',
+        'description',
+        'author',
+        'license',
+        'repository',
+        'homepage',
+        'keywords',
+        'created_at',
+        'updated_at',
+    )
 
-    def __init__(self, name: str, description: str = '', author: str = '',
-                 license_: str = 'MIT', repository: str = '',
-                 homepage: str = '', keywords: Optional[List[str]] = None,
-                 created_at: float = 0, updated_at: float = 0):
+    def __init__(
+        self,
+        name: str,
+        description: str = '',
+        author: str = '',
+        license_: str = 'MIT',
+        repository: str = '',
+        homepage: str = '',
+        keywords: Optional[List[str]] = None,
+        created_at: float = 0,
+        updated_at: float = 0,
+    ):
         self.name = name
         self.description = description
         self.author = author
@@ -96,19 +112,34 @@ class PackageMetadata:
         )
 
     def __repr__(self):
-        return f"PackageMetadata({self.name!r}, {self.description!r})"
+        return f'PackageMetadata({self.name!r}, {self.description!r})'
 
 
 class VersionEntry:
     """A single published version of a package."""
 
-    __slots__ = ('version', 'checksum', 'download_url', 'published_at',
-                 'yanked', 'dependencies', 'epl_version', 'size')
+    __slots__ = (
+        'version',
+        'checksum',
+        'download_url',
+        'published_at',
+        'yanked',
+        'dependencies',
+        'epl_version',
+        'size',
+    )
 
-    def __init__(self, version: str, checksum: str = '', download_url: str = '',
-                 published_at: float = 0, yanked: bool = False,
-                 dependencies: Optional[Dict[str, str]] = None,
-                 epl_version: str = '*', size: int = 0):
+    def __init__(
+        self,
+        version: str,
+        checksum: str = '',
+        download_url: str = '',
+        published_at: float = 0,
+        yanked: bool = False,
+        dependencies: Optional[Dict[str, str]] = None,
+        epl_version: str = '*',
+        size: int = 0,
+    ):
         self.version = version
         self.checksum = checksum
         self.download_url = download_url
@@ -147,7 +178,7 @@ class VersionEntry:
         )
 
     def __repr__(self):
-        return f"VersionEntry({self.version!r})"
+        return f'VersionEntry({self.version!r})'
 
 
 class PackageIndexEntry:
@@ -195,6 +226,7 @@ class PackageIndexEntry:
 # ═══════════════════════════════════════════════════════════
 #  Index Cache — Local JSON Cache of Remote Index
 # ═══════════════════════════════════════════════════════════
+
 
 class IndexCache:
     """In-memory + disk cache for the package index."""
@@ -284,6 +316,7 @@ class IndexCache:
 #  Package Index — Git-Native Fetcher
 # ═══════════════════════════════════════════════════════════
 
+
 class PackageIndex:
     """Git-native package index fetcher.
 
@@ -295,10 +328,13 @@ class PackageIndex:
       - Multiple index sources (registries)
     """
 
-    def __init__(self, index_url: str = DEFAULT_INDEX_URL,
-                 raw_url: str = DEFAULT_INDEX_RAW,
-                 cache: Optional[IndexCache] = None,
-                 offline: bool = False):
+    def __init__(
+        self,
+        index_url: str = DEFAULT_INDEX_URL,
+        raw_url: str = DEFAULT_INDEX_RAW,
+        cache: Optional[IndexCache] = None,
+        offline: bool = False,
+    ):
         self._index_url = index_url
         self._raw_url = raw_url
         self._cache = cache or IndexCache()
@@ -399,13 +435,13 @@ class PackageIndex:
         """Fetch a single package's metadata from the remote index."""
         try:
             # Fetch metadata.toml
-            meta_url = f"{self._raw_url}/packages/{name}/metadata.json"
+            meta_url = f'{self._raw_url}/packages/{name}/metadata.json'
             meta_data = self._http_get_json(meta_url)
             if not meta_data:
                 return None
 
             # Fetch versions.json
-            ver_url = f"{self._raw_url}/packages/{name}/versions.json"
+            ver_url = f'{self._raw_url}/packages/{name}/versions.json'
             ver_data = self._http_get_json(ver_url)
 
             metadata = PackageMetadata.from_dict(meta_data)
@@ -421,7 +457,7 @@ class PackageIndex:
     def _fetch_remote_index(self) -> Optional[Dict[str, PackageIndexEntry]]:
         """Fetch the full index from remote."""
         try:
-            index_url = f"{self._raw_url}/index.json"
+            index_url = f'{self._raw_url}/index.json'
             data = self._http_get_json(index_url)
             if not data or 'packages' not in data:
                 return None
@@ -443,8 +479,7 @@ class PackageIndex:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return json.loads(resp.read().decode('utf-8'))
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError,
-                json.JSONDecodeError):
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError, json.JSONDecodeError):
             return None
 
     # ── Index Sync (Git-based) ──
@@ -476,8 +511,8 @@ class PackageIndex:
         """Check if git is available on the system."""
         try:
             import subprocess
-            result = subprocess.run(['git', '--version'],
-                                    capture_output=True, timeout=5)
+
+            result = subprocess.run(['git', '--version'], capture_output=True, timeout=5)
             return result.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             return False
@@ -486,13 +521,13 @@ class PackageIndex:
         """Sync using git clone/pull."""
         try:
             import subprocess
+
             git_dir = os.path.join(INDEX_DIR, 'repo')
 
             if os.path.isdir(os.path.join(git_dir, '.git')):
                 # Pull latest
                 result = subprocess.run(
-                    ['git', '-C', git_dir, 'pull', '--ff-only'],
-                    capture_output=True, timeout=30
+                    ['git', '-C', git_dir, 'pull', '--ff-only'], capture_output=True, timeout=30
                 )
                 return result.returncode == 0
             else:
@@ -500,7 +535,8 @@ class PackageIndex:
                 os.makedirs(git_dir, exist_ok=True)
                 result = subprocess.run(
                     ['git', 'clone', '--depth', '1', self._index_url, git_dir],
-                    capture_output=True, timeout=60
+                    capture_output=True,
+                    timeout=60,
                 )
                 return result.returncode == 0
         except (subprocess.TimeoutExpired, OSError):
@@ -508,8 +544,7 @@ class PackageIndex:
 
     # ── Package Download (from source) ──
 
-    def download_package(self, name: str, version: str,
-                         dest_dir: str) -> Optional[str]:
+    def download_package(self, name: str, version: str, dest_dir: str) -> Optional[str]:
         """Download a specific package version to dest_dir.
 
         Returns the path to the extracted package, or None on failure.
@@ -524,14 +559,14 @@ class PackageIndex:
             return None
 
         if ver_entry.yanked:
-            print(f"  Warning: {name}@{version} is yanked.")
+            print(f'  Warning: {name}@{version} is yanked.')
 
         url = ver_entry.download_url
         if not url:
             # Generate URL from repository
             repo = entry.metadata.repository
             if repo:
-                url = f"https://github.com/{repo}/archive/refs/tags/v{version}.zip"
+                url = f'https://github.com/{repo}/archive/refs/tags/v{version}.zip'
             else:
                 return None
 
@@ -553,9 +588,9 @@ class PackageIndex:
                 if ver_entry.checksum:
                     actual = _sha256_file(zip_path)
                     if actual != ver_entry.checksum:
-                        print(f"  Checksum mismatch for {name}@{version}!")
-                        print(f"  Expected: {ver_entry.checksum}")
-                        print(f"  Got:      {actual}")
+                        print(f'  Checksum mismatch for {name}@{version}!')
+                        print(f'  Expected: {ver_entry.checksum}')
+                        print(f'  Got:      {actual}')
                         return None
 
                 # Extract with zip-slip protection
@@ -565,13 +600,14 @@ class PackageIndex:
                 return pkg_dest
 
         except (urllib.error.URLError, OSError, zipfile.BadZipFile) as e:
-            print(f"  Download failed for {name}@{version}: {e}")
+            print(f'  Download failed for {name}@{version}: {e}')
             return None
 
     # ── Publishing Support ──
 
-    def create_index_entry(self, name: str, metadata: PackageMetadata,
-                           version_entry: VersionEntry) -> PackageIndexEntry:
+    def create_index_entry(
+        self, name: str, metadata: PackageMetadata, version_entry: VersionEntry
+    ) -> PackageIndexEntry:
         """Create or update an index entry for publishing."""
         existing = self._cache.get_package(name)
         if existing:
@@ -613,15 +649,19 @@ class PackageIndex:
 #  Multi-Registry Support
 # ═══════════════════════════════════════════════════════════
 
+
 class RegistryConfig:
     """Configuration for a named package registry."""
 
-    def __init__(self, name: str, url: str, raw_url: str = '',
-                 token_env: str = '', priority: int = 0):
+    def __init__(
+        self, name: str, url: str, raw_url: str = '', token_env: str = '', priority: int = 0
+    ):
         self.name = name
         self.url = url
-        self.raw_url = raw_url or url.replace('.git', '').replace(
-            'github.com', 'raw.githubusercontent.com') + '/main'
+        self.raw_url = (
+            raw_url
+            or url.replace('.git', '').replace('github.com', 'raw.githubusercontent.com') + '/main'
+        )
         self.token_env = token_env
         self.priority = priority
 
@@ -657,12 +697,14 @@ class MultiRegistry:
         self._registries: Dict[str, RegistryConfig] = {}
         self._indexes: Dict[str, PackageIndex] = {}
         # Add default registry
-        self.add_registry(RegistryConfig(
-            name='default',
-            url=DEFAULT_INDEX_URL,
-            raw_url=DEFAULT_INDEX_RAW,
-            priority=0,
-        ))
+        self.add_registry(
+            RegistryConfig(
+                name='default',
+                url=DEFAULT_INDEX_URL,
+                raw_url=DEFAULT_INDEX_RAW,
+                priority=0,
+            )
+        )
 
     def add_registry(self, config: RegistryConfig):
         self._registries[config.name] = config
@@ -710,8 +752,7 @@ class MultiRegistry:
         return list(self._registries.keys())
 
     def _sorted_registry_names(self) -> List[str]:
-        items = sorted(self._registries.items(),
-                       key=lambda x: x[1].priority, reverse=True)
+        items = sorted(self._registries.items(), key=lambda x: x[1].priority, reverse=True)
         return [name for name, _ in items]
 
 
@@ -747,7 +788,7 @@ class ScopedName:
     def safe_dir_name(self) -> str:
         """File-safe directory name: @org/pkg -> @org__pkg"""
         if self.scope:
-            return f"@{self.scope}__{self.name}"
+            return f'@{self.scope}__{self.name}'
         return self.name
 
     @staticmethod
@@ -759,7 +800,7 @@ class ScopedName:
         return self.full
 
     def __repr__(self):
-        return f"ScopedName({self.full!r})"
+        return f'ScopedName({self.full!r})'
 
     def __eq__(self, other):
         if isinstance(other, ScopedName):
@@ -775,6 +816,7 @@ class ScopedName:
 # ═══════════════════════════════════════════════════════════
 #  Utility Functions
 # ═══════════════════════════════════════════════════════════
+
 
 def _sha256_file(path: str) -> str:
     """Compute SHA-256 hash of a file."""
@@ -819,9 +861,9 @@ def parse_package_spec(spec: str) -> Tuple[str, Optional[str], Optional[str]]:
     if ':' in spec and not spec.startswith('http') and not spec.startswith('github:'):
         colon_idx = spec.index(':')
         potential_reg = spec[:colon_idx]
-        if _PLAIN_RE.match(potential_reg) and not spec[colon_idx + 1:].startswith('//'):
+        if _PLAIN_RE.match(potential_reg) and not spec[colon_idx + 1 :].startswith('//'):
             registry = potential_reg
-            spec = spec[colon_idx + 1:]
+            spec = spec[colon_idx + 1 :]
 
     # Check for @version
     if '@' in spec:
@@ -829,11 +871,11 @@ def parse_package_spec(spec: str) -> Tuple[str, Optional[str], Optional[str]]:
         if spec.startswith('@'):
             slash_idx = spec.find('/')
             if slash_idx > 0:
-                rest = spec[slash_idx + 1:]
+                rest = spec[slash_idx + 1 :]
                 if '@' in rest:
                     at_idx = rest.index('@')
-                    name = spec[:slash_idx + 1 + at_idx]
-                    version = rest[at_idx + 1:]
+                    name = spec[: slash_idx + 1 + at_idx]
+                    version = rest[at_idx + 1 :]
                 else:
                     name = spec
             else:
@@ -841,7 +883,7 @@ def parse_package_spec(spec: str) -> Tuple[str, Optional[str], Optional[str]]:
         else:
             at_idx = spec.index('@')
             name = spec[:at_idx]
-            version = spec[at_idx + 1:]
+            version = spec[at_idx + 1 :]
     else:
         name = spec
 

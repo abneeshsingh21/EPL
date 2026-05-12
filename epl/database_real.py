@@ -18,14 +18,12 @@ Provides:
 
 import sqlite3
 import threading
-import json
-import os
 import time
 from contextlib import contextmanager
-from typing import Any, Optional
-
+from typing import Optional
 
 # ─── Dialect detection ────────────────────────────────────────
+
 
 def _detect_dialect(path_or_dsn: str) -> str:
     """Detect database dialect from connection string."""
@@ -40,6 +38,7 @@ def _detect_dialect(path_or_dsn: str) -> str:
 def _parse_dsn(dsn: str) -> dict:
     """Parse a URI-style DSN into connection parameters."""
     import urllib.parse
+
     parsed = urllib.parse.urlparse(dsn)
     params = {
         'host': parsed.hostname or 'localhost',
@@ -55,11 +54,17 @@ def _parse_dsn(dsn: str) -> dict:
 
 # ─── Connection Pool ──────────────────────────────────────────
 
+
 class ConnectionPool:
     """Thread-safe connection pool for SQLite, PostgreSQL, and MySQL."""
 
-    def __init__(self, db_path: str, max_connections: int = 10, dialect: str = 'sqlite',
-                 connect_args: dict = None):
+    def __init__(
+        self,
+        db_path: str,
+        max_connections: int = 10,
+        dialect: str = 'sqlite',
+        connect_args: dict = None,
+    ):
         self.db_path = db_path
         self.max_connections = max_connections
         self.dialect = dialect
@@ -73,8 +78,8 @@ class ConnectionPool:
         if self.dialect == 'sqlite':
             conn = sqlite3.connect(self.db_path, check_same_thread=False)
             conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute('PRAGMA journal_mode=WAL')
+            conn.execute('PRAGMA foreign_keys=ON')
             return conn
         elif self.dialect == 'postgres':
             try:
@@ -82,8 +87,8 @@ class ConnectionPool:
                 import psycopg2.extras  # type: ignore[import-untyped]
             except ImportError:
                 raise RuntimeError(
-                    'PostgreSQL support requires psycopg2. '
-                    'Run: pip install psycopg2-binary')
+                    'PostgreSQL support requires psycopg2. Run: pip install psycopg2-binary'
+                )
             conn = psycopg2.connect(**self.connect_args)
             conn.autocommit = False
             return conn
@@ -93,7 +98,8 @@ class ConnectionPool:
             except ImportError:
                 raise RuntimeError(
                     'MySQL support requires mysql-connector-python. '
-                    'Run: pip install mysql-connector-python')
+                    'Run: pip install mysql-connector-python'
+                )
             conn = mysql.connector.connect(**self.connect_args)
             return conn
         else:
@@ -115,15 +121,15 @@ class ConnectionPool:
                 conn = self._create_connection()
                 self._in_use.add(id(conn))
                 return conn
-            raise RuntimeError("Connection pool exhausted")
+            raise RuntimeError('Connection pool exhausted')
 
     def _is_alive(self, conn) -> bool:
         """Check if a connection is still alive."""
         try:
             if self.dialect == 'sqlite':
-                conn.execute("SELECT 1")
+                conn.execute('SELECT 1')
             elif self.dialect == 'postgres':
-                conn.cursor().execute("SELECT 1")
+                conn.cursor().execute('SELECT 1')
             elif self.dialect == 'mysql':
                 conn.ping(reconnect=False)
             return True
@@ -161,6 +167,7 @@ class ConnectionPool:
 
 # ─── Database Connection ──────────────────────────────────────
 
+
 class Database:
     """
     Main database interface supporting SQLite, PostgreSQL, and MySQL.
@@ -174,7 +181,7 @@ class Database:
         Set users To db.query("SELECT * FROM users")
     """
 
-    def __init__(self, path: str = ":memory:", pool_size: int = 5):
+    def __init__(self, path: str = ':memory:', pool_size: int = 5):
         self.path = path
         self.dialect = _detect_dialect(path)
         if self.dialect in ('postgres', 'mysql'):
@@ -201,9 +208,7 @@ class Database:
                 )
             """)
             self._conn.commit()
-            row = self._conn.execute(
-                "SELECT MAX(version) FROM _epl_migrations"
-            ).fetchone()
+            row = self._conn.execute('SELECT MAX(version) FROM _epl_migrations').fetchone()
             self._migration_version = row[0] or 0
         else:
             # PostgreSQL / MySQL
@@ -227,7 +232,7 @@ class Database:
                     )
                 """)
             self._conn.commit()
-            cursor.execute("SELECT MAX(version) FROM _epl_migrations")
+            cursor.execute('SELECT MAX(version) FROM _epl_migrations')
             row = cursor.fetchone()
             self._migration_version = (row[0] or 0) if row else 0
             cursor.close()
@@ -300,7 +305,7 @@ class Database:
         """Insert row and return last row ID."""
         columns = ', '.join(data.keys())
         placeholders = ', '.join([self._param] * len(data))
-        sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        sql = f'INSERT INTO {table} ({columns}) VALUES ({placeholders})'
         cursor = self._execute(sql, tuple(data.values()))
         self._commit()
         if self.dialect == 'sqlite':
@@ -308,7 +313,7 @@ class Database:
         elif self.dialect == 'postgres':
             # PostgreSQL: use RETURNING id if available
             try:
-                self._execute(sql + " RETURNING id", tuple(data.values()))
+                self._execute(sql + ' RETURNING id', tuple(data.values()))
                 row = cursor.fetchone()
                 return row[0] if row else 0
             except Exception:
@@ -322,7 +327,7 @@ class Database:
             return 0
         columns = ', '.join(rows[0].keys())
         placeholders = ', '.join([self._param] * len(rows[0]))
-        sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        sql = f'INSERT INTO {table} ({columns}) VALUES ({placeholders})'
         sql_adapted = self._adapt_sql(sql)
         if self.dialect == 'sqlite':
             cursor = self._conn.executemany(sql_adapted, [tuple(r.values()) for r in rows])
@@ -334,9 +339,9 @@ class Database:
 
     def update(self, table: str, data: dict, where: str, params: tuple = ()) -> int:
         """Update rows matching condition."""
-        set_clause = ', '.join(f"{k} = {self._param}" for k in data.keys())
+        set_clause = ', '.join(f'{k} = {self._param}' for k in data.keys())
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
-        sql = f"UPDATE {table} SET {set_clause} WHERE {where_adapted}"
+        sql = f'UPDATE {table} SET {set_clause} WHERE {where_adapted}'
         all_params = tuple(data.values()) + params
         cursor = self._execute(sql, all_params)
         self._commit()
@@ -345,19 +350,19 @@ class Database:
     def delete(self, table: str, where: str, params: tuple = ()) -> int:
         """Delete rows matching condition."""
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
-        sql = f"DELETE FROM {table} WHERE {where_adapted}"
+        sql = f'DELETE FROM {table} WHERE {where_adapted}'
         cursor = self._execute(sql, params)
         self._commit()
         return cursor.rowcount
 
     def find_by_id(self, table: str, id_val) -> Optional[dict]:
         """Find row by primary key."""
-        return self.query_one(f"SELECT * FROM {table} WHERE id = {self._param}", (id_val,))
+        return self.query_one(f'SELECT * FROM {table} WHERE id = {self._param}', (id_val,))
 
-    def count(self, table: str, where: str = "1=1", params: tuple = ()) -> int:
+    def count(self, table: str, where: str = '1=1', params: tuple = ()) -> int:
         """Count rows matching condition."""
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
-        return self.query_value(f"SELECT COUNT(*) FROM {table} WHERE {where_adapted}", params)
+        return self.query_value(f'SELECT COUNT(*) FROM {table} WHERE {where_adapted}', params)
 
     def exists(self, table: str, where: str, params: tuple = ()) -> bool:
         """Check if any rows match condition."""
@@ -369,18 +374,18 @@ class Database:
     def transaction(self):
         """Context manager for transactions with auto-rollback."""
         if self.dialect == 'sqlite':
-            self._conn.execute("BEGIN")
+            self._conn.execute('BEGIN')
         else:
             self._in_manual_transaction = True
         try:
             yield self
             if self.dialect == 'sqlite':
-                self._conn.execute("COMMIT")
+                self._conn.execute('COMMIT')
             else:
                 self._conn.commit()
         except Exception:
             if self.dialect == 'sqlite':
-                self._conn.execute("ROLLBACK")
+                self._conn.execute('ROLLBACK')
             else:
                 self._conn.rollback()
             raise
@@ -389,15 +394,15 @@ class Database:
 
     def savepoint(self, name: str):
         """Create a savepoint."""
-        self._conn.execute(f"SAVEPOINT {name}")
+        self._conn.execute(f'SAVEPOINT {name}')
 
     def release_savepoint(self, name: str):
         """Release a savepoint."""
-        self._conn.execute(f"RELEASE SAVEPOINT {name}")
+        self._conn.execute(f'RELEASE SAVEPOINT {name}')
 
     def rollback_to(self, name: str):
         """Rollback to a savepoint."""
-        self._conn.execute(f"ROLLBACK TO SAVEPOINT {name}")
+        self._conn.execute(f'ROLLBACK TO SAVEPOINT {name}')
 
     # ─── Schema Operations ────────────────────────────────────
 
@@ -407,12 +412,12 @@ class Database:
         columns: {"name": "TEXT NOT NULL", "age": "INTEGER DEFAULT 0"}
         Auto-adapts types for PostgreSQL/MySQL.
         """
-        exists = "IF NOT EXISTS " if if_not_exists else ""
+        exists = 'IF NOT EXISTS ' if if_not_exists else ''
         adapted_cols = {}
         for col, typedef in columns.items():
             adapted_cols[col] = self._adapt_type(typedef)
-        col_defs = ', '.join(f"{col} {typedef}" for col, typedef in adapted_cols.items())
-        self._execute(f"CREATE TABLE {exists}{name} ({col_defs})")
+        col_defs = ', '.join(f'{col} {typedef}' for col, typedef in adapted_cols.items())
+        self._execute(f'CREATE TABLE {exists}{name} ({col_defs})')
         self._conn.commit()
 
     def _adapt_type(self, typedef: str) -> str:
@@ -421,36 +426,33 @@ class Database:
             return typedef
         t = typedef.upper()
         if self.dialect == 'postgres':
-            t = t.replace('INTEGER PRIMARY KEY AUTOINCREMENT',
-                          'SERIAL PRIMARY KEY')
+            t = t.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
             t = t.replace('AUTOINCREMENT', '')
         elif self.dialect == 'mysql':
             t = t.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
-            t = t.replace('TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-                          'TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+            t = t.replace(
+                'TIMESTAMP DEFAULT CURRENT_TIMESTAMP', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+            )
         return t if self.dialect != 'sqlite' else typedef
 
     def drop_table(self, name: str, if_exists: bool = True):
-        exists = "IF EXISTS " if if_exists else ""
-        self._execute(f"DROP TABLE {exists}{name}")
+        exists = 'IF EXISTS ' if if_exists else ''
+        self._execute(f'DROP TABLE {exists}{name}')
         self._conn.commit()
 
     def table_exists(self, name: str) -> bool:
         if self.dialect == 'sqlite':
             row = self._conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (name,)
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
             ).fetchone()
             return row is not None
         elif self.dialect == 'postgres':
-            row = self.query_one(
-                "SELECT tablename FROM pg_tables WHERE tablename = %s",
-                (name,))
+            row = self.query_one('SELECT tablename FROM pg_tables WHERE tablename = %s', (name,))
             return row is not None
         else:
             row = self.query_one(
-                "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_NAME = %s",
-                (name,))
+                'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_NAME = %s', (name,)
+            )
             return row is not None
 
     def tables(self) -> list:
@@ -463,53 +465,80 @@ class Database:
         elif self.dialect == 'postgres':
             result = self.query(
                 "SELECT tablename FROM pg_tables WHERE schemaname='public' "
-                "AND tablename NOT LIKE '_epl_%'")
+                "AND tablename NOT LIKE '_epl_%'"
+            )
             return [r['tablename'] for r in result]
         else:
             result = self.query(
-                "SELECT TABLE_NAME FROM information_schema.TABLES "
-                "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME NOT LIKE '_epl_%'")
+                'SELECT TABLE_NAME FROM information_schema.TABLES '
+                "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME NOT LIKE '_epl_%'"
+            )
             return [r['TABLE_NAME'] for r in result]
 
     def columns(self, table: str) -> list:
         """Get column info for a table."""
         if self.dialect == 'sqlite':
-            rows = self._conn.execute(f"PRAGMA table_info({table})").fetchall()
-            return [{"name": r[1], "type": r[2], "notnull": bool(r[3]),
-                     "default": r[4], "pk": bool(r[5])} for r in rows]
+            rows = self._conn.execute(f'PRAGMA table_info({table})').fetchall()
+            return [
+                {
+                    'name': r[1],
+                    'type': r[2],
+                    'notnull': bool(r[3]),
+                    'default': r[4],
+                    'pk': bool(r[5]),
+                }
+                for r in rows
+            ]
         elif self.dialect == 'postgres':
             result = self.query(
-                "SELECT column_name, data_type, is_nullable, column_default "
-                "FROM information_schema.columns WHERE table_name = %s "
-                "ORDER BY ordinal_position", (table,))
-            return [{"name": r['column_name'], "type": r['data_type'],
-                     "notnull": r['is_nullable'] == 'NO',
-                     "default": r['column_default'], "pk": False} for r in result]
+                'SELECT column_name, data_type, is_nullable, column_default '
+                'FROM information_schema.columns WHERE table_name = %s '
+                'ORDER BY ordinal_position',
+                (table,),
+            )
+            return [
+                {
+                    'name': r['column_name'],
+                    'type': r['data_type'],
+                    'notnull': r['is_nullable'] == 'NO',
+                    'default': r['column_default'],
+                    'pk': False,
+                }
+                for r in result
+            ]
         else:
             result = self.query(
-                "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY "
-                "FROM information_schema.COLUMNS WHERE TABLE_NAME = %s "
-                "AND TABLE_SCHEMA = DATABASE() ORDER BY ORDINAL_POSITION", (table,))
-            return [{"name": r['COLUMN_NAME'], "type": r['DATA_TYPE'],
-                     "notnull": r['IS_NULLABLE'] == 'NO',
-                     "default": r['COLUMN_DEFAULT'],
-                     "pk": r['COLUMN_KEY'] == 'PRI'} for r in result]
+                'SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY '
+                'FROM information_schema.COLUMNS WHERE TABLE_NAME = %s '
+                'AND TABLE_SCHEMA = DATABASE() ORDER BY ORDINAL_POSITION',
+                (table,),
+            )
+            return [
+                {
+                    'name': r['COLUMN_NAME'],
+                    'type': r['DATA_TYPE'],
+                    'notnull': r['IS_NULLABLE'] == 'NO',
+                    'default': r['COLUMN_DEFAULT'],
+                    'pk': r['COLUMN_KEY'] == 'PRI',
+                }
+                for r in result
+            ]
 
     def add_column(self, table: str, name: str, typedef: str):
         """Add a column to existing table."""
-        self._execute(f"ALTER TABLE {table} ADD COLUMN {name} {self._adapt_type(typedef)}")
+        self._execute(f'ALTER TABLE {table} ADD COLUMN {name} {self._adapt_type(typedef)}')
         self._conn.commit()
 
     # ─── Migrations ───────────────────────────────────────────
 
-    def migrate(self, version: int, name: str, up_sql: str, down_sql: str = ""):
+    def migrate(self, version: int, name: str, up_sql: str, down_sql: str = ''):
         """Apply a migration if not already applied."""
         if version <= self._migration_version:
             return False
         self._execute(up_sql)
         self._execute(
-            f"INSERT INTO _epl_migrations (version, name) VALUES ({self._param}, {self._param})",
-            (version, name)
+            f'INSERT INTO _epl_migrations (version, name) VALUES ({self._param}, {self._param})',
+            (version, name),
         )
         self._conn.commit()
         self._migration_version = version
@@ -517,7 +546,7 @@ class Database:
 
     def migration_status(self) -> list:
         """Get list of applied migrations."""
-        return self.query("SELECT * FROM _epl_migrations ORDER BY version")
+        return self.query('SELECT * FROM _epl_migrations ORDER BY version')
 
     # ─── Query Builder ────────────────────────────────────────
 
@@ -560,6 +589,7 @@ class Database:
 
 # ─── Query Builder ────────────────────────────────────────────
 
+
 class QueryBuilder:
     """Fluent SQL query builder with cross-dialect support."""
 
@@ -587,30 +617,30 @@ class QueryBuilder:
         return self
 
     def where_eq(self, column: str, value):
-        return self.where(f"{column} = {self._param}", value)
+        return self.where(f'{column} = {self._param}', value)
 
     def where_in(self, column: str, values: list):
         placeholders = ', '.join([self._param] * len(values))
-        self._where_clauses.append(f"{column} IN ({placeholders})")
+        self._where_clauses.append(f'{column} IN ({placeholders})')
         self._where_params.extend(values)
         return self
 
     def where_like(self, column: str, pattern: str):
-        return self.where(f"{column} LIKE {self._param}", pattern)
+        return self.where(f'{column} LIKE {self._param}', pattern)
 
     def where_between(self, column: str, low, high):
-        return self.where(f"{column} BETWEEN {self._param} AND {self._param}", low, high)
+        return self.where(f'{column} BETWEEN {self._param} AND {self._param}', low, high)
 
     def where_null(self, column: str):
-        self._where_clauses.append(f"{column} IS NULL")
+        self._where_clauses.append(f'{column} IS NULL')
         return self
 
     def where_not_null(self, column: str):
-        self._where_clauses.append(f"{column} IS NOT NULL")
+        self._where_clauses.append(f'{column} IS NOT NULL')
         return self
 
-    def order_by(self, column: str, direction: str = "ASC"):
-        self._order_by = f"{column} {direction.upper()}"
+    def order_by(self, column: str, direction: str = 'ASC'):
+        self._order_by = f'{column} {direction.upper()}'
         return self
 
     def limit(self, n: int):
@@ -630,32 +660,32 @@ class QueryBuilder:
         self._where_params.extend(params)
         return self
 
-    def join(self, table: str, on: str, join_type: str = "INNER"):
-        self._joins.append(f"{join_type} JOIN {table} ON {on}")
+    def join(self, table: str, on: str, join_type: str = 'INNER'):
+        self._joins.append(f'{join_type} JOIN {table} ON {on}')
         return self
 
     def left_join(self, table: str, on: str):
-        return self.join(table, on, "LEFT")
+        return self.join(table, on, 'LEFT')
 
     def right_join(self, table: str, on: str):
-        return self.join(table, on, "RIGHT")
+        return self.join(table, on, 'RIGHT')
 
     def _build_sql(self):
-        sql = f"SELECT {self._select_cols} FROM {self._table}"
+        sql = f'SELECT {self._select_cols} FROM {self._table}'
         for j in self._joins:
-            sql += f" {j}"
+            sql += f' {j}'
         if self._where_clauses:
-            sql += " WHERE " + " AND ".join(self._where_clauses)
+            sql += ' WHERE ' + ' AND '.join(self._where_clauses)
         if self._group_by:
-            sql += f" GROUP BY {self._group_by}"
+            sql += f' GROUP BY {self._group_by}'
         if self._having:
-            sql += f" HAVING {self._having}"
+            sql += f' HAVING {self._having}'
         if self._order_by:
-            sql += f" ORDER BY {self._order_by}"
+            sql += f' ORDER BY {self._order_by}'
         if self._limit_val is not None:
-            sql += f" LIMIT {self._limit_val}"
+            sql += f' LIMIT {self._limit_val}'
         if self._offset_val is not None:
-            sql += f" OFFSET {self._offset_val}"
+            sql += f' OFFSET {self._offset_val}'
         return sql
 
     def get(self) -> list:
@@ -705,17 +735,17 @@ class QueryBuilder:
 
     def delete(self) -> int:
         """Delete matching rows."""
-        sql = f"DELETE FROM {self._table}"
+        sql = f'DELETE FROM {self._table}'
         if self._where_clauses:
-            sql += " WHERE " + " AND ".join(self._where_clauses)
+            sql += ' WHERE ' + ' AND '.join(self._where_clauses)
         return self._db.execute(sql, tuple(self._where_params))
 
     def update(self, data: dict) -> int:
         """Update matching rows."""
-        set_clause = ', '.join(f"{k} = {self._param}" for k in data.keys())
-        sql = f"UPDATE {self._table} SET {set_clause}"
+        set_clause = ', '.join(f'{k} = {self._param}' for k in data.keys())
+        sql = f'UPDATE {self._table} SET {set_clause}'
         if self._where_clauses:
-            sql += " WHERE " + " AND ".join(self._where_clauses)
+            sql += ' WHERE ' + ' AND '.join(self._where_clauses)
         params = tuple(data.values()) + tuple(self._where_params)
         return self._db.execute(sql, params)
 
@@ -748,6 +778,7 @@ class QueryBuilder:
 
 # ─── Model (ORM) ─────────────────────────────────────────────
 
+
 class Model:
     """ORM-style model backed by real SQLite table."""
 
@@ -759,10 +790,10 @@ class Model:
 
     def _ensure_table(self):
         """Create table if it doesn't exist."""
-        cols = {"id": "INTEGER PRIMARY KEY AUTOINCREMENT"}
+        cols = {'id': 'INTEGER PRIMARY KEY AUTOINCREMENT'}
         cols.update(self.fields)
-        cols["created_at"] = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
-        cols["updated_at"] = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+        cols['created_at'] = 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
+        cols['updated_at'] = 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
         self.db.create_table(self.table, cols, if_not_exists=True)
 
     def create(self, data: dict) -> dict:
@@ -776,28 +807,24 @@ class Model:
 
     def all(self) -> list:
         """Get all records."""
-        return self.db.query(f"SELECT * FROM {self.table}")
+        return self.db.query(f'SELECT * FROM {self.table}')
 
     def where(self, condition: str, *params) -> list:
         """Find records matching condition."""
-        return self.db.query(
-            f"SELECT * FROM {self.table} WHERE {condition}", params
-        )
+        return self.db.query(f'SELECT * FROM {self.table} WHERE {condition}', params)
 
-    def first(self, condition: str = "1=1", *params) -> Optional[dict]:
+    def first(self, condition: str = '1=1', *params) -> Optional[dict]:
         """Find first record matching condition."""
-        return self.db.query_one(
-            f"SELECT * FROM {self.table} WHERE {condition} LIMIT 1", params
-        )
+        return self.db.query_one(f'SELECT * FROM {self.table} WHERE {condition} LIMIT 1', params)
 
     def update_record(self, id_val, data: dict) -> int:
         """Update a record by ID."""
         data['updated_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
-        return self.db.update(self.table, data, "id = ?", (id_val,))
+        return self.db.update(self.table, data, 'id = ?', (id_val,))
 
     def delete_record(self, id_val) -> int:
         """Delete a record by ID."""
-        return self.db.delete(self.table, "id = ?", (id_val,))
+        return self.db.delete(self.table, 'id = ?', (id_val,))
 
     def count(self) -> int:
         return self.db.count(self.table)
@@ -815,7 +842,7 @@ class Model:
 _databases: dict = {}
 
 
-def db_connect(path: str = ":memory:", name: str = "default") -> Database:
+def db_connect(path: str = ':memory:', name: str = 'default') -> Database:
     """Connect to a database (or create it).
 
     Supports connection URIs:
@@ -829,12 +856,12 @@ def db_connect(path: str = ":memory:", name: str = "default") -> Database:
     return db
 
 
-def db_get(name: str = "default") -> Optional[Database]:
+def db_get(name: str = 'default') -> Optional[Database]:
     """Get a named database connection."""
     return _databases.get(name)
 
 
-def db_close(name: str = "default"):
+def db_close(name: str = 'default'):
     """Close a named database connection."""
     db = _databases.pop(name, None)
     if db:

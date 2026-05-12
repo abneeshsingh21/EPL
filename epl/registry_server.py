@@ -21,13 +21,10 @@ import hashlib
 import json
 import os
 import re
-import shutil
-import tempfile
 import threading
 import time
-import zipfile
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
+from http.server import BaseHTTPRequestHandler
+from urllib.parse import parse_qs, urlparse
 
 
 class RegistryStorage:
@@ -65,10 +62,13 @@ class RegistryStorage:
         if query:
             query_lower = query.lower()
             packages = {
-                name: meta for name, meta in packages.items()
-                if (query_lower in name.lower() or
-                    query_lower in meta.get('description', '').lower() or
-                    any(query_lower in kw.lower() for kw in meta.get('keywords', [])))
+                name: meta
+                for name, meta in packages.items()
+                if (
+                    query_lower in name.lower()
+                    or query_lower in meta.get('description', '').lower()
+                    or any(query_lower in kw.lower() for kw in meta.get('keywords', []))
+                )
             }
         total = len(packages)
         names = sorted(packages.keys())
@@ -103,15 +103,18 @@ class RegistryStorage:
 
         with self._lock:
             packages = self._index.setdefault('packages', {})
-            pkg = packages.setdefault(name, {
-                'name': name,
-                'description': metadata.get('description', ''),
-                'author': metadata.get('author', 'unknown'),
-                'license': metadata.get('license', 'MIT'),
-                'keywords': metadata.get('keywords', []),
-                'versions': {},
-                'created': time.time(),
-            })
+            pkg = packages.setdefault(
+                name,
+                {
+                    'name': name,
+                    'description': metadata.get('description', ''),
+                    'author': metadata.get('author', 'unknown'),
+                    'license': metadata.get('license', 'MIT'),
+                    'keywords': metadata.get('keywords', []),
+                    'versions': {},
+                    'created': time.time(),
+                },
+            )
 
             # Check if version already exists
             if version in pkg.get('versions', {}):
@@ -282,6 +285,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
                 name = data['name']
                 version = data['version']
                 import base64
+
                 archive_data = base64.b64decode(data['archive'])
                 metadata = {
                     'description': data.get('description', ''),
@@ -360,7 +364,9 @@ class RegistryHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/gzip')
             self.send_header('Content-Length', str(len(data)))
-            self.send_header('Content-Disposition', f'attachment; filename="{os.path.basename(filepath)}"')
+            self.send_header(
+                'Content-Disposition', f'attachment; filename="{os.path.basename(filepath)}"'
+            )
             self.end_headers()
             self.wfile.write(data)
         except IOError:
@@ -386,17 +392,18 @@ class ThreadedRegistryServer:
         RegistryHandler.auth_tokens = self.auth_tokens
 
         from http.server import ThreadingHTTPServer
+
         self._server = ThreadingHTTPServer(('0.0.0.0', self.port), RegistryHandler)
 
-        print(f"\n  ╔══════════════════════════════════════╗")
-        print(f"  ║  EPL Package Registry Server v1.0    ║")
-        print(f"  ╠══════════════════════════════════════╣")
-        print(f"  ║  http://localhost:{self.port:<20} ║")
-        print(f"  ║  Packages: {len(self.storage._index.get('packages', {})):<25}║")
-        print(f"  ║  Storage: {self.storage.data_dir:<26}║")
-        print(f"  ║  Auth: {'enabled' if self.auth_tokens else 'open':<30}║")
-        print(f"  ║  Press Ctrl+C to stop               ║")
-        print(f"  ╚══════════════════════════════════════╝\n")
+        print('\n  ╔══════════════════════════════════════╗')
+        print('  ║  EPL Package Registry Server v1.0    ║')
+        print('  ╠══════════════════════════════════════╣')
+        print(f'  ║  http://localhost:{self.port:<20} ║')
+        print(f'  ║  Packages: {len(self.storage._index.get("packages", {})):<25}║')
+        print(f'  ║  Storage: {self.storage.data_dir:<26}║')
+        print(f'  ║  Auth: {"enabled" if self.auth_tokens else "open":<30}║')
+        print('  ║  Press Ctrl+C to stop               ║')
+        print('  ╚══════════════════════════════════════╝\n')
 
         if background:
             self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -410,7 +417,7 @@ class ThreadedRegistryServer:
     def stop(self):
         if self._server:
             self._server.shutdown()
-            print("\n  Registry server stopped.")
+            print('\n  Registry server stopped.')
 
     def _seed_builtins(self):
         """Seed the registry with built-in packages from registry.json."""
@@ -455,6 +462,7 @@ class RegistryClient:
     def search(self, query):
         """Search for packages."""
         import urllib.request
+
         url = f'{self.registry_url}/api/v1/search?q={query}'
         try:
             req = urllib.request.Request(url)
@@ -466,17 +474,19 @@ class RegistryClient:
     def get_package(self, name):
         """Get package metadata."""
         import urllib.request
+
         url = f'{self.registry_url}/api/v1/packages/{name}'
         try:
             req = urllib.request.Request(url)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return json.loads(resp.read().decode('utf-8'))
-        except Exception as e:
+        except Exception:
             return None
 
     def download(self, name, version, dest_dir):
         """Download a package archive."""
         import urllib.request
+
         url = f'{self.registry_url}/api/v1/download/{name}/{version}'
         try:
             req = urllib.request.Request(url)
@@ -485,13 +495,13 @@ class RegistryClient:
                 with open(archive_path, 'wb') as f:
                     f.write(resp.read())
                 return archive_path
-        except Exception as e:
+        except Exception:
             return None
 
     def publish(self, name, version, metadata, archive_path, token=None):
         """Publish a package to the registry."""
-        import urllib.request
         import base64
+        import urllib.request
 
         with open(archive_path, 'rb') as f:
             archive_data = base64.b64encode(f.read()).decode('ascii')
@@ -521,13 +531,13 @@ class RegistryClient:
 
 def start_registry(port=4873, data_dir=None, auth_tokens=None, background=False):
     """Start the EPL package registry server.
-    
+
     Args:
         port: Port to listen on (default 4873)
         data_dir: Directory for package storage (default ~/.epl/registry)
         auth_tokens: List of valid auth tokens for publishing (None = open)
         background: If True, run in a background thread
-    
+
     Returns:
         ThreadedRegistryServer instance
     """

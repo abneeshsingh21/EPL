@@ -14,25 +14,28 @@ Features:
   - Workspace-level lockfile
 """
 
-import json
-import os
-import re
 import glob as glob_module
-from typing import Dict, List, Optional, Set, Tuple, Any
-
+import os
+from typing import Dict, List, Optional
 
 # ═══════════════════════════════════════════════════════════
 #  Workspace Manifest
 # ═══════════════════════════════════════════════════════════
+
 
 class WorkspaceMember:
     """A member package within a workspace."""
 
     __slots__ = ('name', 'path', 'version', 'dependencies', 'dev_dependencies')
 
-    def __init__(self, name: str, path: str, version: str = '0.0.0',
-                 dependencies: Optional[Dict[str, str]] = None,
-                 dev_dependencies: Optional[Dict[str, str]] = None):
+    def __init__(
+        self,
+        name: str,
+        path: str,
+        version: str = '0.0.0',
+        dependencies: Optional[Dict[str, str]] = None,
+        dev_dependencies: Optional[Dict[str, str]] = None,
+    ):
         self.name = name
         self.path = path
         self.version = version
@@ -49,7 +52,7 @@ class WorkspaceMember:
         }
 
     def __repr__(self):
-        return f"WorkspaceMember({self.name!r}, path={self.path!r})"
+        return f'WorkspaceMember({self.name!r}, path={self.path!r})'
 
 
 class Workspace:
@@ -85,7 +88,7 @@ class Workspace:
             [workspace.dependencies]
             epl-http = "^1.0.0"
         """
-        from epl.package_manager import load_manifest, _parse_toml, TOML_MANIFEST_NAME
+        from epl.package_manager import TOML_MANIFEST_NAME, _parse_toml
 
         # Load the root manifest
         toml_path = os.path.join(self.root_path, TOML_MANIFEST_NAME)
@@ -189,7 +192,7 @@ class Workspace:
             errors.append("No 'members' patterns in [workspace]")
 
         if not self.members:
-            errors.append("No members discovered from patterns")
+            errors.append('No members discovered from patterns')
 
         # Check for version conflicts in shared deps
         for dep_name, dep_ver in self.shared_deps.items():
@@ -198,14 +201,14 @@ class Workspace:
                     member_ver = member.dependencies[dep_name]
                     if member_ver != dep_ver and member_ver != '*':
                         errors.append(
-                            f"Version conflict: workspace wants {dep_name}@{dep_ver} "
-                            f"but {member.name} wants {dep_name}@{member_ver}"
+                            f'Version conflict: workspace wants {dep_name}@{dep_ver} '
+                            f'but {member.name} wants {dep_name}@{member_ver}'
                         )
 
         # Check for circular internal dependencies
         internal = self.get_internal_deps()
         if self._has_cycle(internal):
-            errors.append("Circular dependency detected among workspace members")
+            errors.append('Circular dependency detected among workspace members')
 
         return errors
 
@@ -243,6 +246,7 @@ class Workspace:
 #  Workspace Operations
 # ═══════════════════════════════════════════════════════════
 
+
 def load_workspace(path: str = '.') -> Optional[Workspace]:
     """Load a workspace from the given path.
 
@@ -260,7 +264,7 @@ def init_workspace(path: str = '.', member_patterns: Optional[List[str]] = None)
     Creates root epl.toml with [workspace] section if it doesn't exist.
     Returns the path to the created epl.toml.
     """
-    from epl.package_manager import TOML_MANIFEST_NAME, _parse_toml, _dump_toml
+    from epl.package_manager import TOML_MANIFEST_NAME, _dump_toml, _parse_toml
 
     patterns = member_patterns or ['packages/*']
     toml_path = os.path.join(path, TOML_MANIFEST_NAME)
@@ -307,28 +311,30 @@ def workspace_install_all(path: str = '.') -> bool:
     """
     ws = load_workspace(path)
     if not ws:
-        print("  Not a workspace (no [workspace] in epl.toml)")
+        print('  Not a workspace (no [workspace] in epl.toml)')
         return False
 
     all_deps = ws.get_all_dependencies()
     if not all_deps:
-        print("  No dependencies to install.")
+        print('  No dependencies to install.')
         return True
 
-    from epl.resolver import resolve_deps, BuiltinVersionProvider
+    from epl.resolver import BuiltinVersionProvider, resolve_deps
+
     result = resolve_deps(all_deps, BuiltinVersionProvider())
 
     if not result.success:
         for err in result.errors:
-            print(f"  Error: {err}")
+            print(f'  Error: {err}')
         return False
 
     from epl.package_manager import install_package
+
     for pkg in result.get_install_order():
-        print(f"  Installing {pkg.name}@{pkg.version_str}...")
+        print(f'  Installing {pkg.name}@{pkg.version_str}...')
         install_package(pkg.name, save=False)
 
-    print(f"  Installed {result.package_count} packages for workspace.")
+    print(f'  Installed {result.package_count} packages for workspace.')
     return True
 
 
@@ -336,46 +342,47 @@ def workspace_list(path: str = '.'):
     """List workspace members."""
     ws = load_workspace(path)
     if not ws:
-        print("  Not a workspace (no [workspace] in epl.toml)")
+        print('  Not a workspace (no [workspace] in epl.toml)')
         return
 
-    print(f"\n  Workspace Members ({ws.member_count}):")
-    print("  " + "-" * 50)
+    print(f'\n  Workspace Members ({ws.member_count}):')
+    print('  ' + '-' * 50)
     for member in ws.get_build_order():
         deps = len(member.dependencies)
-        print(f"  {member.name:<25} v{member.version:<10} ({deps} deps)")
+        print(f'  {member.name:<25} v{member.version:<10} ({deps} deps)')
         if member.dependencies:
             for d, v in member.dependencies.items():
-                internal = " (internal)" if d in ws.members else ""
-                print(f"    - {d} {v}{internal}")
+                internal = ' (internal)' if d in ws.members else ''
+                print(f'    - {d} {v}{internal}')
 
     if ws.shared_deps:
-        print(f"\n  Shared Dependencies:")
+        print('\n  Shared Dependencies:')
         for name, ver in ws.shared_deps.items():
-            print(f"    {name} {ver}")
+            print(f'    {name} {ver}')
 
 
 def workspace_validate(path: str = '.') -> bool:
     """Validate workspace configuration."""
     ws = load_workspace(path)
     if not ws:
-        print("  Not a workspace.")
+        print('  Not a workspace.')
         return False
 
     errors = ws.validate()
     if errors:
-        print("  Workspace validation errors:")
+        print('  Workspace validation errors:')
         for e in errors:
-            print(f"    - {e}")
+            print(f'    - {e}')
         return False
 
-    print(f"  Workspace is valid ({ws.member_count} members)")
+    print(f'  Workspace is valid ({ws.member_count} members)')
     return True
 
 
 # ═══════════════════════════════════════════════════════════
 #  CLI Interface
 # ═══════════════════════════════════════════════════════════
+
 
 def workspace_cli(args: List[str]):
     """Handle 'epl workspace' from the command line."""
@@ -389,7 +396,7 @@ def workspace_cli(args: List[str]):
     if sub == 'init':
         patterns = rest if rest else None
         toml_path = init_workspace('.', patterns)
-        print(f"  Workspace initialized: {toml_path}")
+        print(f'  Workspace initialized: {toml_path}')
 
     elif sub == 'list':
         workspace_list()
@@ -403,31 +410,31 @@ def workspace_cli(args: List[str]):
     elif sub == 'build':
         ws = load_workspace()
         if not ws:
-            print("  Not a workspace.")
+            print('  Not a workspace.')
             return
         for member in ws.get_build_order():
-            print(f"  Building {member.name}...")
+            print(f'  Building {member.name}...')
 
     elif sub == 'test':
         ws = load_workspace()
         if not ws:
-            print("  Not a workspace.")
+            print('  Not a workspace.')
             return
         for member in ws.get_build_order():
-            print(f"  Testing {member.name}...")
+            print(f'  Testing {member.name}...')
 
     elif sub == 'info':
         ws = load_workspace()
         if ws:
-            print(f"\n  Workspace Info:")
-            print(f"  Root:    {ws.root_path}")
-            print(f"  Members: {ws.member_count}")
-            print(f"  Patterns: {', '.join(ws.member_patterns)}")
+            print('\n  Workspace Info:')
+            print(f'  Root:    {ws.root_path}')
+            print(f'  Members: {ws.member_count}')
+            print(f'  Patterns: {", ".join(ws.member_patterns)}')
             shared = len(ws.shared_deps)
-            print(f"  Shared deps: {shared}")
+            print(f'  Shared deps: {shared}')
         else:
-            print("  Not a workspace.")
+            print('  Not a workspace.')
 
     else:
-        print(f"  Unknown workspace command: {sub}")
-        print("  Available: init, list, install, validate, build, test, info")
+        print(f'  Unknown workspace command: {sub}')
+        print('  Available: init, list, install, validate, build, test, info')

@@ -5,11 +5,12 @@ windows, buttons, labels, text inputs, checkboxes, dropdowns, canvases,
 menus, dialogs, and event handling.
 """
 
-import sys
 
 try:
     import tkinter as tk
-    from tkinter import ttk, messagebox, filedialog, colorchooser, font as tkfont
+    from tkinter import colorchooser, filedialog, messagebox, ttk
+    from tkinter import font as tkfont
+
     HAS_TK = True
 except ImportError:
     HAS_TK = False
@@ -17,6 +18,7 @@ except ImportError:
 
 class EPLWidget:
     """Base EPL widget wrapper."""
+
     def __init__(self, tk_widget=None):
         self.tk_widget = tk_widget
         self.children = []
@@ -39,12 +41,13 @@ class EPLWidget:
 
 class EPLWindow(EPLWidget):
     """Main application window."""
-    def __init__(self, title="EPL App", width=800, height=600):
+
+    def __init__(self, title='EPL App', width=800, height=600):
         if not HAS_TK:
-            raise RuntimeError("tkinter is required for GUI. Install Python with Tk support.")
+            raise RuntimeError('tkinter is required for GUI. Install Python with Tk support.')
         self.root = tk.Tk()
         self.root.title(title)
-        self.root.geometry(f"{width}x{height}")
+        self.root.geometry(f'{width}x{height}')
         self.root.configure(bg='#0f172a')
         super().__init__(self.root)
         self._style_widgets()
@@ -55,22 +58,29 @@ class EPLWindow(EPLWidget):
     def _style_widgets(self):
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure('EPL.TButton', font=('Segoe UI', 11), padding=8,
-                        background='#3b82f6', foreground='white')
+        style.configure(
+            'EPL.TButton',
+            font=('Segoe UI', 11),
+            padding=8,
+            background='#3b82f6',
+            foreground='white',
+        )
         style.map('EPL.TButton', background=[('active', '#2563eb')])
-        style.configure('EPL.TLabel', font=('Segoe UI', 11),
-                        background='#0f172a', foreground='#f1f5f9')
+        style.configure(
+            'EPL.TLabel', font=('Segoe UI', 11), background='#0f172a', foreground='#f1f5f9'
+        )
         style.configure('EPL.TEntry', font=('Segoe UI', 11), padding=6)
         style.configure('EPL.TFrame', background='#0f172a')
-        style.configure('EPL.TCheckbutton', font=('Segoe UI', 11),
-                        background='#0f172a', foreground='#f1f5f9')
+        style.configure(
+            'EPL.TCheckbutton', font=('Segoe UI', 11), background='#0f172a', foreground='#f1f5f9'
+        )
         style.configure('EPL.TCombobox', font=('Segoe UI', 11))
 
     def set_title(self, title):
         self.root.title(title)
 
     def set_size(self, width, height):
-        self.root.geometry(f"{width}x{height}")
+        self.root.geometry(f'{width}x{height}')
 
     def set_background(self, color):
         self.root.configure(bg=color)
@@ -93,7 +103,8 @@ class EPLWindow(EPLWidget):
         else:
             label.pack(padx=12, pady=6, anchor='w')
         w = EPLWidget(label)
-        if name: self._named_widgets[name] = w
+        if name:
+            self._named_widgets[name] = w
         self.children.append(w)
         return w
 
@@ -104,17 +115,23 @@ class EPLWindow(EPLWidget):
         else:
             btn.pack(padx=12, pady=6)
         w = EPLWidget(btn)
-        if name: self._named_widgets[name] = w
+        if name:
+            self._named_widgets[name] = w
         self.children.append(w)
         return w
 
-    def add_input(self, placeholder="", name=None, row=None, col=None, **kwargs):
+    def add_input(self, placeholder='', name=None, row=None, col=None, **kwargs):
         var = tk.StringVar()
         entry = ttk.Entry(self.root, textvariable=var, style='EPL.TEntry', **kwargs)
         if placeholder:
             entry.insert(0, placeholder)
-            entry.bind('<FocusIn>', lambda e: entry.delete(0, tk.END) if entry.get() == placeholder else None)
-            entry.bind('<FocusOut>', lambda e: entry.insert(0, placeholder) if not entry.get() else None)
+            entry.bind(
+                '<FocusIn>',
+                lambda e: entry.delete(0, tk.END) if entry.get() == placeholder else None,
+            )
+            entry.bind(
+                '<FocusOut>', lambda e: entry.insert(0, placeholder) if not entry.get() else None
+            )
         if row is not None and col is not None:
             entry.grid(row=row, column=col, padx=8, pady=4, sticky='ew')
         else:
@@ -127,21 +144,31 @@ class EPLWindow(EPLWidget):
         self.children.append(w)
         return w
 
-    def add_text_area(self, text="", name=None, rows=6, **kwargs):
-        ta = tk.Text(self.root, height=rows, font=('Consolas', 11),
-                     bg='#1e293b', fg='#f1f5f9', insertbackground='white',
-                     relief='flat', padx=8, pady=8, **kwargs)
-        if text: ta.insert('1.0', text)
+    def add_text_area(self, text='', name=None, rows=6, **kwargs):
+        ta = tk.Text(
+            self.root,
+            height=rows,
+            font=('Consolas', 11),
+            bg='#1e293b',
+            fg='#f1f5f9',
+            insertbackground='white',
+            relief='flat',
+            padx=8,
+            pady=8,
+            **kwargs,
+        )
+        if text:
+            ta.insert('1.0', text)
         ta.pack(padx=12, pady=6, fill='both', expand=True)
         w = EPLWidget(ta)
-        if name: self._named_widgets[name] = w
+        if name:
+            self._named_widgets[name] = w
         self.children.append(w)
         return w
 
     def add_checkbox(self, text, name=None, row=None, col=None, **kwargs):
         var = tk.BooleanVar()
-        cb = ttk.Checkbutton(self.root, text=text, variable=var,
-                             style='EPL.TCheckbutton', **kwargs)
+        cb = ttk.Checkbutton(self.root, text=text, variable=var, style='EPL.TCheckbutton', **kwargs)
         if row is not None and col is not None:
             cb.grid(row=row, column=col, padx=8, pady=4, sticky='w')
         else:
@@ -156,9 +183,16 @@ class EPLWindow(EPLWidget):
 
     def add_dropdown(self, options, name=None, row=None, col=None, **kwargs):
         var = tk.StringVar()
-        if options: var.set(options[0])
-        dd = ttk.Combobox(self.root, textvariable=var, values=options,
-                          style='EPL.TCombobox', state='readonly', **kwargs)
+        if options:
+            var.set(options[0])
+        dd = ttk.Combobox(
+            self.root,
+            textvariable=var,
+            values=options,
+            style='EPL.TCombobox',
+            state='readonly',
+            **kwargs,
+        )
         if row is not None and col is not None:
             dd.grid(row=row, column=col, padx=8, pady=4)
         else:
@@ -172,11 +206,11 @@ class EPLWindow(EPLWidget):
         return w
 
     def add_canvas(self, width=400, height=300, name=None, bg='#1e293b', **kwargs):
-        c = tk.Canvas(self.root, width=width, height=height, bg=bg,
-                      highlightthickness=0, **kwargs)
+        c = tk.Canvas(self.root, width=width, height=height, bg=bg, highlightthickness=0, **kwargs)
         c.pack(padx=12, pady=6)
         w = EPLWidget(c)
-        if name: self._named_widgets[name] = w
+        if name:
+            self._named_widgets[name] = w
         self.children.append(w)
         return w
 
@@ -187,21 +221,30 @@ class EPLWindow(EPLWidget):
             label.image = img  # prevent GC
             label.pack(padx=12, pady=6)
             w = EPLWidget(label)
-            if name: self._named_widgets[name] = w
+            if name:
+                self._named_widgets[name] = w
             self.children.append(w)
             return w
         except Exception:
-            return self.add_label(f"[Image: {path}]", name=name)
+            return self.add_label(f'[Image: {path}]', name=name)
 
     def add_listbox(self, items=None, name=None, **kwargs):
-        lb = tk.Listbox(self.root, font=('Segoe UI', 11),
-                        bg='#1e293b', fg='#f1f5f9', selectbackground='#3b82f6',
-                        relief='flat', **kwargs)
+        lb = tk.Listbox(
+            self.root,
+            font=('Segoe UI', 11),
+            bg='#1e293b',
+            fg='#f1f5f9',
+            selectbackground='#3b82f6',
+            relief='flat',
+            **kwargs,
+        )
         if items:
-            for item in items: lb.insert(tk.END, item)
+            for item in items:
+                lb.insert(tk.END, item)
         lb.pack(padx=12, pady=6, fill='both', expand=True)
         w = EPLWidget(lb)
-        if name: self._named_widgets[name] = w
+        if name:
+            self._named_widgets[name] = w
         self.children.append(w)
         return w
 
@@ -215,14 +258,16 @@ class EPLWindow(EPLWidget):
         frame = ttk.Frame(self.root, style='EPL.TFrame')
         frame.pack(fill='x', padx=12, pady=4)
         w = EPLWidget(frame)
-        if name: self._named_widgets[name] = w
+        if name:
+            self._named_widgets[name] = w
         return frame
 
     def add_column(self, name=None):
         frame = ttk.Frame(self.root, style='EPL.TFrame')
         frame.pack(side='left', fill='y', padx=12, pady=4)
         w = EPLWidget(frame)
-        if name: self._named_widgets[name] = w
+        if name:
+            self._named_widgets[name] = w
         return frame
 
     # ─── Menu ────────────────────────────────────────────
@@ -253,14 +298,17 @@ class EPLWindow(EPLWidget):
 
     def ask_text(self, title, prompt):
         from tkinter import simpledialog
+
         return simpledialog.askstring(title, prompt)
 
     def open_file_dialog(self, filetypes=None):
-        if not filetypes: filetypes = [('All files', '*.*')]
+        if not filetypes:
+            filetypes = [('All files', '*.*')]
         return filedialog.askopenfilename(filetypes=filetypes)
 
     def save_file_dialog(self, filetypes=None):
-        if not filetypes: filetypes = [('All files', '*.*')]
+        if not filetypes:
+            filetypes = [('All files', '*.*')]
         return filedialog.asksaveasfilename(filetypes=filetypes)
 
     def pick_color(self):
@@ -302,11 +350,16 @@ class EPLWindow(EPLWidget):
     def on_event(self, widget_name, event, callback):
         """Bind an event to a named widget. Events: click, double_click, key, change."""
         w = self._named_widgets.get(widget_name)
-        if not w or not w.tk_widget: return
+        if not w or not w.tk_widget:
+            return
         event_map = {
-            'click': '<Button-1>', 'double_click': '<Double-1>',
-            'key': '<Key>', 'enter': '<Return>', 'escape': '<Escape>',
-            'focus_in': '<FocusIn>', 'focus_out': '<FocusOut>',
+            'click': '<Button-1>',
+            'double_click': '<Double-1>',
+            'key': '<Key>',
+            'enter': '<Return>',
+            'escape': '<Escape>',
+            'focus_in': '<FocusIn>',
+            'focus_out': '<FocusOut>',
             'right_click': '<Button-3>',
         }
         tk_event = event_map.get(event, event)
@@ -317,12 +370,12 @@ class EPLWindow(EPLWidget):
     def draw_rect(self, canvas_name, x, y, w, h, color='#3b82f6', outline=''):
         c = self._named_widgets.get(canvas_name)
         if c and c.tk_widget:
-            c.tk_widget.create_rectangle(x, y, x+w, y+h, fill=color, outline=outline)
+            c.tk_widget.create_rectangle(x, y, x + w, y + h, fill=color, outline=outline)
 
     def draw_circle(self, canvas_name, x, y, r, color='#8b5cf6', outline=''):
         c = self._named_widgets.get(canvas_name)
         if c and c.tk_widget:
-            c.tk_widget.create_oval(x-r, y-r, x+r, y+r, fill=color, outline=outline)
+            c.tk_widget.create_oval(x - r, y - r, x + r, y + r, fill=color, outline=outline)
 
     def draw_line(self, canvas_name, x1, y1, x2, y2, color='#f1f5f9', width=2):
         c = self._named_widgets.get(canvas_name)
@@ -332,8 +385,7 @@ class EPLWindow(EPLWidget):
     def draw_text(self, canvas_name, x, y, text, color='#f1f5f9', size=12):
         c = self._named_widgets.get(canvas_name)
         if c and c.tk_widget:
-            c.tk_widget.create_text(x, y, text=text, fill=color,
-                                     font=('Segoe UI', size))
+            c.tk_widget.create_text(x, y, text=text, fill=color, font=('Segoe UI', size))
 
     def clear_canvas(self, canvas_name):
         c = self._named_widgets.get(canvas_name)
@@ -346,7 +398,7 @@ class EPLWindow(EPLWidget):
 _current_window = None
 
 
-def create_window(title="EPL App", width=800, height=600):
+def create_window(title='EPL App', width=800, height=600):
     global _current_window
     _current_window = EPLWindow(title, width, height)
     return _current_window

@@ -6,10 +6,10 @@ Production-grade: ANSI colors, source context, error codes, "did you mean?" sugg
 Structured JSON output for tool integration.
 """
 
+import difflib
 import json
 import os
 import sys
-import difflib
 
 
 # ─── ANSI Color Support ─────────────────────────────────
@@ -23,36 +23,54 @@ def _supports_color():
         return True
     return False
 
+
 _COLOR = _supports_color()
 
-def _red(s):    return f"\033[31m{s}\033[0m" if _COLOR else s
-def _bold(s):   return f"\033[1m{s}\033[0m" if _COLOR else s
-def _dim(s):    return f"\033[2m{s}\033[0m" if _COLOR else s
-def _yellow(s): return f"\033[33m{s}\033[0m" if _COLOR else s
-def _cyan(s):   return f"\033[36m{s}\033[0m" if _COLOR else s
-def _green(s):  return f"\033[32m{s}\033[0m" if _COLOR else s
+
+def _red(s):
+    return f'\033[31m{s}\033[0m' if _COLOR else s
+
+
+def _bold(s):
+    return f'\033[1m{s}\033[0m' if _COLOR else s
+
+
+def _dim(s):
+    return f'\033[2m{s}\033[0m' if _COLOR else s
+
+
+def _yellow(s):
+    return f'\033[33m{s}\033[0m' if _COLOR else s
+
+
+def _cyan(s):
+    return f'\033[36m{s}\033[0m' if _COLOR else s
+
+
+def _green(s):
+    return f'\033[32m{s}\033[0m' if _COLOR else s
 
 
 # ─── Error Codes ─────────────────────────────────────────
 ERROR_CODES = {
-    'LexerError':       'E0100',
-    'ParserError':      'E0200',
-    'RuntimeError':     'E0300',
-    'TypeError':        'E0400',
-    'NameError':        'E0500',
-    'ValueError':       'E0600',
-    'IndexError':       'E0700',
-    'KeyError':         'E0800',
-    'IOError':          'E0900',
-    'NetworkError':     'E1000',
-    'TimeoutError':     'E1100',
-    'OverflowError':    'E1200',
-    'ImportError':      'E1300',
-    'AttributeError':   'E1400',
+    'LexerError': 'E0100',
+    'ParserError': 'E0200',
+    'RuntimeError': 'E0300',
+    'TypeError': 'E0400',
+    'NameError': 'E0500',
+    'ValueError': 'E0600',
+    'IndexError': 'E0700',
+    'KeyError': 'E0800',
+    'IOError': 'E0900',
+    'NetworkError': 'E1000',
+    'TimeoutError': 'E1100',
+    'OverflowError': 'E1200',
+    'ImportError': 'E1300',
+    'AttributeError': 'E1400',
     'AssertionError': 'E1500',
     'AssertionError': 'E1500',  # backward compat alias
     'ConcurrencyError': 'E1600',
-    'EPLError':         'E0000',
+    'EPLError': 'E0000',
 }
 
 
@@ -110,11 +128,11 @@ _HINTS = {
     'port already in use': 'Another process is using this port. Try a different port with --port.',
     'address already in use': 'Port is occupied. Kill the old process or use: epl serve --port 3000',
     'json': 'Invalid JSON format. Check for missing quotes, commas, or brackets.',
-    'encoding': 'Text encoding error. Try specifying encoding: file_read(path, \"utf-8\").',
+    'encoding': 'Text encoding error. Try specifying encoding: file_read(path, "utf-8").',
     'no such table': 'Database table does not exist. Create it first with db_create_table().',
     'unique constraint': 'A record with this value already exists. Use a unique value or update instead.',
     'foreign key': 'Referenced record does not exist. Create the parent record first.',
-    'cors': 'Cross-Origin error. Enable CORS with: Call web_set_cors(app, \"*\")',
+    'cors': 'Cross-Origin error. Enable CORS with: Call web_set_cors(app, "*")',
     'ssl': 'SSL/TLS error. Check certificate validity or use http:// for local development.',
     'end function': 'Missing End Function. Every Define Function must close with End Function.',
     'end if': 'Missing End If. Every If/Then block must close with End If.',
@@ -129,21 +147,23 @@ def _get_hint(message: str) -> str:
     lower = message.lower()
     for pattern, hint in _HINTS.items():
         if pattern in lower:
-            return f"\n  {_dim('Hint:')} {hint}"
-    return ""
+            return f'\n  {_dim("Hint:")} {hint}'
+    return ''
 
 
-def _did_you_mean(name: str, candidates: list, max_suggestions: int = 3, cutoff: float = 0.6) -> str:
+def _did_you_mean(
+    name: str, candidates: list, max_suggestions: int = 3, cutoff: float = 0.6
+) -> str:
     """Suggest similar names using difflib (edit-distance based)."""
     if not candidates or not name:
-        return ""
+        return ''
     matches = difflib.get_close_matches(name, candidates, n=max_suggestions, cutoff=cutoff)
     if not matches:
-        return ""
+        return ''
     if len(matches) == 1:
-        return f"\n  {_dim('Did you mean:')} {_green(matches[0])}?"
-    suggestions = ", ".join(_green(m) for m in matches)
-    return f"\n  {_dim('Did you mean one of:')} {suggestions}?"
+        return f'\n  {_dim("Did you mean:")} {_green(matches[0])}?'
+    suggestions = ', '.join(_green(m) for m in matches)
+    return f'\n  {_dim("Did you mean one of:")} {suggestions}?'
 
 
 # ─── Source Context ──────────────────────────────────────
@@ -151,10 +171,11 @@ def _did_you_mean(name: str, candidates: list, max_suggestions: int = 3, cutoff:
 # Thread-local source reference — each thread gets its own context
 # Prevents corruption when serving concurrent web requests
 import threading
+
 _source_ctx = threading.local()
 
 
-def set_source_context(source: str, filename: str = "<input>"):
+def set_source_context(source: str, filename: str = '<input>'):
     """Store source lines for error context display. Called by the runner.
     Thread-safe: each thread maintains its own source context.
     """
@@ -171,11 +192,12 @@ def _get_source_filename():
     """Get source filename for the current thread."""
     return getattr(_source_ctx, 'filename', '<input>')
 
+
 def _format_source_context(line: int, column: int = None, context_lines: int = 2) -> str:
     """Format a source code snippet showing the error location."""
     source_lines = _get_source_lines()
     if not source_lines or line is None or line < 1:
-        return ""
+        return ''
     idx = line - 1
     parts = []
     start = max(0, idx - max(0, context_lines))
@@ -185,23 +207,24 @@ def _format_source_context(line: int, column: int = None, context_lines: int = 2
         current_line = source_lines[current_idx]
         current_num = str(current_idx + 1).rjust(4)
         if current_idx == idx:
-            parts.append(f"  {_red(current_num + ' |')} {current_line}")
+            parts.append(f'  {_red(current_num + " |")} {current_line}')
             if column is not None and column >= 1:
                 caret_column = min(max(1, column), max(1, len(current_line)))
                 padding = ' ' * (caret_column - 1)
-                parts.append(f"  {' ' * 4} {_red('|')} {_red(padding + '^')}")
+                parts.append(f'  {" " * 4} {_red("|")} {_red(padding + "^")}')
             else:
-                parts.append(f"  {' ' * 4} {_red('|')} {_red('^' * max(1, len(current_line)))}")
+                parts.append(f'  {" " * 4} {_red("|")} {_red("^" * max(1, len(current_line)))}')
         else:
-            parts.append(f"  {_dim(current_num + ' |')} {current_line}")
+            parts.append(f'  {_dim(current_num + " |")} {current_line}')
     if parts:
-        return "\n" + "\n".join(parts)
-    return ""
+        return '\n' + '\n'.join(parts)
+    return ''
 
 
 # ═══════════════════════════════════════════════════════════
 #  Base Error
 # ═══════════════════════════════════════════════════════════
+
 
 class EPLError(Exception):
     """Base class for all EPL errors."""
@@ -212,7 +235,7 @@ class EPLError(Exception):
         self.column = column
         self.filename = filename or _get_source_filename()
         self._traceback_frames = []
-        self._suggestions = ""  # "did you mean?" text
+        self._suggestions = ''  # "did you mean?" text
         super().__init__(self.format_message())
 
     def _error_code(self) -> str:
@@ -242,11 +265,13 @@ class EPLError(Exception):
             'ConcurrencyError': 'EPL Concurrency Error',
         }
         label = labels.get(type(self).__name__, f'EPL {label}')
-        loc = f" on line {self.line}" if self.line is not None else ""
-        return f"{label}{loc}: {self.message}"
+        loc = f' on line {self.line}' if self.line is not None else ''
+        return f'{label}{loc}: {self.message}'
 
     def format_message(self) -> str:
-        return self._format_standard_message('EPL Error', include_suggestions=True, include_traceback=True)
+        return self._format_standard_message(
+            'EPL Error', include_suggestions=True, include_traceback=True
+        )
 
     def __str__(self) -> str:
         # Re-render lazily so added frames/suggestions are visible after construction.
@@ -261,8 +286,8 @@ class EPLError(Exception):
         include_hint: bool = True,
     ) -> str:
         hint = _get_hint(self.message)
-        loc = f" on line {self.line}" if self.line is not None else ""
-        code = f"[{self._error_code()}] "
+        loc = f' on line {self.line}' if self.line is not None else ''
+        code = f'[{self._error_code()}] '
         ctx = _format_source_context(self.line, self.column)
         suffix = []
         if include_suggestions and self._suggestions:
@@ -275,7 +300,7 @@ class EPLError(Exception):
             tb = self._format_traceback()
             if tb:
                 suffix.append(tb)
-        return f"{_red(_bold(f'{code}{label}'))}{loc}: {self.message}{''.join(suffix)}"
+        return f'{_red(_bold(f"{code}{label}"))}{loc}: {self.message}{"".join(suffix)}'
 
     def add_frame(self, func_name: str, line: int):
         """Add a stack frame for traceback display."""
@@ -284,80 +309,108 @@ class EPLError(Exception):
 
     def _format_traceback(self) -> str:
         if not self._traceback_frames:
-            return ""
+            return ''
         ordered_frames = list(reversed(self._traceback_frames))
-        lines = [f"\n\n  {_dim('Call stack:')}"]
+        lines = [f'\n\n  {_dim("Call stack:")}']
         for idx, (fname, fline) in enumerate(ordered_frames):
             marker = '-> ' if idx == len(ordered_frames) - 1 else '   '
-            loc = f" (line {fline})" if fline else ""
-            lines.append(f"    {marker}{_cyan(fname)}{_dim(loc)}")
-        return "\n".join(lines)
+            loc = f' (line {fline})' if fline else ''
+            lines.append(f'    {marker}{_cyan(fname)}{_dim(loc)}')
+        return '\n'.join(lines)
 
     def to_dict(self) -> dict:
         """Return structured error data as a dictionary (no ANSI)."""
         d = {
-            "error_code": self._error_code(),
-            "type": type(self).__name__,
-            "message": self.message,
-            "line": self.line,
-            "column": self.column,
-            "filename": self.filename,
+            'error_code': self._error_code(),
+            'type': type(self).__name__,
+            'message': self.message,
+            'line': self.line,
+            'column': self.column,
+            'filename': self.filename,
         }
         if self._traceback_frames:
-            d["traceback"] = [
-                {"function": fname, "line": fline}
-                for fname, fline in self._traceback_frames
+            d['traceback'] = [
+                {'function': fname, 'line': fline} for fname, fline in self._traceback_frames
             ]
         hint = _get_hint(self.message)
         if hint:
             # Strip ANSI and formatting prefix
             clean = hint.strip()
-            if clean.startswith("Hint:"):
+            if clean.startswith('Hint:'):
                 clean = clean[5:].strip()
-            d["hint"] = clean
+            d['hint'] = clean
         return d
 
     def to_json(self) -> str:
         """Return structured error data as a JSON string."""
         return json.dumps(self.to_dict(), indent=2)
 
+    def to_context_dict(self) -> dict:
+        """Return structured context for the error explainer and AI consumption.
+
+        Extends to_dict() with the actual source line at the error location
+        and a few surrounding lines for context. Used by epl.error_explainer.
+        """
+        d = self.to_dict()
+        source_lines = _get_source_lines()
+        if self.line and source_lines and 0 < self.line <= len(source_lines):
+            d['source_line'] = source_lines[self.line - 1]
+            # Include ±2 lines of surrounding context
+            start = max(0, self.line - 3)
+            end = min(len(source_lines), self.line + 2)
+            ctx_parts = []
+            for i in range(start, end):
+                marker = '>' if i == self.line - 1 else ' '
+                ctx_parts.append(f'{marker} {i + 1}: {source_lines[i]}')
+            d['context'] = '\n'.join(ctx_parts)
+        return d
+
 
 # ═══════════════════════════════════════════════════════════
 #  Compilation Phase Errors
 # ═══════════════════════════════════════════════════════════
 
+
 class LexerError(EPLError):
     """Error during tokenization."""
+
     def format_message(self) -> str:
         hint = _get_hint(self.message)
-        code = f"[{self._error_code()}] "
+        code = f'[{self._error_code()}] '
         ctx = _format_source_context(self.line, self.column)
         if self.line is not None:
-            loc = f" on line {self.line}, column {self.column}" if self.column else f" on line {self.line}"
-            return f"{_red(_bold(f'{code}EPL Lexer Error'))}{loc}: {self.message}{hint}{ctx}"
-        return f"{_red(_bold(f'{code}EPL Lexer Error'))}: {self.message}{hint}"
+            loc = (
+                f' on line {self.line}, column {self.column}'
+                if self.column
+                else f' on line {self.line}'
+            )
+            return f'{_red(_bold(f"{code}EPL Lexer Error"))}{loc}: {self.message}{hint}{ctx}'
+        return f'{_red(_bold(f"{code}EPL Lexer Error"))}: {self.message}{hint}'
 
 
 class ParserError(EPLError):
     """Error during parsing."""
+
     def format_message(self) -> str:
         hint = _get_hint(self.message)
-        code = f"[{self._error_code()}] "
+        code = f'[{self._error_code()}] '
         ctx = _format_source_context(self.line, self.column)
         if self.line is not None:
-            loc = f" on line {self.line}"
+            loc = f' on line {self.line}'
             if self.column:
-                loc += f", column {self.column}"
-            return f"{_red(_bold(f'{code}EPL Parser Error'))}{loc}: {self.message}{hint}{ctx}"
-        return f"{_red(_bold(f'{code}EPL Parser Error'))}: {self.message}{hint}"
+                loc += f', column {self.column}'
+            return f'{_red(_bold(f"{code}EPL Parser Error"))}{loc}: {self.message}{hint}{ctx}'
+        return f'{_red(_bold(f"{code}EPL Parser Error"))}: {self.message}{hint}'
 
 
 # ═══════════════════════════════════════════════════════════
 #  Runtime Errors (full hierarchy)
 # ═══════════════════════════════════════════════════════════
 
+
 class RuntimeError(EPLError):
     """General error during execution."""
+
     def format_message(self) -> str:
         return self._format_standard_message(
             'EPL Runtime Error',
@@ -368,12 +421,14 @@ class RuntimeError(EPLError):
 
 class TypeError(EPLError):
     """Error for type mismatches."""
+
     def format_message(self) -> str:
         return self._format_standard_message('EPL Type Error', include_traceback=True)
 
 
 class NameError(EPLError):
     """Error for undefined variables or functions."""
+
     def format_message(self) -> str:
         return self._format_standard_message(
             'EPL Name Error',
@@ -384,54 +439,67 @@ class NameError(EPLError):
 
 class ValueError(EPLError):
     """Error for invalid values (e.g., wrong format, out of expected range)."""
+
     def format_message(self) -> str:
         return self._format_standard_message('EPL Value Error', include_traceback=True)
 
 
 class IndexError(EPLError):
     """Error for index out of range."""
+
     def format_message(self) -> str:
         return self._format_standard_message('EPL Index Error', include_traceback=True)
 
 
 class KeyError(EPLError):
     """Error for missing dictionary key."""
+
     def format_message(self) -> str:
         return self._format_standard_message('EPL Key Error', include_traceback=True)
 
 
 class IOError(EPLError):
     """Error for file and I/O operations."""
+
     def format_message(self) -> str:
         return self._format_standard_message('EPL IO Error', include_traceback=True)
 
 
 class NetworkError(EPLError):
     """Error for network/HTTP operations."""
+
     def format_message(self) -> str:
         return self._format_standard_message('EPL Network Error', include_traceback=True)
 
 
 class TimeoutError(EPLError):
     """Error for operations that exceed time limits."""
+
     def format_message(self) -> str:
-        return self._format_standard_message('EPL Timeout Error', include_traceback=True, include_hint=False)
+        return self._format_standard_message(
+            'EPL Timeout Error', include_traceback=True, include_hint=False
+        )
 
 
 class OverflowError(EPLError):
     """Error for numeric overflow."""
+
     def format_message(self) -> str:
-        return self._format_standard_message('EPL Overflow Error', include_traceback=True, include_hint=False)
+        return self._format_standard_message(
+            'EPL Overflow Error', include_traceback=True, include_hint=False
+        )
 
 
 class ImportError(EPLError):
     """Error for module import failures."""
+
     def format_message(self) -> str:
         return self._format_standard_message('EPL Import Error', include_traceback=True)
 
 
 class AttributeError(EPLError):
     """Error for missing attributes on objects."""
+
     def format_message(self) -> str:
         return self._format_standard_message(
             'EPL Attribute Error',
@@ -443,12 +511,15 @@ class AttributeError(EPLError):
 
 class AssertionError(EPLError):
     """Error for failed assertions.
-    
+
     Note: The class name preserves the original 'AssertionError' spelling
     for backward compatibility. AssertionError is the canonical alias.
     """
+
     def format_message(self) -> str:
-        return self._format_standard_message('EPL Assertion Error', include_traceback=True, include_hint=False)
+        return self._format_standard_message(
+            'EPL Assertion Error', include_traceback=True, include_hint=False
+        )
 
 
 # Aliases for backward compatibility
@@ -458,19 +529,26 @@ AssertationError = AssertionError
 
 class ConcurrencyError(EPLError):
     """Error for thread/async issues (deadlocks, race conditions)."""
+
     def format_message(self) -> str:
-        return self._format_standard_message('EPL Concurrency Error', include_traceback=True, include_hint=False)
+        return self._format_standard_message(
+            'EPL Concurrency Error', include_traceback=True, include_hint=False
+        )
 
 
 class NotImplementedError(EPLError):
     """Error for abstract methods or unimplemented features."""
+
     def format_message(self) -> str:
-        return self._format_standard_message('EPL Not Implemented', include_traceback=True, include_hint=False)
+        return self._format_standard_message(
+            'EPL Not Implemented', include_traceback=True, include_hint=False
+        )
 
 
 # ═══════════════════════════════════════════════════════════
 #  User-Defined Exception Support
 # ═══════════════════════════════════════════════════════════
+
 
 class EPLUserException(EPLError):
     """Base for user-defined exception classes created with 'Class MyError extends Error'."""
@@ -481,8 +559,8 @@ class EPLUserException(EPLError):
         super().__init__(message, line)
 
     def format_message(self) -> str:
-        loc = f" on line {self.line}" if self.line is not None else ""
-        return f"{self.class_name}{loc}: {self.message}"
+        loc = f' on line {self.line}' if self.line is not None else ''
+        return f'{self.class_name}{loc}: {self.message}'
 
 
 # ═══════════════════════════════════════════════════════════

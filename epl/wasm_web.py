@@ -18,8 +18,8 @@ Provides:
 """
 
 import os
-from epl import ast_nodes as ast
 
+from epl import ast_nodes as ast
 
 # ── Web Project Generator ────────────────────────────────
 
@@ -27,7 +27,7 @@ from epl import ast_nodes as ast
 class WebProjectGenerator:
     """Generates a complete browser-ready web project from EPL AST."""
 
-    def __init__(self, app_name="EPLWebApp", mode="js", port=3000):
+    def __init__(self, app_name='EPLWebApp', mode='js', port=3000):
         self.app_name = app_name
         self.mode = mode  # "js", "wasm", "kotlin_js"
         self.port = port
@@ -36,9 +36,9 @@ class WebProjectGenerator:
         """Generate a complete web project."""
         os.makedirs(output_dir, exist_ok=True)
 
-        if self.mode == "wasm":
+        if self.mode == 'wasm':
             return self._generate_wasm_project(program, output_dir)
-        elif self.mode == "kotlin_js":
+        elif self.mode == 'kotlin_js':
             return self._generate_kotlin_js_project(program, output_dir)
         else:
             return self._generate_js_project(program, output_dir)
@@ -129,10 +129,11 @@ class WebProjectGenerator:
         self._write(f'{output_dir}/src/main/resources/index.html', html)
         self._write(f'{output_dir}/src/main/resources/style.css', css)
         self._write(f'{output_dir}/build.gradle.kts', self._kotlin_js_gradle(pkg))
-        self._write(f'{output_dir}/settings.gradle.kts',
-                     f'rootProject.name = "{self.app_name}"\n')
-        self._write(f'{output_dir}/gradle.properties',
-                     'kotlin.code.style=official\norg.gradle.jvmargs=-Xmx2g\n')
+        self._write(f'{output_dir}/settings.gradle.kts', f'rootProject.name = "{self.app_name}"\n')
+        self._write(
+            f'{output_dir}/gradle.properties',
+            'kotlin.code.style=official\norg.gradle.jvmargs=-Xmx2g\n',
+        )
         self._write(f'{output_dir}/README.md', self._readme('kotlin_js'))
         self._write(f'{output_dir}/.gitignore', '.gradle/\nbuild/\n.idea/\nnode_modules/\n')
 
@@ -169,7 +170,7 @@ class WebProjectGenerator:
 '''
 
     def _service_worker(self):
-        return '''// Service Worker for offline support
+        return """// Service Worker for offline support
 const CACHE_NAME = 'epl-app-v1';
 const urlsToCache = ['/', '/index.html', '/src/js/app.js', '/src/css/style.css'];
 
@@ -182,10 +183,10 @@ self.addEventListener('fetch', event => {
         caches.match(event.request).then(response => response || fetch(event.request))
     );
 });
-'''
+"""
 
     def _wasm_build_script(self):
-        return '''#!/bin/bash
+        return """#!/bin/bash
 # Build EPL WASM module
 # Requires: emcc (Emscripten) or clang with wasm32 target
 echo "Building WASM module..."
@@ -201,7 +202,7 @@ else
     exit 1
 fi
 echo "Done: public/app.wasm"
-'''
+"""
 
     def _kotlin_js_gradle(self, pkg):
         return f'''plugins {{
@@ -235,7 +236,7 @@ kotlin {{
 
     def _readme(self, mode):
         instructions = {
-            'js': '''## Run
+            'js': """## Run
 ```bash
 # Option 1: Python HTTP server
 python -m http.server 3000 --directory public
@@ -244,8 +245,8 @@ python -m http.server 3000 --directory public
 npm start
 
 # Then open http://localhost:3000
-```''',
-            'wasm': '''## Build & Run
+```""",
+            'wasm': """## Build & Run
 ```bash
 # 1. Build the WASM module (requires emcc or clang)
 ./build.sh
@@ -254,8 +255,8 @@ npm start
 python -m http.server 3000 --directory public
 
 # Open http://localhost:3000
-```''',
-            'kotlin_js': '''## Build & Run
+```""",
+            'kotlin_js': """## Build & Run
 ```bash
 # Build
 ./gradlew jsBrowserDevelopmentRun
@@ -263,9 +264,9 @@ python -m http.server 3000 --directory public
 # Production build
 ./gradlew jsBrowserProductionWebpack
 # Output in build/dist/js/productionExecutable/
-```'''
+```""",
         }
-        return f'''# {self.app_name}
+        return f"""# {self.app_name}
 
 Web application generated from EPL source code.
 Mode: **{mode}**
@@ -276,7 +277,7 @@ Mode: **{mode}**
 - Responsive design
 - PWA support (offline capable)
 - Cross-browser compatible
-'''
+"""
 
 
 # ── Web Code Generator ──────────────────────────────────
@@ -285,7 +286,7 @@ Mode: **{mode}**
 class WebCodeGenerator:
     """Generates HTML, CSS, JS, and Kotlin/JS from EPL AST."""
 
-    def __init__(self, app_title="EPL App"):
+    def __init__(self, app_title='EPL App'):
         self.app_title = app_title
         self.indent = 0
         self.output = []
@@ -313,30 +314,32 @@ class WebCodeGenerator:
 
         body_content = ''
         if widgets_html:
-            body_content = f'''    <header>
+            body_content = f"""    <header>
         <h1>{self.app_title}</h1>
     </header>
     <main id="app">
 {widgets_html}
-    </main>'''
+    </main>"""
         elif print_outputs:
-            items = '\n'.join(f'        <div class="output-line">{self._html_escape(p)}</div>'
-                              for p in print_outputs)
-            body_content = f'''    <header>
+            items = '\n'.join(
+                f'        <div class="output-line">{self._html_escape(p)}</div>'
+                for p in print_outputs
+            )
+            body_content = f"""    <header>
         <h1>{self.app_title}</h1>
     </header>
     <main id="app">
         <div class="output-container">
 {items}
         </div>
-    </main>'''
+    </main>"""
         else:
-            body_content = f'''    <header>
+            body_content = f"""    <header>
         <h1>{self.app_title}</h1>
     </header>
     <main id="app">
         <p>EPL Web Application</p>
-    </main>'''
+    </main>"""
 
         return f'''<!DOCTYPE html>
 <html lang="en">
@@ -358,7 +361,13 @@ class WebCodeGenerator:
 '''
 
     def _html_escape(self, text):
-        return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+        return (
+            str(text)
+            .replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+            .replace('"', '&quot;')
+        )
 
     def _widgets_to_html(self):
         """Convert collected widgets to HTML."""
@@ -375,25 +384,37 @@ class WebCodeGenerator:
                 lines.append(f'        <span id="{wid}" class="epl-label">{text}</span>')
             elif wtype == 'input':
                 ph = props.get('placeholder', '')
-                lines.append(f'        <input id="{wid}" type="text" class="epl-input" placeholder="{ph}">')
+                lines.append(
+                    f'        <input id="{wid}" type="text" class="epl-input" placeholder="{ph}">'
+                )
             elif wtype == 'textarea':
                 ph = props.get('placeholder', '')
-                lines.append(f'        <textarea id="{wid}" class="epl-textarea" placeholder="{ph}"></textarea>')
+                lines.append(
+                    f'        <textarea id="{wid}" class="epl-textarea" placeholder="{ph}"></textarea>'
+                )
             elif wtype == 'checkbox':
-                lines.append(f'        <label class="epl-checkbox"><input id="{wid}" type="checkbox"> {text}</label>')
+                lines.append(
+                    f'        <label class="epl-checkbox"><input id="{wid}" type="checkbox"> {text}</label>'
+                )
             elif wtype == 'slider':
                 mx = props.get('max', 100)
-                lines.append(f'        <input id="{wid}" type="range" class="epl-slider" min="0" max="{mx}">')
+                lines.append(
+                    f'        <input id="{wid}" type="range" class="epl-slider" min="0" max="{mx}">'
+                )
             elif wtype == 'dropdown':
                 opts = props.get('options', [])
                 opt_html = ''.join(f'<option value="{o}">{o}</option>' for o in opts)
                 lines.append(f'        <select id="{wid}" class="epl-select">{opt_html}</select>')
             elif wtype == 'progress':
-                lines.append(f'        <progress id="{wid}" class="epl-progress" max="100" value="0"></progress>')
+                lines.append(
+                    f'        <progress id="{wid}" class="epl-progress" max="100" value="0"></progress>'
+                )
             elif wtype == 'canvas':
                 cw = props.get('width', 400)
                 ch = props.get('height', 300)
-                lines.append(f'        <canvas id="{wid}" width="{cw}" height="{ch}" class="epl-canvas"></canvas>')
+                lines.append(
+                    f'        <canvas id="{wid}" width="{cw}" height="{ch}" class="epl-canvas"></canvas>'
+                )
             elif wtype == 'image':
                 lines.append(f'        <img id="{wid}" class="epl-image" alt="{text}" src="">')
             elif wtype == 'separator':
@@ -408,7 +429,7 @@ class WebCodeGenerator:
     # ── CSS Generation ──────────────────────────────────
 
     def generate_css(self):
-        return '''/* EPL Web Application Styles */
+        return """/* EPL Web Application Styles */
 :root {
     --primary: #3b82f6;
     --primary-hover: #2563eb;
@@ -582,7 +603,7 @@ footer {
         max-width: 100%;
     }
 }
-'''
+"""
 
     # ── JavaScript Transpilation ────────────────────────
 
@@ -597,7 +618,9 @@ footer {
         self._line('// ── EPL Runtime ──────────────────────────')
         self._line('const EPL = {')
         self.indent += 1
-        self._line('print(...args) { const el = document.getElementById("output"); if(el) { el.innerHTML += args.join(" ") + "<br>"; } console.log(...args); },')
+        self._line(
+            'print(...args) { const el = document.getElementById("output"); if(el) { el.innerHTML += args.join(" ") + "<br>"; } console.log(...args); },'
+        )
         self._line('input(prompt) { return window.prompt(prompt || "") || ""; },')
         self._line('toInteger(v) { return parseInt(v) || 0; },')
         self._line('toDecimal(v) { return parseFloat(v) || 0.0; },')
@@ -656,10 +679,17 @@ footer {
             wid = eb['widget']
             event = eb['event']
             handler = eb['handler']
-            js_event = {'click': 'click', 'change': 'input', 'submit': 'submit',
-                        'keypress': 'keypress', 'hover': 'mouseover'}.get(event, event)
+            js_event = {
+                'click': 'click',
+                'change': 'input',
+                'submit': 'submit',
+                'keypress': 'keypress',
+                'hover': 'mouseover',
+            }.get(event, event)
             h_name = handler if isinstance(handler, str) else 'handler'
-            self._line(f'document.getElementById("{wid}")?.addEventListener("{js_event}", {h_name});')
+            self._line(
+                f'document.getElementById("{wid}")?.addEventListener("{js_event}", {h_name});'
+            )
         if not self.event_bindings:
             self._line('console.log("EPL App initialized");')
         self.indent -= 1
@@ -722,7 +752,9 @@ footer {
             self.indent -= 1
             self._line('}')
         elif isinstance(node, ast.ForRange):
-            self._line(f'for (let {node.var_name} = {self._js_expr(node.start)}; {node.var_name} <= {self._js_expr(node.end)}; {node.var_name}++) {{')
+            self._line(
+                f'for (let {node.var_name} = {self._js_expr(node.start)}; {node.var_name} <= {self._js_expr(node.end)}; {node.var_name}++) {{'
+            )
             self.indent += 1
             for s in node.body:
                 self._emit_js_stmt(s)
@@ -767,9 +799,13 @@ footer {
             self.indent -= 1
             self._line('}')
         elif isinstance(node, ast.PropertySet):
-            self._line(f'{self._js_expr(node.obj)}.{node.property_name} = {self._js_expr(node.value)};')
+            self._line(
+                f'{self._js_expr(node.obj)}.{node.property_name} = {self._js_expr(node.value)};'
+            )
         elif isinstance(node, ast.IndexSet):
-            self._line(f'{self._js_expr(node.obj)}[{self._js_expr(node.index)}] = {self._js_expr(node.value)};')
+            self._line(
+                f'{self._js_expr(node.obj)}[{self._js_expr(node.index)}] = {self._js_expr(node.value)};'
+            )
         elif isinstance(node, ast.AugmentedAssignment):
             self._line(f'{node.name} {node.operator} {self._js_expr(node.value)};')
         elif isinstance(node, ast.WindowCreate):
@@ -778,15 +814,22 @@ footer {
         elif isinstance(node, ast.WidgetAdd):
             wid = node.name or f'widget_{self.widget_counter}'
             self.widget_counter += 1
-            self.widgets.append({
-                'id': wid, 'type': node.widget_type.lower(),
-                'text': node.text, 'properties': node.properties,
-            })
+            self.widgets.append(
+                {
+                    'id': wid,
+                    'type': node.widget_type.lower(),
+                    'text': node.text,
+                    'properties': node.properties,
+                }
+            )
         elif isinstance(node, ast.BindEvent):
-            self.event_bindings.append({
-                'widget': node.widget_name, 'event': node.event_type,
-                'handler': node.handler,
-            })
+            self.event_bindings.append(
+                {
+                    'widget': node.widget_name,
+                    'event': node.event_type,
+                    'handler': node.handler,
+                }
+            )
         elif isinstance(node, ast.MatchStatement):
             self._line(f'switch ({self._js_expr(node.expression)}) {{')
             self.indent += 1
@@ -852,9 +895,9 @@ footer {
         elif isinstance(node, ast.EnumDef):
             pass  # Already handled above
         elif isinstance(node, ast.FileWrite):
-            self._line(f'console.warn("File I/O not available in browser");')
+            self._line('console.warn("File I/O not available in browser");')
         elif isinstance(node, ast.FileAppend):
-            self._line(f'console.warn("File I/O not available in browser");')
+            self._line('console.warn("File I/O not available in browser");')
         elif isinstance(node, ast.SuperCall):
             args = ', '.join(self._js_expr(a) for a in node.arguments)
             if node.method_name:
@@ -894,24 +937,64 @@ footer {
         if isinstance(node, ast.BinaryOp):
             l, r = self._js_expr(node.left), self._js_expr(node.right)
             op = node.operator
-            if op == 'and': return f'({l} && {r})'
-            if op == 'or': return f'({l} || {r})'
-            if op == '**': return f'Math.pow({l}, {r})'
-            if op == '//': return f'Math.floor({l} / {r})'
+            if op == 'and':
+                return f'({l} && {r})'
+            if op == 'or':
+                return f'({l} || {r})'
+            if op == '**':
+                return f'Math.pow({l}, {r})'
+            if op == '//':
+                return f'Math.floor({l} / {r})'
             return f'({l} {op} {r})'
         if isinstance(node, ast.UnaryOp):
-            if node.operator == 'not': return f'!{self._js_expr(node.operand)}'
+            if node.operator == 'not':
+                return f'!{self._js_expr(node.operand)}'
             return f'{node.operator}{self._js_expr(node.operand)}'
         if isinstance(node, ast.FunctionCall):
             name = node.name
             args = ', '.join(self._js_expr(a) for a in node.arguments)
-            builtins = {'print', 'input', 'toInteger', 'toDecimal', 'toText', 'length',
-                        'uppercase', 'lowercase', 'trim', 'contains', 'replace', 'split',
-                        'substring', 'indexOf', 'startsWith', 'endsWith', 'random', 'randomInt',
-                        'absolute', 'power', 'squareRoot', 'floor', 'ceil', 'round',
-                        'sin', 'cos', 'tan', 'log', 'now', 'timestamp', 'sleep',
-                        'toJson', 'fromJson', 'keys', 'values', 'hasKey', 'append',
-                        'join', 'sorted', 'reversed'}
+            builtins = {
+                'print',
+                'input',
+                'toInteger',
+                'toDecimal',
+                'toText',
+                'length',
+                'uppercase',
+                'lowercase',
+                'trim',
+                'contains',
+                'replace',
+                'split',
+                'substring',
+                'indexOf',
+                'startsWith',
+                'endsWith',
+                'random',
+                'randomInt',
+                'absolute',
+                'power',
+                'squareRoot',
+                'floor',
+                'ceil',
+                'round',
+                'sin',
+                'cos',
+                'tan',
+                'log',
+                'now',
+                'timestamp',
+                'sleep',
+                'toJson',
+                'fromJson',
+                'keys',
+                'values',
+                'hasKey',
+                'append',
+                'join',
+                'sorted',
+                'reversed',
+            }
             if name in builtins:
                 return f'EPL.{name}({args})'
             return f'{name}({args})'
@@ -955,7 +1038,7 @@ footer {
                 return f'super.{node.method_name}({args})'
             return f'super({args})'
         if isinstance(node, ast.FileRead):
-            return f'null /* File I/O not available in browser */'
+            return 'null /* File I/O not available in browser */'
         if isinstance(node, ast.ModuleAccess):
             return f'{node.module_name}.{node.member_name}'
         if isinstance(node, ast.SliceAccess):
@@ -973,7 +1056,7 @@ footer {
 
     def generate_wasm_loader(self):
         """Generate JavaScript WASM loader."""
-        return '''// EPL WASM Loader
+        return """// EPL WASM Loader
 const EPLWasm = {
     instance: null,
     memory: null,
@@ -1080,11 +1163,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 export default EPLWasm;
-'''
+"""
 
     def generate_wasm_runtime(self):
         """Generate JavaScript WASM runtime helpers."""
-        return '''// EPL WASM Runtime — DOM interop layer
+        return """// EPL WASM Runtime — DOM interop layer
 const EPLRuntime = {
     // DOM manipulation
     createElement(tag, attrs = {}) {
@@ -1176,7 +1259,7 @@ const EPLRuntime = {
 };
 
 window.EPLRuntime = EPLRuntime;
-'''
+"""
 
     # ── Kotlin/JS Transpilation ─────────────────────────
 
@@ -1225,8 +1308,9 @@ window.EPLRuntime = EPLRuntime;
             self._line(f'console.log({self._kt_expr(node.expression)})')
             self._line(f'app.append {{ p {{ +{self._kt_expr(node.expression)}.toString() }} }}')
         elif isinstance(node, ast.FunctionDef):
-            params = ', '.join(f'{p}: dynamic' if isinstance(p, str) else f'{p[0]}: dynamic'
-                               for p in node.params)
+            params = ', '.join(
+                f'{p}: dynamic' if isinstance(p, str) else f'{p[0]}: dynamic' for p in node.params
+            )
             self._line(f'fun {node.name}({params}): dynamic {{')
             self.indent += 1
             for s in node.body:
@@ -1261,18 +1345,23 @@ window.EPLRuntime = EPLRuntime;
     def _kt_expr(self, node):
         """Quick Kotlin expression — delegates heavy work to the Desktop generator."""
         if isinstance(node, ast.Literal):
-            if isinstance(node.value, bool): return 'true' if node.value else 'false'
+            if isinstance(node.value, bool):
+                return 'true' if node.value else 'false'
             if isinstance(node.value, str):
                 escaped = node.value.replace('\\', '\\\\').replace('"', '\\"')
                 return f'"{escaped}"'
-            if node.value is None: return 'null'
+            if node.value is None:
+                return 'null'
             return str(node.value)
-        if isinstance(node, ast.Identifier): return node.name
+        if isinstance(node, ast.Identifier):
+            return node.name
         if isinstance(node, ast.BinaryOp):
             l, r = self._kt_expr(node.left), self._kt_expr(node.right)
             op = node.operator
-            if op == 'and': return f'({l} && {r})'
-            if op == 'or': return f'({l} || {r})'
+            if op == 'and':
+                return f'({l} && {r})'
+            if op == 'or':
+                return f'({l} || {r})'
             return f'({l} {op} {r})'
         if isinstance(node, ast.FunctionCall):
             args = ', '.join(self._kt_expr(a) for a in node.arguments)
@@ -1292,7 +1381,8 @@ window.EPLRuntime = EPLRuntime;
                 else:
                     parts.append(f'${{{self._kt_expr(part)}}}')
             return f'"{"".join(parts)}"'
-        if isinstance(node, str): return f'"{node}"'
+        if isinstance(node, str):
+            return f'"{node}"'
         return 'null'
 
     # ── Collect outputs ─────────────────────────────────
@@ -1316,18 +1406,24 @@ window.EPLRuntime = EPLRuntime;
             elif isinstance(s, ast.WidgetAdd):
                 wid = s.name or f'widget_{self.widget_counter}'
                 self.widget_counter += 1
-                self.widgets.append({
-                    'id': wid, 'type': s.widget_type.lower(),
-                    'text': getattr(s, 'text', '') or '',
-                    'properties': getattr(s, 'properties', {}) or {},
-                })
+                self.widgets.append(
+                    {
+                        'id': wid,
+                        'type': s.widget_type.lower(),
+                        'text': getattr(s, 'text', '') or '',
+                        'properties': getattr(s, 'properties', {}) or {},
+                    }
+                )
             elif isinstance(s, ast.LayoutBlock):
                 self._collect_gui_nodes(s.children)
             elif isinstance(s, ast.BindEvent):
-                self.event_bindings.append({
-                    'widget': s.widget_name, 'event': s.event_type,
-                    'handler': s.handler,
-                })
+                self.event_bindings.append(
+                    {
+                        'widget': s.widget_name,
+                        'event': s.event_type,
+                        'handler': s.handler,
+                    }
+                )
 
     def _line(self, text):
         self.output.append('    ' * self.indent + text)
@@ -1336,20 +1432,21 @@ window.EPLRuntime = EPLRuntime;
 # ── Convenience Functions ────────────────────────────────
 
 
-def generate_web_project(program: ast.Program, output_dir: str,
-                          app_name="EPLWebApp", mode="js") -> str:
+def generate_web_project(
+    program: ast.Program, output_dir: str, app_name='EPLWebApp', mode='js'
+) -> str:
     """Generate a browser-ready web project from EPL."""
     gen = WebProjectGenerator(app_name, mode)
     return gen.generate(program, output_dir)
 
 
-def transpile_to_web_js(program: ast.Program, app_title="EPL App") -> str:
+def transpile_to_web_js(program: ast.Program, app_title='EPL App') -> str:
     """Transpile EPL to browser JavaScript source."""
     gen = WebCodeGenerator(app_title)
     return gen.transpile_js(program)
 
 
-def generate_wasm_glue(app_title="EPL App") -> dict:
+def generate_wasm_glue(app_title='EPL App') -> dict:
     """Generate WASM loader + runtime JS files."""
     gen = WebCodeGenerator(app_title)
     return {

@@ -10,15 +10,13 @@ Generates GitHub Actions workflow files for:
 Also validates the packages-index repo structure.
 """
 
-import json
 import os
-import re
-from typing import Dict, List, Optional, Any
-
+from typing import Dict, List, Optional
 
 # ═══════════════════════════════════════════════════════════
 #  GitHub Actions Workflow Templates
 # ═══════════════════════════════════════════════════════════
+
 
 def generate_index_validation_workflow() -> str:
     """Generate a GitHub Actions workflow for validating packages-index PRs."""
@@ -95,8 +93,7 @@ jobs:
 """
 
 
-def generate_package_ci_workflow(name: str = 'my-package',
-                                  epl_version: str = '7.0.0') -> str:
+def generate_package_ci_workflow(name: str = 'my-package', epl_version: str = '7.0.0') -> str:
     """Generate a CI workflow for an EPL package."""
     return f"""\
 name: CI — {name}
@@ -156,8 +153,9 @@ jobs:
 """
 
 
-def generate_workspace_ci_workflow(workspace_name: str = 'workspace',
-                                    member_names: Optional[List[str]] = None) -> str:
+def generate_workspace_ci_workflow(
+    workspace_name: str = 'workspace', member_names: Optional[List[str]] = None
+) -> str:
     """Generate a CI workflow for an EPL workspace (monorepo)."""
     members = member_names or ['pkg-a', 'pkg-b']
     member_matrix = ', '.join(f"'{m}'" for m in members)
@@ -222,6 +220,7 @@ jobs:
 # ═══════════════════════════════════════════════════════════
 #  Index Validation Script Generation
 # ═══════════════════════════════════════════════════════════
+
 
 def generate_validation_script() -> str:
     """Generate the index validation Python script."""
@@ -326,6 +325,7 @@ if __name__ == '__main__':
 #  High-Level Generation Functions
 # ═══════════════════════════════════════════════════════════
 
+
 def generate_ci_for_project(path: str = '.', output_dir: Optional[str] = None) -> Dict[str, str]:
     """Generate all CI files for a project.
 
@@ -347,6 +347,7 @@ def generate_ci_for_project(path: str = '.', output_dir: Optional[str] = None) -
 
     # Check if it's a workspace
     from epl.workspace import load_workspace
+
     ws = load_workspace(path)
     if ws and ws.is_workspace:
         members = ws.member_names
@@ -364,7 +365,7 @@ def write_ci_files(path: str = '.') -> int:
     """
     files = generate_ci_for_project(path)
     if not files:
-        print("  No manifest found. Cannot generate CI.")
+        print('  No manifest found. Cannot generate CI.')
         return 0
 
     output_dir = os.path.join(path, '.github', 'workflows')
@@ -376,7 +377,7 @@ def write_ci_files(path: str = '.') -> int:
         with open(fpath, 'w', encoding='utf-8') as f:
             f.write(content)
         count += 1
-        print(f"  Generated: .github/workflows/{fname}")
+        print(f'  Generated: .github/workflows/{fname}')
 
     return count
 
@@ -397,12 +398,13 @@ def generate_ci_for_index() -> Dict[str, str]:
 #  CLI Interface
 # ═══════════════════════════════════════════════════════════
 
+
 def ci_cli(args: List[str]):
     """Handle 'epl ci' from the command line."""
     if not args:
         count = write_ci_files()
         if count:
-            print(f"\n  Generated {count} CI file(s).")
+            print(f'\n  Generated {count} CI file(s).')
         return
 
     sub = args[0]
@@ -410,7 +412,7 @@ def ci_cli(args: List[str]):
     if sub == 'generate':
         count = write_ci_files()
         if count:
-            print(f"\n  Generated {count} CI file(s).")
+            print(f'\n  Generated {count} CI file(s).')
 
     elif sub == 'index':
         files = generate_ci_for_index()
@@ -418,14 +420,14 @@ def ci_cli(args: List[str]):
             os.makedirs(os.path.dirname(fpath), exist_ok=True)
             with open(fpath, 'w', encoding='utf-8') as f:
                 f.write(content)
-            print(f"  Generated: {fpath}")
+            print(f'  Generated: {fpath}')
 
     elif sub == 'preview':
         files = generate_ci_for_project()
         for fname, content in files.items():
-            print(f"\n  === {fname} ===")
+            print(f'\n  === {fname} ===')
             print(content)
 
     else:
-        print(f"  Unknown CI command: {sub}")
-        print("  Available: generate, index, preview")
+        print(f'  Unknown CI command: {sub}')
+        print('  Available: generate, index, preview')

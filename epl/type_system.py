@@ -12,42 +12,45 @@ Production-grade static type checking with:
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field
-from typing import Optional, Dict, List, Set, Tuple, Any
-from enum import Enum, auto
 
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Dict, List, Optional, Tuple
 
 # ═══════════════════════════════════════════════════════════
 #  Type Representation
 # ═══════════════════════════════════════════════════════════
 
+
 class TypeKind(Enum):
     """Classification of EPL types."""
-    PRIMITIVE = auto()      # integer, decimal, text, boolean, nothing
-    LIST = auto()           # List<T>
-    MAP = auto()            # Map<K, V>
-    FUNCTION = auto()       # (params) -> return
-    CLASS = auto()          # user-defined class
-    INTERFACE = auto()      # interface type
-    UNION = auto()          # A | B
-    OPTIONAL = auto()       # T?  (sugar for T | nothing)
-    GENERIC_VAR = auto()    # T, K, V — type parameter
-    TUPLE = auto()          # (A, B, C)
-    ANY = auto()            # any — opt out of type checking
-    NEVER = auto()          # bottom type (unreachable)
-    ALIAS = auto()          # type alias
+
+    PRIMITIVE = auto()  # integer, decimal, text, boolean, nothing
+    LIST = auto()  # List<T>
+    MAP = auto()  # Map<K, V>
+    FUNCTION = auto()  # (params) -> return
+    CLASS = auto()  # user-defined class
+    INTERFACE = auto()  # interface type
+    UNION = auto()  # A | B
+    OPTIONAL = auto()  # T?  (sugar for T | nothing)
+    GENERIC_VAR = auto()  # T, K, V — type parameter
+    TUPLE = auto()  # (A, B, C)
+    ANY = auto()  # any — opt out of type checking
+    NEVER = auto()  # bottom type (unreachable)
+    ALIAS = auto()  # type alias
 
 
 @dataclass(frozen=True)
 class EPLType:
     """Immutable representation of an EPL type."""
+
     kind: TypeKind
-    name: str                                  # "integer", "List", class name, etc.
-    params: Tuple['EPLType', ...] = ()         # generic parameters: List<integer> → params=(integer,)
-    fields: Dict[str, 'EPLType'] = field(default_factory=dict)   # class/interface fields
+    name: str  # "integer", "List", class name, etc.
+    params: Tuple['EPLType', ...] = ()  # generic parameters: List<integer> → params=(integer,)
+    fields: Dict[str, 'EPLType'] = field(default_factory=dict)  # class/interface fields
     methods: Dict[str, 'FunctionType'] = field(default_factory=dict)  # class/interface methods
     union_members: Tuple['EPLType', ...] = ()  # for union types
-    resolved: Optional['EPLType'] = None       # for aliases
+    resolved: Optional['EPLType'] = None  # for aliases
 
     def __hash__(self):
         return hash((self.kind, self.name, self.params))
@@ -62,25 +65,25 @@ class EPLType:
             return self.name
         if self.kind == TypeKind.LIST:
             inner = self.params[0] if self.params else 'any'
-            return f"List<{inner}>"
+            return f'List<{inner}>'
         if self.kind == TypeKind.MAP:
             k = self.params[0] if len(self.params) > 0 else 'any'
             v = self.params[1] if len(self.params) > 1 else 'any'
-            return f"Map<{k}, {v}>"
+            return f'Map<{k}, {v}>'
         if self.kind == TypeKind.OPTIONAL:
             inner = self.params[0] if self.params else 'any'
-            return f"{inner}?"
+            return f'{inner}?'
         if self.kind == TypeKind.UNION:
             return ' | '.join(str(m) for m in self.union_members)
         if self.kind == TypeKind.FUNCTION:
-            return f"({', '.join(str(p) for p in self.params)}) -> {self.name}"
+            return f'({", ".join(str(p) for p in self.params)}) -> {self.name}'
         if self.kind == TypeKind.TUPLE:
-            return f"({', '.join(str(p) for p in self.params)})"
+            return f'({", ".join(str(p) for p in self.params)})'
         if self.kind == TypeKind.GENERIC_VAR:
             return self.name
         if self.kind == TypeKind.CLASS or self.kind == TypeKind.INTERFACE:
             if self.params:
-                return f"{self.name}<{', '.join(str(p) for p in self.params)}>"
+                return f'{self.name}<{", ".join(str(p) for p in self.params)}>'
             return self.name
         return self.name
 
@@ -88,18 +91,19 @@ class EPLType:
 @dataclass(frozen=True)
 class FunctionType:
     """Type signature for a function/method."""
+
     param_types: Tuple[EPLType, ...] = ()
     param_names: Tuple[str, ...] = ()
     return_type: EPLType = None
     is_async: bool = False
-    generic_params: Tuple[str, ...] = ()   # <T, K> on the function itself
+    generic_params: Tuple[str, ...] = ()  # <T, K> on the function itself
 
     def __repr__(self):
-        params = ', '.join(f"{n}: {t}" for n, t in zip(self.param_names, self.param_types))
-        ret = f" -> {self.return_type}" if self.return_type else ""
-        prefix = "async " if self.is_async else ""
-        generics = f"<{', '.join(self.generic_params)}>" if self.generic_params else ""
-        return f"{prefix}fn{generics}({params}){ret}"
+        params = ', '.join(f'{n}: {t}' for n, t in zip(self.param_names, self.param_types))
+        ret = f' -> {self.return_type}' if self.return_type else ''
+        prefix = 'async ' if self.is_async else ''
+        generics = f'<{", ".join(self.generic_params)}>' if self.generic_params else ''
+        return f'{prefix}fn{generics}({params}){ret}'
 
 
 # ═══════════════════════════════════════════════════════════
@@ -107,36 +111,48 @@ class FunctionType:
 # ═══════════════════════════════════════════════════════════
 
 # Primitives
-T_INTEGER = EPLType(TypeKind.PRIMITIVE, "integer")
-T_DECIMAL = EPLType(TypeKind.PRIMITIVE, "decimal")
-T_TEXT    = EPLType(TypeKind.PRIMITIVE, "text")
-T_BOOLEAN = EPLType(TypeKind.PRIMITIVE, "boolean")
-T_NOTHING = EPLType(TypeKind.PRIMITIVE, "nothing")
-T_ANY     = EPLType(TypeKind.ANY, "any")
-T_NEVER   = EPLType(TypeKind.NEVER, "never")
+T_INTEGER = EPLType(TypeKind.PRIMITIVE, 'integer')
+T_DECIMAL = EPLType(TypeKind.PRIMITIVE, 'decimal')
+T_TEXT = EPLType(TypeKind.PRIMITIVE, 'text')
+T_BOOLEAN = EPLType(TypeKind.PRIMITIVE, 'boolean')
+T_NOTHING = EPLType(TypeKind.PRIMITIVE, 'nothing')
+T_ANY = EPLType(TypeKind.ANY, 'any')
+T_NEVER = EPLType(TypeKind.NEVER, 'never')
 
 # Number supertype
-T_NUMBER = EPLType(TypeKind.UNION, "number", union_members=(T_INTEGER, T_DECIMAL))
+T_NUMBER = EPLType(TypeKind.UNION, 'number', union_members=(T_INTEGER, T_DECIMAL))
 
 PRIMITIVE_MAP = {
-    "integer": T_INTEGER, "int": T_INTEGER,
-    "decimal": T_DECIMAL, "float": T_DECIMAL, "double": T_DECIMAL,
-    "text": T_TEXT, "string": T_TEXT, "str": T_TEXT,
-    "boolean": T_BOOLEAN, "bool": T_BOOLEAN,
-    "nothing": T_NOTHING, "void": T_NOTHING, "null": T_NOTHING, "none": T_NOTHING,
-    "any": T_ANY,
-    "number": T_NUMBER,
+    'integer': T_INTEGER,
+    'int': T_INTEGER,
+    'decimal': T_DECIMAL,
+    'float': T_DECIMAL,
+    'double': T_DECIMAL,
+    'text': T_TEXT,
+    'string': T_TEXT,
+    'str': T_TEXT,
+    'boolean': T_BOOLEAN,
+    'bool': T_BOOLEAN,
+    'nothing': T_NOTHING,
+    'void': T_NOTHING,
+    'null': T_NOTHING,
+    'none': T_NOTHING,
+    'any': T_ANY,
+    'number': T_NUMBER,
 }
 
 
 def make_list_type(element_type: EPLType = T_ANY) -> EPLType:
-    return EPLType(TypeKind.LIST, "List", params=(element_type,))
+    return EPLType(TypeKind.LIST, 'List', params=(element_type,))
+
 
 def make_map_type(key_type: EPLType = T_TEXT, value_type: EPLType = T_ANY) -> EPLType:
-    return EPLType(TypeKind.MAP, "Map", params=(key_type, value_type))
+    return EPLType(TypeKind.MAP, 'Map', params=(key_type, value_type))
+
 
 def make_optional_type(inner: EPLType) -> EPLType:
-    return EPLType(TypeKind.OPTIONAL, f"{inner}?", params=(inner,))
+    return EPLType(TypeKind.OPTIONAL, f'{inner}?', params=(inner,))
+
 
 def make_union_type(*members: EPLType) -> EPLType:
     # Flatten nested unions
@@ -155,10 +171,12 @@ def make_union_type(*members: EPLType) -> EPLType:
             unique.append(m)
     if len(unique) == 1:
         return unique[0]
-    return EPLType(TypeKind.UNION, "union", union_members=tuple(unique))
+    return EPLType(TypeKind.UNION, 'union', union_members=tuple(unique))
+
 
 def make_tuple_type(*element_types: EPLType) -> EPLType:
-    return EPLType(TypeKind.TUPLE, "tuple", params=element_types)
+    return EPLType(TypeKind.TUPLE, 'tuple', params=element_types)
+
 
 def make_function_type(param_types, return_type, is_async=False) -> FunctionType:
     return FunctionType(
@@ -172,6 +190,7 @@ def make_function_type(param_types, return_type, is_async=False) -> FunctionType
 #  Interface Definition
 # ═══════════════════════════════════════════════════════════
 
+
 @dataclass
 class InterfaceDef:
     """
@@ -182,10 +201,11 @@ class InterfaceDef:
             method print()
         End Interface
     """
+
     name: str
-    methods: Dict[str, FunctionType]       # method_name -> signature
+    methods: Dict[str, FunctionType]  # method_name -> signature
     properties: Dict[str, EPLType] = field(default_factory=dict)
-    extends: List[str] = field(default_factory=list)   # parent interfaces
+    extends: List[str] = field(default_factory=list)  # parent interfaces
     generic_params: List[str] = field(default_factory=list)  # <T, K>
     line: int = 0
 
@@ -194,18 +214,19 @@ class InterfaceDef:
 #  Type Environment (Scope-aware type tracking)
 # ═══════════════════════════════════════════════════════════
 
+
 class TypeScope:
     """Tracks type bindings in a scope, with parent chaining."""
 
-    def __init__(self, parent: Optional['TypeScope'] = None, name: str = "global"):
+    def __init__(self, parent: Optional['TypeScope'] = None, name: str = 'global'):
         self.parent = parent
         self.name = name
-        self.variables: Dict[str, EPLType] = {}           # var_name -> type
-        self.functions: Dict[str, FunctionType] = {}      # fn_name -> signature
-        self.classes: Dict[str, EPLType] = {}             # class_name -> class type
-        self.interfaces: Dict[str, InterfaceDef] = {}     # interface_name -> def
-        self.type_aliases: Dict[str, EPLType] = {}        # alias_name -> target type
-        self.generic_vars: Dict[str, EPLType] = {}        # T -> constraint or T_ANY
+        self.variables: Dict[str, EPLType] = {}  # var_name -> type
+        self.functions: Dict[str, FunctionType] = {}  # fn_name -> signature
+        self.classes: Dict[str, EPLType] = {}  # class_name -> class type
+        self.interfaces: Dict[str, InterfaceDef] = {}  # interface_name -> def
+        self.type_aliases: Dict[str, EPLType] = {}  # alias_name -> target type
+        self.generic_vars: Dict[str, EPLType] = {}  # T -> constraint or T_ANY
 
     def define_var(self, name: str, typ: EPLType):
         self.variables[name] = typ
@@ -264,13 +285,14 @@ class TypeScope:
             return self.parent.resolve_type_name(name)
         return None
 
-    def child(self, name: str = "local") -> 'TypeScope':
+    def child(self, name: str = 'local') -> 'TypeScope':
         return TypeScope(parent=self, name=name)
 
 
 # ═══════════════════════════════════════════════════════════
 #  Type Compatibility / Subtyping
 # ═══════════════════════════════════════════════════════════
+
 
 def is_assignable(target: EPLType, source: EPLType) -> bool:
     """Check if `source` type can be assigned to `target` type (target := source)."""
@@ -356,16 +378,18 @@ def infer_type_from_value(value) -> EPLType:
 #  Type Checker — Static Analysis Pass
 # ═══════════════════════════════════════════════════════════
 
+
 @dataclass
 class TypeDiagnostic:
     """A type error or warning found during checking."""
-    level: str        # "error", "warning", "info"
+
+    level: str  # "error", "warning", "info"
     message: str
     line: int = 0
     column: int = 0
 
     def __repr__(self):
-        return f"[{self.level.upper()}] line {self.line}: {self.message}"
+        return f'[{self.level.upper()}] line {self.line}: {self.message}'
 
 
 class TypeChecker:
@@ -381,10 +405,12 @@ class TypeChecker:
     """
 
     def __init__(self, strict: bool = False):
-        self.strict = strict       # strict mode requires all annotations
-        self.scope = TypeScope(name="global")
+        self.strict = strict  # strict mode requires all annotations
+        self.scope = TypeScope(name='global')
         self.diagnostics: List[TypeDiagnostic] = []
-        self._current_return_type: Optional[EPLType] = None  # expected return type of current function
+        self._current_return_type: Optional[EPLType] = (
+            None  # expected return type of current function
+        )
         self._register_builtins()
 
     def _register_builtins(self):
@@ -404,7 +430,9 @@ class TypeChecker:
             'power': FunctionType((T_NUMBER, T_NUMBER), ('base', 'exp'), T_NUMBER),
             'floor': FunctionType((T_DECIMAL,), ('value',), T_INTEGER),
             'ceil': FunctionType((T_DECIMAL,), ('value',), T_INTEGER),
-            'range': FunctionType((T_INTEGER, T_INTEGER), ('start', 'end'), make_list_type(T_INTEGER)),
+            'range': FunctionType(
+                (T_INTEGER, T_INTEGER), ('start', 'end'), make_list_type(T_INTEGER)
+            ),
             'sum': FunctionType((make_list_type(T_NUMBER),), ('values',), T_NUMBER),
             'sorted': FunctionType((make_list_type(T_ANY),), ('values',), make_list_type(T_ANY)),
             'reversed': FunctionType((make_list_type(T_ANY),), ('values',), make_list_type(T_ANY)),
@@ -419,34 +447,39 @@ class TypeChecker:
     def check(self, program) -> List[TypeDiagnostic]:
         """Run type checking on a full program AST. Returns list of diagnostics."""
         from epl import ast_nodes as ast
+
         self.diagnostics = []
         if isinstance(program, ast.Program):
             self._check_body(program.statements, self.scope)
         return self.diagnostics
 
     def _error(self, msg: str, line: int = 0):
-        self.diagnostics.append(TypeDiagnostic("error", msg, line))
+        self.diagnostics.append(TypeDiagnostic('error', msg, line))
 
     def _warning(self, msg: str, line: int = 0):
-        self.diagnostics.append(TypeDiagnostic("warning", msg, line))
+        self.diagnostics.append(TypeDiagnostic('warning', msg, line))
 
     def _check_body(self, stmts, scope: TypeScope):
         """Check a list of statements, warning on unreachable code after return/break/continue."""
         from epl import ast_nodes as ast
+
         terminated = False
         for stmt in stmts:
             if stmt is None:
                 continue
             if terminated:
-                self._warning("Unreachable code.", getattr(stmt, 'line', 0))
+                self._warning('Unreachable code.', getattr(stmt, 'line', 0))
                 break
             self._check_statement(stmt, scope)
-            if isinstance(stmt, (ast.ReturnStatement, ast.BreakStatement,
-                                 ast.ContinueStatement, ast.ExitStatement)):
+            if isinstance(
+                stmt,
+                (ast.ReturnStatement, ast.BreakStatement, ast.ContinueStatement, ast.ExitStatement),
+            ):
                 terminated = True
 
     def _check_statement(self, node, scope: TypeScope):
         from epl import ast_nodes as ast
+
         if node is None:
             return
 
@@ -461,7 +494,7 @@ class TypeChecker:
                 if inferred and declared and not is_assignable(declared, inferred):
                     self._error(
                         f'Cannot assign {inferred} to variable "{node.name}" of type {declared}.',
-                        getattr(node, 'line', 0)
+                        getattr(node, 'line', 0),
                     )
             final_type = declared or inferred or T_ANY
             scope.define_var(node.name, final_type)
@@ -472,7 +505,7 @@ class TypeChecker:
             if existing and new_type and not is_assignable(existing, new_type):
                 self._error(
                     f'Cannot assign {new_type} to variable "{node.name}" of type {existing}.',
-                    getattr(node, 'line', 0)
+                    getattr(node, 'line', 0),
                 )
 
         elif isinstance(node, ast.ConstDeclaration):
@@ -484,24 +517,26 @@ class TypeChecker:
 
         elif isinstance(node, ast.IfStatement):
             self._check_expr(node.condition, scope)
-            child = scope.child("if_true")
+            child = scope.child('if_true')
             self._check_body(node.true_body or [], child)
             if node.false_body:
-                child2 = scope.child("if_false")
+                child2 = scope.child('if_false')
                 self._check_body(node.false_body, child2)
             for elif_cond, elif_body in getattr(node, 'elif_clauses', []):
                 self._check_expr(elif_cond, scope)
-                child3 = scope.child("elif")
+                child3 = scope.child('elif')
                 self._check_body(elif_body, child3)
 
         elif isinstance(node, ast.WhileLoop):
             self._check_expr(node.condition, scope)
-            child = scope.child("while")
+            child = scope.child('while')
             self._check_body(node.body, child)
 
         elif isinstance(node, ast.ForEachLoop):
-            iter_type = self._check_expr(node.iterable, scope) if hasattr(node, 'iterable') else T_ANY
-            child = scope.child("foreach")
+            iter_type = (
+                self._check_expr(node.iterable, scope) if hasattr(node, 'iterable') else T_ANY
+            )
+            child = scope.child('foreach')
             if iter_type and iter_type.kind == TypeKind.LIST and iter_type.params:
                 child.define_var(node.var_name, iter_type.params[0])
             else:
@@ -509,7 +544,7 @@ class TypeChecker:
             self._check_body(node.body, child)
 
         elif isinstance(node, ast.ForRange):
-            child = scope.child("for_range")
+            child = scope.child('for_range')
             child.define_var(node.var_name, T_INTEGER)
             self._check_expr(node.start, scope)
             self._check_expr(node.end, scope)
@@ -519,7 +554,7 @@ class TypeChecker:
 
         elif isinstance(node, ast.RepeatLoop):
             self._check_expr(node.count, scope)
-            child = scope.child("repeat")
+            child = scope.child('repeat')
             self._check_body(node.body, child)
 
         elif isinstance(node, ast.FunctionDef):
@@ -532,26 +567,29 @@ class TypeChecker:
             self._check_class_def(node, scope)
 
         elif isinstance(node, ast.TryCatch):
-            child_try = scope.child("try")
+            child_try = scope.child('try')
             self._check_body(node.try_body or [], child_try)
             if node.catch_body:
-                child_catch = scope.child("catch")
+                child_catch = scope.child('catch')
                 if hasattr(node, 'error_var') and node.error_var:
                     child_catch.define_var(node.error_var, T_TEXT)
                 self._check_body(node.catch_body, child_catch)
             if hasattr(node, 'finally_body') and node.finally_body:
-                child_finally = scope.child("finally")
+                child_finally = scope.child('finally')
                 self._check_body(node.finally_body, child_finally)
 
         elif isinstance(node, ast.ReturnStatement):
             if hasattr(node, 'value') and node.value:
                 ret_type = self._check_expr(node.value, scope)
-                if (self._current_return_type and ret_type
-                        and self._current_return_type != T_ANY
-                        and not is_assignable(self._current_return_type, ret_type)):
+                if (
+                    self._current_return_type
+                    and ret_type
+                    and self._current_return_type != T_ANY
+                    and not is_assignable(self._current_return_type, ret_type)
+                ):
                     self._error(
                         f'Return type {ret_type} is not compatible with declared return type {self._current_return_type}.',
-                        getattr(node, 'line', 0)
+                        getattr(node, 'line', 0),
                     )
 
         elif isinstance(node, ast.ThrowStatement):
@@ -564,15 +602,16 @@ class TypeChecker:
         elif isinstance(node, ast.MatchStatement):
             self._check_expr(node.expression, scope)
             for clause in node.clauses:
-                child = scope.child("when")
+                child = scope.child('when')
                 self._check_body(clause.body if hasattr(clause, 'body') else [], child)
 
         elif isinstance(node, ast.AugmentedAssignment):
             var_type = scope.lookup_var(node.name)
             val_type = self._check_expr(node.value, scope)
 
-        elif isinstance(node, (ast.BreakStatement, ast.ContinueStatement,
-                                ast.ExitStatement, ast.WaitStatement)):
+        elif isinstance(
+            node, (ast.BreakStatement, ast.ContinueStatement, ast.ExitStatement, ast.WaitStatement)
+        ):
             pass  # no type checking needed
 
         elif isinstance(node, (ast.FileWrite, ast.FileAppend)):
@@ -593,7 +632,6 @@ class TypeChecker:
 
     def _check_function_def(self, node, scope: TypeScope, is_async: bool = False):
         """Check a function definition and register its signature."""
-        from epl import ast_nodes as ast
 
         param_types = []
         param_names = []
@@ -628,7 +666,7 @@ class TypeChecker:
         scope.define_function(node.name, sig)
 
         # Check function body
-        child = scope.child(f"fn:{node.name}")
+        child = scope.child(f'fn:{node.name}')
         for pname, ptype in zip(param_names, param_types):
             child.define_var(pname, ptype)
         saved_return_type = self._current_return_type
@@ -639,6 +677,7 @@ class TypeChecker:
     def _check_class_def(self, node, scope: TypeScope):
         """Check a class definition and register it."""
         from epl import ast_nodes as ast_mod
+
         fields = {}
         methods = {}
         method_nodes = []
@@ -669,16 +708,13 @@ class TypeChecker:
             if attr_name not in fields:
                 fields[attr_name] = T_ANY
 
-        class_type = EPLType(
-            TypeKind.CLASS, node.name,
-            fields=fields, methods=methods
-        )
+        class_type = EPLType(TypeKind.CLASS, node.name, fields=fields, methods=methods)
         scope.define_class(node.name, class_type)
 
         # Check method bodies
         for method_node in method_nodes:
             if method_node.body:
-                child = scope.child(f"method:{node.name}.{method_node.name}")
+                child = scope.child(f'method:{node.name}.{method_node.name}')
                 child.define_var('self', class_type)
                 for p in method_node.params:
                     pname = p[0] if isinstance(p, tuple) else p
@@ -694,7 +730,7 @@ class TypeChecker:
             if n_args > n_params and n_params > 0:
                 self._warning(
                     f'Too many arguments to "{node.name}()": expected {n_params}, got {n_args}.',
-                    getattr(node, 'line', 0)
+                    getattr(node, 'line', 0),
                 )
             if node.arguments:
                 for i, arg in enumerate(node.arguments):
@@ -703,8 +739,8 @@ class TypeChecker:
                         expected = sig.param_types[i]
                         if arg_type and not is_assignable(expected, arg_type):
                             self._warning(
-                                f'Argument {i+1} to "{node.name}()": expected {expected}, got {arg_type}.',
-                                getattr(node, 'line', 0)
+                                f'Argument {i + 1} to "{node.name}()": expected {expected}, got {arg_type}.',
+                                getattr(node, 'line', 0),
                             )
         if sig:
             return sig.return_type
@@ -717,6 +753,7 @@ class TypeChecker:
     def _check_expr(self, node, scope: TypeScope) -> Optional[EPLType]:
         """Check an expression and return its inferred type."""
         from epl import ast_nodes as ast
+
         if node is None:
             return T_NOTHING
 
@@ -737,7 +774,9 @@ class TypeChecker:
         if isinstance(node, ast.Identifier):
             t = scope.lookup_var(node.name)
             if t is None and self.strict:
-                self._error(f'Variable "{node.name}" used before declaration.', getattr(node, 'line', 0))
+                self._error(
+                    f'Variable "{node.name}" used before declaration.', getattr(node, 'line', 0)
+                )
             return t or T_ANY
 
         if isinstance(node, ast.BinaryOp):
@@ -748,10 +787,22 @@ class TypeChecker:
                     if node.operator == '+':
                         return T_TEXT
                 return T_NUMBER if (left == T_DECIMAL or right == T_DECIMAL) else T_INTEGER
-            if node.operator in ('>', '<', '>=', '<=', '==', '!=', 'and', 'or',
-                                  'is greater than', 'is less than', 'is equal to',
-                                  'is not equal to', 'is greater than or equal to',
-                                  'is less than or equal to'):
+            if node.operator in (
+                '>',
+                '<',
+                '>=',
+                '<=',
+                '==',
+                '!=',
+                'and',
+                'or',
+                'is greater than',
+                'is less than',
+                'is equal to',
+                'is not equal to',
+                'is greater than or equal to',
+                'is less than or equal to',
+            ):
                 return T_BOOLEAN
             return T_ANY
 
@@ -780,7 +831,7 @@ class TypeChecker:
 
         if isinstance(node, ast.MethodCall):
             obj_type = self._check_expr(node.object, scope) if hasattr(node, 'object') else T_ANY
-            for arg in (node.arguments or []):
+            for arg in node.arguments or []:
                 self._check_expr(arg, scope)
             # Infer return type from known methods
             method = node.method_name if hasattr(node, 'method_name') else ''
@@ -798,13 +849,30 @@ class TypeChecker:
                 if method == 'join':
                     return T_TEXT
             if obj_type == T_TEXT:
-                if method in ('upper', 'lower', 'trim', 'replace', 'reverse', 'repeat',
-                               'substr', 'substring', 'pad_left', 'pad_right', 'char_at'):
+                if method in (
+                    'upper',
+                    'lower',
+                    'trim',
+                    'replace',
+                    'reverse',
+                    'repeat',
+                    'substr',
+                    'substring',
+                    'pad_left',
+                    'pad_right',
+                    'char_at',
+                ):
                     return T_TEXT
                 if method in ('length', 'find', 'index_of', 'count'):
                     return T_INTEGER
-                if method in ('contains', 'starts_with', 'ends_with', 'is_empty',
-                               'is_number', 'is_alpha'):
+                if method in (
+                    'contains',
+                    'starts_with',
+                    'ends_with',
+                    'is_empty',
+                    'is_number',
+                    'is_alpha',
+                ):
                     return T_BOOLEAN
                 if method == 'split':
                     return make_list_type(T_TEXT)
@@ -857,11 +925,13 @@ class TypeChecker:
         return T_ANY
 
     def has_errors(self) -> bool:
-        return any(d.level == "error" for d in self.diagnostics)
+        return any(d.level == 'error' for d in self.diagnostics)
 
     def format_diagnostics(self) -> str:
         lines = []
         for d in sorted(self.diagnostics, key=lambda x: x.line):
-            prefix = "ERROR" if d.level == "error" else "WARNING" if d.level == "warning" else "INFO"
-            lines.append(f"  [{prefix}] line {d.line}: {d.message}")
+            prefix = (
+                'ERROR' if d.level == 'error' else 'WARNING' if d.level == 'warning' else 'INFO'
+            )
+            lines.append(f'  [{prefix}] line {d.line}: {d.message}')
         return '\n'.join(lines)

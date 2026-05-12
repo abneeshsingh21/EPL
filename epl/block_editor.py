@@ -6,20 +6,24 @@ Usage:  python main.py blocks [--port 8090]
 """
 
 import io
-import sys
 import json
+import sys
 import threading
+
 from epl.errors import EPLError
+
 
 def _safe_error(e):
     """Return error message, sanitizing non-EPL exceptions."""
     return str(e) if isinstance(e, EPLError) else 'Internal error'
 
+
 # ── Public API ───────────────────────────────────────────
+
 
 def start_block_editor(port: int = 8090, open_browser: bool = True):
     """Start the EPL Visual Block Editor server."""
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
     class BlockHandler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -64,12 +68,13 @@ def start_block_editor(port: int = 8090, open_browser: bool = True):
             self.wfile.write(json.dumps(data).encode('utf-8'))
 
     server = HTTPServer(('127.0.0.1', port), BlockHandler)
-    print(f"  EPL Block Editor running at http://127.0.0.1:{port}")
-    print("  Press Ctrl+C to stop")
+    print(f'  EPL Block Editor running at http://127.0.0.1:{port}')
+    print('  Press Ctrl+C to stop')
 
     if open_browser:
         try:
             import webbrowser
+
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
             pass
@@ -77,17 +82,17 @@ def start_block_editor(port: int = 8090, open_browser: bool = True):
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n  Block Editor stopped.")
+        print('\n  Block Editor stopped.')
         server.server_close()
 
 
 def _execute_epl(code: str) -> dict:
     """Execute EPL code with timeout and sandbox."""
     try:
+        from epl.environment import Environment
+        from epl.interpreter import Interpreter
         from epl.lexer import Lexer
         from epl.parser import Parser
-        from epl.interpreter import Interpreter
-        from epl.environment import Environment
 
         lexer = Lexer(code)
         tokens = lexer.tokenize()
@@ -130,7 +135,7 @@ def _execute_epl(code: str) -> dict:
 
 # ── HTML Template ────────────────────────────────────────
 
-_BLOCK_EDITOR_HTML = r'''<!DOCTYPE html>
+_BLOCK_EDITOR_HTML = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -731,4 +736,4 @@ updateCode();
 </script>
 </body>
 </html>
-'''
+"""

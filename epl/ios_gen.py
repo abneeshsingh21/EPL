@@ -12,23 +12,22 @@ Generates:
 """
 
 import os
-import uuid
+
 from epl import ast_nodes as ast
 
 
 class IOSProjectGenerator:
     """Generates a complete iOS/SwiftUI project from EPL AST."""
 
-    SWIFT_VERSION = "5.9"
-    IOS_DEPLOYMENT_TARGET = "16.0"
+    SWIFT_VERSION = '5.9'
+    IOS_DEPLOYMENT_TARGET = '16.0'
 
-    def __init__(self, app_name="EPLApp", bundle_id="com.epl.app",
-                 team_id=None):
+    def __init__(self, app_name='EPLApp', bundle_id='com.epl.app', team_id=None):
         self.app_name = app_name
         self.bundle_id = bundle_id
-        self.team_id = team_id or ""
-        self.version = "1.0.0"
-        self.build_number = "1"
+        self.team_id = team_id or ''
+        self.version = '1.0.0'
+        self.build_number = '1'
 
     def generate(self, program, output_dir: str) -> str:
         """Generate a complete iOS project."""
@@ -59,19 +58,28 @@ class IOSProjectGenerator:
         self._write(f'{src_dir}/Views/ContentView.swift', content_view)
         self._write(f'{src_dir}/EPLRuntime.swift', runtime_swift)
         self._write(f'{src_dir}/Info.plist', self._info_plist())
-        self._write(f'{src_dir}/Assets.xcassets/Contents.json', '{"info":{"version":1,"author":"xcode"}}')
-        self._write(f'{src_dir}/Assets.xcassets/AccentColor.colorset/Contents.json',
-                     '{"colors":[{"idiom":"universal"}],"info":{"version":1,"author":"xcode"}}')
-        self._write(f'{src_dir}/Assets.xcassets/AppIcon.appiconset/Contents.json',
-                     self._app_icon_contents())
-        self._write(f'{src_dir}/Preview Content/Preview Assets.xcassets/Contents.json',
-                     '{"info":{"version":1,"author":"xcode"}}')
-        self._write(f'{output_dir}/{self.app_name}.xcodeproj/project.pbxproj',
-                     self._pbxproj())
-        self._write(f'{output_dir}/{self.app_name}Tests/{self.app_name}Tests.swift',
-                     self._test_file())
-        self._write(f'{output_dir}/{self.app_name}UITests/{self.app_name}UITests.swift',
-                     self._ui_test_file())
+        self._write(
+            f'{src_dir}/Assets.xcassets/Contents.json', '{"info":{"version":1,"author":"xcode"}}'
+        )
+        self._write(
+            f'{src_dir}/Assets.xcassets/AccentColor.colorset/Contents.json',
+            '{"colors":[{"idiom":"universal"}],"info":{"version":1,"author":"xcode"}}',
+        )
+        self._write(
+            f'{src_dir}/Assets.xcassets/AppIcon.appiconset/Contents.json', self._app_icon_contents()
+        )
+        self._write(
+            f'{src_dir}/Preview Content/Preview Assets.xcassets/Contents.json',
+            '{"info":{"version":1,"author":"xcode"}}',
+        )
+        self._write(f'{output_dir}/{self.app_name}.xcodeproj/project.pbxproj', self._pbxproj())
+        self._write(
+            f'{output_dir}/{self.app_name}Tests/{self.app_name}Tests.swift', self._test_file()
+        )
+        self._write(
+            f'{output_dir}/{self.app_name}UITests/{self.app_name}UITests.swift',
+            self._ui_test_file(),
+        )
         self._write(f'{output_dir}/Package.swift', self._package_swift())
         self._write(f'{output_dir}/.gitignore', self._gitignore())
         self._write(f'{output_dir}/README.md', self._readme())
@@ -83,7 +91,7 @@ class IOSProjectGenerator:
             f.write(content)
 
     def _info_plist(self):
-        return f'''<?xml version="1.0" encoding="UTF-8"?>
+        return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -121,21 +129,23 @@ class IOSProjectGenerator:
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
 </dict>
-</plist>'''
+</plist>"""
 
     def _app_icon_contents(self):
-        return '''{
+        return """{
   "images": [
     {"idiom": "universal", "platform": "ios", "size": "1024x1024"}
   ],
   "info": {"version": 1, "author": "xcode"}
-}'''
+}"""
 
     def _pbxproj(self):
         """Generate a valid Xcode project.pbxproj file."""
+
         # Generate stable UUIDs based on app name for reproducibility
         def _uuid(seed):
             import hashlib
+
             h = hashlib.sha256(f'{self.app_name}:{seed}'.encode()).hexdigest()[:24].upper()
             return h
 
@@ -413,7 +423,7 @@ let package = Package(
 '''
 
     def _test_file(self):
-        return f'''import XCTest
+        return f"""import XCTest
 @testable import {self.app_name}
 
 final class {self.app_name}Tests: XCTestCase {{
@@ -429,10 +439,10 @@ final class {self.app_name}Tests: XCTestCase {{
         XCTAssertEqual(runtime.length("hello"), 5)
     }}
 }}
-'''
+"""
 
     def _ui_test_file(self):
-        return f'''import XCTest
+        return f"""import XCTest
 
 final class {self.app_name}UITests: XCTestCase {{
     func testAppLaunches() throws {{
@@ -440,10 +450,10 @@ final class {self.app_name}UITests: XCTestCase {{
         app.launch()
     }}
 }}
-'''
+"""
 
     def _gitignore(self):
-        return '''# Xcode
+        return """# Xcode
 build/
 DerivedData/
 *.xcuserdata
@@ -471,10 +481,10 @@ Podfile.lock
 
 # OS
 .DS_Store
-'''
+"""
 
     def _readme(self):
-        return f'''# {self.app_name}
+        return f"""# {self.app_name}
 
 iOS application generated from EPL source code using SwiftUI.
 
@@ -513,7 +523,7 @@ xcodebuild -project {self.app_name}.xcodeproj -scheme {self.app_name} -sdk iphon
     EPLRuntime.swift            — EPL standard library bridge
     Assets.xcassets/            — App icons and assets
 ```
-'''
+"""
 
 
 class SwiftUIGenerator:
@@ -587,7 +597,7 @@ class SwiftUIGenerator:
 
     def generate_app(self) -> str:
         """Generate the App entry point."""
-        return f'''import SwiftUI
+        return f"""import SwiftUI
 
 @main
 struct {self.app_name}App: App {{
@@ -597,11 +607,11 @@ struct {self.app_name}App: App {{
         }}
     }}
 }}
-'''
+"""
 
     def generate_runtime(self) -> str:
         """Generate EPLRuntime.swift — standard library bridge."""
-        return '''import Foundation
+        return """import Foundation
 
 /// EPL Runtime Library for Swift/iOS
 class EPLRuntime {
@@ -774,7 +784,7 @@ class EPLRuntime {
 
 // SHA256 implementation using CryptoKit when available
 import CryptoKit
-'''
+"""
 
     def _emit_stmt(self, node):
         """Emit a SwiftUI-compatible representation of an EPL AST node."""
@@ -787,11 +797,7 @@ import CryptoKit
         elif isinstance(node, ast.VarDeclaration):
             swift_type = self._swift_type(node.var_type)
             val = self._expr(node.value)
-            self._state_vars.append({
-                'name': node.name,
-                'type': swift_type,
-                'default': val
-            })
+            self._state_vars.append({'name': node.name, 'type': swift_type, 'default': val})
 
         elif isinstance(node, ast.FunctionDef):
             fn_lines = []
@@ -830,11 +836,11 @@ import CryptoKit
             placeholder = props.get('placeholder', '"Enter text"')
             return f'TextField({placeholder}, text: .constant(""))'
         elif wtype == 'textarea':
-            return f'TextEditor(text: .constant(""))'
+            return 'TextEditor(text: .constant(""))'
         elif wtype == 'checkbox':
             return f'Toggle({text}, isOn: .constant(false))'
         elif wtype == 'slider':
-            return f'Slider(value: .constant(0.5))'
+            return 'Slider(value: .constant(0.5))'
         elif wtype == 'image':
             src = props.get('source', '"photo"')
             return f'Image(systemName: {src}).resizable().aspectRatio(contentMode: .fit)'
@@ -852,12 +858,19 @@ import CryptoKit
             return 'String'
         ts = str(type_str).lower()
         mapping = {
-            'integer': 'Int', 'int': 'Int',
-            'decimal': 'Double', 'float': 'Double', 'number': 'Double',
-            'text': 'String', 'string': 'String',
-            'boolean': 'Bool', 'bool': 'Bool',
-            'list': '[Any]', 'array': '[Any]',
-            'map': '[String: Any]', 'dictionary': '[String: Any]',
+            'integer': 'Int',
+            'int': 'Int',
+            'decimal': 'Double',
+            'float': 'Double',
+            'number': 'Double',
+            'text': 'String',
+            'string': 'String',
+            'boolean': 'Bool',
+            'bool': 'Bool',
+            'list': '[Any]',
+            'array': '[Any]',
+            'map': '[String: Any]',
+            'dictionary': '[String: Any]',
         }
         return mapping.get(ts, 'String')
 
@@ -876,7 +889,9 @@ import CryptoKit
         if isinstance(node, ast.Identifier):
             return node.name
         if isinstance(node, ast.BinaryOp):
-            return f'{self._expr(node.left)} {self._swift_op(node.operator)} {self._expr(node.right)}'
+            return (
+                f'{self._expr(node.left)} {self._swift_op(node.operator)} {self._expr(node.right)}'
+            )
         if isinstance(node, ast.FunctionCall):
             name = node.name if isinstance(node.name, str) else node.name.name
             args_str = ', '.join(self._expr(a) for a in (node.arguments or []))
@@ -885,10 +900,16 @@ import CryptoKit
 
     def _swift_op(self, op):
         mapping = {
-            'plus': '+', 'minus': '-', 'times': '*', 'divided by': '/',
-            'is equal to': '==', 'is not equal to': '!=',
-            'is greater than': '>', 'is less than': '<',
-            'and': '&&', 'or': '||',
+            'plus': '+',
+            'minus': '-',
+            'times': '*',
+            'divided by': '/',
+            'is equal to': '==',
+            'is not equal to': '!=',
+            'is greater than': '>',
+            'is less than': '<',
+            'and': '&&',
+            'or': '||',
         }
         return mapping.get(op, op)
 
@@ -901,9 +922,9 @@ import CryptoKit
         return ', '.join(parts)
 
 
-def generate_ios_project(program, output_dir, app_name="EPLApp",
-                          bundle_id="com.epl.app", team_id=None):
+def generate_ios_project(
+    program, output_dir, app_name='EPLApp', bundle_id='com.epl.app', team_id=None
+):
     """Convenience function to generate an iOS project from EPL AST."""
-    gen = IOSProjectGenerator(app_name=app_name, bundle_id=bundle_id,
-                               team_id=team_id)
+    gen = IOSProjectGenerator(app_name=app_name, bundle_id=bundle_id, team_id=team_id)
     return gen.generate(program, output_dir)

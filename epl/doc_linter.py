@@ -19,36 +19,38 @@ Linter:
 Usage:
     # Generate docs
     python -m epl.doc_linter docs src/ -o docs/
-    
+
     # Lint
     python -m epl.doc_linter lint src/ --fix
 """
 
-import os
-import re
-import json
 import html as html_mod
+import json
+import re
 import sys
 import time
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
 from pathlib import Path
-
+from typing import List, Optional, Tuple
 
 # ═══════════════════════════════════════════════════════════
 # Documentation Generator
 # ═══════════════════════════════════════════════════════════
 
+
 @dataclass
 class DocParam:
     """Documented parameter."""
+
     name: str
     type_hint: str = ''
     description: str = ''
 
+
 @dataclass
 class DocEntry:
     """A single documented item (function, class, etc.)."""
+
     kind: str  # 'function', 'class', 'method', 'variable', 'constant', 'enum'
     name: str
     description: str = ''
@@ -63,9 +65,11 @@ class DocEntry:
     children: List['DocEntry'] = field(default_factory=list)
     source: str = ''
 
+
 @dataclass
 class ModuleDoc:
     """Documentation for a single .epl file."""
+
     path: str
     name: str
     description: str = ''
@@ -128,7 +132,9 @@ class DocGenerator:
                     raw_params = fn_match2.group(2) or ''
                     # Convert "a and b" to "a, b"
                     norm_params = raw_params.replace(' and ', ', ')
-                    fn_match = type('M', (), {'group': lambda self, n: fname if n == 1 else norm_params})()
+                    fn_match = type(
+                        'M', (), {'group': lambda self, n: fname if n == 1 else norm_params}
+                    )()
             if fn_match:
                 entry = self._parse_function(fn_match, doc_comments, i + 1, filepath, lines, i)
                 if current_class:
@@ -163,7 +169,9 @@ class DocGenerator:
                     current_class = None
 
             # Variable / Constant
-            var_match = re.match(r'(?:Create|Set)\s+(\w+)\s+(?:equal\s+to|to)\s+(.+)', stripped, re.IGNORECASE)
+            var_match = re.match(
+                r'(?:Create|Set)\s+(\w+)\s+(?:equal\s+to|to)\s+(.+)', stripped, re.IGNORECASE
+            )
             if var_match and not current_class:
                 entry = DocEntry(
                     kind='variable',
@@ -258,7 +266,10 @@ class DocGenerator:
         while j < len(lines) and depth > 0:
             src_line = lines[j]
             src_stripped = src_line.strip()
-            if any(src_stripped.startswith(kw) for kw in ['Function ', 'If ', 'For ', 'While ', 'Try', 'Class ']):
+            if any(
+                src_stripped.startswith(kw)
+                for kw in ['Function ', 'If ', 'For ', 'While ', 'Try', 'Class ']
+            ):
                 depth += 1
             if src_stripped.startswith('End'):
                 depth -= 1
@@ -323,8 +334,7 @@ class DocGenerator:
 
         if entry.kind == 'function' or entry.kind == 'method':
             params_str = ', '.join(
-                f'{p.name}: {p.type_hint}' if p.type_hint else p.name
-                for p in entry.params
+                f'{p.name}: {p.type_hint}' if p.type_hint else p.name for p in entry.params
             )
             lines.append(f'{prefix} {badge} {entry.name}({params_str})\n')
         else:
@@ -371,10 +381,15 @@ class DocGenerator:
         all_names = set()
         for mod in self.modules:
             for entry in mod.entries:
-                entries_json.append({
-                    'module': mod.name, 'kind': entry.kind, 'name': entry.name,
-                    'description': entry.description, 'line': entry.line,
-                })
+                entries_json.append(
+                    {
+                        'module': mod.name,
+                        'kind': entry.kind,
+                        'name': entry.name,
+                        'description': entry.description,
+                        'line': entry.line,
+                    }
+                )
                 all_names.add(entry.name)
                 for child in entry.children:
                     all_names.add(child.name)
@@ -397,7 +412,7 @@ class DocGenerator:
                         f'data-kind="{child.kind}">{html_mod.escape(child.name)}</a>\n'
                     )
 
-        html = f'''<!DOCTYPE html>
+        html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -477,9 +492,9 @@ class DocGenerator:
 </aside>
 <div class="main">
 <h1>EPL API Documentation</h1>
-<p style="color:var(--text-muted);font-size:14px">Generated {time.strftime("%Y-%m-%d %H:%M:%S")}</p>
+<p style="color:var(--text-muted);font-size:14px">Generated {time.strftime('%Y-%m-%d %H:%M:%S')}</p>
 <input class="search" type="text" placeholder="Search functions, classes..." id="search"
-       oninput="filterEntries(this.value)">'''
+       oninput="filterEntries(this.value)">"""
 
         for mod in self.modules:
             mod_esc = html_mod.escape(mod.name)
@@ -488,10 +503,11 @@ class DocGenerator:
                 html += f'\n<p>{html_mod.escape(mod.description)}</p>'
             for entry in mod.entries:
                 anchor = f'{mod.name}-{entry.name}'
-                html += self._entry_to_html(entry, anchor=anchor, all_names=all_names,
-                                            mod_name=mod.name)
+                html += self._entry_to_html(
+                    entry, anchor=anchor, all_names=all_names, mod_name=mod.name
+                )
 
-        html += f'''
+        html += f"""
 <div class="footer">EPL API Documentation — {len(self.modules)} modules, {sum(len(m.entries) for m in self.modules)} entries</div>
 <script>
 const entries = {json.dumps(entries_json)};
@@ -509,11 +525,12 @@ function filterSidebar(q) {{
   }});
 }}
 </script>
-</div></div></body></html>'''
+</div></div></body></html>"""
         return html
 
-    def _entry_to_html(self, entry: DocEntry, anchor: str = '', all_names: set = None,
-                       mod_name: str = '') -> str:
+    def _entry_to_html(
+        self, entry: DocEntry, anchor: str = '', all_names: set = None, mod_name: str = ''
+    ) -> str:
         """Convert an entry to HTML with anchors and cross-references."""
         if not anchor:
             anchor = entry.name
@@ -523,8 +540,7 @@ function filterSidebar(q) {{
 
         if entry.kind in ('function', 'method'):
             params_str = ', '.join(
-                f'{p.name}: {p.type_hint}' if p.type_hint else p.name
-                for p in entry.params
+                f'{p.name}: {p.type_hint}' if p.type_hint else p.name for p in entry.params
             )
             h += f'{html_mod.escape(entry.name)}({html_mod.escape(params_str)})'
         else:
@@ -543,7 +559,7 @@ function filterSidebar(q) {{
                         desc = desc.replace(
                             name,
                             f'<span class="xref" data-target="{target_id}" onclick="document.getElementById(this.dataset.target)?.scrollIntoView({{behavior:\'smooth\'}})">{html_mod.escape(name)}</span>',
-                            1
+                            1,
                         )
             h += f'\n<p>{desc}</p>'
         if entry.params:
@@ -569,8 +585,9 @@ function filterSidebar(q) {{
 
         for child in entry.children:
             child_anchor = f'{anchor}-{child.name}'
-            h += self._entry_to_html(child, anchor=child_anchor, all_names=all_names,
-                                     mod_name=mod_name)
+            h += self._entry_to_html(
+                child, anchor=child_anchor, all_names=all_names, mod_name=mod_name
+            )
 
         h += '\n</div>'
         return h
@@ -580,7 +597,9 @@ function filterSidebar(q) {{
         data = []
         for mod in self.modules:
             mod_data = {
-                'name': mod.name, 'path': mod.path, 'description': mod.description,
+                'name': mod.name,
+                'path': mod.path,
+                'description': mod.description,
                 'entries': [self._entry_to_dict(e) for e in mod.entries],
             }
             data.append(mod_data)
@@ -588,12 +607,17 @@ function filterSidebar(q) {{
 
     def _entry_to_dict(self, entry: DocEntry) -> dict:
         d = {
-            'kind': entry.kind, 'name': entry.name, 'description': entry.description,
-            'line': entry.line, 'file': entry.file,
+            'kind': entry.kind,
+            'name': entry.name,
+            'description': entry.description,
+            'line': entry.line,
+            'file': entry.file,
         }
         if entry.params:
-            d['params'] = [{'name': p.name, 'type': p.type_hint, 'description': p.description}
-                           for p in entry.params]
+            d['params'] = [
+                {'name': p.name, 'type': p.type_hint, 'description': p.description}
+                for p in entry.params
+            ]
         if entry.returns:
             d['returns'] = entry.returns
         if entry.examples:
@@ -611,9 +635,11 @@ function filterSidebar(q) {{
 # Linter
 # ═══════════════════════════════════════════════════════════
 
+
 @dataclass
 class LintIssue:
     """A single lint issue."""
+
     file: str
     line: int
     column: int
@@ -623,12 +649,15 @@ class LintIssue:
     fix: Optional[str] = None  # Auto-fix replacement text
 
     def __str__(self):
-        return f'{self.file}:{self.line}:{self.column} [{self.severity}] {self.rule}: {self.message}'
+        return (
+            f'{self.file}:{self.line}:{self.column} [{self.severity}] {self.rule}: {self.message}'
+        )
 
 
 @dataclass
 class LintConfig:
     """Linter configuration."""
+
     max_line_length: int = 120
     max_function_length: int = 50
     max_nesting_depth: int = 5
@@ -716,56 +745,86 @@ class Linter:
 
         # Line length
         if len(line) > self.config.max_line_length:
-            issues.append(LintIssue(
-                filepath, lineno, self.config.max_line_length + 1, 'warning',
-                'line-too-long',
-                f'Line exceeds {self.config.max_line_length} characters ({len(line)})',
-            ))
+            issues.append(
+                LintIssue(
+                    filepath,
+                    lineno,
+                    self.config.max_line_length + 1,
+                    'warning',
+                    'line-too-long',
+                    f'Line exceeds {self.config.max_line_length} characters ({len(line)})',
+                )
+            )
 
         # Trailing whitespace
         if line != line.rstrip():
-            issues.append(LintIssue(
-                filepath, lineno, len(line.rstrip()) + 1, 'hint',
-                'trailing-whitespace',
-                'Trailing whitespace',
-                fix=line.rstrip(),
-            ))
+            issues.append(
+                LintIssue(
+                    filepath,
+                    lineno,
+                    len(line.rstrip()) + 1,
+                    'hint',
+                    'trailing-whitespace',
+                    'Trailing whitespace',
+                    fix=line.rstrip(),
+                )
+            )
 
         # Mixed tabs and spaces
         if '\t' in line and '    ' in line:
-            issues.append(LintIssue(
-                filepath, lineno, 1, 'warning',
-                'mixed-indentation',
-                'Mixed tabs and spaces in indentation',
-            ))
+            issues.append(
+                LintIssue(
+                    filepath,
+                    lineno,
+                    1,
+                    'warning',
+                    'mixed-indentation',
+                    'Mixed tabs and spaces in indentation',
+                )
+            )
 
         # Tab usage
         if line.startswith('\t'):
-            issues.append(LintIssue(
-                filepath, lineno, 1, 'hint',
-                'tab-indentation',
-                'Use spaces instead of tabs',
-                fix=line.replace('\t', ' ' * self.config.indent_size),
-            ))
+            issues.append(
+                LintIssue(
+                    filepath,
+                    lineno,
+                    1,
+                    'hint',
+                    'tab-indentation',
+                    'Use spaces instead of tabs',
+                    fix=line.replace('\t', ' ' * self.config.indent_size),
+                )
+            )
 
         # Double semicolons or common typos
         stripped = line.strip()
         if stripped.endswith(';;'):
-            issues.append(LintIssue(
-                filepath, lineno, len(line) - 1, 'warning',
-                'double-semicolon',
-                'Double semicolon',
-            ))
+            issues.append(
+                LintIssue(
+                    filepath,
+                    lineno,
+                    len(line) - 1,
+                    'warning',
+                    'double-semicolon',
+                    'Double semicolon',
+                )
+            )
 
         # TODO/FIXME/HACK comments
         for tag in ['TODO', 'FIXME', 'HACK', 'XXX']:
             if tag in line:
                 idx = line.index(tag)
-                issues.append(LintIssue(
-                    filepath, lineno, idx + 1, 'info',
-                    'todo-comment',
-                    f'{tag} found in comment',
-                ))
+                issues.append(
+                    LintIssue(
+                        filepath,
+                        lineno,
+                        idx + 1,
+                        'info',
+                        'todo-comment',
+                        f'{tag} found in comment',
+                    )
+                )
 
         return issues
 
@@ -786,9 +845,7 @@ class Linter:
             stripped = line.strip()
 
             # Track nesting
-            if any(stripped.startswith(kw) for kw in [
-                'If ', 'For ', 'While ', 'Try', 'Match '
-            ]):
+            if any(stripped.startswith(kw) for kw in ['If ', 'For ', 'While ', 'Try', 'Match ']):
                 nesting_depth += 1
                 max_nesting = max(max_nesting, nesting_depth)
 
@@ -799,11 +856,16 @@ class Linter:
             fn_match = re.match(r'(?:Async\s+)?Function\s+(\w+)\s*\((.*?)\)', stripped)
             if fn_match:
                 if in_function and function_lines > self.config.max_function_length:
-                    issues.append(LintIssue(
-                        filepath, function_start, 1, 'warning',
-                        'function-too-long',
-                        f'Function "{function_name}" is {function_lines} lines (max: {self.config.max_function_length})',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            function_start,
+                            1,
+                            'warning',
+                            'function-too-long',
+                            f'Function "{function_name}" is {function_lines} lines (max: {self.config.max_function_length})',
+                        )
+                    )
                 in_function = True
                 function_start = i
                 function_name = fn_match.group(1)
@@ -813,21 +875,31 @@ class Linter:
                 # Check param count
                 params = [p.strip() for p in fn_match.group(2).split(',') if p.strip()]
                 if len(params) > self.config.max_params:
-                    issues.append(LintIssue(
-                        filepath, i, 1, 'warning',
-                        'too-many-params',
-                        f'Function "{function_name}" has {len(params)} parameters (max: {self.config.max_params})',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            i,
+                            1,
+                            'warning',
+                            'too-many-params',
+                            f'Function "{function_name}" has {len(params)} parameters (max: {self.config.max_params})',
+                        )
+                    )
 
                 # Check for doc comment above
                 if self.config.require_docstrings:
                     prev = lines[i - 2].strip() if i > 1 else ''
                     if not prev.startswith('//') and not prev.startswith('#'):
-                        issues.append(LintIssue(
-                            filepath, i, 1, 'info',
-                            'missing-docstring',
-                            f'Function "{function_name}" has no documentation comment',
-                        ))
+                        issues.append(
+                            LintIssue(
+                                filepath,
+                                i,
+                                1,
+                                'info',
+                                'missing-docstring',
+                                f'Function "{function_name}" has no documentation comment',
+                            )
+                        )
 
             if in_function:
                 function_lines += 1
@@ -835,21 +907,33 @@ class Linter:
             # Function ends
             if stripped.startswith('End') and in_function and nesting_depth == 0:
                 if function_lines > self.config.max_function_length:
-                    issues.append(LintIssue(
-                        filepath, function_start, 1, 'warning',
-                        'function-too-long',
-                        f'Function "{function_name}" is {function_lines} lines (max: {self.config.max_function_length})',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            function_start,
+                            1,
+                            'warning',
+                            'function-too-long',
+                            f'Function "{function_name}" is {function_lines} lines (max: {self.config.max_function_length})',
+                        )
+                    )
                 if max_nesting > self.config.max_nesting_depth:
-                    issues.append(LintIssue(
-                        filepath, function_start, 1, 'warning',
-                        'deep-nesting',
-                        f'Function "{function_name}" has nesting depth {max_nesting} (max: {self.config.max_nesting_depth})',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            function_start,
+                            1,
+                            'warning',
+                            'deep-nesting',
+                            f'Function "{function_name}" has nesting depth {max_nesting} (max: {self.config.max_nesting_depth})',
+                        )
+                    )
                 in_function = False
 
             # Track variable declarations
-            var_match = re.match(r'(?:Create|Set)\s+(\w+)\s+(?:equal\s+to|to)', stripped, re.IGNORECASE)
+            var_match = re.match(
+                r'(?:Create|Set)\s+(\w+)\s+(?:equal\s+to|to)', stripped, re.IGNORECASE
+            )
             if var_match:
                 declared_vars.add(var_match.group(1))
 
@@ -857,23 +941,37 @@ class Linter:
             if stripped.startswith('Return ') or stripped == 'Return':
                 if i < len(lines):
                     next_stripped = lines[i].strip() if i < len(lines) else ''
-                    if next_stripped and not next_stripped.startswith('End') and not next_stripped.startswith('//'):
-                        issues.append(LintIssue(
-                            filepath, i + 1, 1, 'warning',
-                            'unreachable-code',
-                            'Code after Return statement is unreachable',
-                        ))
+                    if (
+                        next_stripped
+                        and not next_stripped.startswith('End')
+                        and not next_stripped.startswith('//')
+                    ):
+                        issues.append(
+                            LintIssue(
+                                filepath,
+                                i + 1,
+                                1,
+                                'warning',
+                                'unreachable-code',
+                                'Code after Return statement is unreachable',
+                            )
+                        )
 
             # Empty block detection
             if any(stripped.startswith(kw) for kw in ['If ', 'For ', 'While ']):
                 if i < len(lines):
                     next_stripped = lines[i].strip() if i < len(lines) else ''
                     if next_stripped.startswith('End'):
-                        issues.append(LintIssue(
-                            filepath, i, 1, 'info',
-                            'empty-block',
-                            'Empty block — consider adding implementation or comment',
-                        ))
+                        issues.append(
+                            LintIssue(
+                                filepath,
+                                i,
+                                1,
+                                'info',
+                                'empty-block',
+                                'Empty block — consider adding implementation or comment',
+                            )
+                        )
 
         return issues
 
@@ -889,22 +987,32 @@ class Linter:
             if fn_match:
                 name = fn_match.group(1)
                 if self.config.naming_convention == 'PascalCase' and not name[0].isupper():
-                    issues.append(LintIssue(
-                        filepath, i, stripped.index(name) + 1, 'hint',
-                        'naming-convention',
-                        f'Function "{name}" should use PascalCase (start with uppercase)',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            i,
+                            stripped.index(name) + 1,
+                            'hint',
+                            'naming-convention',
+                            f'Function "{name}" should use PascalCase (start with uppercase)',
+                        )
+                    )
 
             # Class names — should always be PascalCase
             class_match = re.match(r'Class\s+(\w+)', stripped)
             if class_match:
                 name = class_match.group(1)
                 if not name[0].isupper():
-                    issues.append(LintIssue(
-                        filepath, i, stripped.index(name) + 1, 'warning',
-                        'class-naming',
-                        f'Class "{name}" should start with an uppercase letter',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            i,
+                            stripped.index(name) + 1,
+                            'warning',
+                            'class-naming',
+                            f'Class "{name}" should start with an uppercase letter',
+                        )
+                    )
 
         return issues
 
@@ -922,11 +1030,16 @@ class Linter:
             fn_match = re.match(r'(?:Async\s+)?Function\s+(\w+)', stripped)
             if fn_match:
                 if in_function and complexity > self.config.max_complexity:
-                    issues.append(LintIssue(
-                        filepath, function_start, 1, 'warning',
-                        'high-complexity',
-                        f'Function "{function_name}" has cyclomatic complexity {complexity} (max: {self.config.max_complexity})',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            function_start,
+                            1,
+                            'warning',
+                            'high-complexity',
+                            f'Function "{function_name}" has cyclomatic complexity {complexity} (max: {self.config.max_complexity})',
+                        )
+                    )
                 in_function = True
                 function_name = fn_match.group(1)
                 function_start = i
@@ -944,13 +1057,20 @@ class Linter:
                     complexity += stripped.lower().count(' and ') + stripped.lower().count(' or ')
 
             if stripped.startswith('End') and in_function:
-                if not any(stripped.startswith(f'End {kw}') for kw in ['If', 'For', 'While', 'Try']):
+                if not any(
+                    stripped.startswith(f'End {kw}') for kw in ['If', 'For', 'While', 'Try']
+                ):
                     if complexity > self.config.max_complexity:
-                        issues.append(LintIssue(
-                            filepath, function_start, 1, 'warning',
-                            'high-complexity',
-                            f'Function "{function_name}" has cyclomatic complexity {complexity} (max: {self.config.max_complexity})',
-                        ))
+                        issues.append(
+                            LintIssue(
+                                filepath,
+                                function_start,
+                                1,
+                                'warning',
+                                'high-complexity',
+                                f'Function "{function_name}" has cyclomatic complexity {complexity} (max: {self.config.max_complexity})',
+                            )
+                        )
                     in_function = False
 
         return issues
@@ -966,11 +1086,16 @@ class Linter:
             if import_match:
                 name = import_match.group(1)
                 if name in imports:
-                    issues.append(LintIssue(
-                        filepath, i, 1, 'warning',
-                        'duplicate-import',
-                        f'Duplicate import "{name}" (first imported at line {imports[name]})',
-                    ))
+                    issues.append(
+                        LintIssue(
+                            filepath,
+                            i,
+                            1,
+                            'warning',
+                            'duplicate-import',
+                            f'Duplicate import "{name}" (first imported at line {imports[name]})',
+                        )
+                    )
                 else:
                     imports[name] = i
             from_match = re.match(r'From\s+(\w+)\s+Import\s+(.*)', stripped)
@@ -979,11 +1104,16 @@ class Linter:
                 names = [n.strip() for n in from_match.group(2).split(',')]
                 for name in names:
                     if name in imports:
-                        issues.append(LintIssue(
-                            filepath, i, 1, 'warning',
-                            'duplicate-import',
-                            f'Duplicate import "{name}" (first imported at line {imports[name]})',
-                        ))
+                        issues.append(
+                            LintIssue(
+                                filepath,
+                                i,
+                                1,
+                                'warning',
+                                'duplicate-import',
+                                f'Duplicate import "{name}" (first imported at line {imports[name]})',
+                            )
+                        )
                     else:
                         imports[name] = i
 
@@ -1005,11 +1135,16 @@ class Linter:
             if fn_match:
                 if in_function:
                     if has_value_return and has_bare_return:
-                        issues.append(LintIssue(
-                            filepath, function_start, 1, 'warning',
-                            'inconsistent-return',
-                            f'Function "{function_name}" has both value-returns and bare returns',
-                        ))
+                        issues.append(
+                            LintIssue(
+                                filepath,
+                                function_start,
+                                1,
+                                'warning',
+                                'inconsistent-return',
+                                f'Function "{function_name}" has both value-returns and bare returns',
+                            )
+                        )
                 in_function = True
                 function_name = fn_match.group(1)
                 function_start = i
@@ -1019,18 +1154,25 @@ class Linter:
                 continue
 
             if in_function:
-                if any(stripped.startswith(kw) for kw in ['If ', 'For ', 'While ', 'Try', 'Match ']):
+                if any(
+                    stripped.startswith(kw) for kw in ['If ', 'For ', 'While ', 'Try', 'Match ']
+                ):
                     nesting += 1
                 if stripped.startswith('End'):
                     if nesting > 0:
                         nesting -= 1
                     else:
                         if has_value_return and has_bare_return:
-                            issues.append(LintIssue(
-                                filepath, function_start, 1, 'warning',
-                                'inconsistent-return',
-                                f'Function "{function_name}" has both value-returns and bare returns',
-                            ))
+                            issues.append(
+                                LintIssue(
+                                    filepath,
+                                    function_start,
+                                    1,
+                                    'warning',
+                                    'inconsistent-return',
+                                    f'Function "{function_name}" has both value-returns and bare returns',
+                                )
+                            )
                         in_function = False
                         continue
 
@@ -1084,11 +1226,15 @@ class Linter:
         for filepath, file_issues in sorted(by_file.items()):
             lines.append(f'\n  {filepath}')
             for iss in sorted(file_issues, key=lambda x: x.line):
-                icon = {'error': '✗', 'warning': '⚠', 'info': 'ℹ', 'hint': '·'}.get(iss.severity, '?')
+                icon = {'error': '✗', 'warning': '⚠', 'info': 'ℹ', 'hint': '·'}.get(
+                    iss.severity, '?'
+                )
                 lines.append(f'    {icon} {iss.line}:{iss.column}  {iss.message}  [{iss.rule}]')
 
-        lines.append(f'\n  {len(issues)} issues: {counts["error"]} errors, {counts["warning"]} warnings, '
-                      f'{counts["info"]} info, {counts["hint"]} hints')
+        lines.append(
+            f'\n  {len(issues)} issues: {counts["error"]} errors, {counts["warning"]} warnings, '
+            f'{counts["info"]} info, {counts["hint"]} hints'
+        )
 
         fixable = sum(1 for iss in issues if iss.fix)
         if fixable:
@@ -1101,6 +1247,7 @@ class Linter:
 # CLI Interface
 # ═══════════════════════════════════════════════════════════
 
+
 def main():
     """CLI entry point."""
     import argparse
@@ -1112,8 +1259,13 @@ def main():
     docs_parser = subparsers.add_parser('docs', help='Generate documentation')
     docs_parser.add_argument('source', help='Source file or directory')
     docs_parser.add_argument('-o', '--output', default='docs', help='Output directory')
-    docs_parser.add_argument('-f', '--format', choices=['html', 'markdown', 'json', 'all'],
-                             default='all', help='Output format')
+    docs_parser.add_argument(
+        '-f',
+        '--format',
+        choices=['html', 'markdown', 'json', 'all'],
+        default='all',
+        help='Output format',
+    )
 
     # lint subcommand
     lint_parser = subparsers.add_parser('lint', help='Lint source code')
@@ -1179,9 +1331,17 @@ def main():
             print(f'Fixed {fix_total} issues')
         else:
             if args.format == 'json':
-                data = [{'file': i.file, 'line': i.line, 'col': i.column,
-                          'severity': i.severity, 'rule': i.rule, 'message': i.message}
-                         for i in all_issues]
+                data = [
+                    {
+                        'file': i.file,
+                        'line': i.line,
+                        'col': i.column,
+                        'severity': i.severity,
+                        'rule': i.rule,
+                        'message': i.message,
+                    }
+                    for i in all_issues
+                ]
                 print(json.dumps(data, indent=2))
             else:
                 print(linter.format_report(all_issues))

@@ -15,17 +15,55 @@ function getActiveEPLFile() {
 }
 
 function runCommandInTerminal(name, command) {
-    // Reuse existing terminal if one with the same name exists
-    const existing = vscode.window.terminals.find(t => t.name === name);
-    const terminal = existing || vscode.window.createTerminal(name);
+    // Reuse only terminals created with compatible shell semantics.
+    const existing = vscode.window.terminals.find(t => t.name === name && isReusableEplTerminal(t));
+    const terminal = existing || createEplTerminal(name);
     terminal.sendText(command);
     terminal.show();
+}
+
+function isReusableEplTerminal(terminal) {
+    if (process.platform !== 'win32') {
+        return true;
+    }
+    const shellPath = terminal.creationOptions && terminal.creationOptions.shellPath;
+    return typeof shellPath === 'string' && shellPath.toLowerCase().includes('powershell');
+}
+
+function createEplTerminal(name) {
+    if (process.platform === 'win32') {
+        return vscode.window.createTerminal({
+            name,
+            shellPath: 'powershell.exe',
+            shellArgs: ['-NoLogo']
+        });
+    }
+    return vscode.window.createTerminal(name);
+}
+
+function quoteForTerminal(value) {
+    const text = String(value);
+    if (process.platform === 'win32') {
+        return `'${text.replace(/'/g, "''")}'`;
+    }
+    return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
+function buildEplCommand(eplPath, args) {
+    const executable = quoteForTerminal(eplPath || 'epl');
+    const prefix = process.platform === 'win32' ? `& ${executable}` : executable;
+    return [prefix, ...args.map(quoteForTerminal)].join(' ');
 }
 
 function activate(context) {
     const config = vscode.workspace.getConfiguration('epl');
     const eplPath = config.get('lsp.path', 'epl');
     const lspEnabled = config.get('lsp.enabled', true);
+    const extensionVersion = context.extension?.packageJSON?.version || 'unknown';
+
+    function runEplCommand(name, args) {
+        runCommandInTerminal(name, buildEplCommand(eplPath, args));
+    }
 
     // ── Register ALL commands FIRST (before LSP) ─────────
     // This ensures commands work even if LSP fails to start.
@@ -33,43 +71,49 @@ function activate(context) {
     const runCommand = vscode.commands.registerCommand('epl.run', () => {
         const filePath = getActiveEPLFile();
         if (!filePath) return;
-        runCommandInTerminal('EPL', `${eplPath} "${filePath}"`);
+        runEplCommand('EPL', ['run', filePath]);
     });
 
     const checkCommand = vscode.commands.registerCommand('epl.check', () => {
         const filePath = getActiveEPLFile();
         if (!filePath) return;
         const strict = config.get('strictMode', false);
-        const flags = strict ? ' --strict' : '';
-        runCommandInTerminal('EPL Check', `${eplPath} check "${filePath}"${flags}`);
+        const args = strict ? ['check', filePath, '--strict'] : ['check', filePath];
+        runEplCommand('EPL Check', args);
     });
 
     const formatCommand = vscode.commands.registerCommand('epl.format', () => {
         const filePath = getActiveEPLFile();
         if (!filePath) return;
-        runCommandInTerminal('EPL Format', `${eplPath} fmt "${filePath}" --in-place`);
+        runEplCommand('EPL Format', ['fmt', filePath, '--in-place']);
     });
 
     const compileFile = vscode.commands.registerCommand('epl.compileFile', () => {
         const filePath = getActiveEPLFile();
         if (!filePath) return;
-        runCommandInTerminal('EPL Build', `${eplPath} build "${filePath}"`);
+        runEplCommand('EPL Build', ['build', filePath]);
     });
 
     const lintFile = vscode.commands.registerCommand('epl.lintFile', () => {
         const filePath = getActiveEPLFile();
         if (!filePath) return;
-        runCommandInTerminal('EPL Lint', `${eplPath} lint "${filePath}"`);
+        runEplCommand('EPL Lint', ['lint', filePath]);
     });
 
     const profileFile = vscode.commands.registerCommand('epl.profileFile', () => {
         const filePath = getActiveEPLFile();
         if (!filePath) return;
-        runCommandInTerminal('EPL Profile', `${eplPath} profile "${filePath}"`);
+        runEplCommand('EPL Profile', ['profile', filePath]);
     });
 
     const runFile = vscode.commands.registerCommand('epl.runFile', () => {
         vscode.commands.executeCommand('epl.run');
+    });
+
+    const fixFile = vscode.commands.registerCommand('epl.fixFile', () => {
+        const filePath = getActiveEPLFile();
+        if (!filePath) return;
+        runEplCommand('EPL AI Explainer', ['fix', filePath]);
     });
 
     const formatFile = vscode.commands.registerCommand('epl.formatFile', () => {
@@ -84,7 +128,8 @@ function activate(context) {
         compileFile,
         formatFile,
         lintFile,
-        profileFile
+        profileFile,
+        fixFile
     );
 
     // ── Status Bar ──────────────────────────────────────
@@ -132,7 +177,7 @@ function activate(context) {
         }
     }
 
-    console.log('EPL extension v1.1.2 activated');
+    console.log(`EPL extension v${extensionVersion} activated`);
 }
 
 function deactivate() {
@@ -141,4 +186,4 @@ function deactivate() {
     }
 }
 
-module.exports = { activate, deactivate };
+module.exports = { activate, deactivate, buildEplCommand };

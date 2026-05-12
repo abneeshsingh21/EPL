@@ -3,40 +3,52 @@
 Tests WSGI adapter, ASGI adapter, Nginx/Gunicorn/Tomcat config generators,
 Docker config, systemd service, and deploy CLI.
 """
+
+import asyncio
 import json
 import os
-import sys
-import unittest
-import asyncio
-import tempfile
 import shutil
+import sys
+import tempfile
 import types
+import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from epl.web import EPLWebApp, Request, Response
 from epl.deploy import (
-    WSGIAdapter, ASGIAdapter,
-    generate_gunicorn_config, generate_wsgi_entry,
-    generate_nginx_config, generate_tomcat_config,
-    generate_dockerfile, generate_docker_compose, generate_requirements_txt,
-    generate_systemd_service, generate_asgi_entry,
-    deploy_generate, deploy_cli, serve, _run_gunicorn,
+    ASGIAdapter,
+    WSGIAdapter,
+    _run_gunicorn,
+    deploy_cli,
+    deploy_generate,
+    generate_asgi_entry,
+    generate_docker_compose,
+    generate_dockerfile,
+    generate_gunicorn_config,
+    generate_nginx_config,
+    generate_requirements_txt,
+    generate_systemd_service,
+    generate_tomcat_config,
+    generate_wsgi_entry,
+    serve,
 )
+from epl.web import EPLWebApp
 
 
 class TestWSGIAdapter(unittest.TestCase):
     """Test WSGI adapter for Gunicorn/uWSGI compatibility."""
 
     def setUp(self):
-        self.app = EPLWebApp("TestWSGI")
+        self.app = EPLWebApp('TestWSGI')
         self.app.rate_limit = 0
 
-    def _make_environ(self, method='GET', path='/', query='', body=b'',
-                       content_type='', headers=None):
+    def _make_environ(
+        self, method='GET', path='/', query='', body=b'', content_type='', headers=None
+    ):
         """Create a WSGI environ dict."""
         from io import BytesIO
+
         environ = {
             'REQUEST_METHOD': method,
             'PATH_INFO': path,
@@ -113,6 +125,7 @@ class TestWSGIAdapter(unittest.TestCase):
         adapter = WSGIAdapter(self.app)
         # Clear any existing rate-limit state for this IP
         from epl.web import _rate_tracker
+
         _rate_tracker.clear()
 
         # Use a non-health-check path (health check bypasses rate limiting)
@@ -120,14 +133,16 @@ class TestWSGIAdapter(unittest.TestCase):
         for _ in range(5):
             environ = self._make_environ(path='/some-page')
             status_holder = {}
+
             def start_response(status, headers, exc_info=None):
                 status_holder['status'] = status
+
             adapter(environ, start_response)
             results.append(status_holder['status'])
 
         # First request may 404, but subsequent should be 429
         rate_limited = [r for r in results if '429' in r]
-        self.assertTrue(len(rate_limited) > 0, "Rate limiting should block some requests")
+        self.assertTrue(len(rate_limited) > 0, 'Rate limiting should block some requests')
 
     def test_wsgi_security_headers(self):
         """WSGI responses include security headers."""
@@ -145,8 +160,7 @@ class TestWSGIAdapter(unittest.TestCase):
         """WSGI respects X-Forwarded-For header."""
         adapter = WSGIAdapter(self.app)
         environ = self._make_environ(
-            path='/_health',
-            headers={'X-Forwarded-For': '1.2.3.4, 10.0.0.1'}
+            path='/_health', headers={'X-Forwarded-For': '1.2.3.4, 10.0.0.1'}
         )
         status_holder = {}
 
@@ -160,9 +174,7 @@ class TestWSGIAdapter(unittest.TestCase):
         """WSGI rejects request body larger than 10MB."""
         adapter = WSGIAdapter(self.app)
         environ = self._make_environ(
-            method='POST', path='/test',
-            body=b'x',
-            content_type='text/plain'
+            method='POST', path='/test', body=b'x', content_type='text/plain'
         )
         # Simulate a huge Content-Length
         environ['CONTENT_LENGTH'] = str(20 * 1024 * 1024)
@@ -177,6 +189,7 @@ class TestWSGIAdapter(unittest.TestCase):
     def test_wsgi_json_route(self):
         """WSGI serves JSON routes correctly."""
         from epl import ast_nodes as ast
+
         # Add a simple JSON route using SendResponse with a literal
         send = ast.SendResponse('json', ast.Literal('hello'))
         self.app.add_route('/api/test', 'json', [send], method='GET')
@@ -237,7 +250,10 @@ class TestWSGIAdapter(unittest.TestCase):
         initial = self.app._metrics['requests']
 
         environ = self._make_environ(path='/_health')
-        def start_response(status, headers, exc_info=None): pass
+
+        def start_response(status, headers, exc_info=None):
+            pass
+
         adapter(environ, start_response)
 
         self.assertEqual(self.app._metrics['requests'], initial + 1)
@@ -247,7 +263,7 @@ class TestASGIAdapter(unittest.TestCase):
     """Test ASGI adapter for Uvicorn/Daphne/Hypercorn compatibility."""
 
     def setUp(self):
-        self.app = EPLWebApp("TestASGI")
+        self.app = EPLWebApp('TestASGI')
         self.app.rate_limit = 0
 
     def test_asgi_callable(self):
@@ -270,6 +286,7 @@ class TestASGIAdapter(unittest.TestCase):
         }
 
         received = []
+
         async def receive():
             return {'type': 'http.request', 'body': b'', 'more_body': False}
 
@@ -299,8 +316,10 @@ class TestASGIAdapter(unittest.TestCase):
             'server': ('localhost', 8000),
         }
         received = []
+
         async def receive():
             return {'type': 'http.request', 'body': b'', 'more_body': False}
+
         async def send(message):
             received.append(message)
 
@@ -336,7 +355,7 @@ class TestASGIAdapter(unittest.TestCase):
         """ASGI handles POST with JSON body."""
         adapter = ASGIAdapter(self.app)
 
-        body = json.dumps({"key": "value"}).encode('utf-8')
+        body = json.dumps({'key': 'value'}).encode('utf-8')
         scope = {
             'type': 'http',
             'method': 'POST',
@@ -350,8 +369,10 @@ class TestASGIAdapter(unittest.TestCase):
             'server': ('localhost', 8000),
         }
         received = []
+
         async def receive():
             return {'type': 'http.request', 'body': body, 'more_body': False}
+
         async def send(message):
             received.append(message)
 
@@ -406,10 +427,7 @@ class TestGunicornConfig(unittest.TestCase):
 
     def test_ssl_config(self):
         """SSL settings included when certs provided."""
-        config = generate_gunicorn_config(
-            ssl_cert='/etc/ssl/cert.pem',
-            ssl_key='/etc/ssl/key.pem'
-        )
+        config = generate_gunicorn_config(ssl_cert='/etc/ssl/cert.pem', ssl_key='/etc/ssl/key.pem')
         self.assertIn('certfile = "/etc/ssl/cert.pem"', config)
         self.assertIn('keyfile = "/etc/ssl/key.pem"', config)
 
@@ -437,23 +455,25 @@ class TestGunicornConfig(unittest.TestCase):
 
     def test_run_gunicorn_uses_baseapplication(self):
         """Gunicorn runtime uses in-process BaseApplication, not subprocess indirection."""
-        adapter = WSGIAdapter(EPLWebApp("GunicornApp"))
+        adapter = WSGIAdapter(EPLWebApp('GunicornApp'))
         captured = {}
 
         class FakeBaseApplication:
             def __init__(self, *args, **kwargs):
                 captured['initialized'] = True
-                self.cfg = types.SimpleNamespace(settings={
-                    'bind': True,
-                    'workers': True,
-                    'worker_class': True,
-                    'timeout': True,
-                    'graceful_timeout': True,
-                    'keepalive': True,
-                    'accesslog': True,
-                    'errorlog': True,
-                    'preload_app': True,
-                })
+                self.cfg = types.SimpleNamespace(
+                    settings={
+                        'bind': True,
+                        'workers': True,
+                        'worker_class': True,
+                        'timeout': True,
+                        'graceful_timeout': True,
+                        'keepalive': True,
+                        'accesslog': True,
+                        'errorlog': True,
+                        'preload_app': True,
+                    }
+                )
 
             def load_config(self):
                 pass
@@ -471,11 +491,14 @@ class TestGunicornConfig(unittest.TestCase):
         fake_app.base = fake_base
         fake_gunicorn.app = fake_app
 
-        with mock.patch.dict('sys.modules', {
-            'gunicorn': fake_gunicorn,
-            'gunicorn.app': fake_app,
-            'gunicorn.app.base': fake_base,
-        }):
+        with mock.patch.dict(
+            'sys.modules',
+            {
+                'gunicorn': fake_gunicorn,
+                'gunicorn.app': fake_app,
+                'gunicorn.app.base': fake_base,
+            },
+        ):
             _run_gunicorn(adapter, '127.0.0.1', 9000, 3)
 
         self.assertTrue(captured.get('initialized'))
@@ -510,10 +533,7 @@ class TestNginxConfig(unittest.TestCase):
 
     def test_ssl_config(self):
         """SSL config with redirect and HSTS."""
-        config = generate_nginx_config(
-            ssl_cert='/etc/ssl/cert.pem',
-            ssl_key='/etc/ssl/key.pem'
-        )
+        config = generate_nginx_config(ssl_cert='/etc/ssl/cert.pem', ssl_key='/etc/ssl/key.pem')
         self.assertIn('ssl_certificate /etc/ssl/cert.pem', config)
         self.assertIn('return 301 https://', config)
         self.assertIn('Strict-Transport-Security', config)
@@ -582,10 +602,7 @@ class TestTomcatConfig(unittest.TestCase):
 
     def test_ssl_connector(self):
         """SSL connector generated with certs."""
-        configs = generate_tomcat_config(
-            ssl_cert='/etc/ssl/cert.pem',
-            ssl_key='/etc/ssl/key.pem'
-        )
+        configs = generate_tomcat_config(ssl_cert='/etc/ssl/cert.pem', ssl_key='/etc/ssl/key.pem')
         xml = configs['server.xml']
         self.assertIn('SSLEnabled="true"', xml)
         self.assertIn('cert.pem', xml)
@@ -638,7 +655,9 @@ class TestDockerConfig(unittest.TestCase):
                 'requests': '*',
             }
         }
-        requirements = generate_requirements_txt(manifest=manifest, epl_requirement='epl-lang==7.0.0')
+        requirements = generate_requirements_txt(
+            manifest=manifest, epl_requirement='epl-lang==7.0.0'
+        )
         self.assertIn('epl-lang==7.0.0', requirements)
         self.assertIn('gunicorn>=21.2', requirements)
         self.assertIn('waitress>=2.1.0', requirements)
@@ -703,7 +722,7 @@ class TestServeRuntime(unittest.TestCase):
     """Runtime server launch safety checks."""
 
     def test_uvicorn_runtime_normalizes_multiworker_object_mode(self):
-        app = EPLWebApp("ASGIServe")
+        app = EPLWebApp('ASGIServe')
         captured = {}
 
         fake_uvicorn = types.ModuleType('uvicorn')
@@ -775,13 +794,13 @@ class TestDeployGenerate(unittest.TestCase):
         # requirements.txt, Dockerfile, docker-compose.yml, systemd .service, asgi.py
         self.assertTrue(len(files) >= 10)
         for f in files:
-            self.assertTrue(os.path.isfile(f), f"Expected {f} to exist")
+            self.assertTrue(os.path.isfile(f), f'Expected {f} to exist')
 
     def test_generate_with_ssl(self):
         """Deploy with SSL options."""
-        files = deploy_generate('all', output_dir=self.tmpdir,
-                                ssl_cert='/etc/ssl/cert.pem',
-                                ssl_key='/etc/ssl/key.pem')
+        files = deploy_generate(
+            'all', output_dir=self.tmpdir, ssl_cert='/etc/ssl/cert.pem', ssl_key='/etc/ssl/key.pem'
+        )
         self.assertTrue(len(files) >= 9)
         # Check Nginx has SSL
         nginx_files = [f for f in files if 'nginx' in f]
@@ -805,6 +824,7 @@ class TestDeployCLI(unittest.TestCase):
         """deploy with no args shows help (doesn't crash)."""
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             deploy_cli([])
@@ -818,6 +838,7 @@ class TestDeployCLI(unittest.TestCase):
         """deploy with invalid target shows error."""
         import io
         from contextlib import redirect_stdout
+
         f = io.StringIO()
         with redirect_stdout(f):
             deploy_cli(['invalid_target'])

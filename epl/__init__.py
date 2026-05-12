@@ -18,11 +18,11 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__version__ = "7.5.0"
-__author__  = "Abneesh Singh"
-__email__   = "singhabneesh250@gmail.com"
-__license__ = "MIT"
-__copyright__ = "Copyright (c) 2024–2026 Abneesh Singh"
+__version__ = '7.5.2'
+__author__ = 'Abneesh Singh'
+__email__ = 'singhabneesh250@gmail.com'
+__license__ = 'Apache 2.0'
+__copyright__ = 'Copyright (c) 2024–2026 Abneesh Singh'
 
 if TYPE_CHECKING:
     from epl.environment import Environment
@@ -32,21 +32,21 @@ if TYPE_CHECKING:
     from epl.parser import Parser
 
 _LAZY_EXPORTS = {
-    "Lexer": ("epl.lexer", "Lexer"),
-    "Parser": ("epl.parser", "Parser"),
-    "Interpreter": ("epl.interpreter", "Interpreter"),
-    "Environment": ("epl.environment", "Environment"),
-    "EPLError": ("epl.errors", "EPLError"),
+    'Lexer': ('epl.lexer', 'Lexer'),
+    'Parser': ('epl.parser', 'Parser'),
+    'Interpreter': ('epl.interpreter', 'Interpreter'),
+    'Environment': ('epl.environment', 'Environment'),
+    'EPLError': ('epl.errors', 'EPLError'),
 }
 
 __all__ = [
-    "__version__",
-    "__author__",
-    "Lexer",
-    "Parser",
-    "Interpreter",
-    "Environment",
-    "EPLError",
+    '__version__',
+    '__author__',
+    'Lexer',
+    'Parser',
+    'Interpreter',
+    'Environment',
+    'EPLError',
 ]
 
 

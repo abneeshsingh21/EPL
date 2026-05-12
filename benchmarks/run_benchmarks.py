@@ -6,19 +6,18 @@ Supports JSON output for CI/regression tracking.
 
 import contextlib
 import io
+import json
 import os
 import sys
 import time
-import json
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.errors import set_source_context
+from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.interpreter import Interpreter
-from epl.errors import set_source_context
-
 
 BENCHMARKS_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -78,15 +77,15 @@ def run_suite(runs: int = 5, warmup: int = 1, json_output: bool = False):
     results = []
 
     if not json_output:
-        print(f"  EPL Benchmark Suite")
-        print(f"  Runs: {runs}, Warmup: {warmup}")
-        print("  " + "=" * 55)
+        print('  EPL Benchmark Suite')
+        print(f'  Runs: {runs}, Warmup: {warmup}')
+        print('  ' + '=' * 55)
 
     for filename in BENCHMARK_FILES:
         filepath = os.path.join(BENCHMARKS_DIR, filename)
         if not os.path.isfile(filepath):
             if not json_output:
-                print(f"  SKIP: {filename} (file not found)")
+                print(f'  SKIP: {filename} (file not found)')
             continue
 
         result = run_single(filepath, runs=runs, warmup=warmup)
@@ -94,12 +93,14 @@ def run_suite(runs: int = 5, warmup: int = 1, json_output: bool = False):
 
         if not json_output:
             if 'error' in result:
-                print(f"  {result['name']:20s}  FAILED: {result['error']}")
+                print(f'  {result["name"]:20s}  FAILED: {result["error"]}')
             else:
-                print(f"  {result['name']:20s}  best={result['best']:.4f}s  avg={result['avg']:.4f}s  worst={result['worst']:.4f}s")
+                print(
+                    f'  {result["name"]:20s}  best={result["best"]:.4f}s  avg={result["avg"]:.4f}s  worst={result["worst"]:.4f}s'
+                )
 
     if not json_output:
-        print("  " + "=" * 55)
+        print('  ' + '=' * 55)
 
     if json_output:
         output = {

@@ -27,27 +27,31 @@ Usage:
 """
 
 import difflib
-from epl import ast_nodes as ast
-from epl.errors import EPLError
 
+from epl import ast_nodes as ast
 
 # ─── Type representations ─────────────────────────────────
+
 
 class EPLType:
     """Base type in EPL's type system."""
 
     def __init__(self, name: str, params=None, optional=False, union=None):
-        self.name = name               # 'integer','text','boolean','float','list','map','nothing','any','function'
-        self.params = params or []     # generic params: list of EPLType
-        self.optional = optional       # T?
-        self.union = union             # list of EPLType for union types
+        self.name = (
+            name  # 'integer','text','boolean','float','list','map','nothing','any','function'
+        )
+        self.params = params or []  # generic params: list of EPLType
+        self.optional = optional  # T?
+        self.union = union  # list of EPLType for union types
 
     def __eq__(self, other):
         if not isinstance(other, EPLType):
             return False
-        return (self.name == other.name
-                and self.params == other.params
-                and self.optional == other.optional)
+        return (
+            self.name == other.name
+            and self.params == other.params
+            and self.optional == other.optional
+        )
 
     def __hash__(self):
         return hash((self.name, tuple(self.params), self.optional))
@@ -55,7 +59,7 @@ class EPLType:
     def __repr__(self):
         s = self.name
         if self.params:
-            s += f"<{', '.join(str(p) for p in self.params)}>"
+            s += f'<{", ".join(str(p) for p in self.params)}>'
         if self.optional:
             s += '?'
         if self.union:
@@ -102,11 +106,18 @@ T_FUNCTION = EPLType('function')
 
 # ─── Type warnings ────────────────────────────────────────
 
+
 class TypeWarning:
     """A type issue found during analysis."""
 
-    def __init__(self, message: str, line: int, severity: str = 'warning',
-                 suggestion: str = None, code: str = None):
+    def __init__(
+        self,
+        message: str,
+        line: int,
+        severity: str = 'warning',
+        suggestion: str = None,
+        code: str = None,
+    ):
         self.message = message
         self.line = line
         self.severity = severity  # 'error', 'warning', 'info'
@@ -114,11 +125,11 @@ class TypeWarning:
         self.code = code  # diagnostic code: 'E001', 'W001', etc.
 
     def __repr__(self):
-        prefix = f"[{self.severity.upper()}]"
-        code_str = f" {self.code}" if self.code else ""
-        msg = f"{prefix}{code_str} Line {self.line}: {self.message}"
+        prefix = f'[{self.severity.upper()}]'
+        code_str = f' {self.code}' if self.code else ''
+        msg = f'{prefix}{code_str} Line {self.line}: {self.message}'
         if self.suggestion:
-            msg += f" (hint: {self.suggestion})"
+            msg += f' (hint: {self.suggestion})'
         return msg
 
     def to_dict(self):
@@ -127,7 +138,7 @@ class TypeWarning:
         return {
             'range': {
                 'start': {'line': max(0, self.line - 1), 'character': 0},
-                'end': {'line': max(0, self.line - 1), 'character': 1000}
+                'end': {'line': max(0, self.line - 1), 'character': 1000},
             },
             'severity': severity_map.get(self.severity, 2),
             'source': 'epl-typecheck',
@@ -138,6 +149,7 @@ class TypeWarning:
 
 # ─── Type string parser ──────────────────────────────────
 
+
 def parse_type_str(type_str) -> EPLType:
     """Parse a type annotation string or TypeAnnotation node into an EPLType."""
     if type_str is None:
@@ -145,7 +157,9 @@ def parse_type_str(type_str) -> EPLType:
     if isinstance(type_str, ast.TypeAnnotation):
         base = _normalize_type_name(type_str.base_type)
         params = [parse_type_str(p) for p in type_str.params] if type_str.params else []
-        union = [parse_type_str(m) for m in type_str.union_members] if type_str.union_members else None
+        union = (
+            [parse_type_str(m) for m in type_str.union_members] if type_str.union_members else None
+        )
         return EPLType(base, params, type_str.is_optional, union)
     if isinstance(type_str, str):
         s = type_str.strip()
@@ -163,20 +177,36 @@ def parse_type_str(type_str) -> EPLType:
 def _normalize_type_name(name: str) -> str:
     """Normalize type names to canonical forms."""
     mapping = {
-        'int': 'integer', 'integer': 'integer',
-        'str': 'text', 'string': 'text', 'text': 'text',
-        'bool': 'boolean', 'boolean': 'boolean',
-        'float': 'decimal', 'double': 'decimal', 'decimal': 'decimal', 'number': 'decimal',
-        'list': 'list', 'array': 'list',
-        'map': 'map', 'dict': 'map', 'dictionary': 'map', 'object': 'map',
-        'nothing': 'nothing', 'none': 'nothing', 'null': 'nothing', 'void': 'nothing',
+        'int': 'integer',
+        'integer': 'integer',
+        'str': 'text',
+        'string': 'text',
+        'text': 'text',
+        'bool': 'boolean',
+        'boolean': 'boolean',
+        'float': 'decimal',
+        'double': 'decimal',
+        'decimal': 'decimal',
+        'number': 'decimal',
+        'list': 'list',
+        'array': 'list',
+        'map': 'map',
+        'dict': 'map',
+        'dictionary': 'map',
+        'object': 'map',
+        'nothing': 'nothing',
+        'none': 'nothing',
+        'null': 'nothing',
+        'void': 'nothing',
         'any': 'any',
-        'function': 'function', 'callable': 'function',
+        'function': 'function',
+        'callable': 'function',
     }
     return mapping.get(name.lower(), name.lower())
 
 
 # ─── Type Checker ─────────────────────────────────────────
+
 
 class TypeChecker:
     """
@@ -190,15 +220,15 @@ class TypeChecker:
     """
 
     def __init__(self, strict: bool = False):
-        self.strict = strict       # strict mode errors on type mismatches
+        self.strict = strict  # strict mode errors on type mismatches
         self.warnings: list = []
         self._scope_stack: list = [{}]  # stack of {name: EPLType}
-        self._functions: dict = {}      # {name: (param_types, return_type)}
-        self._classes: dict = {}        # {name: {methods, fields, parent, implements}}
-        self._interfaces: dict = {}     # {name: [(method_name, params, return_type)]}
-        self._current_function: str = None      # name of function being checked
+        self._functions: dict = {}  # {name: (param_types, return_type)}
+        self._classes: dict = {}  # {name: {methods, fields, parent, implements}}
+        self._interfaces: dict = {}  # {name: [(method_name, params, return_type)]}
+        self._current_function: str = None  # name of function being checked
         self._current_return_type: EPLType = None  # declared return type of current function
-        self._var_usage: dict = {}      # {name: {'declared_line': int, 'used': bool}} for unused detection
+        self._var_usage: dict = {}  # {name: {'declared_line': int, 'used': bool}} for unused detection
         self._all_known_names: set = set()  # all known variable/function names for fuzzy matching
 
     def check(self, program) -> list:
@@ -229,9 +259,10 @@ class TypeChecker:
             if not info.get('used') and not name.startswith('_'):
                 self._warn(
                     f"Variable '{name}' is declared but never used",
-                    info.get('declared_line', 0), 'info',
+                    info.get('declared_line', 0),
+                    'info',
                     f"Prefix with _ to suppress (e.g., '_{name}'), or remove the variable",
-                    code='W002'
+                    code='W002',
                 )
 
     def _fuzzy_suggest(self, name: str) -> str:
@@ -256,8 +287,12 @@ class TypeChecker:
             self._functions[node.name] = (param_types, ret_type)
 
         elif isinstance(node, (ast.ClassDef,)):
-            class_info = {'methods': {}, 'fields': {}, 'parent': node.parent,
-                          'implements': getattr(node, 'implements', [])}
+            class_info = {
+                'methods': {},
+                'fields': {},
+                'parent': node.parent,
+                'implements': getattr(node, 'implements', []),
+            }
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
                     pts = []
@@ -268,7 +303,9 @@ class TypeChecker:
                     class_info['methods'][item.name] = (pts, ret)
                 elif isinstance(item, ast.VarDeclaration):
                     class_info['fields'][item.name] = parse_type_str(item.var_type)
-                elif isinstance(item, ast.VisibilityModifier) and isinstance(item.statement, ast.FunctionDef):
+                elif isinstance(item, ast.VisibilityModifier) and isinstance(
+                    item.statement, ast.FunctionDef
+                ):
                     fn = item.statement
                     pts = []
                     for p in fn.params:
@@ -311,16 +348,16 @@ class TypeChecker:
             self._infer_type(node.expression)
         elif isinstance(node, ast.IfStatement):
             self._check_condition_bool(node.condition, node.line)
-            for stmt in (node.then_body or []):
+            for stmt in node.then_body or []:
                 self._check_node(stmt)
-            for stmt in (node.else_body or []):
+            for stmt in node.else_body or []:
                 self._check_node(stmt)
         elif isinstance(node, ast.WhileLoop):
             self._check_condition_bool(node.condition, node.line)
-            for stmt in (node.body or []):
+            for stmt in node.body or []:
                 self._check_node(stmt)
         elif isinstance(node, (ast.ForEachLoop,)):
-            for stmt in (node.body or []):
+            for stmt in node.body or []:
                 self._check_node(stmt)
         elif isinstance(node, (ast.TryCatch,)):
             for stmt in getattr(node, 'try_body', []) or []:
@@ -341,10 +378,11 @@ class TypeChecker:
                 sev = 'error' if self.strict else 'warning'
                 self._warn(
                     f"Type mismatch: variable '{node.name}' declared as {declared_type} "
-                    f"but assigned {inferred_type}",
-                    node.line, sev,
-                    f"Change the value to match type {declared_type}, or update the annotation",
-                    code='E001'
+                    f'but assigned {inferred_type}',
+                    node.line,
+                    sev,
+                    f'Change the value to match type {declared_type}, or update the annotation',
+                    code='E001',
                 )
             self._set_var(node.name, declared_type)
         else:
@@ -361,13 +399,19 @@ class TypeChecker:
                 sev = 'error' if self.strict else 'warning'
                 self._warn(
                     f"Type mismatch: '{node.name}' is {existing} but assigned {new_type}",
-                    node.line, sev, code='E001')
+                    node.line,
+                    sev,
+                    code='E001',
+                )
         elif existing is None and self.strict:
             suggestion = self._fuzzy_suggest(node.name)
-            hint = f"Did you mean '{suggestion}'?" if suggestion else "Declare the variable first"
+            hint = f"Did you mean '{suggestion}'?" if suggestion else 'Declare the variable first'
             self._warn(
                 f"Variable '{node.name}' used before declaration",
-                node.line, 'error', hint, code='E003'
+                node.line,
+                'error',
+                hint,
+                code='E003',
             )
         else:
             self._set_var(node.name, self._infer_type(node.value))
@@ -396,17 +440,22 @@ class TypeChecker:
                 has_return = True
 
         # Warn if function declares a non-nothing return type but has no return statement
-        if (self._current_return_type and
-                self._current_return_type.name not in ('any', 'nothing') and
-                not has_return and node.body):
+        if (
+            self._current_return_type
+            and self._current_return_type.name not in ('any', 'nothing')
+            and not has_return
+            and node.body
+        ):
             # Check if last statement might be an implicit return (if/match)
             last = node.body[-1] if node.body else None
             if not isinstance(last, (ast.IfStatement, ast.TryCatch)):
                 self._warn(
                     f"Function '{node.name}' declares return type {self._current_return_type} "
-                    f"but may not return a value on all paths",
-                    node.line, 'warning',
-                    f"Add a Return statement or change the return type to nothing")
+                    f'but may not return a value on all paths',
+                    node.line,
+                    'warning',
+                    'Add a Return statement or change the return type to nothing',
+                )
 
         self._pop_scope()
         # Restore outer function context
@@ -415,7 +464,7 @@ class TypeChecker:
 
     def _check_class_def(self, node: ast.ClassDef):
         # Check interface conformance
-        for iface_name in (node.implements or []):
+        for iface_name in node.implements or []:
             if isinstance(iface_name, ast.ImplementsClause):
                 iface_names = iface_name.interface_names
             else:
@@ -428,18 +477,23 @@ class TypeChecker:
                         if method_name not in class_methods:
                             self._warn(
                                 f"Class '{node.name}' implements '{ifn}' but missing method '{method_name}'",
-                                node.line, 'error',
-                                f"Add method '{method_name}' to class '{node.name}'"
+                                node.line,
+                                'error',
+                                f"Add method '{method_name}' to class '{node.name}'",
                             )
 
         for item in node.body:
             if isinstance(item, ast.FunctionDef):
                 self._check_function_def(item)
-            elif isinstance(item, ast.VisibilityModifier) and isinstance(item.statement, ast.FunctionDef):
+            elif isinstance(item, ast.VisibilityModifier) and isinstance(
+                item.statement, ast.FunctionDef
+            ):
                 self._check_function_def(item.statement)
 
     def _check_function_call(self, node: ast.FunctionCall):
-        fname = node.name if isinstance(node.name, str) else getattr(node.name, 'name', str(node.name))
+        fname = (
+            node.name if isinstance(node.name, str) else getattr(node.name, 'name', str(node.name))
+        )
         if fname in self._functions:
             param_types, _ = self._functions[fname]
             args = node.args if hasattr(node, 'args') else []
@@ -451,15 +505,15 @@ class TypeChecker:
                     actual = self._infer_type(arg)
                     if not expected.is_compatible(actual):
                         self._warn(
-                            f"Argument {i+1} of '{fname}' expects {expected} but got {actual}",
-                            node.line, 'warning')
+                            f"Argument {i + 1} of '{fname}' expects {expected} but got {actual}",
+                            node.line,
+                            'warning',
+                        )
 
     def _check_return(self, node):
         """Check return statement type against declared function return type."""
         if self._current_function is None:
-            self._warn(
-                "Return statement outside of a function",
-                getattr(node, 'line', 0), 'error')
+            self._warn('Return statement outside of a function', getattr(node, 'line', 0), 'error')
             return
 
         if self._current_return_type is None or self._current_return_type.name == 'any':
@@ -472,9 +526,11 @@ class TypeChecker:
             if self._current_return_type.name != 'nothing':
                 self._warn(
                     f"Function '{self._current_function}' should return {self._current_return_type} "
-                    f"but returns nothing",
-                    getattr(node, 'line', 0), 'warning',
-                    f"Return a value of type {self._current_return_type}")
+                    f'but returns nothing',
+                    getattr(node, 'line', 0),
+                    'warning',
+                    f'Return a value of type {self._current_return_type}',
+                )
             return
 
         actual = self._infer_type(ret_expr)
@@ -482,9 +538,11 @@ class TypeChecker:
             sev = 'error' if self.strict else 'warning'
             self._warn(
                 f"Function '{self._current_function}' should return {self._current_return_type} "
-                f"but returns {actual}",
-                getattr(node, 'line', 0), sev,
-                f"Change the return value to type {self._current_return_type}")
+                f'but returns {actual}',
+                getattr(node, 'line', 0),
+                sev,
+                f'Change the return value to type {self._current_return_type}',
+            )
 
     def _check_condition_bool(self, condition, line):
         if condition is None:
@@ -493,9 +551,7 @@ class TypeChecker:
         # Conditions should be boolean-ish (boolean, integer, or comparison result)
         if ctype.name not in ('boolean', 'any', 'integer'):
             if not isinstance(condition, (ast.BinaryOp, ast.UnaryOp)):
-                self._warn(
-                    f"Condition expression has type {ctype}, expected boolean",
-                    line, 'info')
+                self._warn(f'Condition expression has type {ctype}, expected boolean', line, 'info')
 
     # ─── Type inference ───────────────────────────────────
 
@@ -535,7 +591,10 @@ class TypeChecker:
                 hint = f"Did you mean '{suggestion}'?" if suggestion else None
                 self._warn(
                     f"Undefined variable '{node.name}'",
-                    getattr(node, 'line', 0), 'error', hint, code='E003'
+                    getattr(node, 'line', 0),
+                    'error',
+                    hint,
+                    code='E003',
                 )
             return result or T_ANY
 
@@ -543,8 +602,20 @@ class TypeChecker:
             left = self._infer_type(node.left)
             right = self._infer_type(node.right)
             op = node.operator
-            if op in ('==', '!=', '<', '>', '<=', '>=', 'and', 'or', 'is equal to',
-                       'is not equal to', 'is greater than', 'is less than'):
+            if op in (
+                '==',
+                '!=',
+                '<',
+                '>',
+                '<=',
+                '>=',
+                'and',
+                'or',
+                'is equal to',
+                'is not equal to',
+                'is greater than',
+                'is less than',
+            ):
                 return T_BOOLEAN
             if op in ('+', '-', '*', '/', '%', '**', 'plus', 'minus', 'times', 'divided by'):
                 if left.name == 'text' or right.name == 'text':
@@ -561,23 +632,48 @@ class TypeChecker:
             return self._infer_type(node.operand)
 
         if isinstance(node, ast.FunctionCall):
-            fname = node.name if isinstance(node.name, str) else getattr(node.name, 'name', str(node.name))
+            fname = (
+                node.name
+                if isinstance(node.name, str)
+                else getattr(node.name, 'name', str(node.name))
+            )
             if fname in self._functions:
                 _, ret_type = self._functions[fname]
                 return ret_type
             # Known builtins
             builtin_returns = {
-                'length': T_INTEGER, 'type_of': T_TEXT, 'to_text': T_TEXT,
-                'to_integer': T_INTEGER, 'to_float': T_FLOAT, 'to_boolean': T_BOOLEAN,
-                'range': T_LIST, 'sorted': T_LIST, 'keys': T_LIST, 'values': T_LIST,
-                'split': T_LIST, 'join': T_TEXT, 'trim': T_TEXT,
-                'substring': T_TEXT, 'replace': T_TEXT, 'lower': T_TEXT, 'upper': T_TEXT,
-                'abs': T_INTEGER, 'sqrt': T_FLOAT, 'round': T_INTEGER,
-                'floor': T_INTEGER, 'ceil': T_INTEGER, 'max': T_ANY, 'min': T_ANY,
-                'parse_json': T_MAP, 'to_json': T_TEXT,
-                'read_file': T_TEXT, 'file_exists': T_BOOLEAN,
-                'hash_sha256': T_TEXT, 'hash_md5': T_TEXT,
-                'http_get': T_MAP, 'http_post': T_MAP,
+                'length': T_INTEGER,
+                'type_of': T_TEXT,
+                'to_text': T_TEXT,
+                'to_integer': T_INTEGER,
+                'to_float': T_FLOAT,
+                'to_boolean': T_BOOLEAN,
+                'range': T_LIST,
+                'sorted': T_LIST,
+                'keys': T_LIST,
+                'values': T_LIST,
+                'split': T_LIST,
+                'join': T_TEXT,
+                'trim': T_TEXT,
+                'substring': T_TEXT,
+                'replace': T_TEXT,
+                'lower': T_TEXT,
+                'upper': T_TEXT,
+                'abs': T_INTEGER,
+                'sqrt': T_FLOAT,
+                'round': T_INTEGER,
+                'floor': T_INTEGER,
+                'ceil': T_INTEGER,
+                'max': T_ANY,
+                'min': T_ANY,
+                'parse_json': T_MAP,
+                'to_json': T_TEXT,
+                'read_file': T_TEXT,
+                'file_exists': T_BOOLEAN,
+                'hash_sha256': T_TEXT,
+                'hash_md5': T_TEXT,
+                'http_get': T_MAP,
+                'http_post': T_MAP,
             }
             if fname in builtin_returns:
                 return builtin_returns[fname]
@@ -619,8 +715,14 @@ class TypeChecker:
                 return scope[name]
         return None
 
-    def _warn(self, message: str, line: int, severity: str = 'warning',
-              suggestion: str = None, code: str = None):
+    def _warn(
+        self,
+        message: str,
+        line: int,
+        severity: str = 'warning',
+        suggestion: str = None,
+        code: str = None,
+    ):
         self.warnings.append(TypeWarning(message, line, severity, suggestion, code))
 
     # ─── Public helpers ───────────────────────────────
@@ -632,14 +734,16 @@ class TypeChecker:
     def format_report(self) -> str:
         """Format all warnings as a human-readable report."""
         if not self.warnings:
-            return "  No type issues found."
+            return '  No type issues found.'
         lines = []
         errors = [w for w in self.warnings if w.severity == 'error']
         warns = [w for w in self.warnings if w.severity == 'warning']
         infos = [w for w in self.warnings if w.severity == 'info']
         for w in sorted(self.warnings, key=lambda x: x.line):
             lines.append(str(w))
-        lines.append(f"\n  Summary: {len(errors)} error(s), {len(warns)} warning(s), {len(infos)} info(s)")
+        lines.append(
+            f'\n  Summary: {len(errors)} error(s), {len(warns)} warning(s), {len(infos)} info(s)'
+        )
         return '\n'.join(lines)
 
     def to_lsp_diagnostics(self) -> list:
@@ -648,6 +752,7 @@ class TypeChecker:
 
 
 # ─── Convenience function ─────────────────────────────────
+
 
 def type_check(program, strict: bool = False) -> list:
     """Run type checking on an EPL program AST.

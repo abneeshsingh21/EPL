@@ -2,9 +2,9 @@
   "name": "epl-lang",
   "displayName": "EPL — English Programming Language",
   "description": "Syntax highlighting, real-time diagnostics, auto-completions, hover docs and run/check commands for EPL (.epl files)",
-  "version": "1.1.3",
+  "version": "1.1.6",
   "publisher": "epl-lang",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "icon": "icon.png",
   "galleryBanner": {
     "color": "#0f172a",
@@ -109,6 +109,11 @@
         "command": "epl.profileFile",
         "title": "EPL: Profile Current File",
         "icon": "$(dashboard)"
+      },
+      {
+        "command": "epl.fixFile",
+        "title": "EPL: Fix Errors with AI",
+        "icon": "$(sparkle)"
       }
     ],
     "menus": {
@@ -122,6 +127,11 @@
           "command": "epl.lintFile",
           "when": "editorLangId == epl",
           "group": "navigation@2"
+        },
+        {
+          "command": "epl.fixFile",
+          "when": "editorLangId == epl",
+          "group": "navigation@3"
         }
       ]
     },
@@ -163,8 +173,10 @@
     "package": "npx @vscode/vsce package --no-dependencies",
     "publish": "npx @vscode/vsce publish --no-dependencies"
   },
-  "devDependencies": {
-    "@vscode/vsce": "^2.32.0",
+  "dependencies": {
     "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.32.0"
   }
 }
