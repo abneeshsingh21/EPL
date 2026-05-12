@@ -6,9 +6,11 @@
 
 FROM python:3.12-slim
 
-LABEL maintainer="EPL Team"
+LABEL maintainer="Abneesh Singh <singhabneesh250@gmail.com>"
 LABEL description="EPL — English Programming Language"
-LABEL version="7.0.0"
+LABEL org.opencontainers.image.source="https://github.com/abneeshsingh21/EPL"
+LABEL org.opencontainers.image.description="EPL — Write code in plain English"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 # Install EPL
 WORKDIR /app
