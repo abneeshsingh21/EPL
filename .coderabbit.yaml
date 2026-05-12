@@ -1,0 +1,118 @@
+# CodeRabbit Configuration — Enterprise Production Grade
+# Docs: https://docs.coderabbit.ai/guides/configure-coderabbit
+language: "en-US"
+
+early_access: true
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+  auto_title_placeholder: "@coderabbitai"
+  review_status: true
+  collapse_walkthrough: false
+  sequence_diagrams: true
+  poem: true
+  changed_files_summary: true
+  labeling_instructions: []
+  path_filters:
+    - "!**/.venv/**"
+    - "!**/node_modules/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/*.egg-info/**"
+    - "!**/__pycache__/**"
+    - "!**/.git/**"
+    - "!**/venv/**"
+    - "!**/*.whl"
+    - "!**/*.tar.gz"
+    - "!**/package-lock.json"
+    - "!**/*.vsix"
+  path_instructions:
+    - path: "epl/vm.py"
+      instructions: |
+        This is the EPL Virtual Machine — the most critical file.
+        Review for: stack safety, bounds checking, zero-division protection,
+        opcode correctness, and performance. Any bug here crashes all EPL programs.
+    - path: "epl/compiler.py"
+      instructions: |
+        The bytecode compiler. Ensure correct opcode emission, proper scope handling,
+        and that all AST nodes produce valid bytecode sequences.
+    - path: "epl/interpreter.py"
+      instructions: |
+        The tree-walking interpreter. Check for proper error handling,
+        correct scoping, and that all AST node types are handled.
+    - path: "epl/parser.py"
+      instructions: |
+        The EPL parser. EPL uses English-like syntax (e.g., "Set x to 5", "Say x").
+        Ensure new grammar rules don't conflict with existing ones.
+        Check recursion depth, error recovery, and token consumption.
+    - path: "epl/lexer.py"
+      instructions: |
+        The tokenizer. Verify correct token classification, BOM handling,
+        string literal parsing, and line/column tracking accuracy.
+    - path: "epl/networking.py"
+      instructions: |
+        Network module. CRITICAL: Check for SSRF vulnerabilities, DNS rebinding,
+        proper timeout handling, and that private IP blocking is not bypassed.
+    - path: "epl/cli.py"
+      instructions: |
+        CLI entry point. Check for command injection, proper argument validation,
+        safe int/float parsing, and helpful error messages.
+    - path: "epl/js_bridge/**"
+      instructions: |
+        JavaScript/TypeScript bridge via Node.js subprocess.
+        Security-critical: validate module names against path traversal,
+        check for code injection via JSON-RPC, verify thread safety.
+    - path: "epl/kotlin_gen.py"
+      instructions: |
+        Android/Kotlin transpiler. Verify correct Jetpack Compose generation,
+        proper import management, and valid Kotlin syntax output.
+    - path: ".github/workflows/**"
+      instructions: |
+        CI/CD workflows. Check for: script injection via PR titles/branch names,
+        proper permissions (least privilege), pinned action versions,
+        and no exposure of secrets in logs.
+    - path: "epl/publisher.py"
+      instructions: |
+        Package publishing. Verify proper authentication handling,
+        no credential leaks in error messages, and safe URL construction.
+    - path: "tests/**"
+      instructions: |
+        Test files. Ensure good coverage of edge cases, no flaky tests,
+        proper mocking boundaries, and meaningful assertions.
+
+  tools:
+    ruff:
+      enabled: true
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: true
+    languagetool:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    checkov:
+      enabled: true
+    hadolint:
+      enabled: true
+    semgrep:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: "auto"
+  issues:
+    scope: "auto"
+  jira:
+    project_keys: []
+  linear:
+    team_keys: []
