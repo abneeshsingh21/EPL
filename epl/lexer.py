@@ -12,6 +12,8 @@ class Lexer:
     """Tokenizes EPL source code into a list of Tokens."""
 
     def __init__(self, source: str):
+        if source.startswith('﻿'):
+            source = source[1:]
         self.source = source
         self.pos = 0
         self.line = 1

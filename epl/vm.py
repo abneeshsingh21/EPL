@@ -2035,9 +2035,13 @@ class VM:
             self.stack.pop()
 
     def _op_dup(self, inst):
+        if not self.stack:
+            raise VMError('Stack underflow on DUP', inst.line)
         self.stack.append(self.stack[-1])
 
     def _op_rot_two(self, inst):
+        if len(self.stack) < 2:
+            raise VMError('Stack underflow on ROT_TWO', inst.line)
         self.stack[-1], self.stack[-2] = self.stack[-2], self.stack[-1]
 
     # Arithmetic
@@ -2065,6 +2069,8 @@ class VM:
 
     def _op_mod(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
+        if b == 0:
+            raise VMError('Division by zero (modulo)', inst.line)
         self.stack.append(a % b)
 
     def _op_pow(self, inst):
@@ -2073,6 +2079,8 @@ class VM:
 
     def _op_floor_div(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
+        if b == 0:
+            raise VMError('Division by zero (floor division)', inst.line)
         self.stack.append(a // b)
 
     def _op_neg(self, inst):
@@ -2133,12 +2141,16 @@ class VM:
         self.call_stack[-1].ip = inst.arg
 
     def _op_jump_if_false(self, inst):
+        if not self.stack:
+            raise VMError('Stack underflow on JUMP_IF_FALSE', inst.line)
         val = self.stack[-1]
         if not val:
             self.stack.pop()
             self.call_stack[-1].ip = inst.arg
 
     def _op_jump_if_true(self, inst):
+        if not self.stack:
+            raise VMError('Stack underflow on JUMP_IF_TRUE', inst.line)
         val = self.stack[-1]
         if val:
             self.call_stack[-1].ip = inst.arg
@@ -2310,11 +2322,17 @@ class VM:
         idx = self.stack.pop()
         obj = self.stack.pop()
         if isinstance(obj, list):
-            self.stack.append(obj[int(idx)])
+            i = int(idx)
+            if i < -len(obj) or i >= len(obj):
+                raise VMError(f'Index {i} out of range for list of length {len(obj)}', inst.line)
+            self.stack.append(obj[i])
         elif isinstance(obj, dict):
             self.stack.append(obj.get(idx))
         elif isinstance(obj, str):
-            self.stack.append(obj[int(idx)])
+            i = int(idx)
+            if i < -len(obj) or i >= len(obj):
+                raise VMError(f'Index {i} out of range for string of length {len(obj)}', inst.line)
+            self.stack.append(obj[i])
         else:
             self.stack.append(None)
 

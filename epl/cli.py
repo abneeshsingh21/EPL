@@ -81,6 +81,22 @@ def _dim(t):
     return _color('2', t)
 
 
+def _parse_int(value, name='value'):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        print(f'{_red("Error:")} {name} must be a number, got "{value}"')
+        return None
+
+
+def _parse_float(value, name='value'):
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        print(f'{_red("Error:")} {name} must be a number, got "{value}"')
+        return None
+
+
 # ─── Banner ───────────────────────────────────────────────
 
 BANNER = f"""\
@@ -2338,11 +2354,15 @@ def _serve(args):
     while i < len(args):
         arg = args[i]
         if arg == '--port' and i + 1 < len(args):
-            port = int(args[i + 1])
+            port = _parse_int(args[i + 1], 'port')
+            if port is None:
+                return 1
             i += 2
             continue
         if arg == '--workers' and i + 1 < len(args):
-            workers = int(args[i + 1])
+            workers = _parse_int(args[i + 1], 'workers')
+            if workers is None:
+                return 1
             i += 2
             continue
         if arg == '--reload':
@@ -4291,7 +4311,9 @@ def _monitor(args):
     while i < len(args):
         arg = args[i]
         if arg == '--timeout' and i + 1 < len(args):
-            timeout = float(args[i + 1])
+            timeout = _parse_float(args[i + 1], 'timeout')
+            if timeout is None:
+                return 1
             i += 2
             continue
         if arg.startswith('--'):
@@ -4334,7 +4356,9 @@ def _registry_server(args):
         while i < len(args):
             arg = args[i]
             if arg == '--port' and i + 1 < len(args):
-                port = int(args[i + 1])
+                port = _parse_int(args[i + 1], 'port')
+                if port is None:
+                    return 1
                 i += 2
                 continue
             if arg == '--data-dir' and i + 1 < len(args):

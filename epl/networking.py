@@ -372,11 +372,32 @@ class HTTPClient:
             return path
         return f'{self.base_url}/{path.lstrip("/")}' if self.base_url else path
 
+    @staticmethod
+    def _is_private_ip(hostname: str) -> bool:
+        """Check if hostname resolves to a private/loopback IP (SSRF protection)."""
+        import ipaddress
+
+        try:
+            addr_infos = socket.getaddrinfo(hostname, None)
+            for family, _, _, _, sockaddr in addr_infos:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    return True
+        except (socket.gaierror, ValueError):
+            pass
+        return False
+
     def _make_request(
         self, method: str, url: str, data=None, headers: dict = None, params: dict = None
     ) -> HTTPResponse:
         """Make an HTTP request."""
         full_url = self._build_url(url)
+
+        # SSRF protection: block requests to private/internal IPs
+        parsed = urllib.parse.urlparse(full_url)
+        hostname = parsed.hostname or ''
+        if self._is_private_ip(hostname):
+            raise ConnectionError(f'Request blocked: {hostname} resolves to a private/internal address')
 
         # Add query params
         if params:
