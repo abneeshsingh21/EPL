@@ -3680,7 +3680,7 @@ def _copilot(args):
 
 
 def _start_lsp(args):
-    from epl.lsp_server import EPLLanguageServer
+    from epl.lsp_server import EPLLanguageServer, JSONRPC
 
     tcp_mode = '--tcp' in args
     port = 2087
@@ -3693,13 +3693,27 @@ def _start_lsp(args):
             continue
         i += 1
 
-    server = EPLLanguageServer()
     if tcp_mode:
-        print(f'  EPL Language Server starting on TCP port {port}...')
-        print(f'  Connect your IDE to localhost:{port}')
-        server.start_tcp(port)
+        import socket
+
+        print(f'  EPL Language Server starting on TCP port {port}...', file=sys.stderr)
+        print(f'  Connect your IDE to localhost:{port}', file=sys.stderr)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('127.0.0.1', port))
+        sock.listen(1)
+        conn, addr = sock.accept()
+        reader = conn.makefile('rb')
+        writer = conn.makefile('wb')
+        transport = JSONRPC(reader=reader, writer=writer)
+        server = EPLLanguageServer(transport)
+        server.run()
+        conn.close()
+        sock.close()
     else:
-        server.start_stdio()
+        transport = JSONRPC()
+        server = EPLLanguageServer(transport)
+        server.run()
     return 0
 
 
