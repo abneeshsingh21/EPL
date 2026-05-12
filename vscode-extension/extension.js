@@ -120,6 +120,45 @@ function activate(context) {
         vscode.commands.executeCommand('epl.format');
     });
 
+    const serveCommand = vscode.commands.registerCommand('epl.serve', () => {
+        const filePath = getActiveEPLFile();
+        if (!filePath) return;
+        const port = config.get('serve.port', 8000);
+        const obs = config.get('serve.observability', false);
+        const args = ['serve', filePath, '--port', String(port)];
+        if (obs) args.push('--observability');
+        runEplCommand('EPL Server', args);
+    });
+
+    const deployCommand = vscode.commands.registerCommand('epl.deploy', async () => {
+        const filePath = getActiveEPLFile();
+        if (!filePath) return;
+        const target = await vscode.window.showQuickPick(
+            ['k8s', 'aws', 'gcp', 'azure', 'docker'],
+            { placeHolder: 'Select deployment target' }
+        );
+        if (!target) return;
+        runEplCommand('EPL Deploy', ['deploy', target, filePath]);
+    });
+
+    const playgroundCommand = vscode.commands.registerCommand('epl.playground', () => {
+        runEplCommand('EPL Playground', ['playground']);
+    });
+
+    const copilotCommand = vscode.commands.registerCommand('epl.copilot', () => {
+        runEplCommand('EPL Copilot', ['copilot']);
+    });
+
+    const monitorCommand = vscode.commands.registerCommand('epl.monitor', async () => {
+        const url = await vscode.window.showInputBox({
+            prompt: 'Enter the URL to monitor',
+            placeHolder: 'http://localhost:8000',
+            value: 'http://localhost:8000'
+        });
+        if (!url) return;
+        runEplCommand('EPL Monitor', ['monitor', url]);
+    });
+
     context.subscriptions.push(
         runCommand,
         checkCommand,
@@ -129,7 +168,12 @@ function activate(context) {
         formatFile,
         lintFile,
         profileFile,
-        fixFile
+        fixFile,
+        serveCommand,
+        deployCommand,
+        playgroundCommand,
+        copilotCommand,
+        monitorCommand
     );
 
     // ── Status Bar ──────────────────────────────────────
