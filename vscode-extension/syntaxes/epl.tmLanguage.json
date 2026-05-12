@@ -73,7 +73,7 @@
       "patterns": [
         {
           "name": "keyword.control.epl",
-          "match": "\\b(If|Then|Else|Otherwise|End|While|For|Each|In|Repeat|Times|Try|Catch|Finally|Throw|Match|When|Default|Return|Break|Continue|Await|Async|Yield)\\b"
+          "match": "\\b(If|Then|Else|Otherwise|End|While|For|Each|In|Repeat|Times|Try|Catch|Finally|Throw|Match|When|Default|Return|Break|Continue|Await|Async|Yield|Scene|Canvas|Style|Layout|Grid|Flex|Responsive|Animate)\\b"
         }
       ]
     },
@@ -81,7 +81,7 @@
       "patterns": [
         {
           "name": "keyword.other.declaration.epl",
-          "match": "\\b(Set|To|Create|Define|Function|Class|Extends|Implements|Module|Import|From|Use|Route|Constant|Enum|Interface)\\b"
+          "match": "\\b(Set|To|Create|Define|Function|Class|Extends|Implements|Module|Import|From|Use|Route|Constant|Enum|Interface|Mesh|Light|Camera|Component|Window|Spawn|Parallel)\\b"
         },
         {
           "name": "storage.type.function.epl",
@@ -105,7 +105,7 @@
       "patterns": [
         {
           "name": "support.function.builtin.epl",
-          "match": "\\b(Say|Print|Display|Ask|Read|Write|Append|Remove|Length|Sort|Reverse|Contains|Replace|Split|Join|Trim|Map|List|Store|Fetch|Delete|Send|Redirect|Start|Page|Heading|SubHeading|Text|Button|Link|Form|Input|Show)\\b"
+          "match": "\\b(Say|Print|Display|Ask|Read|Write|Append|Remove|Length|Sort|Reverse|Contains|Replace|Split|Join|Trim|Map|List|Store|Fetch|Delete|Send|Redirect|Start|Page|Heading|SubHeading|Text|Button|Link|Form|Input|Show|Deploy|Observe|Monitor|Remember|Increase|Decrease|Add|Call)\\b"
         }
       ]
     },

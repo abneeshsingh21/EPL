@@ -23,12 +23,12 @@
   ],
   "folding": {
     "markers": {
-      "start": "^\\s*(If|While|For|Repeat|Define|Class|Try|Match|Module|Route|Async)\\b",
+      "start": "^\\s*(If|While|For|Repeat|Define|Class|Try|Match|Module|Route|Async|Scene|Style|Grid|Flex|Responsive|Animate|Window|Component)\\b",
       "end": "^\\s*End\\b"
     }
   },
   "indentationRules": {
-    "increaseIndentPattern": "^\\s*(If|While|For|Repeat|Define|Class|Try|Catch|Finally|Match|When|Module|Route|Async)\\b.*$",
+    "increaseIndentPattern": "^\\s*(If|While|For|Repeat|Define|Class|Try|Catch|Finally|Match|When|Module|Route|Async|Scene|Style|Grid|Flex|Responsive|Animate|Window|Component)\\b.*$",
     "decreaseIndentPattern": "^\\s*(End|Else|Otherwise|Catch|Finally|When|Default)\\b"
   },
   "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)"

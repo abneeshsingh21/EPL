@@ -2,7 +2,7 @@
   "name": "epl-lang",
   "displayName": "EPL — English Programming Language",
   "description": "Syntax highlighting, real-time diagnostics, auto-completions, hover docs and run/check commands for EPL (.epl files)",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "publisher": "epl-lang",
   "license": "Apache-2.0",
   "icon": "icon.png",
@@ -19,7 +19,7 @@
     "url": "https://github.com/abneeshsingh21/EPL/issues"
   },
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.80.0"
   },
   "categories": [
     "Programming Languages",
@@ -114,6 +114,31 @@
         "command": "epl.fixFile",
         "title": "EPL: Fix Errors with AI",
         "icon": "$(sparkle)"
+      },
+      {
+        "command": "epl.serve",
+        "title": "EPL: Serve Current File",
+        "icon": "$(server-process)"
+      },
+      {
+        "command": "epl.deploy",
+        "title": "EPL: Deploy Current File",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "epl.playground",
+        "title": "EPL: Start Playground",
+        "icon": "$(browser)"
+      },
+      {
+        "command": "epl.copilot",
+        "title": "EPL: Start AI Copilot",
+        "icon": "$(hubot)"
+      },
+      {
+        "command": "epl.monitor",
+        "title": "EPL: Monitor Endpoint",
+        "icon": "$(pulse)"
       }
     ],
     "menus": {
@@ -164,6 +189,16 @@
           "type": "boolean",
           "default": false,
           "description": "Enable strict type checking (same as epl check --strict)"
+        },
+        "epl.serve.port": {
+          "type": "number",
+          "default": 8000,
+          "description": "Default port for epl serve"
+        },
+        "epl.serve.observability": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-attach observability endpoints (/_health, /_ready, /_metrics) when serving"
         }
       }
     }
