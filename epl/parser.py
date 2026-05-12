@@ -1417,7 +1417,9 @@ class Parser:
         self._depth += 1
         if self._depth > self.MAX_DEPTH:
             raise ParserError(
-                'Expression nesting too deep (maximum 200 levels).', self._current().line
+                'Expression nesting too deep (maximum 200 levels). '
+                'Break complex expressions into smaller variables or functions.',
+                self._current().line,
             )
         try:
             expr = self._parse_or()

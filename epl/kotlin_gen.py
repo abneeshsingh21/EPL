@@ -317,7 +317,22 @@ class KotlinGenerator:
         text = w.get('text')
         props = w.get('properties', {})
 
-        if wtype == 'button':
+        if wtype == 'heading':
+            text_str = self._expr(text) if text and hasattr(text, 'line') else f'"{text or ""}"'
+            tag = props.get('tag', 'heading')
+            self.imports.add('androidx.compose.ui.text.font.FontWeight')
+            if tag in ('h1', 'heading'):
+                self._line(f'Text(text = {text_str}, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)')
+            elif tag == 'h2':
+                self._line(f'Text(text = {text_str}, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)')
+            else:
+                self._line(f'Text(text = {text_str}, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)')
+        elif wtype == 'link':
+            text_str = self._expr(text) if text and hasattr(text, 'line') else f'"{text or "Link"}"'
+            href = props.get('href', props.get('to', ''))
+            self.imports.add('androidx.compose.ui.text.style.TextDecoration')
+            self._line(f'Text(text = {text_str}, color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline)')
+        elif wtype == 'button':
             handler = w.get('action')
             handler_str = f'{{ {self._expr(handler).strip(chr(34))}() }}' if handler else '{}'
             text_str = (
@@ -398,6 +413,8 @@ class KotlinGenerator:
                 ast.DialogShow,
                 ast.MenuDef,
                 ast.CanvasDraw,
+                ast.PageDef,
+                ast.HtmlElement,
                 # v6.0: Style & Layout nodes
                 ast.StyleDef,
                 ast.StyledElement,
@@ -418,6 +435,8 @@ class KotlinGenerator:
         for s in stmts:
             if isinstance(s, ast.WindowCreate):
                 self._collect_gui_nodes(s.body)
+            elif isinstance(s, ast.PageDef):
+                self._collect_page_elements(s)
             elif isinstance(s, ast.WidgetAdd):
                 wid = s.name or f'widget_{self.widget_counter}'
                 self.widget_counter += 1
@@ -440,6 +459,77 @@ class KotlinGenerator:
                         'handler': s.handler,
                     }
                 )
+
+    def _collect_page_elements(self, page_node):
+        """Convert PageDef/HtmlElement nodes to Compose widget entries."""
+        for elem in page_node.elements:
+            if isinstance(elem, ast.HtmlElement):
+                tag = elem.tag.lower()
+                content = elem.content
+                if tag in ('heading', 'h1', 'h2', 'h3'):
+                    self.widget_counter += 1
+                    self.widgets.append({
+                        'id': f'heading_{self.widget_counter}',
+                        'type': 'heading',
+                        'text': content,
+                        'properties': {'tag': tag},
+                        'action': None,
+                    })
+                elif tag in ('text', 'paragraph', 'p'):
+                    self.widget_counter += 1
+                    self.widgets.append({
+                        'id': f'text_{self.widget_counter}',
+                        'type': 'label',
+                        'text': content,
+                        'properties': {},
+                        'action': None,
+                    })
+                elif tag == 'button':
+                    self.widget_counter += 1
+                    action = elem.attributes.get('action')
+                    self.widgets.append({
+                        'id': f'button_{self.widget_counter}',
+                        'type': 'button',
+                        'text': content,
+                        'properties': {},
+                        'action': action,
+                    })
+                elif tag in ('input', 'textbox'):
+                    self.widget_counter += 1
+                    self.widgets.append({
+                        'id': f'input_{self.widget_counter}',
+                        'type': 'input',
+                        'text': content,
+                        'properties': elem.attributes,
+                        'action': None,
+                    })
+                elif tag in ('link', 'a'):
+                    self.widget_counter += 1
+                    self.widgets.append({
+                        'id': f'link_{self.widget_counter}',
+                        'type': 'link',
+                        'text': content,
+                        'properties': elem.attributes,
+                        'action': None,
+                    })
+                elif tag == 'image':
+                    self.widget_counter += 1
+                    self.widgets.append({
+                        'id': f'image_{self.widget_counter}',
+                        'type': 'image',
+                        'text': content,
+                        'properties': elem.attributes,
+                        'action': None,
+                    })
+                else:
+                    self.widget_counter += 1
+                    self.widgets.append({
+                        'id': f'elem_{self.widget_counter}',
+                        'type': 'label',
+                        'text': content,
+                        'properties': {},
+                        'action': None,
+                    })
 
     def _android_widget_class(self, wtype):
         """Map EPL widget type to Android widget class."""
