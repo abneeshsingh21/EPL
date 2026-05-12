@@ -447,6 +447,8 @@ def cli_main(argv=None):
         'workspace': lambda: _workspace(rest),
         'ci': lambda: _ci(rest),
         'sync-index': lambda: _sync_index(rest),
+        'monitor': lambda: _monitor(rest),
+        'registry': lambda: _registry_server(rest),
         'upgrade': lambda: _upgrade(),
         'version': lambda: print(f'EPL v{__version__}'),
     }
@@ -1912,6 +1914,7 @@ def _pkg_publish(args):
 
     repo = None
     path = '.'
+    skip_checks = False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -1919,11 +1922,36 @@ def _pkg_publish(args):
             repo = args[i + 1]
             i += 2
             continue
+        if arg == '--skip-checks':
+            skip_checks = True
+            i += 1
+            continue
         if arg.startswith('--'):
             print(f'{_red("Error:")} Unknown publish option: {arg}')
             return 1
         path = arg
         i += 1
+
+    if not skip_checks:
+        manifest_path = os.path.join(path, 'epl.toml')
+        if os.path.isfile(manifest_path):
+            try:
+                from epl.publisher import run_publish_checks
+                from epl.package_manager import load_manifest
+
+                manifest = load_manifest(path)
+                checks = run_publish_checks(manifest, path)
+                failed = [c for c in checks if not c.passed]
+                for c in checks:
+                    status = _green('✓') if c.passed else _red('✗')
+                    print(f'  {status} {c.message}')
+                if failed:
+                    print(f'\n{_red("Error:")} {len(failed)} pre-publish check(s) failed.')
+                    print(f'{_dim("Use --skip-checks to bypass.")}')
+                    return 1
+                print()
+            except ImportError:
+                pass
 
     registry_publish(path, repo=repo)
     return 0
@@ -2342,8 +2370,13 @@ def _serve(args):
             session_backend = args[i + 1]
             i += 2
             continue
+        if arg == '--observability':
+            i += 1
+            continue
         print(f'{_red("Error:")} Unknown serve option: {arg}')
         return 1
+
+    enable_observability = '--observability' in args
 
     try:
         from epl.store_backends import configure_backends
@@ -2355,6 +2388,10 @@ def _serve(args):
             from epl.web import start_server
 
             app, interpreter = _load_epl_web_app(filename)
+            if enable_observability:
+                from epl.observability import attach
+                attach(app)
+                print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
             print(f'  {_yellow("⚠ Development mode")} — not for production use')
             if reload_mode:
                 try:
@@ -2370,6 +2407,10 @@ def _serve(args):
             from epl.deploy import WSGIAdapter, serve
 
             app, interpreter = _load_epl_web_app(filename)
+            if enable_observability:
+                from epl.observability import attach
+                attach(app)
+                print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
 
             # Auto-install waitress on Windows if no production server found
             if engine == 'auto':
@@ -4170,6 +4211,92 @@ def _list_modules():
     count = len(registry['modules'])
     print(f'\n{_dim(f"{count} modules available | EPL v{__version__}")}\n')
     return 0
+
+
+# ─── Monitor Command ─────────────────────────────────────
+
+
+def _monitor(args):
+    from epl.reference_monitor import check_backend_api
+
+    url = None
+    timeout = 10.0
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == '--timeout' and i + 1 < len(args):
+            timeout = float(args[i + 1])
+            i += 2
+            continue
+        if arg.startswith('--'):
+            print(f'{_red("Error:")} Unknown option: {arg}')
+            return 1
+        url = arg
+        i += 1
+
+    if not url:
+        print(f'{_bold("Usage:")} epl monitor <url> [--timeout N]')
+        print(f'{_dim("Example:")} epl monitor http://localhost:8000 --timeout 5')
+        return 1
+
+    print(f'{_bold("Monitoring")} {url}')
+    results = check_backend_api(url, timeout=timeout)
+    for check in results:
+        status = _green('✓ PASS') if check['ok'] else _red('✗ FAIL')
+        print(f'  {status}  {check["name"]}')
+        if check.get('details'):
+            for key, val in check['details'].items():
+                print(f'         {_dim(key)}: {val}')
+    passed = sum(1 for c in results if c['ok'])
+    total = len(results)
+    print(f'\n{passed}/{total} checks passed.')
+    return 0 if passed == total else 1
+
+
+# ─── Registry Server Command ────────────────────────────
+
+
+def _registry_server(args):
+    subcmd = args[0] if args else 'start'
+
+    if subcmd == 'start':
+        from epl.registry_server import start_registry
+
+        port = 4873
+        data_dir = None
+        i = 1
+        while i < len(args):
+            arg = args[i]
+            if arg == '--port' and i + 1 < len(args):
+                port = int(args[i + 1])
+                i += 2
+                continue
+            if arg == '--data-dir' and i + 1 < len(args):
+                data_dir = args[i + 1]
+                i += 2
+                continue
+            i += 1
+
+        print(f'{_bold("EPL Package Registry")} starting on port {port}')
+        start_registry(port=port, data_dir=data_dir)
+        return 0
+
+    if subcmd == 'status':
+        import urllib.request
+        port = 4873
+        if len(args) > 1 and args[1] == '--port' and len(args) > 2:
+            port = int(args[2])
+        try:
+            url = f'http://localhost:{port}/health'
+            with urllib.request.urlopen(url, timeout=3) as resp:
+                print(f'{_green("✓")} Registry server running on port {port}')
+                return 0
+        except Exception:
+            print(f'{_red("✗")} Registry server not running on port {port}')
+            return 1
+
+    print(f'{_bold("Usage:")} epl registry <start|status> [--port N] [--data-dir PATH]')
+    return 1
 
 
 # ─── Entry Point ──────────────────────────────────────────
