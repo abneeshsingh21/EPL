@@ -684,11 +684,16 @@ class JSTranspiler:
 
     def _emit_use_js(self, node):
         """Emit native JS import for Use javascript/typescript statements."""
+        import json as _json
         alias = node.alias or node.library.split('/')[-1].replace('-', '_')
+        alias = re.sub(r'[^a-zA-Z0-9_$]', '_', alias)
+        if alias and alias[0].isdigit():
+            alias = '_' + alias
+        safe_lib = _json.dumps(node.library)
         if self.module_format == 'esm' or self.target == 'browser':
-            self._line(f'import * as {alias} from "{node.library}";')
+            self._line(f'import * as {alias} from {safe_lib};')
         else:
-            self._line(f'const {alias} = require("{node.library}");')
+            self._line(f'const {alias} = require({safe_lib});')
 
     # ─── Expression Rendering ───────────────────────────
 

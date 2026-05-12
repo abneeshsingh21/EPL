@@ -2092,6 +2092,10 @@ def _js_install(args):
 
     no_save = '--no-save' in args
     clean_args = [a for a in args if a != '--no-save']
+    if not clean_args:
+        print(f'{_red("Error:")} No npm package name specified.')
+        print('Usage: epl jsinstall <package-name> [version]')
+        return 1
     name = clean_args[0]
     version = clean_args[1] if len(clean_args) > 1 else None
     return 0 if install_js_package(name, version, save=not no_save, project_path='.') else 1
