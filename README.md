@@ -11,6 +11,7 @@
 [![GitHub Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=for-the-badge&logo=github)](https://github.com/abneeshsingh21/EPL/stargazers)
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/abneeshsingh21/EPL/ci.yml?style=for-the-badge&logo=github)](https://github.com/abneeshsingh21/EPL/actions/workflows/ci.yml)
 [![Lint](https://img.shields.io/github/actions/workflow/status/abneeshsingh21/EPL/lint.yml?label=Ruff%20Lint&style=for-the-badge)](https://github.com/abneeshsingh21/EPL/actions/workflows/lint.yml)
+[![CodeRabbit](https://img.shields.io/badge/AI%20Review-CodeRabbit-orange?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48L3N2Zz4=)](https://coderabbit.ai)
 
 <br/>
 
