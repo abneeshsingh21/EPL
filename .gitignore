@@ -40,6 +40,9 @@ desktop.ini
 *.swp
 *.swo
 
+# Claude Code
+.claude/
+
 # VS Code extension build output
 vscode-extension/node_modules/
 vscode-extension/*.vsix
