@@ -1,0 +1,190 @@
+Note: EPL Auth Package — Authentication & Security in plain English
+Note: Import "epl-auth" to use these functions.
+
+Note: ===========================================================
+Note:  Password Hashing
+Note: ===========================================================
+
+Define Function hash_password Takes password
+    Note: Hash a password securely using bcrypt
+    Note: Example: Set hashed to hash_password("my_secret_password")
+    Return python_call("epl_auth", "hash_password", password)
+End
+
+Define Function verify_password Takes password, hashed
+    Note: Check if a password matches its hash
+    Note: Example: Set is_valid to verify_password("my_password", stored_hash)
+    Return python_call("epl_auth", "verify_password", password, hashed)
+End
+
+Define Function generate_salt Takes rounds
+    Note: Generate a bcrypt salt with specified rounds (default 12)
+    Note: Example: Set salt to generate_salt(14)
+    Return python_call("epl_auth", "generate_salt", rounds)
+End
+
+Note: ===========================================================
+Note:  JWT Tokens
+Note: ===========================================================
+
+Define Function create_token Takes payload, secret, expires_in_hours
+    Note: Create a JWT token with payload and expiration
+    Note: Example: Set token to create_token({"user_id": 42, "role": "admin"}, "my-secret", 24)
+    Return python_call("epl_auth", "create_jwt", payload, secret, expires_in_hours)
+End
+
+Define Function verify_token Takes token, secret
+    Note: Verify and decode a JWT token
+    Note: Example: Set payload to verify_token(token, "my-secret")
+    Return python_call("epl_auth", "verify_jwt", token, secret)
+End
+
+Define Function decode_token Takes token
+    Note: Decode a JWT token WITHOUT verification (for inspection only)
+    Note: Example: Set claims to decode_token(token)
+    Return python_call("epl_auth", "decode_jwt_unverified", token)
+End
+
+Define Function is_token_expired Takes token, secret
+    Note: Check if a JWT token has expired
+    Note: Example: If is_token_expired(token, secret) then Say "Please login again"
+    Return python_call("epl_auth", "is_jwt_expired", token, secret)
+End
+
+Define Function refresh_token Takes token, secret, new_expires_in_hours
+    Note: Refresh a token — create new one with same payload but new expiration
+    Note: Example: Set new_token to refresh_token(old_token, "my-secret", 24)
+    Return python_call("epl_auth", "refresh_jwt", token, secret, new_expires_in_hours)
+End
+
+Note: ===========================================================
+Note:  API Key Management
+Note: ===========================================================
+
+Define Function generate_api_key Takes prefix
+    Note: Generate a secure random API key with prefix
+    Note: Example: Set key to generate_api_key("epl")  → "epl_a1b2c3d4e5f6..."
+    Return python_call("epl_auth", "generate_api_key", prefix)
+End
+
+Define Function generate_secret Takes length
+    Note: Generate a cryptographically secure random secret
+    Note: Example: Set secret to generate_secret(64)
+    Return python_call("epl_auth", "generate_secret", length)
+End
+
+Define Function generate_uuid
+    Note: Generate a UUID v4
+    Note: Example: Set id to generate_uuid()
+    Return python_call("epl_auth", "generate_uuid")
+End
+
+Note: ===========================================================
+Note:  Session Management
+Note: ===========================================================
+
+Define Function create_session Takes user_id, data, expires_in_minutes
+    Note: Create a session token for a user
+    Note: Example: Set session to create_session(42, {"role": "admin"}, 60)
+    Return python_call("epl_auth", "create_session", user_id, data, expires_in_minutes)
+End
+
+Define Function validate_session Takes session_token, secret
+    Note: Validate a session token and return session data
+    Note: Example: Set session_data to validate_session(token, secret)
+    Return python_call("epl_auth", "validate_session", session_token, secret)
+End
+
+Define Function invalidate_session Takes session_token
+    Note: Invalidate/revoke a session
+    Note: Example: invalidate_session(token)
+    Return python_call("epl_auth", "invalidate_session", session_token)
+End
+
+Note: ===========================================================
+Note:  OAuth2 Helpers
+Note: ===========================================================
+
+Define Function build_oauth_url Takes provider, client_id, redirect_uri, scopes
+    Note: Build an OAuth2 authorization URL
+    Note: Example: Set url to build_oauth_url("github", "my-client-id", "http://localhost/callback", ["user", "repo"])
+    Return python_call("epl_auth", "build_oauth_url", provider, client_id, redirect_uri, scopes)
+End
+
+Define Function exchange_oauth_code Takes provider, code, client_id, client_secret, redirect_uri
+    Note: Exchange an OAuth2 authorization code for an access token
+    Note: Example: Set tokens to exchange_oauth_code("github", code, client_id, secret, redirect)
+    Return python_call("epl_auth", "exchange_oauth_code", provider, code, client_id, client_secret, redirect_uri)
+End
+
+Note: ===========================================================
+Note:  Encryption & Hashing
+Note: ===========================================================
+
+Define Function hash_sha256 Takes data
+    Note: Compute SHA-256 hash of a string
+    Note: Example: Set digest to hash_sha256("hello world")
+    Return python_call("epl_auth", "sha256", data)
+End
+
+Define Function hash_sha512 Takes data
+    Note: Compute SHA-512 hash of a string
+    Note: Example: Set digest to hash_sha512("hello world")
+    Return python_call("epl_auth", "sha512", data)
+End
+
+Define Function hash_md5 Takes data
+    Note: Compute MD5 hash (not for passwords — use hash_password instead)
+    Note: Example: Set checksum to hash_md5(file_contents)
+    Return python_call("epl_auth", "md5", data)
+End
+
+Define Function hmac_sign Takes message, key
+    Note: Create HMAC-SHA256 signature for a message
+    Note: Example: Set signature to hmac_sign("payment:100:USD", webhook_secret)
+    Return python_call("epl_auth", "hmac_sign", message, key)
+End
+
+Define Function hmac_verify Takes message, signature, key
+    Note: Verify an HMAC-SHA256 signature
+    Note: Example: Set valid to hmac_verify(body, header_signature, secret)
+    Return python_call("epl_auth", "hmac_verify", message, signature, key)
+End
+
+Note: ===========================================================
+Note:  Rate Limiting
+Note: ===========================================================
+
+Define Function check_rate_limit Takes identifier, max_requests, window_seconds
+    Note: Check if an identifier (IP, user) has exceeded rate limit
+    Note: Example: Set allowed to check_rate_limit("192.168.1.1", 100, 60)
+    Return python_call("epl_auth", "check_rate_limit", identifier, max_requests, window_seconds)
+End
+
+Define Function reset_rate_limit Takes identifier
+    Note: Reset rate limit counter for an identifier
+    Note: Example: reset_rate_limit("192.168.1.1")
+    Return python_call("epl_auth", "reset_rate_limit", identifier)
+End
+
+Note: ===========================================================
+Note:  Input Validation
+Note: ===========================================================
+
+Define Function is_valid_email Takes email
+    Note: Validate email format
+    Note: Example: If is_valid_email(user_email) then Say "Valid!"
+    Return python_call("epl_auth", "is_valid_email", email)
+End
+
+Define Function is_strong_password Takes password
+    Note: Check if password meets strength requirements (8+ chars, upper, lower, digit, special)
+    Note: Example: If is_strong_password(pw) then Say "Strong password!"
+    Return python_call("epl_auth", "is_strong_password", password)
+End
+
+Define Function sanitize_input Takes raw_input
+    Note: Sanitize user input — strip HTML tags and dangerous characters
+    Note: Example: Set clean to sanitize_input(user_input)
+    Return python_call("epl_auth", "sanitize_input", raw_input)
+End

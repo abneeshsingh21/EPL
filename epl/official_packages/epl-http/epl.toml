@@ -1,0 +1,17 @@
+[project]
+name = "epl-http"
+version = "1.0.0"
+description = "HTTP client for EPL — make API calls, fetch data, send webhooks in plain English"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["http", "api", "rest", "fetch", "request", "webhook", "json"]
+
+[dependencies]
+
+[python]
+requires = ["requests>=2.28.0"]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

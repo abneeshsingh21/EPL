@@ -1,0 +1,174 @@
+Note: EPL HTTP Package — Make API calls in plain English
+Note: Import "epl-http" to use these functions.
+
+Note: ===========================================================
+Note:  Basic HTTP Methods
+Note: ===========================================================
+
+Define Function http_get Takes url
+    Note: Send a GET request and return the response
+    Note: Example: Set response to http_get("https://api.example.com/users")
+    Return python_call("epl_http", "get", url)
+End
+
+Define Function http_post Takes url, data
+    Note: Send a POST request with JSON data
+    Note: Example: Set response to http_post("https://api.example.com/users", user_data)
+    Return python_call("epl_http", "post", url, data)
+End
+
+Define Function http_put Takes url, data
+    Note: Send a PUT request to update a resource
+    Note: Example: Set response to http_put("https://api.example.com/users/1", updated_data)
+    Return python_call("epl_http", "put", url, data)
+End
+
+Define Function http_patch Takes url, data
+    Note: Send a PATCH request for partial update
+    Note: Example: Set response to http_patch("https://api.example.com/users/1", partial_data)
+    Return python_call("epl_http", "patch", url, data)
+End
+
+Define Function http_delete Takes url
+    Note: Send a DELETE request to remove a resource
+    Note: Example: Set response to http_delete("https://api.example.com/users/1")
+    Return python_call("epl_http", "delete", url)
+End
+
+Note: ===========================================================
+Note:  Requests with Headers & Auth
+Note: ===========================================================
+
+Define Function http_get_with_headers Takes url, headers
+    Note: Send a GET request with custom headers
+    Note: Example: Set response to http_get_with_headers(url, {"Authorization": "Bearer token123"})
+    Return python_call("epl_http", "get_with_headers", url, headers)
+End
+
+Define Function http_post_with_headers Takes url, data, headers
+    Note: Send a POST request with custom headers
+    Note: Example: Set response to http_post_with_headers(url, data, {"Content-Type": "application/json"})
+    Return python_call("epl_http", "post_with_headers", url, data, headers)
+End
+
+Define Function http_request Takes method, url, data, headers, timeout
+    Note: Send a fully customizable HTTP request
+    Note: Example: Set response to http_request("POST", url, body, headers, 30)
+    Return python_call("epl_http", "request", method, url, data, headers, timeout)
+End
+
+Define Function http_with_bearer_token Takes url, token
+    Note: Send a GET request with Bearer token authentication
+    Note: Example: Set response to http_with_bearer_token(url, "my-api-token")
+    Return python_call("epl_http", "get_with_bearer", url, token)
+End
+
+Define Function http_with_basic_auth Takes url, username, password
+    Note: Send a GET request with Basic authentication
+    Note: Example: Set response to http_with_basic_auth(url, "admin", "secret")
+    Return python_call("epl_http", "get_with_basic_auth", url, username, password)
+End
+
+Note: ===========================================================
+Note:  Response Handling
+Note: ===========================================================
+
+Define Function response_status Takes response
+    Note: Get the HTTP status code from a response
+    Note: Example: Set code to response_status(response)
+    Return python_call("epl_http", "status_code", response)
+End
+
+Define Function response_json Takes response
+    Note: Parse response body as JSON
+    Note: Example: Set data to response_json(response)
+    Return python_call("epl_http", "json", response)
+End
+
+Define Function response_text Takes response
+    Note: Get response body as plain text
+    Note: Example: Set body to response_text(response)
+    Return python_call("epl_http", "get_text", response)
+End
+
+Define Function response_headers Takes response
+    Note: Get response headers as a dictionary
+    Note: Example: Set headers to response_headers(response)
+    Return python_call("epl_http", "headers", response)
+End
+
+Define Function response_is_ok Takes response
+    Note: Check if the response was successful (status 200-299)
+    Note: Example: If response_is_ok(response) then Say "Success!"
+    Return python_call("epl_http", "is_ok", response)
+End
+
+Note: ===========================================================
+Note:  JSON Utilities
+Note: ===========================================================
+
+Define Function to_json Takes data
+    Note: Convert a dictionary or list to a JSON string
+    Note: Example: Set json_string to to_json(my_data)
+    Return python_call("epl_http", "to_json", data)
+End
+
+Define Function from_json Takes input_text
+    Note: Parse a JSON string into a dictionary or list
+    Note: Example: Set data to from_json(json_string)
+    Return python_call("epl_http", "from_json", input_text)
+End
+
+Note: ===========================================================
+Note:  File Upload & Download
+Note: ===========================================================
+
+Define Function download_file Takes url, save_path
+    Note: Download a file from a URL and save it
+    Note: Example: download_file("https://example.com/file.pdf", "downloads/file.pdf")
+    Return python_call("epl_http", "download", url, save_path)
+End
+
+Define Function upload_file Takes url, file_path, field_name
+    Note: Upload a file to a URL via multipart form
+    Note: Example: upload_file("https://api.example.com/upload", "photo.jpg", "image")
+    Return python_call("epl_http", "upload", url, file_path, field_name)
+End
+
+Note: ===========================================================
+Note:  Webhook & Polling
+Note: ===========================================================
+
+Define Function send_webhook Takes url, event_name, payload
+    Note: Send a webhook notification with event data
+    Note: Example: send_webhook("https://hooks.example.com/notify", "order_placed", order_data)
+    Return python_call("epl_http", "send_webhook", url, event_name, payload)
+End
+
+Define Function poll_url Takes url, interval_seconds, max_attempts
+    Note: Poll a URL at intervals until success or max attempts
+    Note: Example: Set result to poll_url("https://api.example.com/status", 5, 10)
+    Return python_call("epl_http", "poll", url, interval_seconds, max_attempts)
+End
+
+Note: ===========================================================
+Note:  URL Utilities
+Note: ===========================================================
+
+Define Function build_url Takes base, path, params
+    Note: Build a URL with path and query parameters
+    Note: Example: Set url to build_url("https://api.example.com", "/search", {"q": "epl"})
+    Return python_call("epl_http", "build_url", base, path, params)
+End
+
+Define Function encode_url Takes input_text
+    Note: URL-encode a string
+    Note: Example: Set encoded to encode_url("hello world & more")
+    Return python_call("epl_http", "url_encode", input_text)
+End
+
+Define Function decode_url Takes input_text
+    Note: Decode a URL-encoded string
+    Note: Example: Set decoded to decode_url("hello%20world")
+    Return python_call("epl_http", "url_decode", input_text)
+End

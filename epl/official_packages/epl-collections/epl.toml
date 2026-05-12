@@ -1,0 +1,14 @@
+[project]
+name = "epl-collections"
+version = "1.0.0"
+description = "Advanced data structures for EPL — Stack, Queue, LinkedList, HashMap, Tree, Graph, Priority Queue"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["data-structures", "stack", "queue", "linkedlist", "tree", "graph", "hashmap", "collections"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

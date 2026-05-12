@@ -1,0 +1,100 @@
+Note: EPL Collections Package — Basic Usage Examples
+Import "epl-collections"
+
+Say "=== EPL Collections Demo ==="
+
+Note: Stack
+Say ""
+Say "--- Stack (LIFO) ---"
+Set my_stack to create_stack()
+stack_push(my_stack, "first")
+stack_push(my_stack, "second")
+stack_push(my_stack, "third")
+Say "Stack size: " + stack_size(my_stack)
+Say "Top item: " + stack_peek(my_stack)
+Say "Popped: " + stack_pop(my_stack)
+Say "New top: " + stack_peek(my_stack)
+
+Note: Queue
+Say ""
+Say "--- Queue (FIFO) ---"
+Set task_queue to create_queue()
+enqueue(task_queue, "Send email")
+enqueue(task_queue, "Process payment")
+enqueue(task_queue, "Generate report")
+Say "Queue size: " + queue_size(task_queue)
+Say "Next task: " + dequeue(task_queue)
+Say "After that: " + dequeue(task_queue)
+
+Note: Priority Queue
+Say ""
+Say "--- Priority Queue ---"
+Set pq to create_priority_queue()
+pq_push(pq, "Low priority bug", 5)
+pq_push(pq, "Critical security fix", 1)
+pq_push(pq, "Feature request", 3)
+Say "Most urgent: " + pq_pop(pq)
+Say "Next: " + pq_pop(pq)
+
+Note: Linked List
+Say ""
+Say "--- Linked List ---"
+Set ll to create_linked_list()
+ll_append(ll, "Alice")
+ll_append(ll, "Bob")
+ll_append(ll, "Charlie")
+ll_prepend(ll, "Zara")
+Say "Size: " + ll_size(ll)
+Say "First: " + ll_get(ll, 0)
+Say "Contains Bob: " + ll_contains(ll, "Bob")
+Set arr to ll_to_array(ll)
+Say "As array: " + arr
+
+Note: HashMap
+Say ""
+Say "--- HashMap ---"
+Set cache to create_hashmap()
+hm_set(cache, "user:1", "Alice")
+hm_set(cache, "user:2", "Bob")
+hm_set(cache, "user:3", "Charlie")
+Say "user:2 = " + hm_get(cache, "user:2")
+Say "Has user:4: " + hm_has(cache, "user:4")
+Say "All keys: " + hm_keys(cache)
+Say "Size: " + hm_size(cache)
+
+Note: Binary Search Tree
+Say ""
+Say "--- Binary Search Tree ---"
+Set bst to create_tree()
+tree_insert(bst, 50)
+tree_insert(bst, 30)
+tree_insert(bst, 70)
+tree_insert(bst, 20)
+tree_insert(bst, 40)
+tree_insert(bst, 60)
+tree_insert(bst, 80)
+Say "Sorted: " + tree_inorder(bst)
+Say "Min: " + tree_min(bst)
+Say "Max: " + tree_max(bst)
+Say "Search 40: " + tree_search(bst, 40)
+Say "Height: " + tree_height(bst)
+
+Note: Graph
+Say ""
+Say "--- Graph ---"
+Set g to create_graph(False)
+graph_add_node(g, "Paris")
+graph_add_node(g, "London")
+graph_add_node(g, "Berlin")
+graph_add_node(g, "Rome")
+graph_add_edge(g, "Paris", "London", 450)
+graph_add_edge(g, "Paris", "Berlin", 1050)
+graph_add_edge(g, "London", "Berlin", 930)
+graph_add_edge(g, "Berlin", "Rome", 1180)
+Say "Nodes: " + graph_nodes(g)
+Say "Paris neighbors: " + graph_neighbors(g, "Paris")
+Say "BFS from Paris: " + graph_bfs(g, "Paris")
+Say "Shortest Paris->Rome: " + graph_shortest_path(g, "Paris", "Rome")
+
+Say ""
+Say "=== Done! ==="
