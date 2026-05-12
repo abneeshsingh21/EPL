@@ -1,0 +1,17 @@
+[project]
+name = "epl-auth"
+version = "1.0.0"
+description = "Authentication & security for EPL — JWT tokens, password hashing, sessions, API keys"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["auth", "jwt", "password", "hash", "security", "session", "token", "oauth"]
+
+[dependencies]
+
+[python]
+requires = ["PyJWT>=2.8.0", "bcrypt>=4.0.0"]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

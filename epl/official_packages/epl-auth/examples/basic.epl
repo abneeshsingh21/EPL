@@ -1,0 +1,58 @@
+Note: EPL Auth Package — Basic Usage Examples
+Import "epl-auth"
+
+Say "=== EPL Auth Package Demo ==="
+
+Note: Password Hashing
+Say ""
+Say "--- Password Hashing ---"
+Set password to "SuperSecret123!"
+Set hashed to hash_password(password)
+Say "Original: " + password
+Say "Hashed: " + hashed
+
+Set is_valid to verify_password("SuperSecret123!", hashed)
+Say "Verify correct password: " + is_valid
+
+Set is_wrong to verify_password("wrong_password", hashed)
+Say "Verify wrong password: " + is_wrong
+
+Note: JWT Tokens
+Say ""
+Say "--- JWT Tokens ---"
+Set secret to "my-app-secret-key"
+Set user_id to 42
+Set token to create_token(dict(), secret, 24)
+Say "Token created: " + token
+
+Set expired to is_token_expired(token, secret)
+Say "Is expired: " + expired
+
+Note: API Key Generation
+Say ""
+Say "--- API Keys ---"
+Set api_key to generate_api_key("epl")
+Say "Generated API key: " + api_key
+
+Set my_secret to generate_secret(32)
+Say "Random secret: " + my_secret
+
+Set id to generate_uuid()
+Say "UUID: " + id
+
+Note: Hashing
+Say ""
+Say "--- Hashing ---"
+Set digest to hash_sha256("Hello EPL!")
+Say "SHA-256 of 'Hello EPL!': " + digest
+
+Note: Input Validation
+Say ""
+Say "--- Validation ---"
+Say "Is 'user@example.com' valid email: " + is_valid_email("user@example.com")
+Say "Is 'not-an-email' valid: " + is_valid_email("not-an-email")
+Say "Is 'Str0ng!Pass' strong: " + is_strong_password("Str0ng!Pass")
+Say "Is 'weak' strong: " + is_strong_password("weak")
+
+Say ""
+Say "=== Done! ==="

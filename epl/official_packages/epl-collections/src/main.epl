@@ -1,0 +1,424 @@
+Note: EPL Collections Package — Advanced Data Structures in plain English
+Note: Import "epl-collections" to use these functions.
+
+Note: ===========================================================
+Note:  Stack (Last In, First Out)
+Note: ===========================================================
+
+Define Function create_stack
+    Note: Create a new empty stack
+    Note: Example: Set my_stack to create_stack()
+    Return python_call("epl_collections", "stack_create")
+End
+
+Define Function stack_push Takes stack, item
+    Note: Push an item onto the top of the stack
+    Note: Example: stack_push(my_stack, "hello")
+    Return python_call("epl_collections", "stack_push", stack, item)
+End
+
+Define Function stack_pop Takes stack
+    Note: Remove and return the top item from the stack
+    Note: Example: Set top to stack_pop(my_stack)
+    Return python_call("epl_collections", "stack_pop", stack)
+End
+
+Define Function stack_peek Takes stack
+    Note: Look at the top item without removing it
+    Note: Example: Set top to stack_peek(my_stack)
+    Return python_call("epl_collections", "stack_peek", stack)
+End
+
+Define Function stack_is_empty Takes stack
+    Note: Check if the stack is empty
+    Note: Example: If stack_is_empty(my_stack) then Say "Stack is empty"
+    Return python_call("epl_collections", "stack_is_empty", stack)
+End
+
+Define Function stack_size Takes stack
+    Note: Get the number of items in the stack
+    Note: Example: Set count to stack_size(my_stack)
+    Return python_call("epl_collections", "stack_size", stack)
+End
+
+Note: ===========================================================
+Note:  Queue (First In, First Out)
+Note: ===========================================================
+
+Define Function create_queue
+    Note: Create a new empty queue
+    Note: Example: Set my_queue to create_queue()
+    Return python_call("epl_collections", "queue_create")
+End
+
+Define Function enqueue Takes queue, item
+    Note: Add an item to the back of the queue
+    Note: Example: enqueue(my_queue, "task_1")
+    Return python_call("epl_collections", "queue_enqueue", queue, item)
+End
+
+Define Function dequeue Takes queue
+    Note: Remove and return the front item from the queue
+    Note: Example: Set next_task to dequeue(my_queue)
+    Return python_call("epl_collections", "queue_dequeue", queue)
+End
+
+Define Function queue_front Takes queue
+    Note: Look at the front item without removing it
+    Note: Example: Set next to queue_front(my_queue)
+    Return python_call("epl_collections", "queue_front", queue)
+End
+
+Define Function queue_is_empty Takes queue
+    Note: Check if the queue is empty
+    Note: Example: If queue_is_empty(my_queue) then Say "No tasks"
+    Return python_call("epl_collections", "queue_is_empty", queue)
+End
+
+Define Function queue_size Takes queue
+    Note: Get the number of items in the queue
+    Note: Example: Set pending to queue_size(my_queue)
+    Return python_call("epl_collections", "queue_size", queue)
+End
+
+Note: ===========================================================
+Note:  Priority Queue (Highest Priority First)
+Note: ===========================================================
+
+Define Function create_priority_queue
+    Note: Create a new priority queue (min-heap by default)
+    Note: Example: Set pq to create_priority_queue()
+    Return python_call("epl_collections", "pq_create")
+End
+
+Define Function pq_push Takes pq, item, priority
+    Note: Add an item with a priority (lower number = higher priority)
+    Note: Example: pq_push(pq, "critical_bug", 1)
+    Return python_call("epl_collections", "pq_push", pq, item, priority)
+End
+
+Define Function pq_pop Takes pq
+    Note: Remove and return the highest-priority item
+    Note: Example: Set urgent to pq_pop(pq)
+    Return python_call("epl_collections", "pq_pop", pq)
+End
+
+Define Function pq_peek Takes pq
+    Note: Look at the highest-priority item without removing
+    Note: Example: Set next to pq_peek(pq)
+    Return python_call("epl_collections", "pq_peek", pq)
+End
+
+Note: ===========================================================
+Note:  Linked List
+Note: ===========================================================
+
+Define Function create_linked_list
+    Note: Create a new empty linked list
+    Note: Example: Set my_list to create_linked_list()
+    Return python_call("epl_collections", "ll_create")
+End
+
+Define Function ll_append Takes ll, item
+    Note: Add an item to the end of the linked list
+    Note: Example: ll_append(my_list, "node_data")
+    Return python_call("epl_collections", "ll_append", ll, item)
+End
+
+Define Function ll_prepend Takes ll, item
+    Note: Add an item to the beginning of the linked list
+    Note: Example: ll_prepend(my_list, "first_item")
+    Return python_call("epl_collections", "ll_prepend", ll, item)
+End
+
+Define Function ll_remove Takes ll, item
+    Note: Remove the first occurrence of an item
+    Note: Example: ll_remove(my_list, "old_item")
+    Return python_call("epl_collections", "ll_remove", ll, item)
+End
+
+Define Function ll_get Takes ll, index
+    Note: Get item at a specific index
+    Note: Example: Set item to ll_get(my_list, 3)
+    Return python_call("epl_collections", "ll_get", ll, index)
+End
+
+Define Function ll_size Takes ll
+    Note: Get the number of items in the linked list
+    Note: Example: Set count to ll_size(my_list)
+    Return python_call("epl_collections", "ll_size", ll)
+End
+
+Define Function ll_contains Takes ll, item
+    Note: Check if an item exists in the linked list
+    Note: Example: If ll_contains(my_list, "target") then Say "Found!"
+    Return python_call("epl_collections", "ll_contains", ll, item)
+End
+
+Define Function ll_reverse Takes ll
+    Note: Reverse the linked list in place
+    Note: Example: ll_reverse(my_list)
+    Return python_call("epl_collections", "ll_reverse", ll)
+End
+
+Define Function ll_to_array Takes ll
+    Note: Convert linked list to a regular array
+    Note: Example: Set arr to ll_to_array(my_list)
+    Return python_call("epl_collections", "ll_to_array", ll)
+End
+
+Note: ===========================================================
+Note:  HashMap (Key-Value Store with O(1) Lookup)
+Note: ===========================================================
+
+Define Function create_hashmap
+    Note: Create a new empty hashmap
+    Note: Example: Set cache to create_hashmap()
+    Return python_call("epl_collections", "hm_create")
+End
+
+Define Function hm_set Takes hmap, key, value
+    Note: Set a key-value pair in the hashmap
+    Note: Example: hm_set(cache, "user:42", user_data)
+    Return python_call("epl_collections", "hm_set", hmap, key, value)
+End
+
+Define Function hm_get Takes hmap, key
+    Note: Get a value by key (returns None if not found)
+    Note: Example: Set user to hm_get(cache, "user:42")
+    Return python_call("epl_collections", "hm_get", hmap, key)
+End
+
+Define Function hm_has Takes hmap, key
+    Note: Check if a key exists in the hashmap
+    Note: Example: If hm_has(cache, "user:42") then Say "Cached!"
+    Return python_call("epl_collections", "hm_has", hmap, key)
+End
+
+Define Function hm_remove Takes hmap, key
+    Note: Remove a key-value pair from the hashmap
+    Note: Example: hm_remove(cache, "expired_key")
+    Return python_call("epl_collections", "hm_remove", hmap, key)
+End
+
+Define Function hm_keys Takes hmap
+    Note: Get all keys in the hashmap
+    Note: Example: Set all_keys to hm_keys(cache)
+    Return python_call("epl_collections", "hm_keys", hmap)
+End
+
+Define Function hm_values Takes hmap
+    Note: Get all values in the hashmap
+    Note: Example: Set all_values to hm_values(cache)
+    Return python_call("epl_collections", "hm_values", hmap)
+End
+
+Define Function hm_size Takes hmap
+    Note: Get the number of entries in the hashmap
+    Note: Example: Set count to hm_size(cache)
+    Return python_call("epl_collections", "hm_size", hmap)
+End
+
+Define Function hm_clear Takes hmap
+    Note: Remove all entries from the hashmap
+    Note: Example: hm_clear(cache)
+    Return python_call("epl_collections", "hm_clear", hmap)
+End
+
+Note: ===========================================================
+Note:  Binary Search Tree
+Note: ===========================================================
+
+Define Function create_tree
+    Note: Create a new empty binary search tree
+    Note: Example: Set bst to create_tree()
+    Return python_call("epl_collections", "tree_create")
+End
+
+Define Function tree_insert Takes bst, value
+    Note: Insert a value into the tree
+    Note: Example: tree_insert(bst, 42)
+    Return python_call("epl_collections", "tree_insert", bst, value)
+End
+
+Define Function tree_search Takes bst, value
+    Note: Search for a value in the tree
+    Note: Example: Set found to tree_search(bst, 42)
+    Return python_call("epl_collections", "tree_search", bst, value)
+End
+
+Define Function tree_remove Takes bst, value
+    Note: Remove a value from the tree
+    Note: Example: tree_remove(bst, 42)
+    Return python_call("epl_collections", "tree_remove", bst, value)
+End
+
+Define Function tree_min Takes bst
+    Note: Get the minimum value in the tree
+    Note: Example: Set smallest to tree_min(bst)
+    Return python_call("epl_collections", "tree_min", bst)
+End
+
+Define Function tree_max Takes bst
+    Note: Get the maximum value in the tree
+    Note: Example: Set largest to tree_max(bst)
+    Return python_call("epl_collections", "tree_max", bst)
+End
+
+Define Function tree_inorder Takes bst
+    Note: Get all values in sorted order (in-order traversal)
+    Note: Example: Set sorted_values to tree_inorder(bst)
+    Return python_call("epl_collections", "tree_inorder", bst)
+End
+
+Define Function tree_height Takes bst
+    Note: Get the height of the tree
+    Note: Example: Set h to tree_height(bst)
+    Return python_call("epl_collections", "tree_height", bst)
+End
+
+Define Function tree_size Takes bst
+    Note: Get the number of nodes in the tree
+    Note: Example: Set count to tree_size(bst)
+    Return python_call("epl_collections", "tree_size", bst)
+End
+
+Note: ===========================================================
+Note:  Graph
+Note: ===========================================================
+
+Define Function create_graph Takes directed
+    Note: Create a new graph (directed=True for directed graph)
+    Note: Example: Set g to create_graph(False)
+    Return python_call("epl_collections", "graph_create", directed)
+End
+
+Define Function graph_add_node Takes graph, node
+    Note: Add a node to the graph
+    Note: Example: graph_add_node(g, "Paris")
+    Return python_call("epl_collections", "graph_add_node", graph, node)
+End
+
+Define Function graph_add_edge Takes graph, from_node, to_node, weight
+    Note: Add an edge between two nodes (with optional weight)
+    Note: Example: graph_add_edge(g, "Paris", "London", 450)
+    Return python_call("epl_collections", "graph_add_edge", graph, from_node, to_node, weight)
+End
+
+Define Function graph_remove_node Takes graph, node
+    Note: Remove a node and all its edges
+    Note: Example: graph_remove_node(g, "Paris")
+    Return python_call("epl_collections", "graph_remove_node", graph, node)
+End
+
+Define Function graph_remove_edge Takes graph, from_node, to_node
+    Note: Remove an edge between two nodes
+    Note: Example: graph_remove_edge(g, "Paris", "London")
+    Return python_call("epl_collections", "graph_remove_edge", graph, from_node, to_node)
+End
+
+Define Function graph_neighbors Takes graph, node
+    Note: Get all neighbors of a node
+    Note: Example: Set connected to graph_neighbors(g, "Paris")
+    Return python_call("epl_collections", "graph_neighbors", graph, node)
+End
+
+Define Function graph_has_edge Takes graph, from_node, to_node
+    Note: Check if an edge exists between two nodes
+    Note: Example: If graph_has_edge(g, "Paris", "London") then Say "Connected!"
+    Return python_call("epl_collections", "graph_has_edge", graph, from_node, to_node)
+End
+
+Define Function graph_bfs Takes graph, start_node
+    Note: Breadth-First Search from a starting node
+    Note: Example: Set visited to graph_bfs(g, "Paris")
+    Return python_call("epl_collections", "graph_bfs", graph, start_node)
+End
+
+Define Function graph_dfs Takes graph, start_node
+    Note: Depth-First Search from a starting node
+    Note: Example: Set visited to graph_dfs(g, "Paris")
+    Return python_call("epl_collections", "graph_dfs", graph, start_node)
+End
+
+Define Function graph_shortest_path Takes graph, start_node, end_node
+    Note: Find shortest path between two nodes (Dijkstra)
+    Note: Example: Set path to graph_shortest_path(g, "Paris", "Berlin")
+    Return python_call("epl_collections", "graph_shortest_path", graph, start_node, end_node)
+End
+
+Define Function graph_nodes Takes graph
+    Note: Get all nodes in the graph
+    Note: Example: Set all_cities to graph_nodes(g)
+    Return python_call("epl_collections", "graph_nodes", graph)
+End
+
+Define Function graph_edges Takes graph
+    Note: Get all edges in the graph
+    Note: Example: Set all_routes to graph_edges(g)
+    Return python_call("epl_collections", "graph_edges", graph)
+End
+
+Define Function graph_node_count Takes graph
+    Note: Get the number of nodes
+    Note: Example: Set count to graph_node_count(g)
+    Return python_call("epl_collections", "graph_node_count", graph)
+End
+
+Define Function graph_edge_count Takes graph
+    Note: Get the number of edges
+    Note: Example: Set count to graph_edge_count(g)
+    Return python_call("epl_collections", "graph_edge_count", graph)
+End
+
+Note: ===========================================================
+Note:  Set (Unique Collection)
+Note: ===========================================================
+
+Define Function create_set
+    Note: Create a new empty set
+    Note: Example: Set unique_tags to create_set()
+    Return python_call("epl_collections", "set_create")
+End
+
+Define Function set_add Takes s, item
+    Note: Add an item to the set
+    Note: Example: set_add(unique_tags, "python")
+    Return python_call("epl_collections", "set_add", s, item)
+End
+
+Define Function set_remove Takes s, item
+    Note: Remove an item from the set
+    Note: Example: set_remove(unique_tags, "python")
+    Return python_call("epl_collections", "set_remove", s, item)
+End
+
+Define Function set_contains Takes s, item
+    Note: Check if item is in the set
+    Note: Example: If set_contains(tags, "python") then Say "Has Python!"
+    Return python_call("epl_collections", "set_contains", s, item)
+End
+
+Define Function set_union Takes set1, set2
+    Note: Get union of two sets
+    Note: Example: Set all_tags to set_union(my_tags, your_tags)
+    Return python_call("epl_collections", "set_union", set1, set2)
+End
+
+Define Function set_intersection Takes set1, set2
+    Note: Get intersection of two sets
+    Note: Example: Set common to set_intersection(my_tags, your_tags)
+    Return python_call("epl_collections", "set_intersection", set1, set2)
+End
+
+Define Function set_difference Takes set1, set2
+    Note: Get items in set1 but not in set2
+    Note: Example: Set only_mine to set_difference(my_tags, your_tags)
+    Return python_call("epl_collections", "set_difference", set1, set2)
+End
+
+Define Function set_size Takes s
+    Note: Get the number of items in the set
+    Note: Example: Set count to set_size(unique_tags)
+    Return python_call("epl_collections", "set_size", s)
+End
