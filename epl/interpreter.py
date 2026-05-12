@@ -1791,8 +1791,18 @@ class Interpreter:
     # Standard library directory: epl/stdlib/
     _STDLIB_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'stdlib')
 
+    _NATIVE_MODULE_MAP = {
+        'epl.observability': 'epl.observability',
+        'epl.reference_monitor': 'epl.reference_monitor',
+        'epl.type_system': 'epl.type_system',
+    }
+
     def _resolve_import_path(self, filepath, node_line):
         """Resolve an import filepath to an absolute path, or raise EPLRuntimeError."""
+        # Native Python-backed EPL modules (use importlib directly)
+        if filepath in self._NATIVE_MODULE_MAP:
+            return f'__native__:{self._NATIVE_MODULE_MAP[filepath]}'
+
         abs_path = _os.path.abspath(filepath)
 
         # Try direct file path
@@ -1852,6 +1862,18 @@ class Interpreter:
     def _exec_import(self, node: ast.ImportStatement, env: Environment):
         filepath = node.filepath
         abs_path = self._resolve_import_path(filepath, node.line)
+
+        # Native Python-backed EPL modules
+        if abs_path.startswith('__native__:'):
+            module_name = abs_path[len('__native__:'):]
+            module = _importlib.import_module(module_name)
+            if node.alias:
+                env.define_variable(node.alias, module)
+            else:
+                for attr in dir(module):
+                    if not attr.startswith('_'):
+                        env.define_variable(attr, getattr(module, attr))
+            return
 
         # Sandbox: restrict imports to current directory tree
         if self.safe_mode:

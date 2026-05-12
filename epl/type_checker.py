@@ -29,6 +29,7 @@ Usage:
 import difflib
 
 from epl import ast_nodes as ast
+from epl.type_system import TypeKind, FunctionType as AdvancedFunctionType
 
 # ─── Type representations ─────────────────────────────────
 
