@@ -32,8 +32,8 @@ from typing import Dict, List, Optional, Tuple
 EPL_HOME = os.path.expanduser('~/.epl')
 INDEX_DIR = os.path.join(EPL_HOME, 'index')
 INDEX_CACHE_FILE = os.path.join(EPL_HOME, 'index_cache.json')
-DEFAULT_INDEX_URL = 'https://github.com/epl-lang/packages-index.git'
-DEFAULT_INDEX_RAW = 'https://raw.githubusercontent.com/epl-lang/packages-index/main'
+DEFAULT_INDEX_URL = 'https://github.com/abneeshsingh21/epl-packages-index.git'
+DEFAULT_INDEX_RAW = 'https://raw.githubusercontent.com/abneeshsingh21/epl-packages-index/main'
 INDEX_CACHE_TTL = 1800  # 30 minutes
 
 
