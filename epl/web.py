@@ -2003,6 +2003,19 @@ class EPLHandler(BaseHTTPRequestHandler):
                 data = self._normalize_json_value(self.interpreter._eval(signal.payload, route_env))
                 return f'<pre>{json.dumps(data, indent=2, default=str)}</pre>'
 
+        # v6.0: Collect styles, components, and animations from route body
+        styles = [s for s in body if isinstance(s, ast.StyleDef)]
+        components = {s.name: s for s in body if isinstance(s, ast.ComponentDef)}
+        animations = [s for s in body if isinstance(s, ast.AnimateDef)]
+
+        # Also collect from the full program if interpreter has them
+        if self.interpreter and hasattr(self.interpreter, '_program_styles'):
+            styles = self.interpreter._program_styles + styles
+        if self.interpreter and hasattr(self.interpreter, '_program_components'):
+            components = {**self.interpreter._program_components, **components}
+        if self.interpreter and hasattr(self.interpreter, '_program_animations'):
+            animations = self.interpreter._program_animations + animations
+
         # Build page
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
@@ -2010,17 +2023,23 @@ class EPLHandler(BaseHTTPRequestHandler):
                     _resolve_page_def(stmt, self.interpreter, route_env),
                     data_store=_data_store,
                     form_data=form_data,
+                    styles=styles,
+                    components=components,
+                    animations=animations,
                 )
 
-        # If no PageDef, check for elements
+        # If no PageDef, check for elements (including v6.0 styled elements)
         elements = [
             _resolve_page_element(s, self.interpreter, route_env)
             for s in body
-            if isinstance(s, ast.HtmlElement)
+            if isinstance(s, (ast.HtmlElement, ast.StyledElement, ast.LayoutContainer))
         ]
         if elements:
             page = ast.PageDef('EPL Page', elements)
-            return generate_html(page, data_store=_data_store, form_data=form_data)
+            return generate_html(
+                page, data_store=_data_store, form_data=form_data,
+                styles=styles, components=components, animations=animations,
+            )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
 
@@ -2800,14 +2819,31 @@ class AsyncEPLServer:
                 url = stmt.data.value if hasattr(stmt.data, 'value') else str(stmt.data)
                 return f'REDIRECT:{url}'
 
+        # v6.0: Collect styles, components, animations
+        styles = [s for s in body if isinstance(s, ast.StyleDef)]
+        components = {s.name: s for s in body if isinstance(s, ast.ComponentDef)}
+        animations = [s for s in body if isinstance(s, ast.AnimateDef)]
+        if self.interpreter and hasattr(self.interpreter, '_program_styles'):
+            styles = self.interpreter._program_styles + styles
+        if self.interpreter and hasattr(self.interpreter, '_program_components'):
+            components = {**self.interpreter._program_components, **components}
+        if self.interpreter and hasattr(self.interpreter, '_program_animations'):
+            animations = self.interpreter._program_animations + animations
+
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
-                return generate_html(stmt, data_store=_data_store, form_data=form_data)
+                return generate_html(
+                    stmt, data_store=_data_store, form_data=form_data,
+                    styles=styles, components=components, animations=animations,
+                )
 
-        elements = [s for s in body if isinstance(s, ast.HtmlElement)]
+        elements = [s for s in body if isinstance(s, (ast.HtmlElement, ast.StyledElement, ast.LayoutContainer))]
         if elements:
             page = ast.PageDef('EPL Page', elements)
-            return generate_html(page, data_store=_data_store, form_data=form_data)
+            return generate_html(
+                page, data_store=_data_store, form_data=form_data,
+                styles=styles, components=components, animations=animations,
+            )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
 

@@ -620,6 +620,14 @@ class Interpreter:
     def execute(self, program: ast.Program):
         self._start_time = _time.time()
         self._instruction_count = 0
+
+        # v6.0: Collect program-level styles, components, animations for web routes
+        self._program_styles = [s for s in program.statements if isinstance(s, ast.StyleDef)]
+        self._program_components = {
+            s.name: s for s in program.statements if isinstance(s, ast.ComponentDef)
+        }
+        self._program_animations = [s for s in program.statements if isinstance(s, ast.AnimateDef)]
+
         try:
             self._exec_block(program.statements, self.global_env)
         except ExitSignal:
@@ -696,6 +704,23 @@ class Interpreter:
                 ast.HtmlElement,
                 ast.ExportStatement,
                 ast.AbstractMethodDef,
+                # v6.0: Style & Layout — handled by web/html generators
+                ast.StyleDef,
+                ast.StyleProperty,
+                ast.StyledElement,
+                ast.LayoutContainer,
+                ast.ComponentDef,
+                ast.ComponentUse,
+                ast.ResponsiveBlock,
+                ast.AnimateDef,
+                ast.KeyframeDef,
+                ast.TransitionDef,
+                # v6.1: 3D & Canvas — handled by generators
+                ast.Scene3D,
+                ast.CameraSetup,
+                ast.LightSetup,
+                ast.MeshAdd,
+                ast.DrawCommand,
             ),
         ):
             return

@@ -1,0 +1,545 @@
+Note: epl-css — Tailwind-inspired utility CSS classes for EPL
+Note: Import this package to get utility styles for spacing, colors, typography, and layout.
+
+Note: ═══════════════════════════════════════════
+Note: SPACING UTILITIES
+Note: ═══════════════════════════════════════════
+
+Style "p-0"
+    Padding "0"
+End
+
+Style "p-1"
+    Padding "4px"
+End
+
+Style "p-2"
+    Padding "8px"
+End
+
+Style "p-3"
+    Padding "12px"
+End
+
+Style "p-4"
+    Padding "16px"
+End
+
+Style "p-6"
+    Padding "24px"
+End
+
+Style "p-8"
+    Padding "32px"
+End
+
+Style "p-12"
+    Padding "48px"
+End
+
+Style "px-4"
+    Padding left "16px"
+    Padding right "16px"
+End
+
+Style "py-4"
+    Padding top "16px"
+    Padding bottom "16px"
+End
+
+Style "m-0"
+    Margin "0"
+End
+
+Style "m-2"
+    Margin "8px"
+End
+
+Style "m-4"
+    Margin "16px"
+End
+
+Style "m-6"
+    Margin "24px"
+End
+
+Style "m-auto"
+    Margin "0 auto"
+End
+
+Style "mb-2"
+    Margin bottom "8px"
+End
+
+Style "mb-4"
+    Margin bottom "16px"
+End
+
+Style "mb-6"
+    Margin bottom "24px"
+End
+
+Style "mb-8"
+    Margin bottom "32px"
+End
+
+Style "mt-4"
+    Margin top "16px"
+End
+
+Style "mt-8"
+    Margin top "32px"
+End
+
+Note: ═══════════════════════════════════════════
+Note: TYPOGRAPHY
+Note: ═══════════════════════════════════════════
+
+Style "text-xs"
+    Font size "0.75rem"
+End
+
+Style "text-sm"
+    Font size "0.875rem"
+End
+
+Style "text-base"
+    Font size "1rem"
+End
+
+Style "text-lg"
+    Font size "1.125rem"
+End
+
+Style "text-xl"
+    Font size "1.25rem"
+End
+
+Style "text-2xl"
+    Font size "1.5rem"
+End
+
+Style "text-3xl"
+    Font size "1.875rem"
+End
+
+Style "text-4xl"
+    Font size "2.25rem"
+End
+
+Style "text-5xl"
+    Font size "3rem"
+End
+
+Style "font-light"
+    Font weight "300"
+End
+
+Style "font-normal"
+    Font weight "400"
+End
+
+Style "font-medium"
+    Font weight "500"
+End
+
+Style "font-semibold"
+    Font weight "600"
+End
+
+Style "font-bold"
+    Font weight "700"
+End
+
+Style "font-extrabold"
+    Font weight "800"
+End
+
+Style "text-center"
+    Text align "center"
+End
+
+Style "text-left"
+    Text align "left"
+End
+
+Style "text-right"
+    Text align "right"
+End
+
+Style "uppercase"
+    Text transform "uppercase"
+    Letter spacing "0.05em"
+End
+
+Style "capitalize"
+    Text transform "capitalize"
+End
+
+Style "italic"
+    Font style "italic"
+End
+
+Style "underline"
+    Text decoration "underline"
+End
+
+Style "no-underline"
+    Text decoration "none"
+End
+
+Style "truncate"
+    Overflow "hidden"
+    Text overflow "ellipsis"
+    White space "nowrap"
+End
+
+Note: ═══════════════════════════════════════════
+Note: COLOR UTILITIES
+Note: ═══════════════════════════════════════════
+
+Style "text-white"
+    Color "#ffffff"
+End
+
+Style "text-black"
+    Color "#000000"
+End
+
+Style "text-gray-500"
+    Color "#718096"
+End
+
+Style "text-gray-700"
+    Color "#4a5568"
+End
+
+Style "text-gray-900"
+    Color "#1a202c"
+End
+
+Style "text-blue-500"
+    Color "#4299e1"
+End
+
+Style "text-blue-700"
+    Color "#2b6cb0"
+End
+
+Style "text-green-500"
+    Color "#48bb78"
+End
+
+Style "text-red-500"
+    Color "#f56565"
+End
+
+Style "text-purple-500"
+    Color "#9f7aea"
+End
+
+Style "bg-white"
+    Background "#ffffff"
+End
+
+Style "bg-gray-50"
+    Background "#f7fafc"
+End
+
+Style "bg-gray-100"
+    Background "#edf2f7"
+End
+
+Style "bg-gray-200"
+    Background "#e2e8f0"
+End
+
+Style "bg-gray-800"
+    Background "#2d3748"
+End
+
+Style "bg-gray-900"
+    Background "#1a202c"
+End
+
+Style "bg-blue-50"
+    Background "#ebf8ff"
+End
+
+Style "bg-blue-500"
+    Background "#4299e1"
+End
+
+Style "bg-green-50"
+    Background "#f0fff4"
+End
+
+Style "bg-green-500"
+    Background "#48bb78"
+End
+
+Style "bg-red-50"
+    Background "#fff5f5"
+End
+
+Style "bg-red-500"
+    Background "#f56565"
+End
+
+Style "bg-purple-500"
+    Background "#9f7aea"
+End
+
+Style "bg-gradient-primary"
+    Background "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+End
+
+Style "bg-gradient-success"
+    Background "linear-gradient(135deg, #48bb78 0%, #38a169 100%)"
+End
+
+Style "bg-gradient-danger"
+    Background "linear-gradient(135deg, #f56565 0%, #e53e3e 100%)"
+End
+
+Note: ═══════════════════════════════════════════
+Note: LAYOUT UTILITIES
+Note: ═══════════════════════════════════════════
+
+Style "w-full"
+    Width "100%"
+End
+
+Style "w-screen"
+    Width "100vw"
+End
+
+Style "h-full"
+    Height "100%"
+End
+
+Style "h-screen"
+    Height "100vh"
+End
+
+Style "max-w-sm"
+    Max width "384px"
+End
+
+Style "max-w-md"
+    Max width "448px"
+End
+
+Style "max-w-lg"
+    Max width "512px"
+End
+
+Style "max-w-xl"
+    Max width "576px"
+End
+
+Style "max-w-2xl"
+    Max width "672px"
+End
+
+Style "max-w-4xl"
+    Max width "896px"
+End
+
+Style "max-w-6xl"
+    Max width "1152px"
+End
+
+Style "hidden"
+    Display "none"
+End
+
+Style "block"
+    Display "block"
+End
+
+Style "inline-block"
+    Display "inline-block"
+End
+
+Style "flex-row"
+    Display "flex"
+    Flex direction "row"
+End
+
+Style "flex-col"
+    Display "flex"
+    Flex direction "column"
+End
+
+Style "items-center"
+    Align items "center"
+End
+
+Style "items-start"
+    Align items "flex-start"
+End
+
+Style "items-end"
+    Align items "flex-end"
+End
+
+Style "justify-center"
+    Justify content "center"
+End
+
+Style "justify-between"
+    Justify content "space-between"
+End
+
+Style "justify-end"
+    Justify content "flex-end"
+End
+
+Style "gap-2"
+    Gap "8px"
+End
+
+Style "gap-4"
+    Gap "16px"
+End
+
+Style "gap-6"
+    Gap "24px"
+End
+
+Style "gap-8"
+    Gap "32px"
+End
+
+Style "flex-wrap"
+    Flex wrap "wrap"
+End
+
+Style "flex-1"
+    Flex "1"
+End
+
+Style "relative"
+    Position "relative"
+End
+
+Style "absolute"
+    Position "absolute"
+End
+
+Style "fixed"
+    Position "fixed"
+End
+
+Style "sticky"
+    Position "sticky"
+End
+
+Style "overflow-hidden"
+    Overflow "hidden"
+End
+
+Style "overflow-auto"
+    Overflow "auto"
+End
+
+Note: ═══════════════════════════════════════════
+Note: BORDER & SHADOW UTILITIES
+Note: ═══════════════════════════════════════════
+
+Style "rounded"
+    Border radius "4px"
+End
+
+Style "rounded-md"
+    Border radius "6px"
+End
+
+Style "rounded-lg"
+    Border radius "8px"
+End
+
+Style "rounded-xl"
+    Border radius "12px"
+End
+
+Style "rounded-2xl"
+    Border radius "16px"
+End
+
+Style "rounded-full"
+    Border radius "9999px"
+End
+
+Style "border"
+    Border "1px solid #e2e8f0"
+End
+
+Style "border-2"
+    Border "2px solid #e2e8f0"
+End
+
+Style "border-none"
+    Border "none"
+End
+
+Style "shadow-sm"
+    Box shadow "0 1px 2px rgba(0,0,0,0.05)"
+End
+
+Style "shadow"
+    Box shadow "0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)"
+End
+
+Style "shadow-md"
+    Box shadow "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)"
+End
+
+Style "shadow-lg"
+    Box shadow "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)"
+End
+
+Style "shadow-xl"
+    Box shadow "0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)"
+End
+
+Style "shadow-none"
+    Box shadow "none"
+End
+
+Note: ═══════════════════════════════════════════
+Note: TRANSITION UTILITIES
+Note: ═══════════════════════════════════════════
+
+Style "transition"
+    Transition "all 0.2s ease"
+End
+
+Style "transition-fast"
+    Transition "all 0.15s ease"
+End
+
+Style "transition-slow"
+    Transition "all 0.3s ease"
+End
+
+Style "cursor-pointer"
+    Cursor "pointer"
+End
+
+Style "select-none"
+    User select "none"
+End
+
+Style "opacity-50"
+    Opacity "0.5"
+End
+
+Style "opacity-75"
+    Opacity "0.75"
+End
+
+Style "opacity-0"
+    Opacity "0"
+End

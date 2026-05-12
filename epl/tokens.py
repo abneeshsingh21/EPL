@@ -221,6 +221,47 @@ class TokenType(Enum):
     EXTERNAL = auto()  # "External"
     LIBRARY = auto()  # "Library"
 
+    # --- v6.0: Style & Layout System ---
+    STYLE = auto()  # "Style"
+    COMPONENT = auto()  # "Component"
+    DIV = auto()  # "Div"
+    SECTION = auto()  # "Section"
+    NAV = auto()  # "Nav"
+    HEADER_EL = auto()  # "Header" (HTML element)
+    FOOTER_EL = auto()  # "Footer" (HTML element)
+    SPAN = auto()  # "Span"
+    ARTICLE = auto()  # "Article"
+    ASIDE = auto()  # "Aside"
+    MAIN_EL = auto()  # "Main" (HTML element)
+    CONTAINER = auto()  # "Container"
+    GRID = auto()  # "Grid"
+    FLEX = auto()  # "Flex"
+    ANIMATE = auto()  # "Animate"
+    DURATION = auto()  # "Duration"
+    EASING = auto()  # "Easing"
+    KEYFRAME = auto()  # "Keyframe"
+    TRANSITION_KW = auto()  # "Transition"
+    TRANSFORM = auto()  # "Transform"
+    OPACITY = auto()  # "Opacity"
+    RESPONSIVE = auto()  # "Responsive"
+    CLASSNAME = auto()  # "ClassName"
+    APPLY = auto()  # "Apply"
+
+    # --- v6.1: 3D & Canvas System ---
+    SCENE = auto()  # "Scene"
+    CAMERA_KW = auto()  # "Camera"
+    MESH = auto()  # "Mesh"
+    LIGHT = auto()  # "Light"
+    MATERIAL = auto()  # "Material"
+    TEXTURE = auto()  # "Texture"
+    RENDER = auto()  # "Render"
+    POSITION = auto()  # "Position"
+    ROTATION = auto()  # "Rotation"
+    SCALE_KW = auto()  # "Scale"
+    DRAW = auto()  # "Draw"
+    FILL = auto()  # "Fill"
+    STROKE = auto()  # "Stroke"
+
     # --- Keywords: Logical ---
     AND = auto()
     OR = auto()
@@ -473,6 +514,45 @@ KEYWORDS = {
     # v5.2: Triple Ecosystem keywords
     'external': TokenType.EXTERNAL,
     'library': TokenType.LIBRARY,
+    # v6.0: Style & Layout keywords
+    'style': TokenType.STYLE,
+    'component': TokenType.COMPONENT,
+    'div': TokenType.DIV,
+    'section': TokenType.SECTION,
+    'nav': TokenType.NAV,
+    'header': TokenType.HEADER_EL,
+    'footer': TokenType.FOOTER_EL,
+    'span': TokenType.SPAN,
+    'article': TokenType.ARTICLE,
+    'aside': TokenType.ASIDE,
+    'main': TokenType.MAIN_EL,
+    'container': TokenType.CONTAINER,
+    'grid': TokenType.GRID,
+    'flex': TokenType.FLEX,
+    'animate': TokenType.ANIMATE,
+    'duration': TokenType.DURATION,
+    'easing': TokenType.EASING,
+    'keyframe': TokenType.KEYFRAME,
+    'transition': TokenType.TRANSITION_KW,
+    'transform': TokenType.TRANSFORM,
+    'opacity': TokenType.OPACITY,
+    'responsive': TokenType.RESPONSIVE,
+    'classname': TokenType.CLASSNAME,
+    'apply': TokenType.APPLY,
+    # v6.1: 3D & Canvas keywords
+    'scene': TokenType.SCENE,
+    'camera': TokenType.CAMERA_KW,
+    'mesh': TokenType.MESH,
+    'light': TokenType.LIGHT,
+    'material': TokenType.MATERIAL,
+    'texture': TokenType.TEXTURE,
+    'render': TokenType.RENDER,
+    'position': TokenType.POSITION,
+    'rotation': TokenType.ROTATION,
+    'scale': TokenType.SCALE_KW,
+    'draw': TokenType.DRAW,
+    'fill': TokenType.FILL,
+    'stroke': TokenType.STROKE,
 }
 
 # Multi-word keyword phrases (checked in order, longest first)

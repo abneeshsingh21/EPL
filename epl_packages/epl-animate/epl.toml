@@ -1,0 +1,11 @@
+[package]
+name = "epl-animate"
+version = "1.0.0"
+description = "Pre-built CSS animations for EPL. Fade, slide, bounce, spin, pulse, zoom, and more."
+authors = ["EPL Community"]
+license = "MIT"
+readme = "README.md"
+main = "main.epl"
+
+[repository]
+url = "https://github.com/abneeshsingh21/epl-animate"

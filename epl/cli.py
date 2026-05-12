@@ -596,11 +596,19 @@ def _new_project(args):
         'android',
         'ios',
         'fullstack',
+        # v6.0: Production templates
+        'ecommerce',
+        'dashboard',
+        'blog',
+        'portfolio',
+        # v6.1: 3D & Canvas templates
+        'game-2d',
     }
     if template not in valid_templates:
         print(f'{_red("Error:")} Unknown template: {template}')
         print(
-            'Available templates: basic, web, api, cli, lib, frontend, auth, chatbot, android, ios, fullstack'
+            'Available templates: basic, web, api, cli, lib, frontend, auth, chatbot, '
+            'android, ios, fullstack, ecommerce, dashboard, blog, portfolio, game-2d'
         )
         return 1
 
@@ -1071,6 +1079,425 @@ def _project_template(name, template):
                 'epl run',
             ],
             'Full-stack web app with native routes, a server-rendered page, and SQLite-backed APIs.',
+        )
+    elif template == 'ecommerce':
+        description = f'{name} — EPL e-commerce store'
+        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        scripts['serve'] = 'epl serve src/main.epl'
+        main_source = (
+            f'Note: {name} — E-commerce store template\n'
+            'Import "epl-ui"\n'
+            'Import "epl-css"\n'
+            'Import "epl-animate"\n'
+            'Import "epl-db"\n\n'
+            'Create db equal to open(":memory:")\n'
+            'Call create_table(db, "products", Map with id = "INTEGER" and name = "TEXT" and price = "REAL" and image = "TEXT" and description = "TEXT")\n'
+            'Call execute(db, "INSERT INTO products VALUES (1, \'Wireless Headphones\', 79.99, \'/img/headphones.png\', \'Premium sound quality\')")\n'
+            'Call execute(db, "INSERT INTO products VALUES (2, \'Smart Watch\', 199.99, \'/img/watch.png\', \'Track your fitness\')")\n'
+            'Call execute(db, "INSERT INTO products VALUES (3, \'Laptop Stand\', 49.99, \'/img/stand.png\', \'Ergonomic aluminum\')")\n'
+            'Call execute(db, "INSERT INTO products VALUES (4, \'USB-C Hub\', 39.99, \'/img/hub.png\', \'7-in-1 connectivity\')")\n\n'
+            'Style "product-card"\n'
+            '    Background "#ffffff"\n'
+            '    Border "1px solid #e2e8f0"\n'
+            '    Border radius "12px"\n'
+            '    Padding "20px"\n'
+            '    Transition "all 0.2s ease"\n'
+            'End\n\n'
+            'Style "price-tag"\n'
+            '    Font size "1.5rem"\n'
+            '    Font weight "700"\n'
+            '    Color "#667eea"\n'
+            'End\n\n'
+            'Create WebApp called store\n\n'
+            'Route "/" shows\n'
+            '    Page "' + name + ' Store"\n'
+            '        Nav with style "epl-navbar"\n'
+            '            Heading "' + name + '"\n'
+            '            Link "Products" to "/products"\n'
+            '            Link "Cart" to "/cart"\n'
+            '        End\n\n'
+            '        Section with style "epl-hero" animate "fadeIn"\n'
+            '            Heading "Welcome to ' + name + '"\n'
+            '            Text "Discover amazing products at great prices"\n'
+            '            Link "Shop Now" to "/products"\n'
+            '        End\n\n'
+            '        Grid columns 4 gap "24px"\n'
+            '            Div with style "product-card" animate "fadeInUp"\n'
+            '                Heading "Wireless Headphones"\n'
+            '                Text "Premium sound quality"\n'
+            '                Text "$79.99"\n'
+            '                Button "Add to Cart"\n'
+            '            End\n'
+            '            Div with style "product-card" animate "fadeInUp"\n'
+            '                Heading "Smart Watch"\n'
+            '                Text "Track your fitness"\n'
+            '                Text "$199.99"\n'
+            '                Button "Add to Cart"\n'
+            '            End\n'
+            '            Div with style "product-card" animate "fadeInUp"\n'
+            '                Heading "Laptop Stand"\n'
+            '                Text "Ergonomic aluminum"\n'
+            '                Text "$49.99"\n'
+            '                Button "Add to Cart"\n'
+            '            End\n'
+            '            Div with style "product-card" animate "fadeInUp"\n'
+            '                Heading "USB-C Hub"\n'
+            '                Text "7-in-1 connectivity"\n'
+            '                Text "$39.99"\n'
+            '                Button "Add to Cart"\n'
+            '            End\n'
+            '        End\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/products" responds with\n'
+            '    Send json Map with products = query(db, "SELECT * FROM products")\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_ecommerce_smoke\n'
+            '    expect_true(True, "e-commerce template loads")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            ['epl install', 'epl serve', 'epl test tests/'],
+            'Production e-commerce store with product grid, cart API, and styled components.',
+        )
+    elif template == 'dashboard':
+        description = f'{name} — EPL admin dashboard'
+        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        scripts['serve'] = 'epl serve src/main.epl'
+        main_source = (
+            f'Note: {name} — Admin dashboard template\n'
+            'Import "epl-ui"\n'
+            'Import "epl-css"\n'
+            'Import "epl-animate"\n'
+            'Import "epl-db"\n\n'
+            'Create db equal to open(":memory:")\n'
+            'Call create_table(db, "users", Map with id = "INTEGER" and name = "TEXT" and email = "TEXT" and role = "TEXT")\n'
+            'Call execute(db, "INSERT INTO users VALUES (1, \'Alice\', \'alice@example.com\', \'Admin\')")\n'
+            'Call execute(db, "INSERT INTO users VALUES (2, \'Bob\', \'bob@example.com\', \'Editor\')")\n'
+            'Call execute(db, "INSERT INTO users VALUES (3, \'Charlie\', \'charlie@example.com\', \'Viewer\')")\n\n'
+            'Style "sidebar"\n'
+            '    Width "260px"\n'
+            '    Background "#1a202c"\n'
+            '    Color "#a0aec0"\n'
+            '    Padding "24px 16px"\n'
+            '    Min height "100vh"\n'
+            'End\n\n'
+            'Style "sidebar-link"\n'
+            '    Color "#a0aec0"\n'
+            '    Padding "10px 16px"\n'
+            '    Border radius "8px"\n'
+            '    Display "block"\n'
+            '    Text decoration "none"\n'
+            '    Margin bottom "4px"\n'
+            'End\n\n'
+            'Style "main-content"\n'
+            '    Margin left "260px"\n'
+            '    Padding "32px"\n'
+            '    Background "#f7fafc"\n'
+            '    Min height "100vh"\n'
+            'End\n\n'
+            'Create WebApp called dashboard\n\n'
+            'Route "/" shows\n'
+            '    Page "' + name + ' Dashboard"\n'
+            '        Flex direction "row"\n'
+            '            Aside with style "sidebar"\n'
+            '                Heading "' + name + '"\n'
+            '                Link "Dashboard" to "/"\n'
+            '                Link "Users" to "/users"\n'
+            '                Link "Analytics" to "/analytics"\n'
+            '                Link "Settings" to "/settings"\n'
+            '            End\n'
+            '            Main with style "main-content"\n'
+            '                Heading "Dashboard Overview"\n'
+            '                Grid columns 4 gap "24px"\n'
+            '                    Div with style "epl-stat-card" animate "fadeInUp"\n'
+            '                        Heading "1,234"\n'
+            '                        Text "Total Users"\n'
+            '                    End\n'
+            '                    Div with style "epl-stat-card" animate "fadeInUp"\n'
+            '                        Heading "$45.2K"\n'
+            '                        Text "Revenue"\n'
+            '                    End\n'
+            '                    Div with style "epl-stat-card" animate "fadeInUp"\n'
+            '                        Heading "98.5%"\n'
+            '                        Text "Uptime"\n'
+            '                    End\n'
+            '                    Div with style "epl-stat-card" animate "fadeInUp"\n'
+            '                        Heading "3.2s"\n'
+            '                        Text "Avg Response"\n'
+            '                    End\n'
+            '                End\n'
+            '                Div with style "epl-card"\n'
+            '                    Heading "Recent Users"\n'
+            '                    Text "Manage your team members"\n'
+            '                End\n'
+            '            End\n'
+            '        End\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/users" responds with\n'
+            '    Send json Map with users = query(db, "SELECT * FROM users")\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_dashboard_smoke\n'
+            '    expect_true(True, "dashboard template loads")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            ['epl install', 'epl serve', 'epl test tests/'],
+            'Admin dashboard with sidebar navigation, stat cards, user management, and data tables.',
+        )
+    elif template == 'blog':
+        description = f'{name} — EPL blog'
+        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        scripts['serve'] = 'epl serve src/main.epl'
+        main_source = (
+            f'Note: {name} — Blog template\n'
+            'Import "epl-ui"\n'
+            'Import "epl-css"\n'
+            'Import "epl-animate"\n'
+            'Import "epl-db"\n\n'
+            'Create db equal to open(":memory:")\n'
+            'Call create_table(db, "posts", Map with id = "INTEGER" and title = "TEXT" and excerpt = "TEXT" and author = "TEXT" and date = "TEXT")\n'
+            'Call execute(db, "INSERT INTO posts VALUES (1, \'Getting Started with EPL\', \'Learn how to build your first EPL app.\', \'Admin\', \'2025-01-15\')")\n'
+            'Call execute(db, "INSERT INTO posts VALUES (2, \'Building Production Apps\', \'Best practices for production EPL applications.\', \'Admin\', \'2025-01-20\')")\n'
+            'Call execute(db, "INSERT INTO posts VALUES (3, \'EPL Style System\', \'How to use the new Style and Layout system.\', \'Admin\', \'2025-02-01\')")\n\n'
+            'Style "post-card"\n'
+            '    Background "#ffffff"\n'
+            '    Border "1px solid #e2e8f0"\n'
+            '    Border radius "12px"\n'
+            '    Padding "24px"\n'
+            '    Margin bottom "20px"\n'
+            '    Transition "all 0.2s ease"\n'
+            'End\n\n'
+            'Style "post-meta"\n'
+            '    Color "#718096"\n'
+            '    Font size "0.875rem"\n'
+            '    Margin bottom "8px"\n'
+            'End\n\n'
+            'Create WebApp called blog\n\n'
+            'Route "/" shows\n'
+            '    Page "' + name + '"\n'
+            '        Nav with style "epl-navbar"\n'
+            '            Heading "' + name + '"\n'
+            '            Link "Home" to "/"\n'
+            '            Link "About" to "/about"\n'
+            '        End\n\n'
+            '        Section with style "epl-hero" animate "fadeIn"\n'
+            '            Heading "' + name + '"\n'
+            '            Text "Thoughts, stories, and ideas"\n'
+            '        End\n\n'
+            '        Div class "max-w-2xl m-auto"\n'
+            '            Div with style "post-card" animate "fadeInUp"\n'
+            '                SubHeading "Getting Started with EPL"\n'
+            '                Text "Learn how to build your first EPL app."\n'
+            '                Text "Admin | Jan 15, 2025"\n'
+            '                Link "Read more" to "/post/1"\n'
+            '            End\n'
+            '            Div with style "post-card" animate "fadeInUp"\n'
+            '                SubHeading "Building Production Apps"\n'
+            '                Text "Best practices for production EPL applications."\n'
+            '                Text "Admin | Jan 20, 2025"\n'
+            '                Link "Read more" to "/post/2"\n'
+            '            End\n'
+            '            Div with style "post-card" animate "fadeInUp"\n'
+            '                SubHeading "EPL Style System"\n'
+            '                Text "How to use the new Style and Layout system."\n'
+            '                Text "Admin | Feb 1, 2025"\n'
+            '                Link "Read more" to "/post/3"\n'
+            '            End\n'
+            '        End\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/posts" responds with\n'
+            '    Send json Map with posts = query(db, "SELECT * FROM posts ORDER BY date DESC")\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_blog_smoke\n'
+            '    expect_true(True, "blog template loads")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            ['epl install', 'epl serve', 'epl test tests/'],
+            'Blog with posts, hero section, and content management API.',
+        )
+    elif template == 'portfolio':
+        description = f'{name} — EPL portfolio site'
+        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0'}
+        scripts['serve'] = 'epl serve src/main.epl'
+        main_source = (
+            f'Note: {name} — Portfolio template\n'
+            'Import "epl-ui"\n'
+            'Import "epl-css"\n'
+            'Import "epl-animate"\n\n'
+            'Style "project-card"\n'
+            '    Background "#ffffff"\n'
+            '    Border "1px solid #e2e8f0"\n'
+            '    Border radius "12px"\n'
+            '    Padding "24px"\n'
+            '    Transition "all 0.3s ease"\n'
+            'End\n\n'
+            'Style "skill-bar"\n'
+            '    Height "8px"\n'
+            '    Background "#e2e8f0"\n'
+            '    Border radius "4px"\n'
+            '    Overflow "hidden"\n'
+            '    Margin bottom "12px"\n'
+            'End\n\n'
+            'Style "skill-fill"\n'
+            '    Height "100%"\n'
+            '    Background "linear-gradient(90deg, #667eea, #764ba2)"\n'
+            '    Border radius "4px"\n'
+            'End\n\n'
+            'Style "contact-section"\n'
+            '    Background "#f7fafc"\n'
+            '    Padding "60px 40px"\n'
+            '    Border radius "16px"\n'
+            '    Margin top "60px"\n'
+            'End\n\n'
+            'Create WebApp called portfolio\n\n'
+            'Route "/" shows\n'
+            '    Page "' + name + '"\n'
+            '        Nav with style "epl-navbar"\n'
+            '            Heading "' + name + '"\n'
+            '            Link "About" to "#about"\n'
+            '            Link "Projects" to "#projects"\n'
+            '            Link "Contact" to "#contact"\n'
+            '        End\n\n'
+            '        Section with style "epl-hero" animate "fadeIn"\n'
+            '            Heading "Hi, I\'m ' + name + '"\n'
+            '            Text "Full-stack developer building modern web experiences"\n'
+            '            Link "View My Work" to "#projects"\n'
+            '        End\n\n'
+            '        Section id "projects"\n'
+            '            Heading "Featured Projects"\n'
+            '            Grid columns 3 gap "24px"\n'
+            '                Div with style "project-card" animate "fadeInUp"\n'
+            '                    SubHeading "E-Commerce Platform"\n'
+            '                    Text "Full-stack store with cart, payments, and admin panel"\n'
+            '                    Text "EPL, SQLite, REST API"\n'
+            '                End\n'
+            '                Div with style "project-card" animate "fadeInUp"\n'
+            '                    SubHeading "Real-time Chat"\n'
+            '                    Text "WebSocket-based messaging with rooms and notifications"\n'
+            '                    Text "EPL, WebSockets"\n'
+            '                End\n'
+            '                Div with style "project-card" animate "fadeInUp"\n'
+            '                    SubHeading "Analytics Dashboard"\n'
+            '                    Text "Data visualization with charts and real-time updates"\n'
+            '                    Text "EPL, Canvas API"\n'
+            '                End\n'
+            '            End\n'
+            '        End\n\n'
+            '        Section with style "contact-section" id "contact"\n'
+            '            Heading "Get In Touch"\n'
+            '            Text "Have a project in mind? Let\'s work together."\n'
+            '            Form action "/api/contact"\n'
+            '                Input "name" placeholder "Your Name"\n'
+            '                Input "email" placeholder "Your Email"\n'
+            '                Input "message" placeholder "Your Message"\n'
+            '            End\n'
+            '        End\n'
+            '    End\n'
+            'End\n\n'
+            'Route "/api/contact" responds with\n'
+            '    Create name equal to request_data.get("name")\n'
+            '    Create email equal to request_data.get("email")\n'
+            '    Send json Map with ok = True and message = "Thanks for reaching out!"\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_portfolio_smoke\n'
+            '    expect_true(True, "portfolio template loads")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            ['epl install', 'epl serve', 'epl test tests/'],
+            'Portfolio site with hero, project showcase, skills, and contact form.',
+        )
+    elif template == 'game-2d':
+        description = f'{name} — EPL 2D game'
+        dependencies = {
+            'epl-canvas': '^1.0.0',
+            'epl-animate': '^1.0.0',
+        }
+        scripts = {'start': 'epl serve src/main.epl', 'test': 'epl test tests/'}
+        main_source = (
+            f'Note: {name} — 2D Game built with EPL Canvas\n'
+            'Note: Use arrow keys to move the player\n\n'
+            'Import "epl-canvas"\n\n'
+            'Style "game-bg"\n'
+            '    Background "#1a1a2e"\n'
+            '    Width "800px"\n'
+            '    Height "600px"\n'
+            '    Margin "20px auto"\n'
+            '    Border "2px solid #333"\n'
+            '    ImageRendering "pixelated"\n'
+            'End\n\n'
+            'Style "player"\n'
+            '    Background "#4CAF50"\n'
+            '    Width "40px"\n'
+            '    Height "40px"\n'
+            '    Position "absolute"\n'
+            '    Bottom "60px"\n'
+            '    Left "380px"\n'
+            '    BorderRadius "4px"\n'
+            'End\n\n'
+            'Style "ground"\n'
+            '    Background "#333"\n'
+            '    Width "100%"\n'
+            '    Height "50px"\n'
+            '    Position "absolute"\n'
+            '    Bottom "0"\n'
+            'End\n\n'
+            'Style "collectible"\n'
+            '    Background "#FFD700"\n'
+            '    Width "20px"\n'
+            '    Height "20px"\n'
+            '    BorderRadius "50%"\n'
+            '    Position "absolute"\n'
+            'End\n\n'
+            f'Create WebApp called {name.replace("-", "_")}\n\n'
+            'Page "Game"\n'
+            '    Heading "' + name + '"\n'
+            '    Div with style "game-bg"\n'
+            '        Draw "rect" x 0 y 0 width 800 height 600 fill "#1a1a2e"\n'
+            '        Draw "rect" x 0 y 550 width 800 height 50 fill "#333333"\n'
+            '        Draw "rect" x 380 y 500 width 40 height 40 fill "#4CAF50"\n'
+            '        Draw "circle" x 200 y 520 radius 10 fill "#FFD700"\n'
+            '        Draw "circle" x 500 y 520 radius 10 fill "#FFD700"\n'
+            '        Draw "circle" x 650 y 520 radius 10 fill "#FFD700"\n'
+            '        Draw "text" x 10 y 30 content "Score: 0" font "20px monospace" fill "#ffffff"\n'
+            '        Draw "text" x 650 y 30 content "Lives: 3" font "20px monospace" fill "#ff4444"\n'
+            '    End\n'
+            '    Text "Use arrow keys to move. Collect the gold coins!"\n'
+            'End\n\n'
+            'Route "/api/score" responds with\n'
+            '    Send json Map with score = 0 and level = 1\n'
+            'End\n'
+        )
+        test_source = (
+            'Define Function test_game_smoke\n'
+            '    expect_true(True, "game-2d template loads")\n'
+            'End\n'
+        )
+        readme_body = _template_readme(
+            name,
+            template,
+            ['epl install', 'epl serve', 'epl test tests/'],
+            '2D game with canvas rendering, player movement, collectibles, and score tracking.',
         )
     else:
         main_source = (

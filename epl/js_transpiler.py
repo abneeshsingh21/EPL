@@ -170,6 +170,24 @@ class JSTranspiler:
             self._emit_destructure(node)
         elif isinstance(node, ast.ModuleAccess):
             self._line(f'{self._expr(node)};')
+        # v6.0: Style & Layout System
+        elif isinstance(node, ast.StyleDef):
+            self._emit_style_def(node)
+        elif isinstance(node, ast.StyledElement):
+            self._emit_styled_element(node)
+        elif isinstance(node, ast.LayoutContainer):
+            self._emit_layout_container(node)
+        elif isinstance(node, ast.ComponentDef):
+            self._emit_component_def(node)
+        elif isinstance(node, ast.AnimateDef):
+            self._emit_animate_def(node)
+        elif isinstance(node, (ast.ResponsiveBlock, ast.TransitionDef, ast.ComponentUse, ast.KeyframeDef)):
+            pass  # handled at CSS generation level
+        # v6.1: 3D & Canvas
+        elif isinstance(node, ast.Scene3D):
+            self._emit_scene_3d(node)
+        elif isinstance(node, ast.DrawCommand):
+            self._emit_draw_command(node)
         else:
             import sys
 
@@ -1021,6 +1039,232 @@ class JSTranspiler:
                 parts.append(f'{self._js_string(str(k)) if isinstance(k, str) else k}: {val}')
         joined = ', '.join(parts)
         return '{' + joined + '}'
+
+
+    # ─── v6.0: Style & Layout Emit Methods ────────────────
+
+    def _emit_style_def(self, node):
+        """Emit CSS injection via JavaScript."""
+        props = []
+        for p in node.properties:
+            val = p.value if isinstance(p.value, str) else str(p.value)
+            props.append(f'  {p.property_name}: {val};')
+        css_text = '\\n'.join(props)
+        self._line(f'// Style: .{node.name}')
+        self._line('(function() {')
+        self._line(f'  const s = document.createElement("style");')
+        self._line(f'  s.textContent = ".{node.name} {{\\n{css_text}\\n}}";')
+        self._line(f'  document.head.appendChild(s);')
+        self._line('})();')
+
+    def _emit_styled_element(self, node):
+        """Emit DOM element creation for styled elements."""
+        tag = node.tag if node.tag != 'container' else 'div'
+        var = f'_el_{id(node)}'
+        self._line(f'const {var} = document.createElement("{tag}");')
+        classes = list(node.styles) + list(node.class_names)
+        if node.attributes.get('data-animate'):
+            classes.append(f'animate-{node.attributes["data-animate"]}')
+        if classes:
+            self._line(f'{var}.className = "{" ".join(classes)}";')
+        if 'id' in node.attributes:
+            self._line(f'{var}.id = "{node.attributes["id"]}";')
+        self._line(f'document.body.appendChild({var});')
+        for child in node.children:
+            self._emit_stmt(child)
+
+    def _emit_layout_container(self, node):
+        """Emit flex/grid container via DOM."""
+        var = f'_layout_{id(node)}'
+        self._line(f'const {var} = document.createElement("div");')
+        style_parts = []
+        if node.layout_type == 'flex':
+            style_parts.append('display: flex')
+            if 'direction' in node.properties:
+                style_parts.append(f'flex-direction: {node.properties["direction"]}')
+            if 'gap' in node.properties:
+                style_parts.append(f'gap: {node.properties["gap"]}')
+            if 'align' in node.properties:
+                style_parts.append(f'align-items: {node.properties["align"]}')
+        elif node.layout_type == 'grid':
+            style_parts.append('display: grid')
+            if 'columns' in node.properties:
+                cols = node.properties['columns']
+                try:
+                    style_parts.append(f'grid-template-columns: repeat({int(cols)}, 1fr)')
+                except (ValueError, TypeError):
+                    style_parts.append(f'grid-template-columns: {cols}')
+            if 'gap' in node.properties:
+                style_parts.append(f'gap: {node.properties["gap"]}')
+        if style_parts:
+            self._line(f'{var}.style.cssText = "{"; ".join(style_parts)}";')
+        self._line(f'document.body.appendChild({var});')
+        for child in node.children:
+            self._emit_stmt(child)
+
+    def _emit_component_def(self, node):
+        """Emit component as a JavaScript function."""
+        params = ', '.join(p[0] if isinstance(p, tuple) else p for p in node.params)
+        self._line(f'function {node.name}({params}) {{')
+        self.indent += 1
+        for stmt in node.body:
+            self._emit_stmt(stmt)
+        self.indent -= 1
+        self._line('}')
+
+    def _emit_animate_def(self, node):
+        """Emit CSS @keyframes via JavaScript."""
+        keyframe_parts = []
+        for kf in node.keyframes:
+            props = []
+            for p in kf.properties:
+                val = p.value if isinstance(p.value, str) else str(p.value)
+                props.append(f'    {p.property_name}: {val};')
+            keyframe_parts.append(f'  {kf.percentage}% {{\\n' + '\\n'.join(props) + '\\n  }')
+        kf_css = '\\n'.join(keyframe_parts)
+        duration = node.duration or '1s'
+        easing = node.easing or 'ease'
+        iteration = node.iteration or '1'
+        self._line(f'// Animation: {node.name}')
+        self._line('(function() {')
+        self._line(f'  const s = document.createElement("style");')
+        self._line(f'  s.textContent = "@keyframes {node.name} {{\\n{kf_css}\\n}}'
+                   f'\\n.animate-{node.name} {{ animation: {node.name} {duration} {easing} {iteration}; }}";')
+        self._line(f'  document.head.appendChild(s);')
+        self._line('})();')
+
+
+    # ─── v6.1: 3D & Canvas Emit Methods ────────────────────
+
+    def _emit_scene_3d(self, node):
+        """Emit Three.js scene initialization as IIFE."""
+        name = node.name
+        w, h = node.width, node.height
+
+        self._line(f'// 3D Scene: {name}')
+        self._line('(function() {')
+        self._line(f'  const container = document.createElement("div");')
+        self._line(f'  container.id = "scene-{name}";')
+        self._line(f'  container.style.width = "{w}px";')
+        self._line(f'  container.style.height = "{h}px";')
+        self._line(f'  document.body.appendChild(container);')
+        self._line(f'  const scene = new THREE.Scene();')
+
+        cam_code = f'  const camera = new THREE.PerspectiveCamera(75, {w}/{h}, 0.1, 1000);'
+        cam_pos = '  camera.position.set(0, 5, 10);'
+        cam_look = '  camera.lookAt(0, 0, 0);'
+
+        for child in node.body:
+            if isinstance(child, ast.CameraSetup):
+                px, py, pz = child.position
+                lx, ly, lz = child.look_at
+                cam_code = f'  const camera = new THREE.PerspectiveCamera({child.fov}, {w}/{h}, 0.1, 1000);'
+                cam_pos = f'  camera.position.set({px}, {py}, {pz});'
+                cam_look = f'  camera.lookAt({lx}, {ly}, {lz});'
+
+        self._line(cam_code)
+        self._line(cam_pos)
+        self._line(cam_look)
+        self._line(f'  const renderer = new THREE.WebGLRenderer({{antialias: true}});')
+        self._line(f'  renderer.setSize({w}, {h});')
+        self._line(f'  container.appendChild(renderer.domElement);')
+
+        for child in node.body:
+            if isinstance(child, ast.LightSetup):
+                lt = child.light_type
+                color = child.color
+                intensity = child.intensity
+                if lt == 'ambient':
+                    self._line(f'  scene.add(new THREE.AmbientLight("{color}", {intensity}));')
+                elif lt == 'directional':
+                    pos = child.position or [5, 10, 5]
+                    self._line(f'  {{ const l = new THREE.DirectionalLight("{color}", {intensity});')
+                    self._line(f'    l.position.set({pos[0]}, {pos[1]}, {pos[2]}); scene.add(l); }}')
+                elif lt == 'point':
+                    pos = child.position or [0, 5, 0]
+                    self._line(f'  {{ const l = new THREE.PointLight("{color}", {intensity});')
+                    self._line(f'    l.position.set({pos[0]}, {pos[1]}, {pos[2]}); scene.add(l); }}')
+            elif isinstance(child, ast.MeshAdd):
+                geo_map = {
+                    'cube': 'BoxGeometry(1,1,1)',
+                    'sphere': 'SphereGeometry(1,32,32)',
+                    'plane': 'PlaneGeometry(1,1)',
+                    'cylinder': 'CylinderGeometry(0.5,0.5,1,32)',
+                    'cone': 'ConeGeometry(0.5,1,32)',
+                    'torus': 'TorusGeometry(1,0.4,16,100)',
+                }
+                geo = geo_map.get(child.shape, 'BoxGeometry(1,1,1)')
+                color = child.color or '#667eea'
+                px, py, pz = child.position
+                sx, sy, sz = child.scale
+                rx, ry, rz = child.rotation
+                self._line(f'  {{ const g = new THREE.{geo};')
+                self._line(f'    const m = new THREE.MeshStandardMaterial({{color: "{color}"}});')
+                self._line(f'    const mesh = new THREE.Mesh(g, m);')
+                self._line(f'    mesh.position.set({px}, {py}, {pz});')
+                self._line(f'    mesh.scale.set({sx}, {sy}, {sz});')
+                self._line(f'    mesh.rotation.set({rx}*Math.PI/180, {ry}*Math.PI/180, {rz}*Math.PI/180);')
+                self._line(f'    scene.add(mesh); }}')
+
+        self._line('  function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }')
+        self._line('  animate();')
+        self._line('})();')
+
+    def _emit_draw_command(self, node):
+        """Emit Canvas 2D drawing code as IIFE."""
+        shape = node.shape
+        props = node.properties
+
+        self._line(f'// Canvas Draw: {shape}')
+        self._line('(function() {')
+        self._line('  const canvas = document.createElement("canvas");')
+        self._line('  canvas.width = 800; canvas.height = 600;')
+        self._line('  document.body.appendChild(canvas);')
+        self._line('  const ctx = canvas.getContext("2d");')
+
+        if shape == 'rect':
+            x, y = props.get('x', 0), props.get('y', 0)
+            w, h = props.get('width', 100), props.get('height', 50)
+            fill = props.get('fill', '#000')
+            self._line(f'  ctx.fillStyle = "{fill}";')
+            self._line(f'  ctx.fillRect({x}, {y}, {w}, {h});')
+            if 'stroke' in props:
+                self._line(f'  ctx.strokeStyle = "{props["stroke"]}";')
+                self._line(f'  ctx.strokeRect({x}, {y}, {w}, {h});')
+        elif shape == 'circle':
+            x, y = props.get('x', 50), props.get('y', 50)
+            r = props.get('radius', 25)
+            fill = props.get('fill', '#000')
+            self._line(f'  ctx.beginPath();')
+            self._line(f'  ctx.arc({x}, {y}, {r}, 0, Math.PI * 2);')
+            self._line(f'  ctx.fillStyle = "{fill}"; ctx.fill();')
+            if 'stroke' in props:
+                self._line(f'  ctx.strokeStyle = "{props["stroke"]}"; ctx.stroke();')
+        elif shape == 'line':
+            x1, y1 = props.get('x1', 0), props.get('y1', 0)
+            x2, y2 = props.get('x2', 100), props.get('y2', 100)
+            stroke = props.get('stroke', '#000')
+            lw = props.get('width', 1)
+            self._line(f'  ctx.beginPath();')
+            self._line(f'  ctx.moveTo({x1}, {y1}); ctx.lineTo({x2}, {y2});')
+            self._line(f'  ctx.strokeStyle = "{stroke}"; ctx.lineWidth = {lw}; ctx.stroke();')
+        elif shape == 'text':
+            x, y = props.get('x', 10), props.get('y', 30)
+            content = props.get('content', '')
+            font = props.get('font', '16px Arial')
+            fill = props.get('fill', '#000')
+            self._line(f'  ctx.font = "{font}";')
+            self._line(f'  ctx.fillStyle = "{fill}";')
+            self._line(f'  ctx.fillText("{content}", {x}, {y});')
+        elif shape == 'path':
+            points = props.get('points', '')
+            fill = props.get('fill', 'transparent')
+            self._line(f'  const p = new Path2D("{points}");')
+            self._line(f'  ctx.fillStyle = "{fill}"; ctx.fill(p);')
+            if 'stroke' in props:
+                self._line(f'  ctx.strokeStyle = "{props["stroke"]}"; ctx.stroke(p);')
+
+        self._line('})();')
 
 
 def transpile_to_js(program: ast.Program) -> str:

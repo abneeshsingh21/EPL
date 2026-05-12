@@ -819,6 +819,273 @@ import CryptoKit
             if widget_code:
                 self._widgets.append(widget_code)
 
+        # v6.0: Style & Layout System (SwiftUI)
+        elif isinstance(node, ast.StyleDef):
+            self._register_style_modifier(node)
+        elif isinstance(node, ast.StyledElement):
+            lines.extend(self._emit_styled_element(node))
+        elif isinstance(node, ast.LayoutContainer):
+            lines.extend(self._emit_layout_container(node))
+        elif isinstance(node, ast.ComponentDef):
+            self._register_component(node)
+        elif isinstance(node, ast.ComponentUse):
+            lines.extend(self._emit_component_use(node))
+        elif isinstance(node, ast.AnimateDef):
+            self._register_animation(node)
+        # v6.1: 3D & Canvas
+        elif isinstance(node, ast.Scene3D):
+            lines.extend(self._emit_scene_3d(node))
+        elif isinstance(node, ast.DrawCommand):
+            lines.extend(self._emit_draw_command(node))
+        elif isinstance(node, (ast.ResponsiveBlock, ast.TransitionDef, ast.KeyframeDef)):
+            pass
+
+        return lines
+
+    # ─── v6.0+v6.1: Style, Layout, 3D & Canvas (SwiftUI) ────
+
+    def _css_value_to_num(self, value):
+        """Extract numeric value from CSS size string."""
+        if isinstance(value, (int, float)):
+            return int(value)
+        s = str(value).replace('px', '').replace('rem', '').replace('em', '').strip()
+        try:
+            return int(float(s))
+        except (ValueError, TypeError):
+            return 0
+
+    _NAMED_COLORS = {
+        'red': 'ff0000', 'green': '00ff00', 'blue': '0000ff',
+        'white': 'ffffff', 'black': '000000', 'yellow': 'ffff00',
+        'cyan': '00ffff', 'magenta': 'ff00ff', 'orange': 'ff8c00',
+        'purple': '800080', 'pink': 'ffc0cb', 'gray': '808080',
+        'grey': '808080', 'transparent': '000000',
+    }
+
+    def _css_color_to_swift(self, color_str):
+        """Convert CSS color to SwiftUI Color."""
+        if not color_str:
+            return 'Color.clear'
+        c = color_str.strip().lstrip('#')
+        if c.lower() in self._NAMED_COLORS:
+            c = self._NAMED_COLORS[c.lower()]
+        if len(c) == 3 and all(ch in '0123456789abcdefABCDEF' for ch in c):
+            c = ''.join(ch * 2 for ch in c)
+        if len(c) == 6 and all(ch in '0123456789abcdefABCDEF' for ch in c):
+            r = int(c[0:2], 16)
+            g = int(c[2:4], 16)
+            b = int(c[4:6], 16)
+            return f'Color(red: {r}/255.0, green: {g}/255.0, blue: {b}/255.0)'
+        return 'Color.black'
+
+    def _register_style_modifier(self, node):
+        """Register a ViewModifier struct for reusable styling."""
+        self._imports.add('SwiftUI')
+        name = node.name.replace('-', '_').replace(' ', '_').title().replace('_', '')
+
+        modifiers = []
+        for prop in node.properties:
+            pname = prop.property_name.lower().replace('-', '_')
+            val = prop.value
+            if pname == 'background':
+                modifiers.append(f'.background({self._css_color_to_swift(val)})')
+            elif pname in ('padding', 'padding_all'):
+                modifiers.append(f'.padding({self._css_value_to_num(val)})')
+            elif pname in ('border_radius', 'borderradius'):
+                modifiers.append(f'.cornerRadius({self._css_value_to_num(val)})')
+            elif pname in ('box_shadow', 'boxshadow'):
+                modifiers.append(f'.shadow(radius: {self._css_value_to_num(val)})')
+            elif pname == 'width':
+                modifiers.append(f'.frame(width: {self._css_value_to_num(val)})')
+            elif pname == 'height':
+                modifiers.append(f'.frame(height: {self._css_value_to_num(val)})')
+            elif pname == 'opacity':
+                modifiers.append(f'.opacity({val})')
+
+        mod_chain = '\n            '.join(modifiers) if modifiers else ''
+        fn_lines = [
+            f'    struct {name}Style: ViewModifier {{',
+            f'        func body(content: Content) -> some View {{',
+            f'            content',
+            f'            {mod_chain}',
+            f'        }}',
+            f'    }}',
+        ]
+        self._functions.append(fn_lines)
+
+    def _emit_styled_element(self, node):
+        """Emit SwiftUI VStack/Group with modifiers."""
+        lines = []
+        tag = node.tag
+        container = 'VStack' if tag in ('section', 'article', 'main', 'nav', 'div') else 'Group'
+        lines.append(f'{container} {{')
+        for child in (node.children or []):
+            child_lines = self._emit_stmt(child)
+            for cl in child_lines:
+                lines.append(f'    {cl}')
+        lines.append('}')
+        for style_name in (node.styles or []):
+            name = style_name.replace('-', '_').replace(' ', '_').title().replace('_', '')
+            lines[-1] += f'\n.modifier({name}Style())'
+        return lines
+
+    def _emit_layout_container(self, node):
+        """Emit HStack/VStack/LazyVGrid."""
+        lines = []
+        props = node.properties
+        gap = self._css_value_to_num(props.get('gap', '0'))
+
+        if node.layout_type == 'grid':
+            cols = int(props.get('columns', 2))
+            lines.append(f'LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: {cols}), spacing: {gap}) {{')
+            for child in (node.children or []):
+                child_lines = self._emit_stmt(child)
+                for cl in child_lines:
+                    lines.append(f'    {cl}')
+            lines.append('}')
+        else:
+            direction = props.get('direction', 'column')
+            container = 'HStack' if direction == 'row' else 'VStack'
+            lines.append(f'{container}(spacing: {gap}) {{')
+            for child in (node.children or []):
+                child_lines = self._emit_stmt(child)
+                for cl in child_lines:
+                    lines.append(f'    {cl}')
+            lines.append('}')
+        return lines
+
+    def _register_component(self, node):
+        """Register a custom View struct."""
+        name = node.name.replace('-', '_').replace(' ', '_')
+        param_strs = []
+        for p in (node.params or []):
+            pname = p[0] if isinstance(p, tuple) else str(p)
+            param_strs.append(f'    var {pname}: String = ""')
+
+        body_lines = []
+        for stmt in (node.body or []):
+            body_lines.extend(self._emit_stmt(stmt))
+
+        fn_lines = [
+            f'    struct {name}View: View {{',
+        ]
+        fn_lines.extend(param_strs)
+        fn_lines.append(f'        var body: some View {{')
+        fn_lines.append(f'            VStack {{')
+        for bl in body_lines:
+            fn_lines.append(f'                {bl}')
+        fn_lines.append(f'            }}')
+        fn_lines.append(f'        }}')
+        fn_lines.append(f'    }}')
+        self._functions.append(fn_lines)
+
+    def _emit_component_use(self, node):
+        """Emit component instantiation."""
+        name = node.component_name.replace('-', '_').replace(' ', '_')
+        return [f'{name}View()']
+
+    def _register_animation(self, node):
+        """Register animation state variable."""
+        name = node.name.replace('-', '_')
+        duration = str(node.duration or '1s').replace('s', '').replace('ms', '')
+        try:
+            dur_val = float(duration) if '.' in duration else float(duration)
+        except ValueError:
+            dur_val = 1.0
+        self._state_vars.append({
+            'name': f'{name}Active',
+            'type': 'Bool',
+            'default': 'false',
+        })
+
+    def _emit_scene_3d(self, node):
+        """Emit SceneKit 3D scene."""
+        self._imports.add('SceneKit')
+        lines = []
+        w, h = node.width, node.height
+        lines.append(f'// 3D Scene: {node.name}')
+        lines.append(f'SceneView(scene: {{')
+        lines.append(f'    let scene = SCNScene()')
+
+        for child in node.body:
+            if isinstance(child, ast.CameraSetup):
+                px, py, pz = child.position
+                lines.append(f'    let cameraNode = SCNNode()')
+                lines.append(f'    cameraNode.camera = SCNCamera()')
+                lines.append(f'    cameraNode.position = SCNVector3({px}, {py}, {pz})')
+                lines.append(f'    scene.rootNode.addChildNode(cameraNode)')
+            elif isinstance(child, ast.LightSetup):
+                lt = child.light_type
+                scn_type = {'ambient': '.ambient', 'directional': '.directional', 'point': '.omni'}.get(lt, '.ambient')
+                lines.append(f'    let lightNode = SCNNode()')
+                lines.append(f'    lightNode.light = SCNLight()')
+                lines.append(f'    lightNode.light!.type = {scn_type}')
+                lines.append(f'    lightNode.light!.intensity = {child.intensity * 1000}')
+                if child.position:
+                    px, py, pz = child.position
+                    lines.append(f'    lightNode.position = SCNVector3({px}, {py}, {pz})')
+                lines.append(f'    scene.rootNode.addChildNode(lightNode)')
+            elif isinstance(child, ast.MeshAdd):
+                geo_map = {
+                    'cube': f'SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)',
+                    'sphere': f'SCNSphere(radius: 1)',
+                    'plane': f'SCNFloor()',
+                    'cylinder': f'SCNCylinder(radius: 0.5, height: 1)',
+                    'cone': f'SCNCone(topRadius: 0, bottomRadius: 0.5, height: 1)',
+                }
+                geo = geo_map.get(child.shape, 'SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)')
+                px, py, pz = child.position
+                color = self._css_color_to_swift(child.color or '#667eea')
+                lines.append(f'    let meshNode = SCNNode(geometry: {geo})')
+                lines.append(f'    meshNode.position = SCNVector3({px}, {py}, {pz})')
+                lines.append(f'    meshNode.geometry?.firstMaterial?.diffuse.contents = UIColor({color})')
+                lines.append(f'    scene.rootNode.addChildNode(meshNode)')
+
+        lines.append(f'    return scene')
+        lines.append(f'}}(), options: [.allowsCameraControl])')
+        lines.append(f'.frame(width: {w}, height: {h})')
+        return lines
+
+    def _emit_draw_command(self, node):
+        """Emit SwiftUI Canvas drawing."""
+        lines = []
+        props = node.properties
+        shape = node.shape
+
+        lines.append('Canvas { context, size in')
+
+        if shape == 'rect':
+            x, y = props.get('x', 0), props.get('y', 0)
+            w, h = props.get('width', 100), props.get('height', 50)
+            fill = self._css_color_to_swift(props.get('fill', '#000'))
+            lines.append(f'    context.fill(Path(CGRect(x: {x}, y: {y}, width: {w}, height: {h})), with: .color({fill}))')
+        elif shape == 'circle':
+            x, y = props.get('x', 50), props.get('y', 50)
+            r = props.get('radius', 25)
+            fill = self._css_color_to_swift(props.get('fill', '#000'))
+            lines.append(f'    let rect = CGRect(x: {x - r}, y: {y - r}, width: {r * 2}, height: {r * 2})')
+            lines.append(f'    context.fill(Circle().path(in: rect), with: .color({fill}))')
+        elif shape == 'line':
+            x1, y1 = props.get('x1', 0), props.get('y1', 0)
+            x2, y2 = props.get('x2', 100), props.get('y2', 100)
+            stroke = self._css_color_to_swift(props.get('stroke', '#000'))
+            lw = props.get('width', 1)
+            lines.append(f'    var path = Path()')
+            lines.append(f'    path.move(to: CGPoint(x: {x1}, y: {y1}))')
+            lines.append(f'    path.addLine(to: CGPoint(x: {x2}, y: {y2}))')
+            lines.append(f'    context.stroke(path, with: .color({stroke}), lineWidth: {lw})')
+        elif shape == 'text':
+            x, y = props.get('x', 10), props.get('y', 30)
+            content = props.get('content', '')
+            fill = self._css_color_to_swift(props.get('fill', '#000'))
+            lines.append(f'    context.draw(Text("{content}").foregroundColor({fill}), at: CGPoint(x: {x}, y: {y}))')
+        elif shape == 'path':
+            fill = self._css_color_to_swift(props.get('fill', '#000'))
+            lines.append(f'    let path = Path()')
+            lines.append(f'    context.fill(path, with: .color({fill}))')
+
+        lines.append('}')
+        lines.append('.frame(width: 800, height: 600)')
         return lines
 
     def _swiftui_widget(self, wtype, props):
