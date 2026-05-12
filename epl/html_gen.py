@@ -538,8 +538,9 @@ def generate_html(page_def, data_store=None, form_data=None, styles=None, compon
     store = data_store if data_store is not None else {}
     comps = components or {}
 
+    batched_elements = _batch_draw_commands(elements)
     body_html = '\n'.join(
-        _render_any_element(e, store, form_data, comps) for e in elements if e
+        _render_any_element(e, store, form_data, comps) for e in batched_elements if e
     )
     scripts = '\n'.join(_extract_scripts(e) for e in elements if e)
 
@@ -593,6 +594,26 @@ def _esc_js(text):
         .replace('\r', '\\r')
         .replace('</', '<\\/')
     )
+
+
+import re as _re
+
+_CSS_SAFE_IDENT_RE = _re.compile(r'^[a-zA-Z_-][a-zA-Z0-9_-]*$')
+_CSS_SAFE_VALUE_RE = _re.compile(r'^[a-zA-Z0-9_.#%,() /:;-]+$')
+
+
+def _esc_css_ident(name):
+    """Sanitize a CSS class/identifier name — strip unsafe characters."""
+    if not isinstance(name, str):
+        name = str(name)
+    return _re.sub(r'[^a-zA-Z0-9_-]', '', name)
+
+
+def _esc_css_value(value):
+    """Sanitize a CSS property value — remove dangerous characters."""
+    if not isinstance(value, str):
+        value = str(value)
+    return value.replace('{', '').replace('}', '').replace(';', '').replace('<', '').replace('>', '')
 
 
 def _safe_href(url):
@@ -738,8 +759,8 @@ def _generate_custom_css(styles):
             value = prop.value
             if isinstance(value, ast.Literal):
                 value = value.value
-            props.append(f'    {prop.property_name}: {value};')
-        css_parts.append(f'.{style_def.name} {{\n' + '\n'.join(props) + '\n}')
+            props.append(f'    {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};')
+        css_parts.append(f'.{_esc_css_ident(style_def.name)} {{\n' + '\n'.join(props) + '\n}')
     return '\n\n'.join(css_parts)
 
 
@@ -749,6 +770,7 @@ def _generate_animation_css(animations):
         return ''
     css_parts = []
     for anim in animations:
+        safe_name = _esc_css_ident(anim.name)
         keyframe_css = []
         for kf in anim.keyframes:
             props = []
@@ -756,19 +778,36 @@ def _generate_animation_css(animations):
                 value = prop.value
                 if isinstance(value, ast.Literal):
                     value = value.value
-                props.append(f'        {prop.property_name}: {value};')
+                props.append(f'        {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};')
             keyframe_css.append(f'    {kf.percentage}% {{\n' + '\n'.join(props) + '\n    }')
-        css_parts.append(f'@keyframes {anim.name} {{\n' + '\n'.join(keyframe_css) + '\n}')
+        css_parts.append(f'@keyframes {safe_name} {{\n' + '\n'.join(keyframe_css) + '\n}')
 
-        duration = anim.duration or '1s'
-        easing = anim.easing or 'ease'
-        iteration = anim.iteration or '1'
+        duration = _esc_css_value(anim.duration or '1s')
+        easing = _esc_css_value(anim.easing or 'ease')
+        iteration = _esc_css_value(anim.iteration or '1')
         css_parts.append(
-            f'.animate-{anim.name} {{\n'
-            f'    animation: {anim.name} {duration} {easing} {iteration};\n'
+            f'.animate-{safe_name} {{\n'
+            f'    animation: {safe_name} {duration} {easing} {iteration};\n'
             f'}}'
         )
     return '\n\n'.join(css_parts)
+
+
+def _batch_draw_commands(elements):
+    """Group consecutive DrawCommand elements into batched lists for single-canvas rendering."""
+    result = []
+    draw_batch = []
+    for elem in elements:
+        if isinstance(elem, ast.DrawCommand):
+            draw_batch.append(elem)
+        else:
+            if draw_batch:
+                result.append(draw_batch)
+                draw_batch = []
+            result.append(elem)
+    if draw_batch:
+        result.append(draw_batch)
+    return result
 
 
 def _render_any_element(elem, data_store=None, form_data=None, components=None):
@@ -799,6 +838,9 @@ def _render_any_element(elem, data_store=None, form_data=None, components=None):
     if isinstance(elem, ast.DrawCommand):
         return _render_draw_command(elem)
 
+    if isinstance(elem, list) and elem and all(isinstance(e, ast.DrawCommand) for e in elem):
+        return _render_draw_commands_batched(elem)
+
     return ''
 
 
@@ -812,13 +854,13 @@ def _render_styled_element(elem, data_store=None, form_data=None, components=Non
     if elem.attributes.get('data-animate'):
         classes.append(f'animate-{elem.attributes["data-animate"]}')
 
-    class_attr = f' class="{" ".join(classes)}"' if classes else ''
+    class_attr = f' class="{_esc(" ".join(classes))}"' if classes else ''
     id_attr = f' id="{_esc(elem.attributes["id"])}"' if 'id' in elem.attributes else ''
 
     style_attr = ''
     if elem.inline_styles:
         style_parts = [
-            f'{p.property_name}: {p.value if isinstance(p.value, str) else p.value}'
+            f'{_esc(p.property_name)}: {_esc(p.value if isinstance(p.value, str) else str(p.value))}'
             for p in elem.inline_styles
         ]
         style_attr = f' style="{"; ".join(style_parts)}"'
@@ -893,7 +935,8 @@ def _render_component_use(elem, data_store=None, form_data=None, components=None
 
 def _render_scene_3d(scene):
     """Render a Scene3D node to HTML with Three.js initialization script."""
-    name = _esc_js(scene.name)
+    name_js = _esc_js(scene.name)
+    name_html = _esc(scene.name)
     w = scene.width
     h = scene.height
 
@@ -959,11 +1002,11 @@ def _render_scene_3d(scene):
     meshes_code = '\n'.join(meshes_js)
 
     return (
-        f'<div id="scene-{name}" style="width:{w}px;height:{h}px;"></div>\n'
+        f'<div id="scene-{name_html}" style="width:{w}px;height:{h}px;"></div>\n'
         f'<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>\n'
         f'<script>\n'
         f'(function() {{\n'
-        f'  const container = document.getElementById("scene-{name}");\n'
+        f'  const container = document.getElementById("scene-{name_js}");\n'
         f'  const scene = new THREE.Scene();\n'
         f'  let camera;\n'
         f'  {camera_js}\n'
@@ -1060,3 +1103,78 @@ def _render_draw_command(cmd):
         f'}})();\n'
         f'</script>'
     )
+
+
+def _render_draw_commands_batched(commands):
+    """Render multiple DrawCommand nodes onto a single shared canvas."""
+    if not commands:
+        return ''
+    canvas_id = f'canvas-batch-{id(commands[0])}'
+    w = max(int(cmd.properties.get('canvas_width', 800)) for cmd in commands)
+    h = max(int(cmd.properties.get('canvas_height', 600)) for cmd in commands)
+
+    all_draw_code = []
+    for cmd in commands:
+        draw_code = _get_draw_code(cmd)
+        if draw_code:
+            all_draw_code.append(draw_code)
+
+    combined = '\n  '.join(all_draw_code)
+    return (
+        f'<canvas id="{canvas_id}" width="{w}" height="{h}"></canvas>\n'
+        f'<script>\n'
+        f'(function() {{\n'
+        f'  const c = document.getElementById("{canvas_id}");\n'
+        f'  const ctx = c.getContext("2d");\n'
+        f'  {combined}\n'
+        f'}})();\n'
+        f'</script>'
+    )
+
+
+def _get_draw_code(cmd):
+    """Extract just the canvas drawing code for a DrawCommand (no canvas creation)."""
+    shape = cmd.shape
+    props = cmd.properties
+
+    if shape == 'rect':
+        x, y = props.get('x', 0), props.get('y', 0)
+        rw, rh = props.get('width', 100), props.get('height', 50)
+        fill = _esc_js(props.get('fill', '#000'))
+        code = f'ctx.fillStyle = "{fill}"; ctx.fillRect({x}, {y}, {rw}, {rh});'
+        if 'stroke' in props:
+            code += f' ctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.strokeRect({x}, {y}, {rw}, {rh});'
+        return code
+
+    elif shape == 'circle':
+        x, y = props.get('x', 50), props.get('y', 50)
+        r = props.get('radius', 25)
+        fill = _esc_js(props.get('fill', '#000'))
+        code = f'ctx.beginPath(); ctx.arc({x}, {y}, {r}, 0, Math.PI*2); ctx.fillStyle = "{fill}"; ctx.fill();'
+        if 'stroke' in props:
+            code += f' ctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.stroke();'
+        return code
+
+    elif shape == 'line':
+        x1, y1 = props.get('x1', 0), props.get('y1', 0)
+        x2, y2 = props.get('x2', 100), props.get('y2', 100)
+        stroke = _esc_js(props.get('stroke', '#000'))
+        lw = props.get('width', 1)
+        return f'ctx.beginPath(); ctx.moveTo({x1},{y1}); ctx.lineTo({x2},{y2}); ctx.strokeStyle="{stroke}"; ctx.lineWidth={lw}; ctx.stroke();'
+
+    elif shape == 'text':
+        x, y = props.get('x', 10), props.get('y', 30)
+        content = _esc_js(props.get('content', ''))
+        font = _esc_js(props.get('font', '16px Arial'))
+        fill = _esc_js(props.get('fill', '#000'))
+        return f'ctx.font="{font}"; ctx.fillStyle="{fill}"; ctx.fillText("{content}",{x},{y});'
+
+    elif shape == 'path':
+        points = _esc_js(props.get('points', ''))
+        fill = _esc_js(props.get('fill', 'transparent'))
+        code = f'const p=new Path2D("{points}"); ctx.fillStyle="{fill}"; ctx.fill(p);'
+        if 'stroke' in props:
+            code += f' ctx.strokeStyle="{_esc_js(props["stroke"])}"; ctx.stroke(p);'
+        return code
+
+    return ''

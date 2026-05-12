@@ -21,6 +21,7 @@ def _esc_js(text):
         .replace("'", "\\'")
         .replace('\n', '\\n')
         .replace('\r', '\\r')
+        .replace('</', '<\\/')
     )
 
 
