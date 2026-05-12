@@ -1,0 +1,44 @@
+Comment This demo shows how to use the JavaScript/TypeScript Bridge in EPL
+
+Comment Load Node.js built-in modules
+Use javascript "path" as path
+Use javascript "os" as os
+
+Comment Use path.join to build a file path
+Create filepath equal to path.join("home", "user", "documents", "notes.txt")
+Print "Full path: " plus filepath
+
+Comment Use path.basename to extract the filename
+Create filename equal to path.basename(filepath)
+Print "Filename: " plus filename
+
+Comment Use path.extname to get the extension
+Create ext equal to path.extname(filepath)
+Print "Extension: " plus ext
+
+Comment Get the directory separator for this platform
+Print "Path separator: " plus path.sep
+
+Comment Get the operating system platform
+Create platform equal to os.platform()
+Print "Platform: " plus platform
+
+Comment Get system hostname
+Create hostname equal to os.hostname()
+Print "Hostname: " plus hostname
+
+Comment Get the system architecture
+Create arch equal to os.arch()
+Print "Architecture: " plus arch
+
+Comment Get the home directory
+Create homedir equal to os.homedir()
+Print "Home directory: " plus homedir
+
+Comment Get free system memory (in bytes)
+Create freeMemory equal to os.freemem()
+Print "Free memory: " plus freeMemory plus " bytes"
+
+Comment Get total system memory
+Create totalMemory equal to os.totalmem()
+Print "Total memory: " plus totalMemory plus " bytes"

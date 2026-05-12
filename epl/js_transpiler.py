@@ -147,6 +147,8 @@ class JSTranspiler:
             self._emit_enum(node)
         elif isinstance(node, ast.ImportStatement):
             self._emit_import(node)
+        elif isinstance(node, ast.UseJSStatement):
+            self._emit_use_js(node)
         elif isinstance(node, ast.SuperCall):
             self._emit_super_call(node)
         # v4 AST node support
@@ -647,6 +649,14 @@ class JSTranspiler:
             self._line(f'import * as {mod_name} from "{js_path}";')
         else:
             self._line(f'const {mod_name} = require("{js_path}");')
+
+    def _emit_use_js(self, node):
+        """Emit native JS import for Use javascript/typescript statements."""
+        alias = node.alias or node.library.split('/')[-1].replace('-', '_')
+        if self.module_format == 'esm' or self.target == 'browser':
+            self._line(f'import * as {alias} from "{node.library}";')
+        else:
+            self._line(f'const {alias} = require("{node.library}");')
 
     # ─── Expression Rendering ───────────────────────────
 

@@ -345,6 +345,7 @@ LOCKFILE_NAME = 'epl.lock'
 LOCKFILE_VERSION = 3
 PYTHON_DEPENDENCIES_SECTION = 'python-dependencies'
 GITHUB_DEPENDENCIES_SECTION = 'github-dependencies'
+JS_DEPENDENCIES_SECTION = 'js-dependencies'
 
 
 # ═══════════════════════════════════════════════════════════
@@ -632,6 +633,7 @@ def _toml_to_manifest(toml_data):
         'dependencies': toml_data.get('dependencies', {}),
         'python-dependencies': toml_data.get(PYTHON_DEPENDENCIES_SECTION, {}),
         'github-dependencies': toml_data.get(GITHUB_DEPENDENCIES_SECTION, {}),
+        'js-dependencies': toml_data.get(JS_DEPENDENCIES_SECTION, {}),
         'dev-dependencies': toml_data.get('dev-dependencies', {}),
         'scripts': toml_data.get('scripts', {}),
     }
@@ -661,6 +663,9 @@ def _manifest_to_toml(manifest):
     github_deps = manifest.get(GITHUB_DEPENDENCIES_SECTION, {})
     if github_deps:
         toml[GITHUB_DEPENDENCIES_SECTION] = github_deps
+    js_deps = manifest.get(JS_DEPENDENCIES_SECTION, {})
+    if js_deps:
+        toml[JS_DEPENDENCIES_SECTION] = js_deps
     kw = manifest.get('keywords', [])
     if kw:
         toml['project']['keywords'] = kw
@@ -1957,6 +1962,126 @@ def install_python_dependencies(path='.'):
             print(f'  Installed Python dependency: {requirement}')
         except subprocess.CalledProcessError:
             print(f'  Failed to install Python dependency: {requirement}')
+            ok = False
+    return ok
+
+
+# ─── JavaScript/TypeScript Dependency Management ─────────
+
+
+def list_js_dependencies(path='.'):
+    """Return JavaScript dependencies declared in the nearest project manifest."""
+    project_root = find_project_root(path)
+    if not project_root:
+        return []
+
+    manifest = load_manifest(project_root)
+    if not manifest:
+        return []
+
+    deps = manifest.get(JS_DEPENDENCIES_SECTION, {})
+    return [(name, str(version)) for name, version in deps.items()]
+
+
+def install_js_package(name, version=None, save=True, project_path='.'):
+    """Install an npm package and optionally save to epl.toml [js-dependencies].
+
+    Args:
+        name: npm package name (e.g. 'axios', 'lodash', '@types/node').
+        version: Optional version spec (e.g. '>=1.0.0', '^2.0.0').
+        save: If True, record the dependency under [js-dependencies].
+        project_path: Path to the EPL project.
+    """
+    npm_bin = shutil.which('npm')
+    if not npm_bin:
+        print('Error: npm is not installed or not found in PATH.')
+        print('Install Node.js from: https://nodejs.org/')
+        return False
+
+    install_target = f'{name}@{version}' if version else name
+    try:
+        subprocess.check_call(
+            [npm_bin, 'install', install_target],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        print(f'  Installed npm package: {install_target}')
+    except subprocess.CalledProcessError:
+        print(f'  Failed to install npm package: {install_target}')
+        return False
+
+    if save:
+        project_root = find_project_root(project_path)
+        if project_root:
+            manifest = load_manifest(project_root)
+            if manifest:
+                deps = manifest.setdefault(JS_DEPENDENCIES_SECTION, {})
+                deps[name] = version or '*'
+                save_manifest(manifest, project_root)
+                create_lockfile(project_root)
+                print(f'  Saved to [js-dependencies]: {name} = "{version or "*"}')
+    return True
+
+
+def remove_js_dependency(name, path='.'):
+    """Remove a JavaScript dependency from epl.toml [js-dependencies]."""
+    project_root = find_project_root(path)
+    if not project_root:
+        print('No epl.toml found.')
+        return False
+
+    manifest = load_manifest(project_root)
+    if not manifest:
+        return False
+
+    deps = manifest.get(JS_DEPENDENCIES_SECTION, {})
+    if name not in deps:
+        print(f'  JS dependency "{name}" not found in [js-dependencies].')
+        return False
+
+    del deps[name]
+    if deps:
+        manifest[JS_DEPENDENCIES_SECTION] = deps
+    else:
+        manifest.pop(JS_DEPENDENCIES_SECTION, None)
+    save_manifest(manifest, project_root)
+    create_lockfile(project_root)
+    print(f'  Removed JS dependency: {name}')
+    return True
+
+
+def install_js_dependencies(path='.'):
+    """Install all JavaScript dependencies declared in the nearest project manifest."""
+    project_root = find_project_root(path)
+    if not project_root:
+        return True
+
+    manifest = load_manifest(project_root)
+    if not manifest:
+        return True
+
+    deps = manifest.get(JS_DEPENDENCIES_SECTION, {})
+    if not deps:
+        return True
+
+    npm_bin = shutil.which('npm')
+    if not npm_bin:
+        print('Error: npm is not installed or not found in PATH.')
+        return False
+
+    print(f'  Installing {len(deps)} JavaScript dependencies...')
+    ok = True
+    for name, version in deps.items():
+        target = f'{name}@{version}' if version and version != '*' else name
+        try:
+            subprocess.check_call(
+                [npm_bin, 'install', target],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print(f'  Installed JS dependency: {target}')
+        except subprocess.CalledProcessError:
+            print(f'  Failed to install JS dependency: {target}')
             ok = False
     return ok
 

@@ -2,6 +2,18 @@
 
 All notable changes to EPL are documented in this file.
 
+## [Unreleased]
+
+### Added
+- **JavaScript/TypeScript Bridge** — New `Use javascript "library"` / `Use typescript "library"` syntax for accessing the NPM ecosystem from EPL
+  - `epl/js_bridge/` — Persistent Node.js subprocess bridge with JSON-RPC protocol over stdin/stdout
+  - `JSModule` wrapper class in `interpreter.py` — enables `module.method()` and `module.property` access
+  - NPM auto-install for allowlisted packages via `package_manager.py` integration
+  - `epl jsinstall <pkg>` / `epl jsremove <pkg>` / `epl jsdeps` — CLI commands for npm dependency management
+  - JS transpiler support — `UseJSStatement` emits proper ESM `import` or CommonJS `require`
+  - Error explainer patterns for Node.js-not-installed, missing modules, and bridge crashes
+  - 34 unit tests covering parser, AST, serialization, transpiler, and Node.js integration
+
 ## [7.5.1] — 2026-05-11
 
 ### Added (PR Integrations)

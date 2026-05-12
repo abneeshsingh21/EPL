@@ -17,6 +17,9 @@ Usage:
     epl pyinstall <import> [spec] Install/save a Python package
     epl pyremove <import>        Remove a Python package declaration
     epl pydeps                   List Python ecosystem dependencies
+    epl jsinstall <pkg> [ver]    Install/save an npm package for `Use javascript`
+    epl jsremove <pkg>           Remove an npm package declaration
+    epl jsdeps                   List npm/JS dependencies
     epl github <cmd>             Clone/pull/push GitHub projects
     epl serve <file.epl>         Start production server
     epl ios <file.epl>           Generate iOS app project
@@ -111,6 +114,9 @@ HELP = f"""\
   epl pyinstall <import> [spec]    Install/save a Python package for `Use python`
   epl pyremove <import>            Remove a Python dependency declaration
   epl pydeps                       List declared Python dependencies
+  epl jsinstall <pkg> [ver]        Install/save an npm package for `Use javascript`
+  epl jsremove <pkg>               Remove an npm dependency declaration
+  epl jsdeps                       List declared npm/JS dependencies
   epl modules                      List standard library modules
   epl github clone <owner/repo> [dir]
   epl github pull [path]
@@ -382,6 +388,9 @@ def cli_main(argv=None):
         'pyinstall': lambda: _py_install(rest),
         'pyremove': lambda: _py_remove(rest),
         'pydeps': lambda: _py_list(),
+        'jsinstall': lambda: _js_install(rest),
+        'jsremove': lambda: _js_remove(rest),
+        'jsdeps': lambda: _js_list(),
         'modules': lambda: _list_modules(),
         'github': lambda: _github(rest),
         'init': lambda: _init_project(rest),
@@ -1595,6 +1604,52 @@ def _py_list():
     for import_name, requirement in deps:
         display = import_name if requirement in ('', '*') else requirement
         print(f'  {import_name:20s} -> {display}')
+    print()
+    return 0
+
+
+# ─── JavaScript/TypeScript Bridge Commands ─────────────────
+
+
+def _js_install(args):
+    """Install an npm package and save to epl.toml [js-dependencies]."""
+    from epl.package_manager import install_js_dependencies, install_js_package
+
+    if not args:
+        return 0 if install_js_dependencies('.') else 1
+
+    no_save = '--no-save' in args
+    clean_args = [a for a in args if a != '--no-save']
+    name = clean_args[0]
+    version = clean_args[1] if len(clean_args) > 1 else None
+    return 0 if install_js_package(name, version, save=not no_save, project_path='.') else 1
+
+
+def _js_remove(args):
+    """Remove a JavaScript dependency from epl.toml [js-dependencies]."""
+    if not args:
+        print(f'{_red("Error:")} No npm package name specified.')
+        print('Usage: epl jsremove <package-name>')
+        return 1
+    from epl.package_manager import remove_js_dependency
+
+    return 0 if remove_js_dependency(args[0], '.') else 1
+
+
+def _js_list():
+    """List JavaScript dependencies declared in epl.toml."""
+    from epl.package_manager import list_js_dependencies
+
+    deps = list_js_dependencies('.')
+    if not deps:
+        print('  No JavaScript dependencies declared.')
+        return 0
+
+    print(f'\n  {_bold("Declared JavaScript Dependencies")} ({len(deps)}):')
+    print('  ' + '-' * 40)
+    for name, version in deps:
+        display = name if version in ('', '*') else version
+        print(f'  {name:20s} -> {display}')
     print()
     return 0
 
