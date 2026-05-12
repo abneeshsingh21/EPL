@@ -1,0 +1,106 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'epl/vm.py'
+      - 'epl/interpreter.py'
+      - 'epl/compiler.py'
+      - 'benchmarks/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install EPL
+        run: pip install -e .
+
+      - name: Run benchmarks (Interpreter)
+        run: |
+          cd benchmarks
+          python run_benchmarks.py --json > results_interpreter.json
+          echo "=== Interpreter Results ==="
+          python run_benchmarks.py
+
+      - name: Run benchmarks (VM)
+        run: |
+          cd benchmarks
+          python -c "
+          import contextlib, io, json, os, sys, time
+          sys.path.insert(0, '..')
+          from epl.lexer import Lexer
+          from epl.parser import Parser
+          from epl.vm import BytecodeCompiler, VM
+          from epl.errors import set_source_context
+
+          files = ['fibonacci.epl', 'strings.epl', 'lists.epl', 'recursion.epl', 'oop.epl']
+          results = []
+
+          for fname in files:
+              if not os.path.isfile(fname):
+                  continue
+              with open(fname) as f:
+                  source = f.read()
+              set_source_context(source, fname)
+
+              times = []
+              for _ in range(5):
+                  tokens = Lexer(source).tokenize()
+                  program = Parser(tokens).parse()
+                  compiler = BytecodeCompiler()
+                  bytecode = compiler.compile(program)
+                  vm = VM()
+                  start = time.perf_counter()
+                  with contextlib.redirect_stdout(io.StringIO()):
+                      vm.execute(bytecode)
+                  times.append(time.perf_counter() - start)
+
+              avg = sum(times) / len(times)
+              results.append({'name': fname, 'avg_ms': round(avg * 1000, 2), 'runs': 5})
+              print(f'{fname:20s} {avg*1000:8.2f}ms (VM)')
+
+          with open('results_vm.json', 'w') as f:
+              json.dump(results, f, indent=2)
+          "
+
+      - name: Generate benchmark summary
+        run: |
+          cd benchmarks
+          python -c "
+          import json
+
+          interp = json.load(open('results_interpreter.json'))
+          vm = json.load(open('results_vm.json'))
+
+          print('| Benchmark | Interpreter | VM | Speedup |')
+          print('|-----------|-------------|-------|---------|')
+
+          interp_map = {r['name']: r['avg_ms'] for r in interp}
+          vm_map = {r['name']: r['avg_ms'] for r in vm}
+
+          for name in sorted(set(list(interp_map.keys()) + list(vm_map.keys()))):
+              i_ms = interp_map.get(name, 0)
+              v_ms = vm_map.get(name, 0)
+              speedup = f'{i_ms/v_ms:.1f}x' if v_ms > 0 else 'N/A'
+              print(f'| {name:18s} | {i_ms:8.2f}ms | {v_ms:6.2f}ms | {speedup:7s} |')
+          " | tee benchmark_summary.md
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            benchmarks/results_interpreter.json
+            benchmarks/results_vm.json
+            benchmarks/benchmark_summary.md

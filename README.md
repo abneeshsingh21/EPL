@@ -291,9 +291,10 @@ epl upgrade               # Update EPL
 
 | Resource | Link |
 |----------|------|
-| Official Book (PDF)| [docs/epl_book.pdf](docs/epl_book.pdf) |
+| Documentation Site | [abneeshsingh21.github.io/EPL](https://abneeshsingh21.github.io/EPL/) |
 | Language Reference | [docs/language-reference.md](docs/language-reference.md) |
 | Getting Started | [docs/getting-started.md](docs/getting-started.md) |
+| Publishing Packages | [docs/publishing.md](docs/publishing.md) |
 | Architecture | [docs/architecture.md](docs/architecture.md) |
 | Package Manager | [docs/package-manager.md](docs/package-manager.md) |
 | Tutorials | [docs/tutorials.md](docs/tutorials.md) |
@@ -311,6 +312,14 @@ Install the EPL extension for:
 - ✅ Type check with `Ctrl+Shift+K`
 
 **Install:** Search `EPL` in VS Code Extensions, or visit the [Marketplace](https://marketplace.visualstudio.com/publishers/epl-lang).
+
+---
+
+## 💬 Community
+
+- [GitHub Discussions](https://github.com/abneeshsingh21/EPL/discussions) — Ask questions, share projects, propose features
+- [Issue Tracker](https://github.com/abneeshsingh21/EPL/issues) — Bug reports and feature requests
+- [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/) — Browse and publish EPL packages
 
 ---
 
