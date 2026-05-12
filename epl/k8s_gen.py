@@ -6,11 +6,62 @@ Usage:
 """
 
 import os
+import re
 import textwrap
+
+
+# ═══════════════════════════════════════════════════════════
+# Input Validation — prevent YAML/shell injection
+# ═══════════════════════════════════════════════════════════
+
+_SAFE_NAME_RE = re.compile(r'^[a-zA-Z][a-zA-Z0-9._-]{0,62}$')
+_SAFE_IMAGE_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._/:@-]{0,255}$')
+_SAFE_HOST_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9.*-]{0,253}$')
+_VALID_SERVICE_TYPES = ('ClusterIP', 'NodePort', 'LoadBalancer', 'ExternalName')
+
+
+def _validate_name(value: str, field: str) -> str:
+    if not value or not _SAFE_NAME_RE.match(value):
+        raise ValueError(
+            f"Invalid {field}: must start with a letter and contain only "
+            f"[a-zA-Z0-9._-], got: {value!r}"
+        )
+    return value
+
+
+def _validate_image(value: str) -> str:
+    if not value or not _SAFE_IMAGE_RE.match(value):
+        raise ValueError(
+            f"Invalid image reference: must match [a-zA-Z0-9._/:@-]+, got: {value!r}"
+        )
+    return value
+
+
+def _validate_host(value: str) -> str:
+    if not value or not _SAFE_HOST_RE.match(value):
+        raise ValueError(
+            f"Invalid hostname: must match [a-zA-Z0-9.*-]+, got: {value!r}"
+        )
+    return value
+
+
+def _validate_port(value: int) -> int:
+    if not isinstance(value, int) or value < 1 or value > 65535:
+        raise ValueError(f"Invalid port: must be 1-65535, got: {value!r}")
+    return value
+
+
+def _validate_service_type(value: str) -> str:
+    if value not in _VALID_SERVICE_TYPES:
+        raise ValueError(
+            f"Invalid service type: must be one of {_VALID_SERVICE_TYPES}, got: {value!r}"
+        )
+    return value
 
 
 def generate_namespace(app_name: str) -> str:
     """Generate a Kubernetes Namespace manifest."""
+    app_name = _validate_name(app_name, "app_name")
     return textwrap.dedent(f"""\
         apiVersion: v1
         kind: Namespace
@@ -24,6 +75,7 @@ def generate_namespace(app_name: str) -> str:
 
 def generate_configmap(app_name: str, env_vars: dict = None) -> str:
     """Generate a ConfigMap for non-secret environment variables."""
+    app_name = _validate_name(app_name, "app_name")
     if env_vars is None:
         env_vars = {"EPL_ENV": "production", "EPL_LOG_LEVEL": "info"}
     data_lines = "\n".join(f'  {k}: "{v}"' for k, v in env_vars.items())
@@ -46,6 +98,9 @@ def generate_deployment(app_name: str, image: str, port: int = 8000,
                          cpu_limit: str = "500m", mem_request: str = "128Mi",
                          mem_limit: str = "512Mi") -> str:
     """Generate a Deployment manifest."""
+    app_name = _validate_name(app_name, "app_name")
+    image = _validate_image(image)
+    port = _validate_port(port)
     return textwrap.dedent(f"""\
         apiVersion: apps/v1
         kind: Deployment
@@ -95,6 +150,9 @@ def generate_deployment(app_name: str, image: str, port: int = 8000,
 def generate_service(app_name: str, port: int = 8000,
                       service_type: str = "ClusterIP") -> str:
     """Generate a Service manifest."""
+    app_name = _validate_name(app_name, "app_name")
+    port = _validate_port(port)
+    service_type = _validate_service_type(service_type)
     return textwrap.dedent(f"""\
         apiVersion: v1
         kind: Service
@@ -115,6 +173,10 @@ def generate_service(app_name: str, port: int = 8000,
 def generate_ingress(app_name: str, host: str,
                       tls: bool = False, cert_secret: str = None) -> str:
     """Generate an Ingress manifest."""
+    app_name = _validate_name(app_name, "app_name")
+    host = _validate_host(host)
+    if cert_secret:
+        cert_secret = _validate_name(cert_secret, "cert_secret")
     tls_block = ""
     if tls:
         secret = cert_secret or f"{app_name}-tls"
@@ -145,6 +207,7 @@ def generate_ingress(app_name: str, host: str,
 def generate_hpa(app_name: str, min_replicas: int = 2,
                   max_replicas: int = 10, cpu_threshold: int = 70) -> str:
     """Generate a HorizontalPodAutoscaler manifest."""
+    app_name = _validate_name(app_name, "app_name")
     return textwrap.dedent(f"""\
         apiVersion: autoscaling/v2
         kind: HorizontalPodAutoscaler
@@ -175,6 +238,7 @@ def generate_all(app_name: str, image: str, host: str,
                   env_vars: dict = None, min_replicas: int = 2,
                   max_replicas: int = 10) -> list:
     """Generate all 6 manifests and write them to output_dir."""
+    output_dir = os.path.abspath(output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     manifests = {

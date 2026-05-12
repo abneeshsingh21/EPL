@@ -1949,7 +1949,7 @@ def _deploy(args):
         deploy_cli([])
         return 0
 
-    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s', 'all')
+    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi', 'k8s', 'aws', 'gcp', 'azure', 'all')
     if args[0] not in valid_targets:
         print(f"{_red('Error:')} Unknown deploy target '{args[0]}'")
         print(f'Valid targets: {", ".join(valid_targets)}')
