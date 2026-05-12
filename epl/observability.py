@@ -14,6 +14,7 @@ This automatically adds /_health, /_ready, /_metrics to any EPL web app.
 """
 
 import json
+import sys
 import time
 import threading
 import logging
@@ -34,6 +35,7 @@ _metrics = {
 }
 _metrics_lock = threading.Lock()
 _readiness = {"ready": True, "reason": ""}
+_readiness_lock = threading.Lock()
 
 
 # ═══════════════════════════════════════════════════════════
@@ -44,16 +46,36 @@ def record_request(duration: float = 0.0, error: bool = False) -> None:
     """Record a completed request. Call this after each request."""
     with _metrics_lock:
         _metrics["requests_total"] += 1
+        _metrics["requests_in_flight"] -= 1
         _metrics["response_time_sum"] += duration
         _metrics["response_time_count"] += 1
         if error:
             _metrics["errors_total"] += 1
 
 
+def start_request() -> None:
+    """Record that a new request has started (increments in-flight counter)."""
+    with _metrics_lock:
+        _metrics["requests_in_flight"] += 1
+
+
 def set_ready(ready: bool, reason: str = "") -> None:
     """Mark the app as ready or not ready."""
-    _readiness["ready"] = ready
-    _readiness["reason"] = reason
+    with _readiness_lock:
+        _readiness["ready"] = ready
+        _readiness["reason"] = reason
+
+
+def reset_metrics() -> None:
+    """Reset all metrics to initial state (useful for testing)."""
+    global _start_time
+    with _metrics_lock:
+        _metrics["requests_total"] = 0
+        _metrics["errors_total"] = 0
+        _metrics["requests_in_flight"] = 0
+        _metrics["response_time_sum"] = 0.0
+        _metrics["response_time_count"] = 0
+    _start_time = time.time()
 
 
 def get_uptime() -> float:
@@ -91,12 +113,13 @@ def health_response(app_name: str = "epl-app",
 
 def readiness_response() -> dict:
     """Generate a readiness check response dict."""
-    if _readiness["ready"]:
-        return {"status": "ready"}
-    return {
-        "status": "not_ready",
-        "reason": _readiness["reason"]
-    }
+    with _readiness_lock:
+        if _readiness["ready"]:
+            return {"status": "ready"}
+        return {
+            "status": "not_ready",
+            "reason": _readiness["reason"]
+        }
 
 
 # ═══════════════════════════════════════════════════════════
@@ -173,7 +196,8 @@ class StructuredLogger:
             "time":    round(time.time(), 3),
         }
         entry.update(kwargs)
-        print(json.dumps(entry))
+        sys.stderr.write(json.dumps(entry) + '\n')
+        sys.stderr.flush()
 
     def info(self, msg: str, **kwargs) -> None:
         self._log("info", msg, **kwargs)
@@ -212,15 +236,17 @@ def attach(app, app_name: str = None,
 
     def _health_handler(request):
         body = json.dumps(health_response(name, version), indent=2)
-        return body
+        return ('200 OK', [('Content-Type', 'application/json')], body)
 
     def _ready_handler(request):
         resp = readiness_response()
+        status = '200 OK' if resp.get('status') == 'ready' else '503 Service Unavailable'
         body = json.dumps(resp, indent=2)
-        return body
+        return (status, [('Content-Type', 'application/json')], body)
 
     def _metrics_handler(request):
-        return metrics_response(name)
+        body = metrics_response(name)
+        return ('200 OK', [('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')], body)
 
     # Register routes on the EPL web app
     app.add_route("/_health",  "callable", _health_handler)
