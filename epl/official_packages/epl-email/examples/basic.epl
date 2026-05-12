@@ -1,0 +1,46 @@
+Note: EPL Email Package — Basic Usage Examples
+Import "epl-email"
+
+Say "=== EPL Email Demo ==="
+
+Note: Create SMTP mailer (Gmail example)
+Say "Creating mailer..."
+Set mailer to create_mailer("smtp.gmail.com", 587, "your-email@gmail.com", "your-app-password")
+Say "Mailer configured for smtp.gmail.com:587"
+
+Note: Send a simple email
+Say ""
+Say "--- Sending plain text email ---"
+send_email(mailer, "recipient@example.com", "Hello from EPL!", "This email was sent using the EPL programming language.")
+Say "Email sent!"
+
+Note: Send HTML email
+Say ""
+Say "--- Sending HTML email ---"
+Set html to "<h1>Welcome to EPL</h1><p>Write code the way you think.</p>"
+send_html_email(mailer, "recipient@example.com", "Welcome!", html)
+Say "HTML email sent!"
+
+Note: Templates
+Say ""
+Say "--- Using templates ---"
+Set welcome_tpl to create_template("Hello {{name}}! Your account {{email}} is ready. Your plan: {{plan}}")
+Say "Template created"
+
+Set rendered to render_template(welcome_tpl, dict())
+Say "Rendered: " + rendered
+
+Note: Email validation
+Say ""
+Say "--- Validation ---"
+Set valid1 to validate_email_address("user@example.com")
+Say "user@example.com valid: " + valid1
+
+Set valid2 to validate_email_address("not-an-email")
+Say "not-an-email valid: " + valid2
+
+Set domain to extract_domain("ceo@company.io")
+Say "Domain of ceo@company.io: " + domain
+
+Say ""
+Say "=== Done! ==="

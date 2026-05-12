@@ -1,0 +1,13 @@
+[project]
+name = "epl-cache"
+version = "1.0.0"
+description = "Caching for EPL — in-memory LRU cache, TTL expiry, memoization, key-value store"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["cache", "lru", "ttl", "memoize", "memory", "store", "performance"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"

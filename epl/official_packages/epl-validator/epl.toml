@@ -1,0 +1,13 @@
+[project]
+name = "epl-validator"
+version = "1.0.0"
+description = "Data validation for EPL — schema validation, type checking, form rules, sanitization"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["validation", "schema", "form", "type-check", "sanitize", "rules"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"

@@ -1,0 +1,58 @@
+Note: EPL Validator Package — Basic Usage Examples
+Import "epl-validator"
+
+Say "=== EPL Validator Demo ==="
+
+Note: Type Checking
+Say ""
+Say "--- Type Checking ---"
+Say "Is 'hello' a string: " + is_string("hello")
+Say "Is 42 a number: " + is_number(42)
+Say "Is 3.14 an integer: " + is_integer(3.14)
+Say "Is True a boolean: " + is_boolean(True)
+
+Note: String Validators
+Say ""
+Say "--- String Validators ---"
+Say "Is 'user@test.com' email: " + is_email("user@test.com")
+Say "Is 'not-email' email: " + is_email("not-email")
+Say "Is 'https://epl.dev' URL: " + is_url("https://epl.dev")
+Say "Is '192.168.1.1' IP: " + is_ip_address("192.168.1.1")
+Say "Is 'abc123' alphanumeric: " + is_alphanumeric("abc123")
+Say "Is 'abc 123' alphanumeric: " + is_alphanumeric("abc 123")
+
+Note: Number Validators
+Say ""
+Say "--- Number Validators ---"
+Say "Is 5 positive: " + is_positive(5)
+Say "Is -3 negative: " + is_negative(-3)
+Say "Is 25 in range 0-150: " + is_in_range(25, 0, 150)
+Say "Is 200 in range 0-150: " + is_in_range(200, 0, 150)
+
+Note: Pattern Matching
+Say ""
+Say "--- Pattern Matching ---"
+Set phone_valid to matches_pattern("1234567890", "^[0-9]{10}$")
+Say "Is '1234567890' a 10-digit phone: " + phone_valid
+
+Note: Sanitization
+Say ""
+Say "--- Sanitization ---"
+Set dirty to "  <script>alert('xss')</script> Hello!  "
+Set clean to sanitize_string(dirty)
+Say "Sanitized: '" + clean + "'"
+
+Set html_safe to sanitize_html("<b>Bold</b> & 'quoted'")
+Say "HTML escaped: " + html_safe
+
+Set trimmed to trim_string("   spaces everywhere   ")
+Say "Trimmed: '" + trimmed + "'"
+
+Set normalized to normalize_whitespace("too    many     spaces")
+Say "Normalized: '" + normalized + "'"
+
+Set short to truncate_string("This is a very long string that should be shortened", 20)
+Say "Truncated: '" + short + "'"
+
+Say ""
+Say "=== Done! ==="

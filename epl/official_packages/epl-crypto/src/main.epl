@@ -1,0 +1,168 @@
+Note: EPL Crypto Package — Encryption & Cryptography in plain English
+Note: Import "epl-crypto" to use these functions.
+
+Note: ===========================================================
+Note:  AES Symmetric Encryption
+Note: ===========================================================
+
+Define Function aes_generate_key
+    Note: Generate a random 256-bit AES key
+    Note: Example: Set secret_key to aes_generate_key()
+    Return python_call("epl_crypto", "aes_generate_key")
+End
+
+Define Function aes_encrypt Takes plaintext, secret_key
+    Note: Encrypt data using AES-256-GCM
+    Note: Example: Set encrypted to aes_encrypt("Hello secret!", secret_key)
+    Return python_call("epl_crypto", "aes_encrypt", plaintext, secret_key)
+End
+
+Define Function aes_decrypt Takes ciphertext, secret_key
+    Note: Decrypt AES-encrypted data
+    Note: Example: Set original to aes_decrypt(encrypted, secret_key)
+    Return python_call("epl_crypto", "aes_decrypt", ciphertext, secret_key)
+End
+
+Note: ===========================================================
+Note:  RSA Asymmetric Encryption
+Note: ===========================================================
+
+Define Function rsa_generate_keypair Takes key_size
+    Note: Generate RSA public/private key pair (2048 or 4096 bits)
+    Note: Example: Set keys to rsa_generate_keypair(2048)
+    Return python_call("epl_crypto", "rsa_generate_keypair", key_size)
+End
+
+Define Function rsa_encrypt Takes plaintext, public_key
+    Note: Encrypt data using RSA public key
+    Note: Example: Set encrypted to rsa_encrypt("secret message", pub_key)
+    Return python_call("epl_crypto", "rsa_encrypt", plaintext, public_key)
+End
+
+Define Function rsa_decrypt Takes ciphertext, private_key
+    Note: Decrypt data using RSA private key
+    Note: Example: Set original to rsa_decrypt(encrypted, priv_key)
+    Return python_call("epl_crypto", "rsa_decrypt", ciphertext, private_key)
+End
+
+Define Function rsa_public_key_from Takes keypair
+    Note: Extract public key from a keypair
+    Note: Example: Set pub_key to rsa_public_key_from(keys)
+    Return python_call("epl_crypto", "rsa_get_public_key", keypair)
+End
+
+Define Function rsa_private_key_from Takes keypair
+    Note: Extract private key from a keypair
+    Note: Example: Set priv_key to rsa_private_key_from(keys)
+    Return python_call("epl_crypto", "rsa_get_private_key", keypair)
+End
+
+Note: ===========================================================
+Note:  Digital Signatures
+Note: ===========================================================
+
+Define Function sign_message Takes message, private_key
+    Note: Create a digital signature for a message using RSA private key
+    Note: Example: Set signature to sign_message("important data", priv_key)
+    Return python_call("epl_crypto", "sign", message, private_key)
+End
+
+Define Function verify_signature Takes message, signature, public_key
+    Note: Verify a digital signature against the original message
+    Note: Example: Set is_valid to verify_signature("data", sig, pub_key)
+    Return python_call("epl_crypto", "verify_signature", message, signature, public_key)
+End
+
+Note: ===========================================================
+Note:  Key Derivation & Password-Based Encryption
+Note: ===========================================================
+
+Define Function derive_key Takes password, salt, iterations
+    Note: Derive an encryption key from a password using PBKDF2
+    Note: Example: Set derived to derive_key("my password", salt, 100000)
+    Return python_call("epl_crypto", "derive_key", password, salt, iterations)
+End
+
+Define Function generate_salt Takes length
+    Note: Generate a cryptographic salt
+    Note: Example: Set salt to generate_salt(16)
+    Return python_call("epl_crypto", "generate_salt", length)
+End
+
+Define Function password_encrypt Takes plaintext, password
+    Note: Encrypt data using a password (derives key internally)
+    Note: Example: Set encrypted to password_encrypt("secret data", "my_password")
+    Return python_call("epl_crypto", "password_encrypt", plaintext, password)
+End
+
+Define Function password_decrypt Takes ciphertext, password
+    Note: Decrypt password-encrypted data
+    Note: Example: Set original to password_decrypt(encrypted, "my_password")
+    Return python_call("epl_crypto", "password_decrypt", ciphertext, password)
+End
+
+Note: ===========================================================
+Note:  File Encryption
+Note: ===========================================================
+
+Define Function encrypt_file Takes input_path, output_path, secret_key
+    Note: Encrypt a file using AES-256
+    Note: Example: encrypt_file("secret.pdf", "secret.pdf.enc", key)
+    Return python_call("epl_crypto", "encrypt_file", input_path, output_path, secret_key)
+End
+
+Define Function decrypt_file Takes input_path, output_path, secret_key
+    Note: Decrypt an AES-encrypted file
+    Note: Example: decrypt_file("secret.pdf.enc", "secret.pdf", key)
+    Return python_call("epl_crypto", "decrypt_file", input_path, output_path, secret_key)
+End
+
+Note: ===========================================================
+Note:  Hashing & Checksums
+Note: ===========================================================
+
+Define Function hash_file Takes file_path, algorithm
+    Note: Compute hash of a file (sha256, sha512, md5)
+    Note: Example: Set checksum to hash_file("data.bin", "sha256")
+    Return python_call("epl_crypto", "hash_file", file_path, algorithm)
+End
+
+Define Function secure_random_bytes Takes num_bytes
+    Note: Generate cryptographically secure random bytes
+    Note: Example: Set nonce to secure_random_bytes(16)
+    Return python_call("epl_crypto", "random_bytes", num_bytes)
+End
+
+Define Function secure_random_hex Takes length
+    Note: Generate a secure random hex string
+    Note: Example: Set token_hex to secure_random_hex(32)
+    Return python_call("epl_crypto", "random_hex", length)
+End
+
+Note: ===========================================================
+Note:  Encoding
+Note: ===========================================================
+
+Define Function to_base64 Takes data
+    Note: Encode data to Base64 string
+    Note: Example: Set encoded to to_base64("Hello World")
+    Return python_call("epl_crypto", "to_base64", data)
+End
+
+Define Function from_base64 Takes encoded_data
+    Note: Decode a Base64 string back to original
+    Note: Example: Set original to from_base64(encoded)
+    Return python_call("epl_crypto", "from_base64", encoded_data)
+End
+
+Define Function to_hex Takes data
+    Note: Encode data to hexadecimal string
+    Note: Example: Set hex_str to to_hex("Hello")
+    Return python_call("epl_crypto", "to_hex", data)
+End
+
+Define Function from_hex Takes hex_data
+    Note: Decode hexadecimal string to original
+    Note: Example: Set original to from_hex(hex_str)
+    Return python_call("epl_crypto", "from_hex", hex_data)
+End
