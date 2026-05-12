@@ -92,7 +92,7 @@ def test_structured_logger_info(capsys):
     logger = StructuredLogger("testapp")
     logger.info("hello world")
     captured = capsys.readouterr()
-    data = json.loads(captured.out.strip())
+    data = json.loads(captured.err.strip())
     assert data["level"] == "info"
     assert data["msg"] == "hello world"
     assert data["app"] == "testapp"
@@ -102,7 +102,7 @@ def test_structured_logger_error(capsys):
     logger = StructuredLogger("testapp")
     logger.error("something broke", code=500)
     captured = capsys.readouterr()
-    data = json.loads(captured.out.strip())
+    data = json.loads(captured.err.strip())
     assert data["level"] == "error"
     assert data["code"] == 500
 
@@ -111,7 +111,7 @@ def test_structured_logger_extra_fields(capsys):
     logger = StructuredLogger("testapp")
     logger.info("request", path="/api/users", method="GET")
     captured = capsys.readouterr()
-    data = json.loads(captured.out.strip())
+    data = json.loads(captured.err.strip())
     assert data["path"] == "/api/users"
     assert data["method"] == "GET"
 
