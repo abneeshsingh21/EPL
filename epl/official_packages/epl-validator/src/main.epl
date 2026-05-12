@@ -1,0 +1,218 @@
+Note: EPL Validator Package — Data Validation in plain English
+Note: Import "epl-validator" to use these functions.
+
+Note: ===========================================================
+Note:  Schema Creation
+Note: ===========================================================
+
+Define Function create_schema Takes rules
+    Note: Create a validation schema from rules
+    Note: Example: Set schema to create_schema(my_rules)
+    Return python_call("epl_validator", "create_schema", rules)
+End
+
+Define Function add_field Takes schema, field_name, field_type, required
+    Note: Add a field rule to a schema
+    Note: Example: add_field(schema, "email", "email", True)
+    Return python_call("epl_validator", "add_field", schema, field_name, field_type, required)
+End
+
+Define Function add_field_with_range Takes schema, field_name, field_type, min_val, max_val, required
+    Note: Add a field with min/max constraints
+    Note: Example: add_field_with_range(schema, "age", "integer", 0, 150, True)
+    Return python_call("epl_validator", "add_field_range", schema, field_name, field_type, min_val, max_val, required)
+End
+
+Define Function add_string_field Takes schema, field_name, min_length, max_length, required
+    Note: Add a string field with length constraints
+    Note: Example: add_string_field(schema, "username", 3, 20, True)
+    Return python_call("epl_validator", "add_string_field", schema, field_name, min_length, max_length, required)
+End
+
+Define Function add_pattern_field Takes schema, field_name, regex_pattern, required
+    Note: Add a field that must match a regex pattern
+    Note: Example: add_pattern_field(schema, "phone", "^\\+?[0-9]{10,15}$", True)
+    Return python_call("epl_validator", "add_pattern_field", schema, field_name, regex_pattern, required)
+End
+
+Define Function add_enum_field Takes schema, field_name, allowed_values, required
+    Note: Add a field restricted to specific values
+    Note: Example: add_enum_field(schema, "role", ["admin", "user", "guest"], True)
+    Return python_call("epl_validator", "add_enum_field", schema, field_name, allowed_values, required)
+End
+
+Note: ===========================================================
+Note:  Validation
+Note: ===========================================================
+
+Define Function validate Takes schema, data
+    Note: Validate data against a schema, returns result with errors
+    Note: Example: Set result to validate(schema, user_data)
+    Return python_call("epl_validator", "validate", schema, data)
+End
+
+Define Function is_valid Takes schema, data
+    Note: Check if data is valid (returns True/False)
+    Note: Example: If is_valid(schema, input) then Say "Valid!"
+    Return python_call("epl_validator", "is_valid", schema, data)
+End
+
+Define Function get_errors Takes result
+    Note: Get list of validation errors from a result
+    Note: Example: Set errors to get_errors(result)
+    Return python_call("epl_validator", "get_errors", result)
+End
+
+Define Function get_first_error Takes result
+    Note: Get the first validation error message
+    Note: Example: Set msg to get_first_error(result)
+    Return python_call("epl_validator", "get_first_error", result)
+End
+
+Note: ===========================================================
+Note:  Type Checking
+Note: ===========================================================
+
+Define Function is_string Takes val
+    Note: Check if value is a string
+    Note: Example: If is_string(name) then Say "It's a string"
+    Return python_call("epl_validator", "is_string", val)
+End
+
+Define Function is_number Takes val
+    Note: Check if value is a number (int or float)
+    Note: Example: If is_number(age) then Say "It's a number"
+    Return python_call("epl_validator", "is_number", val)
+End
+
+Define Function is_integer Takes val
+    Note: Check if value is an integer
+    Note: Example: If is_integer(count) then Say "It's an integer"
+    Return python_call("epl_validator", "is_integer", val)
+End
+
+Define Function is_boolean Takes val
+    Note: Check if value is a boolean
+    Note: Example: If is_boolean(flag) then Say "It's a boolean"
+    Return python_call("epl_validator", "is_boolean", val)
+End
+
+Define Function is_array Takes val
+    Note: Check if value is an array/list
+    Note: Example: If is_array(items) then Say "It's an array"
+    Return python_call("epl_validator", "is_array", val)
+End
+
+Define Function is_null Takes val
+    Note: Check if value is null/None
+    Note: Example: If is_null(response) then Say "No response"
+    Return python_call("epl_validator", "is_null", val)
+End
+
+Note: ===========================================================
+Note:  String Validators
+Note: ===========================================================
+
+Define Function is_email Takes val
+    Note: Check if string is a valid email
+    Note: Example: If is_email(addr) then Say "Valid email"
+    Return python_call("epl_validator", "is_email", val)
+End
+
+Define Function is_url Takes val
+    Note: Check if string is a valid URL
+    Note: Example: If is_url(link) then Say "Valid URL"
+    Return python_call("epl_validator", "is_url", val)
+End
+
+Define Function is_ip_address Takes val
+    Note: Check if string is a valid IP address (v4 or v6)
+    Note: Example: If is_ip_address(addr) then Say "Valid IP"
+    Return python_call("epl_validator", "is_ip", val)
+End
+
+Define Function is_uuid Takes val
+    Note: Check if string is a valid UUID
+    Note: Example: If is_uuid(id) then Say "Valid UUID"
+    Return python_call("epl_validator", "is_uuid", val)
+End
+
+Define Function is_json Takes val
+    Note: Check if string is valid JSON
+    Note: Example: If is_json(body) then Say "Valid JSON"
+    Return python_call("epl_validator", "is_json", val)
+End
+
+Define Function is_alphanumeric Takes val
+    Note: Check if string contains only letters and digits
+    Note: Example: If is_alphanumeric(username) then Say "Valid username"
+    Return python_call("epl_validator", "is_alphanumeric", val)
+End
+
+Define Function matches_pattern Takes val, pattern
+    Note: Check if string matches a regex pattern
+    Note: Example: If matches_pattern(phone, "^[0-9]{10}$") then Say "Valid phone"
+    Return python_call("epl_validator", "matches_pattern", val, pattern)
+End
+
+Note: ===========================================================
+Note:  Number Validators
+Note: ===========================================================
+
+Define Function is_positive Takes val
+    Note: Check if number is positive (> 0)
+    Note: Example: If is_positive(price) then Say "Valid price"
+    Return python_call("epl_validator", "is_positive", val)
+End
+
+Define Function is_negative Takes val
+    Note: Check if number is negative (< 0)
+    Note: Example: If is_negative(balance) then Say "Overdrawn!"
+    Return python_call("epl_validator", "is_negative", val)
+End
+
+Define Function is_in_range Takes val, min_val, max_val
+    Note: Check if number is within a range (inclusive)
+    Note: Example: If is_in_range(age, 0, 150) then Say "Valid age"
+    Return python_call("epl_validator", "is_in_range", val, min_val, max_val)
+End
+
+Note: ===========================================================
+Note:  Sanitization
+Note: ===========================================================
+
+Define Function sanitize_string Takes val
+    Note: Strip HTML tags and trim whitespace
+    Note: Example: Set clean to sanitize_string(dirty_input)
+    Return python_call("epl_validator", "sanitize_string", val)
+End
+
+Define Function sanitize_html Takes val
+    Note: Escape HTML special characters (prevent XSS)
+    Note: Example: Set safe to sanitize_html(user_content)
+    Return python_call("epl_validator", "sanitize_html", val)
+End
+
+Define Function sanitize_sql Takes val
+    Note: Escape SQL special characters (prevent injection)
+    Note: Example: Set safe_query to sanitize_sql(user_input)
+    Return python_call("epl_validator", "sanitize_sql", val)
+End
+
+Define Function trim_string Takes val
+    Note: Remove leading and trailing whitespace
+    Note: Example: Set trimmed to trim_string("  hello  ")
+    Return python_call("epl_validator", "trim", val)
+End
+
+Define Function truncate_string Takes val, max_len
+    Note: Truncate string to maximum length
+    Note: Example: Set short to truncate_string(long_bio, 100)
+    Return python_call("epl_validator", "truncate", val, max_len)
+End
+
+Define Function normalize_whitespace Takes val
+    Note: Replace multiple spaces/tabs with single space
+    Note: Example: Set clean to normalize_whitespace("too   many    spaces")
+    Return python_call("epl_validator", "normalize_whitespace", val)
+End

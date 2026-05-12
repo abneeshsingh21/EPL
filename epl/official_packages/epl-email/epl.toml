@@ -1,0 +1,13 @@
+[project]
+name = "epl-email"
+version = "1.0.0"
+description = "Email sending for EPL — SMTP, templates, attachments, HTML emails, bulk sending"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["email", "smtp", "mail", "send", "template", "notification"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"

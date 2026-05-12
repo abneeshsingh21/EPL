@@ -1,0 +1,166 @@
+Note: EPL Cache Package — High-performance caching in plain English
+Note: Import "epl-cache" to use these functions.
+
+Note: ===========================================================
+Note:  LRU Cache (Least Recently Used)
+Note: ===========================================================
+
+Define Function create_lru_cache Takes max_size
+    Note: Create an LRU cache with a maximum number of entries
+    Note: Example: Set cache to create_lru_cache(1000)
+    Return python_call("epl_cache", "lru_create", max_size)
+End
+
+Define Function cache_get Takes cache, cache_key
+    Note: Get a value from the cache (returns None if not found)
+    Note: Example: Set user to cache_get(cache, "user:42")
+    Return python_call("epl_cache", "cache_get", cache, cache_key)
+End
+
+Define Function cache_put Takes cache, cache_key, cache_value
+    Note: Put a value into the cache
+    Note: Example: cache_put(cache, "user:42", user_data)
+    Return python_call("epl_cache", "cache_put", cache, cache_key, cache_value)
+End
+
+Define Function cache_has Takes cache, cache_key
+    Note: Check if a key exists in the cache
+    Note: Example: If cache_has(cache, "user:42") then Say "Cached!"
+    Return python_call("epl_cache", "cache_has", cache, cache_key)
+End
+
+Define Function cache_remove Takes cache, cache_key
+    Note: Remove a specific key from the cache
+    Note: Example: cache_remove(cache, "user:42")
+    Return python_call("epl_cache", "cache_remove", cache, cache_key)
+End
+
+Define Function cache_clear Takes cache
+    Note: Clear all entries from the cache
+    Note: Example: cache_clear(cache)
+    Return python_call("epl_cache", "cache_clear", cache)
+End
+
+Define Function cache_size Takes cache
+    Note: Get the current number of entries
+    Note: Example: Set count to cache_size(cache)
+    Return python_call("epl_cache", "cache_size", cache)
+End
+
+Define Function cache_keys Takes cache
+    Note: Get all keys currently in the cache
+    Note: Example: Set all_keys to cache_keys(cache)
+    Return python_call("epl_cache", "cache_keys", cache)
+End
+
+Note: ===========================================================
+Note:  TTL Cache (Time-To-Live)
+Note: ===========================================================
+
+Define Function create_ttl_cache Takes default_ttl_seconds
+    Note: Create a cache where entries expire after a TTL (time-to-live)
+    Note: Example: Set session_cache to create_ttl_cache(3600)
+    Return python_call("epl_cache", "ttl_create", default_ttl_seconds)
+End
+
+Define Function ttl_put Takes cache, cache_key, cache_value, ttl_seconds
+    Note: Put a value with a specific TTL (overrides default)
+    Note: Example: ttl_put(cache, "session:abc", data, 1800)
+    Return python_call("epl_cache", "ttl_put", cache, cache_key, cache_value, ttl_seconds)
+End
+
+Define Function ttl_get Takes cache, cache_key
+    Note: Get a value (returns None if expired or not found)
+    Note: Example: Set session to ttl_get(cache, "session:abc")
+    Return python_call("epl_cache", "ttl_get", cache, cache_key)
+End
+
+Define Function ttl_remaining Takes cache, cache_key
+    Note: Get remaining seconds before a key expires
+    Note: Example: Set remaining to ttl_remaining(cache, "session:abc")
+    Return python_call("epl_cache", "ttl_remaining", cache, cache_key)
+End
+
+Define Function ttl_extend Takes cache, cache_key, extra_seconds
+    Note: Extend the TTL of an existing entry
+    Note: Example: ttl_extend(cache, "session:abc", 600)
+    Return python_call("epl_cache", "ttl_extend", cache, cache_key, extra_seconds)
+End
+
+Define Function ttl_cleanup Takes cache
+    Note: Remove all expired entries from the cache
+    Note: Example: Set removed_count to ttl_cleanup(cache)
+    Return python_call("epl_cache", "ttl_cleanup", cache)
+End
+
+Note: ===========================================================
+Note:  Memoization (Function Result Caching)
+Note: ===========================================================
+
+Define Function create_memo_cache
+    Note: Create a memoization cache for function results
+    Note: Example: Set memo to create_memo_cache()
+    Return python_call("epl_cache", "memo_create")
+End
+
+Define Function memo_get_or_compute Takes memo, memo_key, compute_fn
+    Note: Get cached result or compute and cache it
+    Note: Example: Set result to memo_get_or_compute(memo, "fib:10", compute_fib)
+    Return python_call("epl_cache", "memo_get_or_compute", memo, memo_key, compute_fn)
+End
+
+Define Function memo_invalidate Takes memo, memo_key
+    Note: Invalidate a specific memoized result
+    Note: Example: memo_invalidate(memo, "fib:10")
+    Return python_call("epl_cache", "memo_invalidate", memo, memo_key)
+End
+
+Define Function memo_stats Takes memo
+    Note: Get cache hit/miss statistics
+    Note: Example: Set stats to memo_stats(memo)
+    Return python_call("epl_cache", "memo_stats", memo)
+End
+
+Note: ===========================================================
+Note:  Cache Patterns
+Note: ===========================================================
+
+Define Function cache_get_or_default Takes cache, cache_key, default_value
+    Note: Get from cache, return default if not found
+    Note: Example: Set user to cache_get_or_default(cache, "user:99", "Unknown")
+    Return python_call("epl_cache", "get_or_default", cache, cache_key, default_value)
+End
+
+Define Function cache_put_if_absent Takes cache, cache_key, cache_value
+    Note: Put value only if key doesn't already exist
+    Note: Example: Set was_set to cache_put_if_absent(cache, "lock:resource", "owner_1")
+    Return python_call("epl_cache", "put_if_absent", cache, cache_key, cache_value)
+End
+
+Define Function cache_increment Takes cache, cache_key, amount
+    Note: Increment a numeric cached value
+    Note: Example: Set new_count to cache_increment(cache, "visits:page1", 1)
+    Return python_call("epl_cache", "increment", cache, cache_key, amount)
+End
+
+Define Function cache_decrement Takes cache, cache_key, amount
+    Note: Decrement a numeric cached value
+    Note: Example: Set stock to cache_decrement(cache, "stock:item42", 1)
+    Return python_call("epl_cache", "decrement", cache, cache_key, amount)
+End
+
+Note: ===========================================================
+Note:  Cache Stats & Info
+Note: ===========================================================
+
+Define Function cache_hit_rate Takes cache
+    Note: Get the cache hit rate (0.0 to 1.0)
+    Note: Example: Set rate to cache_hit_rate(cache)
+    Return python_call("epl_cache", "hit_rate", cache)
+End
+
+Define Function cache_info Takes cache
+    Note: Get cache statistics (size, hits, misses, evictions)
+    Note: Example: Set info to cache_info(cache)
+    Return python_call("epl_cache", "cache_info", cache)
+End

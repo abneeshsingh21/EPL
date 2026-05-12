@@ -1,0 +1,136 @@
+Note: EPL Email Package — Send emails in plain English
+Note: Import "epl-email" to use these functions.
+
+Note: ===========================================================
+Note:  SMTP Configuration
+Note: ===========================================================
+
+Define Function create_mailer Takes host, port, username, password
+    Note: Create an SMTP mailer with credentials
+    Note: Example: Set mailer to create_mailer("smtp.gmail.com", 587, "you@gmail.com", "app-password")
+    Return python_call("epl_email", "create_mailer", host, port, username, password)
+End
+
+Define Function create_mailer_ssl Takes host, port, username, password
+    Note: Create an SMTP mailer with SSL (port 465)
+    Note: Example: Set mailer to create_mailer_ssl("smtp.gmail.com", 465, "you@gmail.com", "password")
+    Return python_call("epl_email", "create_mailer_ssl", host, port, username, password)
+End
+
+Note: ===========================================================
+Note:  Sending Emails
+Note: ===========================================================
+
+Define Function send_email Takes mailer, to_addr, subject, body
+    Note: Send a plain text email
+    Note: Example: send_email(mailer, "user@example.com", "Hello!", "Welcome to EPL")
+    Return python_call("epl_email", "send_plain", mailer, to_addr, subject, body)
+End
+
+Define Function send_html_email Takes mailer, to_addr, subject, html_body
+    Note: Send an HTML email
+    Note: Example: send_html_email(mailer, "user@example.com", "Welcome", "<h1>Hello!</h1>")
+    Return python_call("epl_email", "send_html", mailer, to_addr, subject, html_body)
+End
+
+Define Function send_email_with_attachment Takes mailer, to_addr, subject, body, file_path
+    Note: Send an email with a file attachment
+    Note: Example: send_email_with_attachment(mailer, "user@example.com", "Report", "See attached", "report.pdf")
+    Return python_call("epl_email", "send_with_attachment", mailer, to_addr, subject, body, file_path)
+End
+
+Define Function send_email_to_many Takes mailer, recipients, subject, body
+    Note: Send the same email to multiple recipients
+    Note: Example: send_email_to_many(mailer, ["a@x.com", "b@x.com"], "Update", "New release!")
+    Return python_call("epl_email", "send_bulk", mailer, recipients, subject, body)
+End
+
+Note: ===========================================================
+Note:  Email Templates
+Note: ===========================================================
+
+Define Function create_template Takes template_string
+    Note: Create an email template with placeholders {{name}}, {{value}}
+    Note: Example: Set tpl to create_template("Hello {{name}}, your order {{order_id}} is ready!")
+    Return python_call("epl_email", "create_template", template_string)
+End
+
+Define Function render_template Takes template, variables
+    Note: Render a template with variable values
+    Note: Example: Set body to render_template(tpl, vars)
+    Return python_call("epl_email", "render_template", template, variables)
+End
+
+Define Function send_templated_email Takes mailer, to_addr, subject, template, variables
+    Note: Send an email using a template with variables
+    Note: Example: send_templated_email(mailer, "user@x.com", "Welcome", welcome_tpl, user_vars)
+    Return python_call("epl_email", "send_templated", mailer, to_addr, subject, template, variables)
+End
+
+Note: ===========================================================
+Note:  Email Building
+Note: ===========================================================
+
+Define Function create_email_message Takes from_addr, to_addr, subject
+    Note: Create an email message builder
+    Note: Example: Set msg to create_email_message("me@x.com", "you@x.com", "Hello")
+    Return python_call("epl_email", "create_message", from_addr, to_addr, subject)
+End
+
+Define Function email_set_body Takes msg, body_content
+    Note: Set plain text body on email message
+    Note: Example: email_set_body(msg, "Hello World!")
+    Return python_call("epl_email", "set_body", msg, body_content)
+End
+
+Define Function email_set_html Takes msg, html_content
+    Note: Set HTML body on email message
+    Note: Example: email_set_html(msg, "<h1>Hello!</h1>")
+    Return python_call("epl_email", "set_html", msg, html_content)
+End
+
+Define Function email_add_attachment Takes msg, file_path
+    Note: Add a file attachment to email message
+    Note: Example: email_add_attachment(msg, "invoice.pdf")
+    Return python_call("epl_email", "add_attachment", msg, file_path)
+End
+
+Define Function email_add_cc Takes msg, cc_addr
+    Note: Add a CC recipient
+    Note: Example: email_add_cc(msg, "manager@x.com")
+    Return python_call("epl_email", "add_cc", msg, cc_addr)
+End
+
+Define Function email_add_bcc Takes msg, bcc_addr
+    Note: Add a BCC recipient
+    Note: Example: email_add_bcc(msg, "archive@x.com")
+    Return python_call("epl_email", "add_bcc", msg, bcc_addr)
+End
+
+Define Function email_set_reply_to Takes msg, reply_addr
+    Note: Set Reply-To address
+    Note: Example: email_set_reply_to(msg, "support@x.com")
+    Return python_call("epl_email", "set_reply_to", msg, reply_addr)
+End
+
+Define Function send_message Takes mailer, msg
+    Note: Send a built email message
+    Note: Example: send_message(mailer, msg)
+    Return python_call("epl_email", "send_message", mailer, msg)
+End
+
+Note: ===========================================================
+Note:  Validation & Utilities
+Note: ===========================================================
+
+Define Function validate_email_address Takes addr
+    Note: Validate an email address format
+    Note: Example: Set valid to validate_email_address("user@example.com")
+    Return python_call("epl_email", "validate_email", addr)
+End
+
+Define Function extract_domain Takes addr
+    Note: Extract domain from email address
+    Note: Example: Set domain to extract_domain("user@gmail.com") → "gmail.com"
+    Return python_call("epl_email", "extract_domain", addr)
+End

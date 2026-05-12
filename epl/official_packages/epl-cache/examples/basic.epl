@@ -1,0 +1,56 @@
+Note: EPL Cache Package — Basic Usage Examples
+Import "epl-cache"
+
+Say "=== EPL Cache Demo ==="
+
+Note: LRU Cache
+Say ""
+Say "--- LRU Cache (max 100 entries) ---"
+Set cache to create_lru_cache(100)
+
+cache_put(cache, "user:1", "Alice")
+cache_put(cache, "user:2", "Bob")
+cache_put(cache, "user:3", "Charlie")
+
+Say "Get user:2 = " + cache_get(cache, "user:2")
+Say "Has user:4 = " + cache_has(cache, "user:4")
+Say "Cache size: " + cache_size(cache)
+Say "All keys: " + cache_keys(cache)
+
+Note: Get or default
+Set unknown to cache_get_or_default(cache, "user:99", "Not Found")
+Say "user:99 = " + unknown
+
+Note: Increment counter
+cache_put(cache, "visits", 0)
+cache_increment(cache, "visits", 1)
+cache_increment(cache, "visits", 1)
+cache_increment(cache, "visits", 1)
+Say "Visit count: " + cache_get(cache, "visits")
+
+Note: TTL Cache
+Say ""
+Say "--- TTL Cache (60s default expiry) ---"
+Set session_store to create_ttl_cache(60)
+
+ttl_put(session_store, "session:abc123", "user_42_data", 300)
+Say "Session stored with 300s TTL"
+
+Set remaining to ttl_remaining(session_store, "session:abc123")
+Say "Time remaining: " + remaining + "s"
+
+Set session to ttl_get(session_store, "session:abc123")
+Say "Session data: " + session
+
+Note: Extend TTL
+ttl_extend(session_store, "session:abc123", 120)
+Say "Extended by 120s"
+
+Note: Cache info
+Say ""
+Say "--- Cache Stats ---"
+Set info to cache_info(cache)
+Say "Stats: " + info
+
+Say ""
+Say "=== Done! ==="

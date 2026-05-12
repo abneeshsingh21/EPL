@@ -1,0 +1,16 @@
+[project]
+name = "epl-crypto"
+version = "1.0.0"
+description = "Encryption & cryptography for EPL — AES, RSA, key generation, digital signatures, secure file encryption"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["crypto", "encryption", "aes", "rsa", "signature", "security", "keys"]
+
+[dependencies]
+
+[python]
+requires = ["cryptography>=41.0.0"]
+
+[scripts]
+example = "epl run examples/basic.epl"
