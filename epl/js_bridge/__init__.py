@@ -9,14 +9,41 @@ Architecture:
                           via JSON-RPC over stdin/stdout
 """
 
+import atexit
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import threading
 
 __all__ = ['NodeBridge', 'NodeBridgeError', 'JSModuleHandle']
+
+# Valid npm package names: @scope/name or bare name (no paths, no .., no absolute)
+_NPM_NAME_RE = re.compile(r'^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$')
+
+
+def validate_module_name(name: str) -> str:
+    """Validate that a module name is a safe npm package name (not a path)."""
+    if not name:
+        raise NodeBridgeError("Module name cannot be empty.")
+    if name.startswith('.') or name.startswith('/') or '\\' in name:
+        raise NodeBridgeError(
+            f'Module name "{name}" looks like a file path. '
+            f'Only npm package names are allowed (e.g., "lodash", "@scope/pkg").'
+        )
+    if '..' in name:
+        raise NodeBridgeError(
+            f'Module name "{name}" contains path traversal. '
+            f'Only npm package names are allowed.'
+        )
+    if not _NPM_NAME_RE.match(name.lower()):
+        raise NodeBridgeError(
+            f'Invalid module name "{name}". '
+            f'Must be a valid npm package name (e.g., "lodash", "@scope/pkg").'
+        )
+    return name
 
 
 class NodeBridgeError(Exception):
@@ -57,13 +84,13 @@ class NodeBridge:
     @classmethod
     def get_instance(cls):
         """Get or create the singleton NodeBridge instance."""
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls()
-                    cls._instance._ensure_running()
-        elif cls._instance._process is None or cls._instance._process.poll() is not None:
-            cls._instance._ensure_running()
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = cls()
+                cls._instance._ensure_running()
+                atexit.register(cls.reset)
+            elif cls._instance._process is None or cls._instance._process.poll() is not None:
+                cls._instance._ensure_running()
         return cls._instance
 
     @classmethod
@@ -109,31 +136,29 @@ class NodeBridge:
             raise NodeBridgeError(f'Failed to start Node.js: {e}')
 
         # Wait for the "Worker ready" signal on stderr (with timeout)
-        import time
         ready = threading.Event()
-        stderr_output = []
 
-        def _read_stderr():
+        def _drain_stderr():
             try:
-                line = self._process.stderr.readline()
-                if line:
-                    stderr_output.append(line)
-                    ready.set()
+                while True:
+                    line = self._process.stderr.readline()
+                    if not line:
+                        break
+                    if not ready.is_set():
+                        ready.set()
             except Exception:
                 pass
 
-        reader = threading.Thread(target=_read_stderr, daemon=True)
+        reader = threading.Thread(target=_drain_stderr, daemon=True)
         reader.start()
 
         # Wait up to 5 seconds for the worker to be ready
         if not ready.wait(timeout=5.0):
-            # Check if the process died
             returncode = self._process.poll()
             if returncode is not None:
                 raise NodeBridgeError(
                     f'Node.js worker exited immediately (code {returncode}).'
                 )
-            # Process is alive but didn't send ready signal — proceed anyway
 
 
     def _shutdown(self):
@@ -157,14 +182,14 @@ class NodeBridge:
 
     def _send(self, request: dict) -> dict:
         """Send a JSON-RPC request and return the response."""
-        self._ensure_running()
-
-        request['id'] = self._next_id
-        self._next_id += 1
-
-        payload = json.dumps(request) + '\n'
-
         with self._io_lock:
+            self._ensure_running()
+
+            request['id'] = self._next_id
+            self._next_id += 1
+
+            payload = json.dumps(request) + '\n'
+
             try:
                 self._process.stdin.write(payload.encode('utf-8'))
                 self._process.stdin.flush()
@@ -198,6 +223,7 @@ class NodeBridge:
 
     def require(self, module_name: str) -> str:
         """Load a Node.js module and return its handle ID."""
+        validate_module_name(module_name)
         resp = self._send({'action': 'require', 'module': module_name})
         result = resp.get('result', {})
         if result.get('type') == 'handle':
@@ -273,6 +299,8 @@ class NodeBridge:
         """Convert a JSON wire format response back to a Python value."""
         if data is None:
             return None
+        if not isinstance(data, dict):
+            return data
         result_type = data.get('type')
         if result_type == 'null':
             return None
