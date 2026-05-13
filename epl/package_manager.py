@@ -620,16 +620,25 @@ def _toml_to_manifest(toml_data):
     epl.toml uses [project] for metadata and [dependencies] for deps.
     Internal manifest uses flat top-level keys.
     """
-    project = toml_data.get('project', {})
+    project = toml_data.get('project', toml_data.get('package', {}))
+    
+    repo_field = project.get('repository', '')
+    if not repo_field and 'repository' in toml_data:
+        repo_data = toml_data['repository']
+        if isinstance(repo_data, dict):
+            repo_field = repo_data.get('url', '')
+        else:
+            repo_field = str(repo_data)
+            
     manifest = {
         'name': project.get('name', ''),
         'version': project.get('version', '1.0.0'),
         'description': project.get('description', ''),
-        'author': project.get('author', ''),
+        'author': project.get('authors', [project.get('author', '')])[0] if 'authors' in project else project.get('author', ''),
         'license': project.get('license', ''),
-        'entry': project.get('entry', 'main.epl'),
+        'entry': project.get('main', project.get('entry', 'main.epl')),
         'keywords': project.get('keywords', []),
-        'repository': project.get('repository', ''),
+        'repository': repo_field,
         'dependencies': toml_data.get('dependencies', {}),
         'python-dependencies': toml_data.get(PYTHON_DEPENDENCIES_SECTION, {}),
         'github-dependencies': toml_data.get(GITHUB_DEPENDENCIES_SECTION, {}),

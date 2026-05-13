@@ -440,22 +440,27 @@ def _auto_register_to_index(
 
     import urllib.error
     import urllib.request
+    
+    manifest_data = {
+        'name': name,
+        'version': version,
+        'description': description,
+        'author': author,
+        'license': license_name,
+        'repository': repository,
+        'keywords': keywords,
+        'entry': entry,
+        'download_url': download_url,
+        'checksum': checksum,
+        'size': size,
+        'epl_version': '>=7.5.7',
+    }
 
     payload = {
         'event_type': 'register-package',
         'client_payload': {
-            'name': name,
-            'version': version,
-            'description': description,
-            'author': author,
-            'license': license_name,
-            'repository': repository,
-            'keywords': ','.join(keywords) if isinstance(keywords, list) else str(keywords),
-            'entry': entry,
-            'download_url': download_url,
-            'checksum': checksum,
-            'size': str(size),
-            'epl_version': '>=7.5.0',
+            'package': name,
+            'manifest': json.dumps(manifest_data)
         },
     }
 

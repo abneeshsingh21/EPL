@@ -491,6 +491,8 @@ BUILTINS = {
     'ffi_close',
     'ffi_find',
     'ffi_types',
+    # v7.5: Python package bridge
+    'python_call',
 } | STDLIB_FUNCTIONS  # Merge standard library functions
 
 
@@ -1363,6 +1365,17 @@ class Interpreter:
                     f"'{name}' requires at least {required} argument(s), got {len(args)}.", line
                 )
             return _ffi[name](*args)
+
+        # ── Python package bridge ──
+        if name == 'python_call':
+            if self.safe_mode:
+                raise EPLRuntimeError("'python_call' is not available in safe mode (--sandbox).", line)
+            if len(args) < 2:
+                raise EPLRuntimeError("python_call() requires at least module name and function name.", line)
+            module_name = args[0]
+            func_name = args[1]
+            func_args = args[2:]
+            return self._python_call(module_name, func_name, func_args, line)
 
         # ── Delegate to stdlib ──
         if name in STDLIB_FUNCTIONS:
@@ -2770,6 +2783,53 @@ class Interpreter:
         if method == 'copy':
             return EPLDict(dict(d.data))
         raise EPLRuntimeError(f'Map has no method "{method}".', line)
+
+    _python_call_cache = {}
+
+    def _python_call(self, module_name, func_name, func_args, line):
+        """Load a Python backend module and call a function on it."""
+        mod = self._python_call_cache.get(module_name)
+        if mod is None:
+            mod = self._resolve_python_module(module_name, line)
+            self._python_call_cache[module_name] = mod
+        if not hasattr(mod, func_name):
+            raise EPLRuntimeError(
+                f'Python module "{module_name}" has no function "{func_name}".', line
+            )
+        func = getattr(mod, func_name)
+        if not callable(func):
+            return self._wrap_python_result(func)
+        try:
+            result = func(*[self._unwrap_python_argument(arg) for arg in func_args])
+            return self._wrap_python_result(result)
+        except TypeError as e:
+            raise EPLRuntimeError(f'{module_name}.{func_name}() argument error: {e}', line)
+        except Exception as e:
+            raise EPLRuntimeError(f'Python error in {module_name}.{func_name}(): {e}', line)
+
+    def _resolve_python_module(self, module_name, line):
+        """Resolve a module name to a Python module, checking official packages first."""
+        import importlib as _il
+        import importlib.util as _ilu
+
+        from epl.package_manager import OFFICIAL_PACKAGES_DIR
+
+        pkg_dir_name = module_name.replace('_', '-')
+        pkg_python_dir = _os.path.join(OFFICIAL_PACKAGES_DIR, pkg_dir_name, 'python')
+        if _os.path.isdir(pkg_python_dir):
+            init_file = _os.path.join(pkg_python_dir, '__init__.py')
+            if _os.path.isfile(init_file):
+                spec = _ilu.spec_from_file_location(module_name, init_file)
+                mod = _ilu.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                return mod
+        try:
+            return _il.import_module(module_name)
+        except ImportError:
+            raise EPLRuntimeError(
+                f'Cannot find Python module "{module_name}". '
+                f'Looked in: {pkg_python_dir} and sys.path.', line
+            )
 
     def _call_python_method(self, py_mod, method, args, line):
         """Call a function or access attribute on a Python module."""
