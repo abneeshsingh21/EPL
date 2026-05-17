@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import shutil
@@ -13,6 +14,16 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 from unittest import mock
+
+
+def _import_main():
+    """Import the root main.py regardless of CWD."""
+    main_path = os.path.join(os.path.dirname(__file__), '..', 'main.py')
+    spec = importlib.util.spec_from_file_location('main', os.path.abspath(main_path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -138,7 +149,7 @@ class TestCLIProduction(unittest.TestCase):
         )
 
     def test_legacy_build_returns_nonzero_on_native_compile_failure(self):
-        import main as main_module
+        main_module = _import_main()
 
         with mock.patch('epl.runtime_support.compile_file', return_value=False) as compile_file:
             exit_code = main_module.legacy_main(['build', 'src/main.epl'])
@@ -147,7 +158,7 @@ class TestCLIProduction(unittest.TestCase):
         compile_file.assert_called_once_with('src/main.epl', opt_level=2, static=True, target=None)
 
     def test_legacy_main_delegates_to_cli_main(self):
-        import main as main_module
+        main_module = _import_main()
 
         with mock.patch('epl.cli.cli_main', return_value=17) as cli_entry:
             exit_code = main_module.legacy_main(['version'])
@@ -156,7 +167,7 @@ class TestCLIProduction(unittest.TestCase):
         cli_entry.assert_called_once_with(['version'])
 
     def test_source_checkout_main_delegates_to_cli_main(self):
-        import main as main_module
+        main_module = _import_main()
 
         with mock.patch('epl.cli.cli_main', return_value=23) as cli_entry:
             exit_code = main_module.main(['version'])
