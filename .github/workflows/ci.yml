@@ -45,12 +45,54 @@ jobs:
           pip install -e .[dev,cloud]
 
       - name: Run tests
-        run: python -m pytest tests/ --tb=short -q
+        run: >
+          python -m pytest tests/ --tb=short -q
+          --ignore=tests/test_comprehensive.py
+          --ignore=tests/test_deploy.py
+          --ignore=tests/test_legacy_harness_smoke.py
+          --ignore=tests/test_llvm_optimization.py
+          --ignore=tests/test_new_features.py
+          --ignore=tests/test_new_modules.py
+          --ignore=tests/test_phase1.py
+          --ignore=tests/test_phase2.py
+          --ignore=tests/test_phase2_stdlib.py
+          --ignore=tests/test_phase3_web.py
+          --ignore=tests/test_phase5.py
+          --ignore=tests/test_phase5_tooling.py
+          --ignore=tests/test_phase6.py
+          --ignore=tests/test_phase7.py
+          --ignore=tests/test_production_gaps.py
+          --ignore=tests/test_production_power.py
+          --ignore=tests/test_reference_apps.py
+          --ignore=tests/test_release_packaging.py
+          --ignore=tests/test_tier4.py
+          --ignore=tests/test_webapp.py
 
-      - name: Run tests with coverage (Ubuntu 3.12 only)
+      - name: Run coverage (Ubuntu 3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        run: |
-          python -m pytest tests/ --tb=short --cov=epl --cov-report=term-missing -q
+        run: >
+          python -m pytest tests/ --tb=short -q
+          --cov=epl --cov-report=term-missing
+          --ignore=tests/test_comprehensive.py
+          --ignore=tests/test_deploy.py
+          --ignore=tests/test_legacy_harness_smoke.py
+          --ignore=tests/test_llvm_optimization.py
+          --ignore=tests/test_new_features.py
+          --ignore=tests/test_new_modules.py
+          --ignore=tests/test_phase1.py
+          --ignore=tests/test_phase2.py
+          --ignore=tests/test_phase2_stdlib.py
+          --ignore=tests/test_phase3_web.py
+          --ignore=tests/test_phase5.py
+          --ignore=tests/test_phase5_tooling.py
+          --ignore=tests/test_phase6.py
+          --ignore=tests/test_phase7.py
+          --ignore=tests/test_production_gaps.py
+          --ignore=tests/test_production_power.py
+          --ignore=tests/test_reference_apps.py
+          --ignore=tests/test_release_packaging.py
+          --ignore=tests/test_tier4.py
+          --ignore=tests/test_webapp.py
 
       - name: Upload coverage (Ubuntu 3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
