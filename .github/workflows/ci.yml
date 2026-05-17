@@ -45,7 +45,7 @@ jobs:
           pip install -e .[dev,cloud]
 
       - name: Run tests
-        run: python -m pytest tests/ -x --tb=short -q
+        run: python -m pytest tests/ --tb=short -q
 
       - name: Run tests with coverage (Ubuntu 3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
