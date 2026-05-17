@@ -1,10 +1,10 @@
 # Examples Gallery
 
-Real-world examples demonstrating EPL's capabilities.
+Real-world examples demonstrating EPL's capabilities. For CI-backed support claims and release-gated workflows, use `docs/support-matrix.md` and `docs/reference-apps.md` as the source of truth.
 
 ## 🌐 Hello Web — Minimal Web Server
 
-A production-ready web server with HTML pages and JSON APIs.
+A minimal EPL web server with HTML pages and JSON APIs.
 
 ```epl
 Create WebApp called app
@@ -12,7 +12,7 @@ Create WebApp called app
 Page "/" renders
     Title "Welcome to EPL"
     Heading "Hello from EPL! 👋"
-    Paragraph "This is a production-ready web server."
+    Paragraph "This is a simple EPL web server."
     Link "/about" shows "About this app"
 End
 
@@ -57,7 +57,9 @@ epl serve examples/todo_api/main.epl
 
 # Test:
 curl http://localhost:8000/api/todos
-curl -X POST http://localhost:8000/api/todos -d '{"title":"Buy groceries"End'
+curl -X POST http://localhost:8000/api/todos \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Buy groceries"}'
 ```
 
 ---
@@ -149,7 +151,7 @@ game_run()
 
 ## ☸️ Kubernetes Deployment
 
-Generate production-ready K8s manifests from the command line:
+Generate Kubernetes manifests from the command line:
 
 ```bash
 epl deploy k8s myapp/main.epl \
@@ -162,6 +164,8 @@ epl deploy k8s myapp/main.epl \
 ```
 
 Generates: Namespace, ConfigMap, Deployment, Service, Ingress, and HPA YAML.
+
+Validate the generated manifests against your own cluster, secrets model, and rollout process before using them in production.
 
 ---
 
@@ -208,45 +212,16 @@ Say "Today is " + today
 
 ---
 
-## 🎨 Style & Layout
+## 🎨 Style, 3D, and Canvas
 
-```epl
-Style "card"
-    background "#ffffff"
-    border-radius "12px"
-    padding "24px"
-    box-shadow "0 2px 8px rgba(0,0,0,0.1)"
-End
+These surfaces are part of EPL's broader web/UI story, but the syntax is evolving faster than the core examples above.
+For production-facing docs, prefer the maintained web examples in [`examples/hello_web/main.epl`](../examples/hello_web/main.epl) and [`examples/todo_api/main.epl`](../examples/todo_api/main.epl).
 
-Layout responsive columns 3
-    Text "Column 1"
-    Text "Column 2"
-    Text "Column 3"
-End
-```
+Current recommendation:
 
----
-
-## 🧊 3D Scene (WebGL)
-
-```epl
-Scene "demo" 800 by 600
-    Box "floor" at 0 -1 0 size 10 0.2 10 color "#888888"
-    Box "cube" at 0 1 0 size 2 2 2 color "#ff4500"
-    Light "sun" at 5 10 5
-    Camera at 0 5 10 look 0 0 0
-End
-```
-
----
-
-## 🖌️ Canvas Drawing
-
-```epl
-Canvas "art" draw rect x 10 y 10 width 200 height 100 fill "#3498db"
-Canvas "art" draw circle x 150 y 150 radius 50 fill "#e74c3c"
-Canvas "art" draw text x 50 y 250 content "Hello Canvas!" fill "#2c3e50"
-```
+- use [`docs/guides/web.md`](guides/web.md) for the maintained web workflow
+- use [`examples/`](../examples) as the source of truth for runnable demos
+- treat style/layout, 3D, and canvas snippets as experimental until they are covered by parser-verified docs examples
 
 ---
 

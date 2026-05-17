@@ -151,7 +151,7 @@ epl install epl-web
 
 ## Adding Observability
 
-Attach production-grade health checks, readiness probes, and Prometheus metrics to any web app:
+Attach health checks, readiness probes, and Prometheus metrics to any web app:
 
 ```epl
 Create WebApp called app

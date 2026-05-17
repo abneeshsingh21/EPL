@@ -1,0 +1,14 @@
+[project]
+name = "epl-struct"
+version = "1.0.0"
+description = "Data structure utilities — deep operations, path-based access, diffing, schema validation"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["struct", "data", "deep-clone", "diff", "schema", "validation", "path", "transform"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

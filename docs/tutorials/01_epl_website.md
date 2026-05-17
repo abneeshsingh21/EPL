@@ -47,12 +47,12 @@ End
 
 ## Deployment!
 
-Deploying to production on modern cloud providers (like **Railway**, **Render**, or **Fly.io**) is ridiculously easy. You can simply deploy with standard Python Dockerfiles!
+Deploying EPL web apps on modern cloud providers (like **Railway**, **Render**, or **Fly.io**) can use standard Python container workflows. For supported production-hosting patterns, align the runtime setup with the [support matrix](../support-matrix.md) and validate the generated container, server entrypoint, and platform-specific configuration in your own environment.
 
 ```dockerfile
 FROM python:3.12-slim
-RUN pip install epl-lang
+RUN pip install "eplang[server]"
 COPY . /app
 WORKDIR /app
-CMD ["epl", "run", "website.epl"]
+CMD ["epl", "serve", "website.epl"]
 ```

@@ -463,6 +463,7 @@ class UseJSStatement(ASTNode):
         self.is_typescript = is_typescript
         self.line = line
 
+
 # ─── v0.3: Wait / Exit / Constant / Assert ───────────────
 
 
@@ -1092,7 +1093,11 @@ class LayoutContainer(ASTNode):
     """
 
     def __init__(
-        self, layout_type: str, properties: dict = None, children: list = None, line: int = 0,
+        self,
+        layout_type: str,
+        properties: dict = None,
+        children: list = None,
+        line: int = 0,
     ):
         self.layout_type = layout_type
         self.properties = properties or {}
@@ -1168,8 +1173,13 @@ class AnimateDef(ASTNode):
     """
 
     def __init__(
-        self, name: str, duration=None, easing=None, iteration=None,
-        keyframes: list = None, line: int = 0,
+        self,
+        name: str,
+        duration=None,
+        easing=None,
+        iteration=None,
+        keyframes: list = None,
+        line: int = 0,
     ):
         self.name = name
         self.duration = duration
@@ -1237,8 +1247,14 @@ class CameraSetup(ASTNode):
 class LightSetup(ASTNode):
     """Light configuration inside a Scene."""
 
-    def __init__(self, light_type: str = 'ambient', color: str = '#ffffff',
-                 intensity=1.0, position=None, line: int = 0):
+    def __init__(
+        self,
+        light_type: str = 'ambient',
+        color: str = '#ffffff',
+        intensity=1.0,
+        position=None,
+        line: int = 0,
+    ):
         self.light_type = light_type
         self.color = color
         self.intensity = intensity
@@ -1249,8 +1265,17 @@ class LightSetup(ASTNode):
 class MeshAdd(ASTNode):
     """Add a mesh/shape to a Scene."""
 
-    def __init__(self, shape: str = 'cube', name: str = None, position=None,
-                 rotation=None, scale=None, material=None, color=None, line: int = 0):
+    def __init__(
+        self,
+        shape: str = 'cube',
+        name: str = None,
+        position=None,
+        rotation=None,
+        scale=None,
+        material=None,
+        color=None,
+        line: int = 0,
+    ):
         self.shape = shape
         self.name = name
         self.position = position or [0, 0, 0]

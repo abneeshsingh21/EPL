@@ -1126,22 +1126,41 @@ object EPLRuntime {{
                     }
                 )
             # v6.0+v6.1: Style & Layout nodes handled in _emit_stmt
-            elif isinstance(s, (
-                ast.StyleDef, ast.StyledElement, ast.LayoutContainer,
-                ast.ComponentDef, ast.ComponentUse, ast.AnimateDef,
-                ast.ResponsiveBlock, ast.TransitionDef, ast.KeyframeDef,
-                ast.Scene3D, ast.DrawCommand,
-            )):
+            elif isinstance(
+                s,
+                (
+                    ast.StyleDef,
+                    ast.StyledElement,
+                    ast.LayoutContainer,
+                    ast.ComponentDef,
+                    ast.ComponentUse,
+                    ast.AnimateDef,
+                    ast.ResponsiveBlock,
+                    ast.TransitionDef,
+                    ast.KeyframeDef,
+                    ast.Scene3D,
+                    ast.DrawCommand,
+                ),
+            ):
                 pass  # emitted during code generation pass
 
     # ─── v6.0+v6.1: Style, Layout, 3D & Canvas (Compose Desktop) ────
 
     _NAMED_COLORS = {
-        'red': 'ff0000', 'green': '00ff00', 'blue': '0000ff',
-        'white': 'ffffff', 'black': '000000', 'yellow': 'ffff00',
-        'cyan': '00ffff', 'magenta': 'ff00ff', 'orange': 'ff8c00',
-        'purple': '800080', 'pink': 'ffc0cb', 'gray': '808080',
-        'grey': '808080', 'transparent': '000000',
+        'red': 'ff0000',
+        'green': '00ff00',
+        'blue': '0000ff',
+        'white': 'ffffff',
+        'black': '000000',
+        'yellow': 'ffff00',
+        'cyan': '00ffff',
+        'magenta': 'ff00ff',
+        'orange': 'ff8c00',
+        'purple': '800080',
+        'pink': 'ffc0cb',
+        'gray': '808080',
+        'grey': '808080',
+        'transparent': '000000',
     }
 
     def _css_color_to_compose(self, color_str):
@@ -1234,7 +1253,7 @@ object EPLRuntime {{
         compose_widget = 'Column' if tag in ('section', 'article', 'main', 'nav') else 'Box'
         self._line(f'{compose_widget}(modifier = Modifier) {{')
         self.indent += 1
-        for child in (node.children or []):
+        for child in node.children or []:
             self._emit_stmt(child)
         self.indent -= 1
         self._line('}')
@@ -1259,7 +1278,7 @@ object EPLRuntime {{
             self.indent -= 1
             self._line(') {')
             self.indent += 1
-            for child in (node.children or []):
+            for child in node.children or []:
                 self._line('item {')
                 self.indent += 1
                 self._emit_stmt(child)
@@ -1273,7 +1292,7 @@ object EPLRuntime {{
             arrangement = 'horizontalArrangement' if direction == 'row' else 'verticalArrangement'
             self._line(f'{container}({arrangement} = Arrangement.spacedBy({gap}.dp)) {{')
             self.indent += 1
-            for child in (node.children or []):
+            for child in node.children or []:
                 self._emit_stmt(child)
             self.indent -= 1
             self._line('}')
@@ -1283,14 +1302,14 @@ object EPLRuntime {{
         self.imports.add('androidx.compose.runtime.Composable')
         name = node.name.replace('-', '_').replace(' ', '_')
         param_strs = []
-        for p in (node.params or []):
+        for p in node.params or []:
             pname = p[0] if isinstance(p, tuple) else str(p)
             param_strs.append(f'{pname}: Any? = null')
         params = ', '.join(param_strs)
         self._line('@Composable')
         self._line(f'fun {name}({params}) {{')
         self.indent += 1
-        for stmt in (node.body or []):
+        for stmt in node.body or []:
             self._emit_stmt(stmt)
         self.indent -= 1
         self._line('}')
@@ -1333,13 +1352,17 @@ object EPLRuntime {{
                 px, py = child.position[0], child.position[1]
                 sx, sy = child.scale[0], child.scale[1]
                 if child.shape in ('cube', 'box'):
-                    self._line(f'drawRect(color = {color}, '
-                               f'topLeft = Offset({px + w // 2}f, {py + h // 2}f), '
-                               f'size = Size({50 * sx}f, {50 * sy}f))')
+                    self._line(
+                        f'drawRect(color = {color}, '
+                        f'topLeft = Offset({px + w // 2}f, {py + h // 2}f), '
+                        f'size = Size({50 * sx}f, {50 * sy}f))'
+                    )
                 elif child.shape == 'sphere':
-                    self._line(f'drawCircle(color = {color}, '
-                               f'radius = {25 * sx}f, '
-                               f'center = Offset({px + w // 2}f, {py + h // 2}f))')
+                    self._line(
+                        f'drawCircle(color = {color}, '
+                        f'radius = {25 * sx}f, '
+                        f'center = Offset({px + w // 2}f, {py + h // 2}f))'
+                    )
         self.indent -= 1
         self._line('}')
 
@@ -1362,7 +1385,9 @@ object EPLRuntime {{
             x, y = props.get('x', 0), props.get('y', 0)
             w, h = props.get('width', 100), props.get('height', 50)
             fill = self._css_color_to_compose(props.get('fill', '#000'))
-            self._line(f'drawRect(color = {fill}, topLeft = Offset({x}f, {y}f), size = Size({w}f, {h}f))')
+            self._line(
+                f'drawRect(color = {fill}, topLeft = Offset({x}f, {y}f), size = Size({w}f, {h}f))'
+            )
         elif shape == 'circle':
             x, y = props.get('x', 50), props.get('y', 50)
             r = props.get('radius', 25)
@@ -1373,7 +1398,9 @@ object EPLRuntime {{
             x2, y2 = props.get('x2', 100), props.get('y2', 100)
             stroke = self._css_color_to_compose(props.get('stroke', '#000'))
             lw = props.get('width', 1)
-            self._line(f'drawLine(color = {stroke}, start = Offset({x1}f, {y1}f), end = Offset({x2}f, {y2}f), strokeWidth = {lw}f)')
+            self._line(
+                f'drawLine(color = {stroke}, start = Offset({x1}f, {y1}f), end = Offset({x2}f, {y2}f), strokeWidth = {lw}f)'
+            )
         elif shape == 'text':
             self._line(f'// Text: {props.get("content", "")}')
         elif shape == 'path':

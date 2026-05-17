@@ -2037,8 +2037,12 @@ class EPLHandler(BaseHTTPRequestHandler):
         if elements:
             page = ast.PageDef('EPL Page', elements)
             return generate_html(
-                page, data_store=_data_store, form_data=form_data,
-                styles=styles, components=components, animations=animations,
+                page,
+                data_store=_data_store,
+                form_data=form_data,
+                styles=styles,
+                components=components,
+                animations=animations,
             )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
@@ -2833,16 +2837,28 @@ class AsyncEPLServer:
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
                 return generate_html(
-                    stmt, data_store=_data_store, form_data=form_data,
-                    styles=styles, components=components, animations=animations,
+                    stmt,
+                    data_store=_data_store,
+                    form_data=form_data,
+                    styles=styles,
+                    components=components,
+                    animations=animations,
                 )
 
-        elements = [s for s in body if isinstance(s, (ast.HtmlElement, ast.StyledElement, ast.LayoutContainer))]
+        elements = [
+            s
+            for s in body
+            if isinstance(s, (ast.HtmlElement, ast.StyledElement, ast.LayoutContainer))
+        ]
         if elements:
             page = ast.PageDef('EPL Page', elements)
             return generate_html(
-                page, data_store=_data_store, form_data=form_data,
-                styles=styles, components=components, animations=animations,
+                page,
+                data_store=_data_store,
+                form_data=form_data,
+                styles=styles,
+                components=components,
+                animations=animations,
             )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)

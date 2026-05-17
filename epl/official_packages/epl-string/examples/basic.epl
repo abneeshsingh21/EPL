@@ -1,0 +1,43 @@
+Note: EPL String Package — Usage Examples
+Use "epl-string"
+
+Note: --- Case Conversion ---
+Print to_camel_case("hello world example")
+Print to_pascal_case("hello world example")
+Print to_snake_case("helloWorldExample")
+Print to_kebab_case("helloWorldExample")
+Print to_constant_case("helloWorld")
+Print to_title_case_smart("the quick brown fox and the lazy dog")
+
+Note: --- Text Analysis ---
+Print "Levenshtein distance (kitten, sitting):"
+Print levenshtein_distance("kitten", "sitting")
+
+Print "Similarity ratio:"
+Print similarity_ratio("hello", "hallo")
+
+Print "Is anagram (listen, silent):"
+Print is_anagram("listen", "silent")
+
+Print "Character frequency:"
+Print char_frequency("hello world")
+
+Note: --- Transformation ---
+Print word_wrap("The quick brown fox jumps over the lazy dog near the river bank", 20)
+Print rot13("Hello World")
+Print caesar_cipher("ABC", 3)
+Print reverse_words("hello beautiful world")
+
+Note: --- Templates ---
+Create greeting equal to template_replace("Hello {{name}}, you are {{age}} years old!", Map with name = "Alice" and age = 30)
+Print greeting
+
+Print pluralize("cat", 5)
+Print pluralize("box", 3)
+Print ordinalize(1)
+Print ordinalize(22)
+Print ordinalize(11)
+
+Note: --- Validation ---
+Print is_palindrome("race car")
+Print count_vowels("Hello World")

@@ -26,7 +26,7 @@ pip install eplang
 
 ## What is EPL?
 
-EPL is a **production-grade programming language** where code reads like English sentences. It compiles to native executables via LLVM, runs on a bytecode VM, and transpiles to JavaScript, Python, Kotlin, and Swift.
+EPL is an English-like programming language with its strongest coverage around interpreter/CLI workflows, package management, and maintained reference-app validation. Native compilation, transpilers, AI/data helpers, and generated platform targets are available, but their support level varies by toolchain and is defined by the [support matrix](support-matrix.md).
 
 ```epl
 Say "Hello, World!"
@@ -45,32 +45,32 @@ End
 
 <div class="card" markdown>
 ### 🌐 Web Framework
-Build production web servers with routing, middleware, CORS, sessions, WebSocket, and database integration — served via Waitress/Gunicorn.
+Build routed web apps and maintained reference services. Production hosting uses the optional server extras and generated WSGI/ASGI entrypoints documented in the support matrix.
 </div>
 
 <div class="card" markdown>
 ### ⚙️ LLVM Compiler
-Compile EPL to native executables and WebAssembly. Get near-C performance for compute-heavy workloads.
+Compile EPL to native executables when `llvmlite` and a system compiler are available. Native builds are validated as an extra toolchain path, not the default install contract.
 </div>
 
 <div class="card" markdown>
 ### 📱 Android & Mobile
-Transpile to Kotlin and generate full Android Studio projects. Build APKs directly from the CLI.
+Generate Android Studio projects and Kotlin output. The maintained Android reference app is CI-validated; broader mobile targets require additional validation.
 </div>
 
 <div class="card" markdown>
 ### 🗄️ Database & ORM
-SQLite, PostgreSQL, MySQL with a full ORM — models, migrations, relationships, query builder, and transactions.
+SQLite workflows are bundled and documented. Additional database and ORM-style helpers exist, but non-SQLite production deployments should be validated in your own environment.
 </div>
 
 <div class="card" markdown>
 ### 🤖 ML & Data Science
-Built-in wrappers for scikit-learn, PyTorch, TensorFlow, Pandas, and NumPy — train models in English.
+Python-bridge integrations are available when the required dependencies are installed. These integrations are useful, but they are not part of the core release gate.
 </div>
 
 <div class="card" markdown>
 ### 🎮 Game Development
-Create 2D games with Pygame-powered sprites, collision detection, scenes, and animations.
+Game and graphics helpers exist for experimentation and targeted projects, but they sit outside the current production support boundary.
 </div>
 
 </div>
@@ -116,23 +116,8 @@ epl serve todo.epl
 
 ---
 
-## 725 Built-in Functions
+## Hundreds of Built-in and Packaged Functions
 
-EPL ships with **725 production-ready functions** across 33 domains:
+EPL ships a broad set of built-in and packaged functions across web, data, crypto, file I/O, networking, concurrency, GUI, and tooling domains.
 
-| Domain | Functions | Highlights |
-| ------ | --------- | ---------- |
-| Web Server | 37 | Routes, middleware, templates, sessions |
-| Database | 45 | SQLite/PostgreSQL/MySQL, ORM, migrations |
-| HTTP Client | 8 | GET/POST/PUT/DELETE with auto-JSON |
-| Crypto | 26 | AES, SHA, bcrypt, JWT, HMAC |
-| File System | 33 | Read/write, glob, walk, binary I/O |
-| Networking | 49 | TCP/UDP, DNS, WebSocket, HTTP server |
-| ML/AI | 35 | Regression, classification, neural nets |
-| Data Science | 47 | DataFrames, plotting, statistics |
-| Concurrency | 98 | Threads, channels, mutexes, barriers |
-| GUI | 37 | Windows, buttons, menus, canvas |
-| Game Dev | 39 | Sprites, collision, scenes, animation |
-| Mobile | 22 | Android/iOS scaffolding |
-
-[Full Standard Library Reference →](stdlib-reference.md)
+Exact counts evolve over time. Use the [Full Standard Library Reference →](stdlib-reference.md) as the source of truth for the currently shipped surface.

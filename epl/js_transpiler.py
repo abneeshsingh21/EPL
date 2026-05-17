@@ -197,7 +197,9 @@ class JSTranspiler:
             self._emit_component_def(node)
         elif isinstance(node, ast.AnimateDef):
             self._emit_animate_def(node)
-        elif isinstance(node, (ast.ResponsiveBlock, ast.TransitionDef, ast.ComponentUse, ast.KeyframeDef)):
+        elif isinstance(
+            node, (ast.ResponsiveBlock, ast.TransitionDef, ast.ComponentUse, ast.KeyframeDef)
+        ):
             pass  # handled at CSS generation level
         # v6.1: 3D & Canvas
         elif isinstance(node, ast.Scene3D):
@@ -685,6 +687,7 @@ class JSTranspiler:
     def _emit_use_js(self, node):
         """Emit native JS import for Use javascript/typescript statements."""
         import json as _json
+
         alias = node.alias or node.library.split('/')[-1].replace('-', '_')
         alias = re.sub(r'[^a-zA-Z0-9_$]', '_', alias)
         if alias and alias[0].isdigit():
@@ -1069,7 +1072,6 @@ class JSTranspiler:
         joined = ', '.join(parts)
         return '{' + joined + '}'
 
-
     # ─── v6.0: Style & Layout Emit Methods ────────────────
 
     def _emit_style_def(self, node):
@@ -1157,11 +1159,12 @@ class JSTranspiler:
         self._line(f'// Animation: {node.name}')
         self._line('(function() {')
         self._line(f'  const s = document.createElement("style");')
-        self._line(f'  s.textContent = "@keyframes {node.name} {{\\n{kf_css}\\n}}'
-                   f'\\n.animate-{node.name} {{ animation: {node.name} {duration} {easing} {iteration}; }}";')
+        self._line(
+            f'  s.textContent = "@keyframes {node.name} {{\\n{kf_css}\\n}}'
+            f'\\n.animate-{node.name} {{ animation: {node.name} {duration} {easing} {iteration}; }}";'
+        )
         self._line(f'  document.head.appendChild(s);')
         self._line('})();')
-
 
     # ─── v6.1: 3D & Canvas Emit Methods ────────────────────
 
@@ -1207,12 +1210,18 @@ class JSTranspiler:
                     self._line(f'  scene.add(new THREE.AmbientLight("{color}", {intensity}));')
                 elif lt == 'directional':
                     pos = child.position or [5, 10, 5]
-                    self._line(f'  {{ const l = new THREE.DirectionalLight("{color}", {intensity});')
-                    self._line(f'    l.position.set({pos[0]}, {pos[1]}, {pos[2]}); scene.add(l); }}')
+                    self._line(
+                        f'  {{ const l = new THREE.DirectionalLight("{color}", {intensity});'
+                    )
+                    self._line(
+                        f'    l.position.set({pos[0]}, {pos[1]}, {pos[2]}); scene.add(l); }}'
+                    )
                 elif lt == 'point':
                     pos = child.position or [0, 5, 0]
                     self._line(f'  {{ const l = new THREE.PointLight("{color}", {intensity});')
-                    self._line(f'    l.position.set({pos[0]}, {pos[1]}, {pos[2]}); scene.add(l); }}')
+                    self._line(
+                        f'    l.position.set({pos[0]}, {pos[1]}, {pos[2]}); scene.add(l); }}'
+                    )
             elif isinstance(child, ast.MeshAdd):
                 geo_map = {
                     'cube': 'BoxGeometry(1,1,1)',
@@ -1232,10 +1241,14 @@ class JSTranspiler:
                 self._line(f'    const mesh = new THREE.Mesh(g, m);')
                 self._line(f'    mesh.position.set({px}, {py}, {pz});')
                 self._line(f'    mesh.scale.set({sx}, {sy}, {sz});')
-                self._line(f'    mesh.rotation.set({rx}*Math.PI/180, {ry}*Math.PI/180, {rz}*Math.PI/180);')
+                self._line(
+                    f'    mesh.rotation.set({rx}*Math.PI/180, {ry}*Math.PI/180, {rz}*Math.PI/180);'
+                )
                 self._line(f'    scene.add(mesh); }}')
 
-        self._line('  function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }')
+        self._line(
+            '  function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }'
+        )
         self._line('  animate();')
         self._line('})();')
 

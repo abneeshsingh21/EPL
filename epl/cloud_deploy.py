@@ -30,39 +30,33 @@ _SAFE_ACCOUNT_RE = re.compile(r'^[a-zA-Z0-9_-]{1,64}$')
 def _validate_name(value: str, field: str) -> str:
     if not value or not _SAFE_NAME_RE.match(value):
         raise ValueError(
-            f"Invalid {field}: must start with a letter and contain only "
-            f"[a-zA-Z0-9._-], got: {value!r}"
+            f'Invalid {field}: must start with a letter and contain only '
+            f'[a-zA-Z0-9._-], got: {value!r}'
         )
     return value
 
 
 def _validate_image(value: str) -> str:
     if not value or not _SAFE_IMAGE_RE.match(value):
-        raise ValueError(
-            f"Invalid image reference: must match [a-zA-Z0-9._/:@-]+, got: {value!r}"
-        )
+        raise ValueError(f'Invalid image reference: must match [a-zA-Z0-9._/:@-]+, got: {value!r}')
     return value
 
 
 def _validate_region(value: str) -> str:
     if not value or not _SAFE_REGION_RE.match(value):
-        raise ValueError(
-            f"Invalid region: must match [a-z0-9-]+, got: {value!r}"
-        )
+        raise ValueError(f'Invalid region: must match [a-z0-9-]+, got: {value!r}')
     return value
 
 
 def _validate_account_id(value: str) -> str:
     if not value or not _SAFE_ACCOUNT_RE.match(value):
-        raise ValueError(
-            f"Invalid account/project ID: must match [a-zA-Z0-9_-]+, got: {value!r}"
-        )
+        raise ValueError(f'Invalid account/project ID: must match [a-zA-Z0-9_-]+, got: {value!r}')
     return value
 
 
 def _validate_port(value: int) -> int:
     if not isinstance(value, int) or value < 1 or value > 65535:
-        raise ValueError(f"Invalid port: must be 1-65535, got: {value!r}")
+        raise ValueError(f'Invalid port: must be 1-65535, got: {value!r}')
     return value
 
 
@@ -70,11 +64,12 @@ def _validate_port(value: int) -> int:
 # AWS — ECS + ECR
 # ═══════════════════════════════════════════════════════════
 
-def generate_ecr_push_script(app_name: str, image: str,
-                               region: str = "us-east-1",
-                               account_id: str = "YOUR_ACCOUNT_ID") -> str:
+
+def generate_ecr_push_script(
+    app_name: str, image: str, region: str = 'us-east-1', account_id: str = 'YOUR_ACCOUNT_ID'
+) -> str:
     """Generate a shell script to build and push image to AWS ECR."""
-    app_name = _validate_name(app_name, "app_name")
+    app_name = _validate_name(app_name, 'app_name')
     image = _validate_image(image)
     region = _validate_region(region)
     account_id = _validate_account_id(account_id)
@@ -116,112 +111,110 @@ def generate_ecr_push_script(app_name: str, image: str,
     """)
 
 
-def generate_ecs_task_definition(app_name: str, image: str,
-                                  port: int = 8000,
-                                  region: str = "us-east-1",
-                                  account_id: str = "YOUR_ACCOUNT_ID",
-                                  cpu: str = "256",
-                                  memory: str = "512") -> str:
+def generate_ecs_task_definition(
+    app_name: str,
+    image: str,
+    port: int = 8000,
+    region: str = 'us-east-1',
+    account_id: str = 'YOUR_ACCOUNT_ID',
+    cpu: str = '256',
+    memory: str = '512',
+) -> str:
     """Generate an ECS Fargate task definition JSON."""
-    app_name = _validate_name(app_name, "app_name")
+    app_name = _validate_name(app_name, 'app_name')
     image = _validate_image(image)
     port = _validate_port(port)
     region = _validate_region(region)
     account_id = _validate_account_id(account_id)
     task_def = {
-        "family": app_name,
-        "networkMode": "awsvpc",
-        "requiresCompatibilities": ["FARGATE"],
-        "cpu": cpu,
-        "memory": memory,
-        "executionRoleArn": f"arn:aws:iam::{account_id}:role/ecsTaskExecutionRole",
-        "containerDefinitions": [
+        'family': app_name,
+        'networkMode': 'awsvpc',
+        'requiresCompatibilities': ['FARGATE'],
+        'cpu': cpu,
+        'memory': memory,
+        'executionRoleArn': f'arn:aws:iam::{account_id}:role/ecsTaskExecutionRole',
+        'containerDefinitions': [
             {
-                "name": app_name,
-                "image": f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image}",
-                "portMappings": [
-                    {
-                        "containerPort": port,
-                        "protocol": "tcp"
-                    }
+                'name': app_name,
+                'image': f'{account_id}.dkr.ecr.{region}.amazonaws.com/{image}',
+                'portMappings': [{'containerPort': port, 'protocol': 'tcp'}],
+                'essential': True,
+                'environment': [
+                    {'name': 'EPL_ENV', 'value': 'production'},
+                    {'name': 'EPL_PORT', 'value': str(port)},
                 ],
-                "essential": True,
-                "environment": [
-                    {"name": "EPL_ENV", "value": "production"},
-                    {"name": "EPL_PORT", "value": str(port)}
-                ],
-                "logConfiguration": {
-                    "logDriver": "awslogs",
-                    "options": {
-                        "awslogs-group": f"/ecs/{app_name}",
-                        "awslogs-region": region,
-                        "awslogs-stream-prefix": "ecs"
-                    }
+                'logConfiguration': {
+                    'logDriver': 'awslogs',
+                    'options': {
+                        'awslogs-group': f'/ecs/{app_name}',
+                        'awslogs-region': region,
+                        'awslogs-stream-prefix': 'ecs',
+                    },
                 },
-                "healthCheck": {
-                    "command": [
-                        "CMD-SHELL",
-                        f"curl -f http://localhost:{port}/_health || exit 1"
-                    ],
-                    "interval": 30,
-                    "timeout": 5,
-                    "retries": 3,
-                    "startPeriod": 15
-                }
+                'healthCheck': {
+                    'command': ['CMD-SHELL', f'curl -f http://localhost:{port}/_health || exit 1'],
+                    'interval': 30,
+                    'timeout': 5,
+                    'retries': 3,
+                    'startPeriod': 15,
+                },
             }
-        ]
+        ],
     }
     return json.dumps(task_def, indent=2)
 
 
-def generate_ecs_service(app_name: str,
-                          cluster: str = "epl-cluster",
-                          desired_count: int = 2,
-                          subnet_id: str = "YOUR_SUBNET_ID",
-                          security_group: str = "YOUR_SG_ID") -> str:
+def generate_ecs_service(
+    app_name: str,
+    cluster: str = 'epl-cluster',
+    desired_count: int = 2,
+    subnet_id: str = 'YOUR_SUBNET_ID',
+    security_group: str = 'YOUR_SG_ID',
+) -> str:
     """Generate an ECS service config JSON."""
-    app_name = _validate_name(app_name, "app_name")
-    _validate_name(cluster, "cluster")
+    app_name = _validate_name(app_name, 'app_name')
+    _validate_name(cluster, 'cluster')
     service = {
-        "cluster": cluster,
-        "serviceName": f"{app_name}-service",
-        "taskDefinition": app_name,
-        "desiredCount": desired_count,
-        "launchType": "FARGATE",
-        "networkConfiguration": {
-            "awsvpcConfiguration": {
-                "subnets": [subnet_id],
-                "securityGroups": [security_group],
-                "assignPublicIp": "ENABLED"
+        'cluster': cluster,
+        'serviceName': f'{app_name}-service',
+        'taskDefinition': app_name,
+        'desiredCount': desired_count,
+        'launchType': 'FARGATE',
+        'networkConfiguration': {
+            'awsvpcConfiguration': {
+                'subnets': [subnet_id],
+                'securityGroups': [security_group],
+                'assignPublicIp': 'ENABLED',
             }
         },
-        "deploymentConfiguration": {
-            "minimumHealthyPercent": 50,
-            "maximumPercent": 200
-        }
+        'deploymentConfiguration': {'minimumHealthyPercent': 50, 'maximumPercent': 200},
     }
     return json.dumps(service, indent=2)
 
 
-def generate_aws_all(app_name: str, image: str,
-                      output_dir: str = "./deploy/aws",
-                      port: int = 8000, region: str = "us-east-1",
-                      account_id: str = "YOUR_ACCOUNT_ID") -> list:
+def generate_aws_all(
+    app_name: str,
+    image: str,
+    output_dir: str = './deploy/aws',
+    port: int = 8000,
+    region: str = 'us-east-1',
+    account_id: str = 'YOUR_ACCOUNT_ID',
+) -> list:
     """Generate all AWS deployment files."""
     os.makedirs(output_dir, exist_ok=True)
 
     files = {
-        "ecr-push.sh": generate_ecr_push_script(
-            app_name, image, region, account_id),
-        "task-definition.json": generate_ecs_task_definition(
-            app_name, image, port, region, account_id),
-        "ecs-service.json": generate_ecs_service(app_name),
+        'ecr-push.sh': generate_ecr_push_script(app_name, image, region, account_id),
+        'task-definition.json': generate_ecs_task_definition(
+            app_name, image, port, region, account_id
+        ),
+        'ecs-service.json': generate_ecs_service(app_name),
     }
 
     written = []
     for filename, content in files.items():
         path = os.path.join(output_dir, filename)
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
         written.append(path)
 
@@ -232,12 +225,16 @@ def generate_aws_all(app_name: str, image: str,
 # GCP — Cloud Run
 # ═══════════════════════════════════════════════════════════
 
-def generate_cloudrun_deploy_script(app_name: str, image: str,
-                                     region: str = "us-central1",
-                                     project_id: str = "YOUR_PROJECT_ID",
-                                     port: int = 8000) -> str:
+
+def generate_cloudrun_deploy_script(
+    app_name: str,
+    image: str,
+    region: str = 'us-central1',
+    project_id: str = 'YOUR_PROJECT_ID',
+    port: int = 8000,
+) -> str:
     """Generate a Cloud Run deploy shell script."""
-    app_name = _validate_name(app_name, "app_name")
+    app_name = _validate_name(app_name, 'app_name')
     image = _validate_image(image)
     region = _validate_region(region)
     project_id = _validate_account_id(project_id)
@@ -289,10 +286,9 @@ def generate_cloudrun_deploy_script(app_name: str, image: str,
     """)
 
 
-def generate_cloudbuild_yaml(app_name: str,
-                              project_id: str = "YOUR_PROJECT_ID") -> str:
+def generate_cloudbuild_yaml(app_name: str, project_id: str = 'YOUR_PROJECT_ID') -> str:
     """Generate a Cloud Build config."""
-    app_name = _validate_name(app_name, "app_name")
+    app_name = _validate_name(app_name, 'app_name')
     project_id = _validate_account_id(project_id)
     return textwrap.dedent(f"""\
         # Cloud Build configuration for {app_name}
@@ -338,23 +334,28 @@ def generate_cloudbuild_yaml(app_name: str,
     """)
 
 
-def generate_gcp_all(app_name: str, image: str,
-                      output_dir: str = "./deploy/gcp",
-                      port: int = 8000, region: str = "us-central1",
-                      project_id: str = "YOUR_PROJECT_ID") -> list:
+def generate_gcp_all(
+    app_name: str,
+    image: str,
+    output_dir: str = './deploy/gcp',
+    port: int = 8000,
+    region: str = 'us-central1',
+    project_id: str = 'YOUR_PROJECT_ID',
+) -> list:
     """Generate all GCP deployment files."""
     os.makedirs(output_dir, exist_ok=True)
 
     files = {
-        "cloudrun-deploy.sh": generate_cloudrun_deploy_script(
-            app_name, image, region, project_id, port),
-        "cloudbuild.yaml": generate_cloudbuild_yaml(app_name, project_id),
+        'cloudrun-deploy.sh': generate_cloudrun_deploy_script(
+            app_name, image, region, project_id, port
+        ),
+        'cloudbuild.yaml': generate_cloudbuild_yaml(app_name, project_id),
     }
 
     written = []
     for filename, content in files.items():
         path = os.path.join(output_dir, filename)
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
         written.append(path)
 
@@ -365,11 +366,12 @@ def generate_gcp_all(app_name: str, image: str,
 # Azure — Container Apps
 # ═══════════════════════════════════════════════════════════
 
-def generate_azure_containerapp(app_name: str, image: str,
-                                  port: int = 8000,
-                                  region: str = "eastus") -> str:
+
+def generate_azure_containerapp(
+    app_name: str, image: str, port: int = 8000, region: str = 'eastus'
+) -> str:
     """Generate Azure Container Apps YAML config."""
-    app_name = _validate_name(app_name, "app_name")
+    app_name = _validate_name(app_name, 'app_name')
     image = _validate_image(image)
     port = _validate_port(port)
     region = _validate_region(region)
@@ -414,11 +416,11 @@ def generate_azure_containerapp(app_name: str, image: str,
     """)
 
 
-def generate_azure_deploy_script(app_name: str, image: str,
-                                   region: str = "eastus",
-                                   port: int = 8000) -> str:
+def generate_azure_deploy_script(
+    app_name: str, image: str, region: str = 'eastus', port: int = 8000
+) -> str:
     """Generate Azure CLI deploy script."""
-    app_name = _validate_name(app_name, "app_name")
+    app_name = _validate_name(app_name, 'app_name')
     image = _validate_image(image)
     region = _validate_region(region)
     port = _validate_port(port)
@@ -470,24 +472,25 @@ def generate_azure_deploy_script(app_name: str, image: str,
     """)
 
 
-def generate_azure_all(app_name: str, image: str,
-                        output_dir: str = "./deploy/azure",
-                        port: int = 8000,
-                        region: str = "eastus") -> list:
+def generate_azure_all(
+    app_name: str,
+    image: str,
+    output_dir: str = './deploy/azure',
+    port: int = 8000,
+    region: str = 'eastus',
+) -> list:
     """Generate all Azure deployment files."""
     os.makedirs(output_dir, exist_ok=True)
 
     files = {
-        "containerapp.yaml": generate_azure_containerapp(
-            app_name, image, port, region),
-        "azure-deploy.sh": generate_azure_deploy_script(
-            app_name, image, region, port),
+        'containerapp.yaml': generate_azure_containerapp(app_name, image, port, region),
+        'azure-deploy.sh': generate_azure_deploy_script(app_name, image, region, port),
     }
 
     written = []
     for filename, content in files.items():
         path = os.path.join(output_dir, filename)
-        with open(path, "w", encoding="utf-8") as f:
+        with open(path, 'w', encoding='utf-8') as f:
             f.write(content)
         written.append(path)
 

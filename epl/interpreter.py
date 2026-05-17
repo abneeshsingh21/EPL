@@ -31,6 +31,14 @@ from epl.errors import (
 from epl.errors import (
     TypeError as EPLTypeError,
 )
+from epl.python_bridge import (
+    PythonModule,
+    call_python_function,
+    call_python_method,
+    resolve_python_module,
+    unwrap_python_argument,
+    wrap_python_result,
+)
 from epl.stdlib import STDLIB_FUNCTIONS, call_stdlib
 
 # Builtins disabled in safe/sandbox mode
@@ -335,44 +343,21 @@ class EPLDict:
         return str(self.data)
 
 
-# ─── Python Bridge Wrapper ───────────────────────────────
-
-
-class PythonModule:
-    """Wraps a Python module/class/namespace for use in EPL with deep attribute chaining."""
-
-    def __init__(self, module, name):
-        self.module = module
-        self.name = name
-
-    def get_attr(self, attr_name):
-        """Get attribute, wrapping sub-modules and classes for chaining.
-        Raises AttributeError for missing attributes instead of returning None."""
-        if not hasattr(self.module, attr_name):
-            raise AttributeError(f'{self.name} has no attribute "{attr_name}".')
-        attr = getattr(self.module, attr_name)
-        # Wrap sub-modules and classes so chaining works: mod.sub.func()
-        if isinstance(attr, type) or (
-            hasattr(attr, '__module__') and hasattr(attr, '__dict__') and not callable(attr)
-        ):
-            return PythonModule(attr, f'{self.name}.{attr_name}')
-        return attr
-
-    def __repr__(self):
-        return f'<python module {self.name}>'
+# ─── JavaScript Bridge Wrapper ───────────────────────────
 
 
 class JSModule:
     """Wraps a JavaScript module loaded via the Node.js bridge."""
 
     def __init__(self, bridge, handle, name):
-        self.bridge = bridge     # NodeBridge instance
-        self.handle = handle     # Opaque handle string (e.g. "h1")
-        self.name = name         # Display name (e.g. "lodash")
+        self.bridge = bridge  # NodeBridge instance
+        self.handle = handle  # Opaque handle string (e.g. "h1")
+        self.name = name  # Display name (e.g. "lodash")
 
     def get_attr(self, attr_name):
         """Get a property, wrapping handles as nested JSModule for chaining."""
         from epl.js_bridge import JSModuleHandle
+
         result = self.bridge.get_prop(self.handle, attr_name)
         if isinstance(result, JSModuleHandle):
             return JSModule(self.bridge, result.handle, f'{self.name}.{attr_name}')
@@ -381,6 +366,7 @@ class JSModule:
     def call_method(self, method_name, args):
         """Call a method on this JS object."""
         from epl.js_bridge import JSModuleHandle
+
         result = self.bridge.call(self.handle, method_name, args)
         if isinstance(result, JSModuleHandle):
             return JSModule(self.bridge, result.handle, f'{self.name}.{method_name}')
@@ -444,8 +430,10 @@ BUILTINS = {
     'to_integer',
     'to_text',
     'to_decimal',
+    'to_number',
     'to_boolean',
     'absolute',
+    'abs',
     'round',
     'max',
     'min',
@@ -453,6 +441,8 @@ BUILTINS = {
     'random_seed',
     'uppercase',
     'lowercase',
+    'trim',
+    'contains',
     # v0.6: Math
     'sqrt',
     'power',
@@ -469,6 +459,8 @@ BUILTINS = {
     'reversed',
     'keys',
     'values',
+    'has',
+    'has_key',
     # v0.6: Type checking
     'is_integer',
     'is_decimal',
@@ -1126,16 +1118,41 @@ class Interpreter:
             except (ValueError, TypeError):
                 raise EPLRuntimeError('Cannot convert to decimal.', line)
 
+        if name == 'to_number':
+            try:
+                value = float(args[0])
+                return int(value) if value.is_integer() else value
+            except (ValueError, TypeError):
+                raise EPLRuntimeError('Cannot convert to number.', line)
+
         if name == 'to_text':
             return self._format_value(args[0]) if len(args) == 1 else ''
 
         if name == 'to_boolean':
             return self._is_truthy(args[0]) if len(args) == 1 else False
 
-        if name == 'absolute':
+        if name in ('absolute', 'abs'):
             if isinstance(args[0], (int, float)):
                 return abs(args[0])
-            raise EPLTypeError('absolute() expects a number.', line)
+            raise EPLTypeError(f'{name}() expects a number.', line)
+
+        if name == 'trim':
+            return str(args[0]).strip() if len(args) == 1 else ''
+
+        if name == 'contains':
+            if len(args) != 2:
+                raise EPLRuntimeError('contains() takes 2 arguments.', line)
+            return str(args[1]) in str(args[0])
+
+        if name in ('has', 'has_key'):
+            if len(args) != 2:
+                raise EPLRuntimeError(f'{name}() takes 2 arguments.', line)
+            target, key = args
+            if isinstance(target, EPLDict):
+                return str(key) in target.data
+            if isinstance(target, dict):
+                return key in target
+            raise EPLTypeError(f'{name}() expects a map as first argument.', line)
 
         if name == 'round':
             if not isinstance(args[0], (int, float)):
@@ -1865,7 +1882,7 @@ class Interpreter:
 
         # Native Python-backed EPL modules
         if abs_path.startswith('__native__:'):
-            module_name = abs_path[len('__native__:'):]
+            module_name = abs_path[len('__native__:') :]
             module = _importlib.import_module(module_name)
             if node.alias:
                 env.define_variable(node.alias, module)
@@ -2213,6 +2230,7 @@ class Interpreter:
                 node.line,
             )
         from epl.js_bridge import NodeBridge, NodeBridgeError
+
         try:
             bridge = NodeBridge.get_instance()
             handle = bridge.require(node.library)
@@ -2520,6 +2538,7 @@ class Interpreter:
         # v5.3: JavaScript module method call
         if isinstance(obj, JSModule):
             from epl.js_bridge import JSModuleHandle
+
             result = obj.call_method(method, args)
             if isinstance(result, JSModuleHandle):
                 return JSModule(obj.bridge, result.handle, f'{obj.name}.{method}')
@@ -2771,99 +2790,57 @@ class Interpreter:
             return EPLDict(dict(d.data))
         raise EPLRuntimeError(f'Map has no method "{method}".', line)
 
+    _python_call_cache = {}
+
+    def _python_call(self, module_name, func_name, func_args, line):
+        """Load a Python backend module and call a function on it."""
+        mod = self._python_call_cache.get(module_name)
+        if mod is None:
+            mod = self._resolve_python_module(module_name, line)
+            self._python_call_cache[module_name] = mod
+        return call_python_function(
+            module_name,
+            mod,
+            func_name,
+            func_args,
+            line,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+        )
+
+    def _resolve_python_module(self, module_name, line):
+        """Resolve a module name to a Python module, checking official packages first."""
+        return resolve_python_module(module_name, line)
+
     def _call_python_method(self, py_mod, method, args, line):
         """Call a function or access attribute on a Python module."""
-        if not hasattr(py_mod.module, method):
-            raise EPLRuntimeError(
-                f'Python module "{py_mod.name}" has no function "{method}".', line
-            )
-        attr = getattr(py_mod.module, method)
-        if callable(attr):
-            try:
-                result = attr(*[self._unwrap_python_argument(arg) for arg in args])
-                return self._wrap_python_result(result)
-            except TypeError as e:
-                raise EPLRuntimeError(f'{py_mod.name}.{method}() argument error: {e}', line)
-            except Exception as e:
-                raise EPLRuntimeError(f'Python error in {py_mod.name}.{method}(): {e}', line)
-        return self._wrap_python_result(attr)
+        return call_python_method(
+            py_mod,
+            method,
+            args,
+            line,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+        )
 
     def _wrap_python_result(self, value, _seen=None):
         """Convert Python-native types to EPL-compatible types.
         Uses a seen-set to prevent infinite recursion on circular references."""
-        if value is None or isinstance(value, (int, float, bool, str)):
-            return value
-        # Guard against circular references
-        if _seen is None:
-            _seen = set()
-        obj_id = id(value)
-        if obj_id in _seen:
-            return f'<circular ref {type(value).__name__}>'
-        _seen.add(obj_id)
-        try:
-            if isinstance(value, dict):
-                return EPLDict({k: self._wrap_python_result(v, _seen) for k, v in value.items()})
-            if isinstance(value, (list, tuple)):
-                return [self._wrap_python_result(item, _seen) for item in value]
-            if isinstance(value, set):
-                return [self._wrap_python_result(item, _seen) for item in value]
-            if isinstance(value, bytes):
-                return value.decode('utf-8', errors='replace')
-            # Wrap complex objects (numpy arrays, class instances, etc.) as PythonModule for chaining
-            type_name = type(value).__name__
-            if hasattr(value, '__iter__') and not isinstance(value, str):
-                try:
-                    return [self._wrap_python_result(item, _seen) for item in value]
-                except (TypeError, StopIteration):
-                    pass
-            # Return as PythonModule wrapper so methods can still be called
-            if hasattr(value, '__dict__') or hasattr(value, '__class__'):
-                return PythonModule(value, type_name)
-            return value
-        finally:
-            _seen.discard(obj_id)
+        return wrap_python_result(
+            value,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+            _seen=_seen,
+        )
 
     def _unwrap_python_argument(self, value, _seen=None):
         """Convert EPL runtime values back into plain Python objects for Python calls."""
-        if value is None or isinstance(value, (int, float, bool, str)):
-            return value
-        if isinstance(value, PythonModule):
-            return value.module
-
-        if _seen is None:
-            _seen = set()
-        obj_id = id(value)
-        if obj_id in _seen:
-            return None
-        _seen.add(obj_id)
-
-        try:
-            if isinstance(value, EPLDict):
-                return {
-                    key: self._unwrap_python_argument(item, _seen)
-                    for key, item in value.data.items()
-                }
-            if isinstance(value, dict):
-                if value.get('__is_module__'):
-                    return {
-                        key: self._unwrap_python_argument(item, _seen)
-                        for key, item in value.items()
-                        if not key.startswith('__')
-                    }
-                if 'value' in value and 'type' in value and len(value) == 2:
-                    return self._unwrap_python_argument(value['value'], _seen)
-                return {
-                    key: self._unwrap_python_argument(item, _seen) for key, item in value.items()
-                }
-            if isinstance(value, list):
-                return [self._unwrap_python_argument(item, _seen) for item in value]
-            if isinstance(value, tuple):
-                return tuple(self._unwrap_python_argument(item, _seen) for item in value)
-            if isinstance(value, set):
-                return {self._unwrap_python_argument(item, _seen) for item in value}
-            return value
-        finally:
-            _seen.discard(obj_id)
+        return unwrap_python_argument(
+            value,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+            _seen=_seen,
+        )
 
     def _call_instance_method(self, instance, method_name, args, env, line):
         func_def = instance.get_method(method_name)

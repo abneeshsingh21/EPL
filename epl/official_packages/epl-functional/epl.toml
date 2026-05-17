@@ -1,0 +1,14 @@
+[project]
+name = "epl-functional"
+version = "1.0.0"
+description = "Functional programming toolkit — composition, transformers, predicates, Option type"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["functional", "composition", "higher-order", "option", "monadic", "transformers"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

@@ -26,7 +26,7 @@ _NPM_NAME_RE = re.compile(r'^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$')
 def validate_module_name(name: str) -> str:
     """Validate that a module name is a safe npm package name (not a path)."""
     if not name:
-        raise NodeBridgeError("Module name cannot be empty.")
+        raise NodeBridgeError('Module name cannot be empty.')
     if name.startswith('.') or name.startswith('/') or '\\' in name:
         raise NodeBridgeError(
             f'Module name "{name}" looks like a file path. '
@@ -34,8 +34,7 @@ def validate_module_name(name: str) -> str:
         )
     if '..' in name:
         raise NodeBridgeError(
-            f'Module name "{name}" contains path traversal. '
-            f'Only npm package names are allowed.'
+            f'Module name "{name}" contains path traversal. Only npm package names are allowed.'
         )
     if not _NPM_NAME_RE.match(name.lower()):
         raise NodeBridgeError(
@@ -47,6 +46,7 @@ def validate_module_name(name: str) -> str:
 
 class NodeBridgeError(Exception):
     """Raised when the Node.js bridge encounters an error."""
+
     pass
 
 
@@ -110,15 +110,12 @@ class NodeBridge:
         node_bin = shutil.which('node')
         if not node_bin:
             raise NodeBridgeError(
-                'Node.js is not installed or not found in PATH. '
-                'Install it from https://nodejs.org/'
+                'Node.js is not installed or not found in PATH. Install it from https://nodejs.org/'
             )
 
         worker_path = os.path.join(os.path.dirname(__file__), 'node_worker.js')
         if not os.path.exists(worker_path):
-            raise NodeBridgeError(
-                f'Node.js worker script not found at: {worker_path}'
-            )
+            raise NodeBridgeError(f'Node.js worker script not found at: {worker_path}')
 
         try:
             kwargs = {
@@ -155,10 +152,7 @@ class NodeBridge:
         if not ready.wait(timeout=5.0):
             returncode = self._process.poll()
             if returncode is not None:
-                raise NodeBridgeError(
-                    f'Node.js worker exited immediately (code {returncode}).'
-                )
-
+                raise NodeBridgeError(f'Node.js worker exited immediately (code {returncode}).')
 
     def _shutdown(self):
         """Terminate the Node.js subprocess."""
@@ -188,7 +182,6 @@ class NodeBridge:
             self._next_id += 1
 
             payload = json.dumps(request) + '\n'
-
 
             try:
                 self._process.stdin.write(payload.encode('utf-8'))
@@ -233,41 +226,49 @@ class NodeBridge:
     def call(self, handle: str, method: str, args: list = None):
         """Call a method on a JS object by handle."""
         serialized_args = [self._serialize_arg(a) for a in (args or [])]
-        resp = self._send({
-            'action': 'call',
-            'handle': handle,
-            'method': method,
-            'args': serialized_args,
-        })
+        resp = self._send(
+            {
+                'action': 'call',
+                'handle': handle,
+                'method': method,
+                'args': serialized_args,
+            }
+        )
         return self._deserialize_result(resp.get('result'))
 
     def call_direct(self, handle: str, args: list = None):
         """Call a JS function handle directly (not as a method)."""
         serialized_args = [self._serialize_arg(a) for a in (args or [])]
-        resp = self._send({
-            'action': 'callDirect',
-            'handle': handle,
-            'args': serialized_args,
-        })
+        resp = self._send(
+            {
+                'action': 'callDirect',
+                'handle': handle,
+                'args': serialized_args,
+            }
+        )
         return self._deserialize_result(resp.get('result'))
 
     def get_prop(self, handle: str, prop_name: str):
         """Get a property from a JS object by handle."""
-        resp = self._send({
-            'action': 'get',
-            'handle': handle,
-            'prop': prop_name,
-        })
+        resp = self._send(
+            {
+                'action': 'get',
+                'handle': handle,
+                'prop': prop_name,
+            }
+        )
         return self._deserialize_result(resp.get('result'))
 
     def set_prop(self, handle: str, prop_name: str, value):
         """Set a property on a JS object by handle."""
-        self._send({
-            'action': 'set',
-            'handle': handle,
-            'prop': prop_name,
-            'value': self._serialize_arg(value),
-        })
+        self._send(
+            {
+                'action': 'set',
+                'handle': handle,
+                'prop': prop_name,
+                'value': self._serialize_arg(value),
+            }
+        )
 
     # ─── Serialization ────────────────────────────────────
 
@@ -315,8 +316,5 @@ class NodeBridge:
         if result_type == 'array':
             return [self._deserialize_result(item) for item in data.get('value', [])]
         if result_type == 'object':
-            return {
-                k: self._deserialize_result(v)
-                for k, v in data.get('value', {}).items()
-            }
+            return {k: self._deserialize_result(v) for k, v in data.get('value', {}).items()}
         return data.get('value')

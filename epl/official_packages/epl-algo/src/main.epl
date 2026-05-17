@@ -1,0 +1,735 @@
+Note: EPL Algo Package — Classic Algorithms in pure EPL
+Note: Sorting, searching, graph algorithms, dynamic programming.
+Note: Use "epl-algo" to access these functions.
+
+Note: ===========================================================
+Note:  Sorting Algorithms (all iterative to avoid recursion limits)
+Note: ===========================================================
+
+Define Function bubble_sort Takes items
+    Create arr equal to items.copy()
+    Create n equal to length(arr)
+    For i from 0 to n - 2
+        Create swapped equal to false
+        For j from 0 to n - 2 - i
+            If arr[j] > arr[j + 1]
+                Create temp equal to arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = temp
+                Set swapped to true
+            End
+        End
+        If not swapped
+            Break
+        End
+    End
+    Return arr
+End
+
+Define Function insertion_sort Takes items
+    Create arr equal to items.copy()
+    Create n equal to length(arr)
+    For i from 1 to n - 1
+        Create key equal to arr[i]
+        Create j equal to i - 1
+        While j >= 0 and arr[j] > key
+            arr[j + 1] = arr[j]
+            Set j to j - 1
+        End
+        arr[j + 1] = key
+    End
+    Return arr
+End
+
+Define Function selection_sort Takes items
+    Create arr equal to items.copy()
+    Create n equal to length(arr)
+    For i from 0 to n - 2
+        Create min_idx equal to i
+        For j from i + 1 to n - 1
+            If arr[j] < arr[min_idx]
+                Set min_idx to j
+            End
+        End
+        If min_idx != i
+            Create temp equal to arr[i]
+            arr[i] = arr[min_idx]
+            arr[min_idx] = temp
+        End
+    End
+    Return arr
+End
+
+Define Function merge_sort Takes items
+    Create arr equal to items.copy()
+    Create n equal to length(arr)
+    If n <= 1
+        Return arr
+    End
+    Create width equal to 1
+    While width < n
+        Create i equal to 0
+        While i < n
+            Create left equal to i
+            Create mid equal to min(i + width, n)
+            Create right equal to min(i + 2 * width, n)
+            Create merged equal to []
+            Create l equal to left
+            Create r equal to mid
+            While l < mid and r < right
+                If arr[l] <= arr[r]
+                    Add arr[l] to merged
+                    Set l to l + 1
+                Otherwise
+                    Add arr[r] to merged
+                    Set r to r + 1
+                End
+            End
+            While l < mid
+                Add arr[l] to merged
+                Set l to l + 1
+            End
+            While r < right
+                Add arr[r] to merged
+                Set r to r + 1
+            End
+            For k from 0 to length(merged) - 1
+                arr[left + k] = merged[k]
+            End
+            Set i to i + 2 * width
+        End
+        Set width to width * 2
+    End
+    Return arr
+End
+
+Define Function quick_sort Takes items
+    Create arr equal to items.copy()
+    Create n equal to length(arr)
+    If n <= 1
+        Return arr
+    End
+    Create stack equal to [[0, n - 1]]
+    While length(stack) > 0
+        Create bounds equal to stack.pop()
+        Create lo equal to bounds[0]
+        Create hi equal to bounds[1]
+        If lo >= hi
+            Continue
+        End
+        Create pivot equal to arr[hi]
+        Create i equal to lo
+        For j from lo to hi - 1
+            If arr[j] <= pivot
+                Create temp equal to arr[i]
+                arr[i] = arr[j]
+                arr[j] = temp
+                Set i to i + 1
+            End
+        End
+        Create temp equal to arr[i]
+        arr[i] = arr[hi]
+        arr[hi] = temp
+        Add [lo, i - 1] to stack
+        Add [i + 1, hi] to stack
+    End
+    Return arr
+End
+
+Define Function heap_sort Takes items
+    Create arr equal to items.copy()
+    Create n equal to length(arr)
+    Create start equal to floor(n / 2) - 1
+    While start >= 0
+        Create root equal to start
+        While true
+            Create largest equal to root
+            Create left equal to 2 * root + 1
+            Create right equal to 2 * root + 2
+            If left < n and arr[left] > arr[largest]
+                Set largest to left
+            End
+            If right < n and arr[right] > arr[largest]
+                Set largest to right
+            End
+            If largest == root
+                Break
+            End
+            Create temp equal to arr[root]
+            arr[root] = arr[largest]
+            arr[largest] = temp
+            Set root to largest
+        End
+        Set start to start - 1
+    End
+    Create end_idx equal to n - 1
+    While end_idx > 0
+        Create temp equal to arr[0]
+        arr[0] = arr[end_idx]
+        arr[end_idx] = temp
+        Create root equal to 0
+        While true
+            Create largest equal to root
+            Create left equal to 2 * root + 1
+            Create right equal to 2 * root + 2
+            If left < end_idx and arr[left] > arr[largest]
+                Set largest to left
+            End
+            If right < end_idx and arr[right] > arr[largest]
+                Set largest to right
+            End
+            If largest == root
+                Break
+            End
+            Create temp2 equal to arr[root]
+            arr[root] = arr[largest]
+            arr[largest] = temp2
+            Set root to largest
+        End
+        Set end_idx to end_idx - 1
+    End
+    Return arr
+End
+
+Define Function counting_sort Takes items, max_val
+    Create counts equal to []
+    For i from 0 to max_val
+        Add 0 to counts
+    End
+    For each item in items
+        counts[item] = counts[item] + 1
+    End
+    Create result equal to []
+    For i from 0 to max_val
+        Repeat counts[i] times
+            Add i to result
+        End
+    End
+    Return result
+End
+
+Define Function is_sorted Takes items
+    For i from 0 to length(items) - 2
+        If items[i] > items[i + 1]
+            Return false
+        End
+    End
+    Return true
+End
+
+Note: ===========================================================
+Note:  Searching Algorithms
+Note: ===========================================================
+
+Define Function binary_search Takes sorted_items, target
+    Create lo equal to 0
+    Create hi equal to length(sorted_items) - 1
+    While lo <= hi
+        Create mid equal to floor((lo + hi) / 2)
+        If sorted_items[mid] == target
+            Return mid
+        Otherwise if sorted_items[mid] < target
+            Set lo to mid + 1
+        Otherwise
+            Set hi to mid - 1
+        End
+    End
+    Return -1
+End
+
+Define Function linear_search Takes items, target
+    For i from 0 to length(items) - 1
+        If items[i] == target
+            Return i
+        End
+    End
+    Return -1
+End
+
+Define Function interpolation_search Takes sorted_items, target
+    Create lo equal to 0
+    Create hi equal to length(sorted_items) - 1
+    While lo <= hi and target >= sorted_items[lo] and target <= sorted_items[hi]
+        If lo == hi
+            If sorted_items[lo] == target
+                Return lo
+            End
+            Return -1
+        End
+        Create pos equal to lo + floor(((target - sorted_items[lo]) * (hi - lo)) / (sorted_items[hi] - sorted_items[lo]))
+        If sorted_items[pos] == target
+            Return pos
+        Otherwise if sorted_items[pos] < target
+            Set lo to pos + 1
+        Otherwise
+            Set hi to pos - 1
+        End
+    End
+    Return -1
+End
+
+Define Function find_min_index Takes items
+    If length(items) == 0
+        Return -1
+    End
+    Create min_idx equal to 0
+    For i from 1 to length(items) - 1
+        If items[i] < items[min_idx]
+            Set min_idx to i
+        End
+    End
+    Return min_idx
+End
+
+Define Function find_max_index Takes items
+    If length(items) == 0
+        Return -1
+    End
+    Create max_idx equal to 0
+    For i from 1 to length(items) - 1
+        If items[i] > items[max_idx]
+            Set max_idx to i
+        End
+    End
+    Return max_idx
+End
+
+Define Function binary_search_insert_point Takes sorted_items, target
+    Create lo equal to 0
+    Create hi equal to length(sorted_items)
+    While lo < hi
+        Create mid equal to floor((lo + hi) / 2)
+        If sorted_items[mid] < target
+            Set lo to mid + 1
+        Otherwise
+            Set hi to mid
+        End
+    End
+    Return lo
+End
+
+Note: ===========================================================
+Note:  Graph Algorithms (adjacency list as Map of Lists)
+Note: ===========================================================
+
+Define Function create_graph
+    Return json_parse("{}")
+
+End
+
+Define Function add_vertex Takes graph, vertex
+    If not graph.has(vertex)
+        graph[vertex] = []
+    End
+    Return graph
+End
+
+Define Function add_edge Takes graph, from_v, to_v, weight
+    If not graph.has(from_v)
+        graph[from_v] = []
+    End
+    Add [to_v, weight] to graph[from_v]
+    Return graph
+End
+
+Define Function bfs Takes graph, start
+    Create visited equal to []
+    Create queue equal to [start]
+    Add start to visited
+    Create order equal to []
+    While length(queue) > 0
+        Create current equal to queue[0]
+        Set queue to queue.slice(1, length(queue))
+        Add current to order
+        If graph.has(current)
+            For each edge in graph[current]
+                Create neighbor equal to edge[0]
+                If not visited.contains(neighbor)
+                    Add neighbor to visited
+                    Add neighbor to queue
+                End
+            End
+        End
+    End
+    Return order
+End
+
+Define Function dfs Takes graph, start
+    Create visited equal to []
+    Create stack equal to [start]
+    Create order equal to []
+    While length(stack) > 0
+        Create current equal to stack.pop()
+        If not visited.contains(current)
+            Add current to visited
+            Add current to order
+            If graph.has(current)
+                Create neighbors equal to graph[current]
+                Create i equal to length(neighbors) - 1
+                While i >= 0
+                    Create neighbor equal to neighbors[i][0]
+                    If not visited.contains(neighbor)
+                        Add neighbor to stack
+                    End
+                    Set i to i - 1
+                End
+            End
+        End
+    End
+    Return order
+End
+
+Define Function dijkstra Takes graph, start, end_v
+    Create dist equal to json_parse("{}")
+    Create prev equal to json_parse("{}")
+    Create unvisited equal to []
+    Create graph_keys equal to keys(graph)
+    For each v in graph_keys
+        dist[v] = 999999999
+        prev[v] = nothing
+        Add v to unvisited
+    End
+    dist[start] = 0
+    While length(unvisited) > 0
+        Create min_dist equal to 999999999
+        Create u equal to nothing
+        For each v in unvisited
+            If dist.has(v) and dist[v] < min_dist
+                Set min_dist to dist[v]
+                Set u to v
+            End
+        End
+        If u == nothing or u == end_v
+            Break
+        End
+        Create new_unvisited equal to []
+        For each v in unvisited
+            If v != u
+                Add v to new_unvisited
+            End
+        End
+        Set unvisited to new_unvisited
+        If graph.has(u)
+            For each edge in graph[u]
+                Create v equal to edge[0]
+                Create w equal to edge[1]
+                Create alt equal to dist[u] + w
+                If alt < dist[v]
+                    dist[v] = alt
+                    prev[v] = u
+                End
+            End
+        End
+    End
+    Create path equal to []
+    Create current equal to end_v
+    While current != nothing
+        Set path to [current] + path
+        Set current to prev[current]
+    End
+    If length(path) == 0 or path[0] != start
+        Return Map with distance = 999999999 and path = []
+    End
+    Return Map with distance = dist[end_v] and path = path
+End
+
+Define Function topological_sort Takes graph
+    Create in_degree equal to json_parse("{}")
+    Create graph_keys equal to keys(graph)
+    For each v in graph_keys
+        If not in_degree.has(v)
+            in_degree[v] = 0
+        End
+        For each edge in graph[v]
+            Create neighbor equal to edge[0]
+            If in_degree.has(neighbor)
+                in_degree[neighbor] = in_degree[neighbor] + 1
+            Otherwise
+                in_degree[neighbor] = 1
+            End
+        End
+    End
+    Create queue equal to []
+    Create degree_keys equal to keys(in_degree)
+    For each v in degree_keys
+        If in_degree[v] == 0
+            Add v to queue
+        End
+    End
+    Create order equal to []
+    While length(queue) > 0
+        Create v equal to queue[0]
+        Set queue to queue.slice(1, length(queue))
+        Add v to order
+        If graph.has(v)
+            For each edge in graph[v]
+                Create neighbor equal to edge[0]
+                in_degree[neighbor] = in_degree[neighbor] - 1
+                If in_degree[neighbor] == 0
+                    Add neighbor to queue
+                End
+            End
+        End
+    End
+    Return order
+End
+
+Define Function has_cycle Takes graph
+    Create white equal to []
+    Create gray equal to []
+    Create black equal to []
+    Create graph_keys equal to keys(graph)
+    For each v in graph_keys
+        Add v to white
+    End
+    While length(white) > 0
+        Create stack equal to [[white[0], false]]
+        While length(stack) > 0
+            Create entry equal to stack.pop()
+            Create node equal to entry[0]
+            Create processed equal to entry[1]
+            If processed
+                Create new_gray equal to []
+                For each g in gray
+                    If g != node
+                        Add g to new_gray
+                    End
+                End
+                Set gray to new_gray
+                Add node to black
+                Continue
+            End
+            If gray.contains(node)
+                Return true
+            End
+            If black.contains(node)
+                Continue
+            End
+            Create new_white equal to []
+            For each w in white
+                If w != node
+                    Add w to new_white
+                End
+            End
+            Set white to new_white
+            Add node to gray
+            Add [node, true] to stack
+            If graph.has(node)
+                For each edge in graph[node]
+                    Create neighbor equal to edge[0]
+                    If gray.contains(neighbor)
+                        Return true
+                    End
+                    If not black.contains(neighbor)
+                        Add [neighbor, false] to stack
+                    End
+                End
+            End
+        End
+    End
+    Return false
+End
+
+Define Function connected_components Takes graph
+    Create visited equal to []
+    Create components equal to []
+    Create graph_keys equal to keys(graph)
+    For each start in graph_keys
+        If not visited.contains(start)
+            Create component equal to []
+            Create queue equal to [start]
+            Add start to visited
+            While length(queue) > 0
+                Create current equal to queue[0]
+                Set queue to queue.slice(1, length(queue))
+                Add current to component
+                If graph.has(current)
+                    For each edge in graph[current]
+                        Create neighbor equal to edge[0]
+                        If not visited.contains(neighbor)
+                            Add neighbor to visited
+                            Add neighbor to queue
+                        End
+                    End
+                End
+            End
+            Add component to components
+        End
+    End
+    Return components
+End
+
+Define Function shortest_path Takes graph, start, end_v
+    Create visited equal to []
+    Create queue equal to [[start, [start]]]
+    Add start to visited
+    While length(queue) > 0
+        Create entry equal to queue[0]
+        Set queue to queue.slice(1, length(queue))
+        Create current equal to entry[0]
+        Create path equal to entry[1]
+        If current == end_v
+            Return path
+        End
+        If graph.has(current)
+            For each edge in graph[current]
+                Create neighbor equal to edge[0]
+                If not visited.contains(neighbor)
+                    Add neighbor to visited
+                    Add [neighbor, path + [neighbor]] to queue
+                End
+            End
+        End
+    End
+    Return []
+End
+
+Note: ===========================================================
+Note:  Dynamic Programming
+Note: ===========================================================
+
+Define Function longest_increasing_subsequence Takes items
+    Create n equal to length(items)
+    If n == 0
+        Return 0
+    End
+    Create dp equal to []
+    For i from 0 to n - 1
+        Add 1 to dp
+    End
+    For i from 1 to n - 1
+        For j from 0 to i - 1
+            If items[j] < items[i] and dp[j] + 1 > dp[i]
+                dp[i] = dp[j] + 1
+            End
+        End
+    End
+    Create max_val equal to dp[0]
+    For each val in dp
+        If val > max_val
+            Set max_val to val
+        End
+    End
+    Return max_val
+End
+
+Define Function knapsack_01 Takes weights, values, capacity
+    Create n equal to length(weights)
+    Create dp equal to []
+    For i from 0 to capacity
+        Add 0 to dp
+    End
+    For i from 0 to n - 1
+        Create w equal to floor(capacity)
+        While w >= weights[i]
+            Create with_item equal to dp[w - weights[i]] + values[i]
+            If with_item > dp[w]
+                dp[w] = with_item
+            End
+            Set w to w - 1
+        End
+    End
+    Return dp[capacity]
+End
+
+Define Function coin_change Takes coins, amount
+    Create dp equal to []
+    For i from 0 to amount
+        Add amount + 1 to dp
+    End
+    dp[0] = 0
+    For i from 1 to amount
+        For each coin in coins
+            If coin <= i and dp[i - coin] + 1 < dp[i]
+                dp[i] = dp[i - coin] + 1
+            End
+        End
+    End
+    If dp[amount] > amount
+        Return -1
+    End
+    Return dp[amount]
+End
+
+Define Function edit_distance Takes s1, s2
+    Create m equal to length(s1)
+    Create n equal to length(s2)
+    Create prev equal to []
+    For j from 0 to n
+        Add j to prev
+    End
+    For i from 1 to m
+        Create curr equal to [i]
+        For j from 1 to n
+            If s1.char_at(i - 1) == s2.char_at(j - 1)
+                Add prev[j - 1] to curr
+            Otherwise
+                Create min_val equal to prev[j - 1]
+                If prev[j] < min_val
+                    Set min_val to prev[j]
+                End
+                If curr[j - 1] < min_val
+                    Set min_val to curr[j - 1]
+                End
+                Add min_val + 1 to curr
+            End
+        End
+        Set prev to curr
+    End
+    Return prev[n]
+End
+
+Define Function max_subarray_sum Takes items
+    If length(items) == 0
+        Return 0
+    End
+    Create max_sum equal to items[0]
+    Create current_sum equal to items[0]
+    For i from 1 to length(items) - 1
+        If current_sum + items[i] > items[i]
+            Set current_sum to current_sum + items[i]
+        Otherwise
+            Set current_sum to items[i]
+        End
+        If current_sum > max_sum
+            Set max_sum to current_sum
+        End
+    End
+    Return max_sum
+End
+
+Note: ===========================================================
+Note:  Utility
+Note: ===========================================================
+
+Define Function shuffle Takes items
+    Create arr equal to items.copy()
+    Create n equal to length(arr)
+    Create i equal to n - 1
+    While i > 0
+        Create j equal to random(0, i)
+        Create temp equal to arr[i]
+        arr[i] = arr[j]
+        arr[j] = temp
+        Set i to i - 1
+    End
+    Return arr
+End
+
+Define Function rotate_left Takes items, k
+    Create n equal to length(items)
+    If n == 0
+        Return items
+    End
+    Create shift equal to k % n
+    Return items.slice(shift, n) + items.slice(0, shift)
+End
+
+Define Function rotate_right Takes items, k
+    Create n equal to length(items)
+    If n == 0
+        Return items
+    End
+    Create shift equal to k % n
+    Return items.slice(n - shift, n) + items.slice(0, n - shift)
+End

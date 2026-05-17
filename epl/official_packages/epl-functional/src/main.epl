@@ -1,0 +1,354 @@
+Note: EPL Functional Package — Functional Programming Toolkit in pure EPL
+Note: Composition, partial application, list transformers, predicates, Option type.
+Note: Use "epl-functional" to access these functions.
+
+Note: ===========================================================
+Note:  Function Composition
+Note: ===========================================================
+
+Define Function compose_many Takes functions
+    Create n equal to length(functions)
+    If n == 0
+        Return lambda x -> x
+    End
+    If n == 1
+        Return functions[0]
+    End
+    Return lambda x -> _compose_apply(functions, x)
+End
+
+Define Function _compose_apply Takes functions, value
+    Create result equal to value
+    Create i equal to length(functions) - 1
+    While i >= 0
+        Create fn equal to functions[i]
+        Set result to fn(result)
+        Set i to i - 1
+    End
+    Return result
+End
+
+Define Function pipe_many Takes value, functions
+    Create result equal to value
+    For each fn in functions
+        Set result to fn(result)
+    End
+    Return result
+End
+
+Define Function tap Takes value, fn
+    Call fn with value
+    Return value
+End
+
+Define Function when_pred Takes predicate, transform, value
+    If predicate(value)
+        Return transform(value)
+    End
+    Return value
+End
+
+Define Function unless_pred Takes predicate, transform, value
+    If not predicate(value)
+        Return transform(value)
+    End
+    Return value
+End
+
+Define Function juxt Takes functions, value
+    Create results equal to []
+    For each fn in functions
+        Add fn(value) to results
+    End
+    Return results
+End
+
+Note: ===========================================================
+Note:  Partial Application
+Note: ===========================================================
+
+Define Function partial_left Takes fn, bound_arg
+    Return lambda x -> fn(bound_arg, x)
+End
+
+Define Function partial_right Takes fn, bound_arg
+    Return lambda x -> fn(x, bound_arg)
+End
+
+Define Function constant Takes value
+    Return lambda x -> value
+End
+
+Define Function flip Takes fn
+    Return lambda a, b -> fn(b, a)
+End
+
+Note: ===========================================================
+Note:  List Transformers
+Note: ===========================================================
+
+Define Function zip_with Takes fn, list_a, list_b
+    Create result equal to []
+    Create n equal to min(length(list_a), length(list_b))
+    For i from 0 to n - 1
+        Add fn(list_a[i], list_b[i]) to result
+    End
+    Return result
+End
+
+Define Function partition Takes items, predicate
+    Create passing equal to []
+    Create failing equal to []
+    For each item in items
+        If predicate(item)
+            Add item to passing
+        Otherwise
+            Add item to failing
+        End
+    End
+    Return [passing, failing]
+End
+
+Define Function group_by Takes items, key_fn
+    Create groups equal to json_parse("{}")
+    For each item in items
+        Create k equal to key_fn(item)
+        If groups.has(k)
+            Add item to groups[k]
+        Otherwise
+            groups[k] = [item]
+        End
+    End
+    Return groups
+End
+
+Define Function take_while Takes items, predicate
+    Create result equal to []
+    For each item in items
+        If not predicate(item)
+            Break
+        End
+        Add item to result
+    End
+    Return result
+End
+
+Define Function drop_while Takes items, predicate
+    Create result equal to []
+    Create dropping equal to true
+    For each item in items
+        If dropping and predicate(item)
+            Continue
+        End
+        Set dropping to false
+        Add item to result
+    End
+    Return result
+End
+
+Define Function scan Takes items, fn, initial
+    Create result equal to [initial]
+    Create acc equal to initial
+    For each item in items
+        Set acc to fn(acc, item)
+        Add acc to result
+    End
+    Return result
+End
+
+Define Function window Takes items, size
+    Create result equal to []
+    Create n equal to length(items)
+    For i from 0 to n - size
+        Add items.slice(i, i + size) to result
+    End
+    Return result
+End
+
+Define Function interleave Takes list_a, list_b
+    Create result equal to []
+    Create n equal to max(length(list_a), length(list_b))
+    For i from 0 to n - 1
+        If i < length(list_a)
+            Add list_a[i] to result
+        End
+        If i < length(list_b)
+            Add list_b[i] to result
+        End
+    End
+    Return result
+End
+
+Define Function frequencies Takes items
+    Create counts equal to json_parse("{}")
+    For each item in items
+        Create k equal to to_text(item)
+        If counts.has(k)
+            counts[k] = counts[k] + 1
+        Otherwise
+            counts[k] = 1
+        End
+    End
+    Return counts
+End
+
+Define Function index_by Takes items, key_fn
+    Create result equal to json_parse("{}")
+    For each item in items
+        Create k equal to key_fn(item)
+        result[k] = item
+    End
+    Return result
+End
+
+Define Function flat_map Takes items, fn
+    Create result equal to []
+    For each item in items
+        Create mapped equal to fn(item)
+        If is_list(mapped)
+            For each sub_item in mapped
+                Add sub_item to result
+            End
+        Otherwise
+            Add mapped to result
+        End
+    End
+    Return result
+End
+
+Define Function unzip Takes pairs
+    Create firsts equal to []
+    Create seconds equal to []
+    For each pair in pairs
+        Add pair[0] to firsts
+        Add pair[1] to seconds
+    End
+    Return [firsts, seconds]
+End
+
+Define Function cartesian_product Takes list_a, list_b
+    Create result equal to []
+    For each a in list_a
+        For each b in list_b
+            Add [a, b] to result
+        End
+    End
+    Return result
+End
+
+Define Function transpose Takes matrix
+    If length(matrix) == 0
+        Return []
+    End
+    Create rows equal to length(matrix)
+    Create cols equal to length(matrix[0])
+    Create result equal to []
+    For j from 0 to cols - 1
+        Create row equal to []
+        For i from 0 to rows - 1
+            Add matrix[i][j] to row
+        End
+        Add row to result
+    End
+    Return result
+End
+
+Note: ===========================================================
+Note:  Predicates and Logic
+Note: ===========================================================
+
+Define Function all_of Takes items, predicate
+    For each item in items
+        If not predicate(item)
+            Return false
+        End
+    End
+    Return true
+End
+
+Define Function any_of Takes items, predicate
+    For each item in items
+        If predicate(item)
+            Return true
+        End
+    End
+    Return false
+End
+
+Define Function none_of Takes items, predicate
+    For each item in items
+        If predicate(item)
+            Return false
+        End
+    End
+    Return true
+End
+
+Define Function count_by Takes items, predicate
+    Create count equal to 0
+    For each item in items
+        If predicate(item)
+            Set count to count + 1
+        End
+    End
+    Return count
+End
+
+Define Function find_last Takes items, predicate
+    Create i equal to length(items) - 1
+    While i >= 0
+        If predicate(items[i])
+            Return items[i]
+        End
+        Set i to i - 1
+    End
+    Return nothing
+End
+
+Note: ===========================================================
+Note:  Option/Maybe Type
+Note: ===========================================================
+
+Define Function some Takes value
+    Return Map with _type = "option" and has_value = true and value = value
+End
+
+Define Function none_val
+    Return Map with _type = "option" and has_value = false and value = nothing
+End
+
+Define Function is_some Takes opt
+    Return opt.has("has_value") and opt["has_value"] == true
+End
+
+Define Function is_none Takes opt
+    Return not opt.has("has_value") or opt["has_value"] == false
+End
+
+Define Function unwrap_or Takes opt, default_val
+    If is_some(opt)
+        Return opt["value"]
+    End
+    Return default_val
+End
+
+Define Function option_map Takes opt, fn
+    If is_some(opt)
+        Return some(fn(opt["value"]))
+    End
+    Return none_val()
+End
+
+Define Function option_flat_map Takes opt, fn
+    If is_some(opt)
+        Return fn(opt["value"])
+    End
+    Return none_val()
+End
+
+Define Function option_filter Takes opt, predicate
+    If is_some(opt) and predicate(opt["value"])
+        Return opt
+    End
+    Return none_val()
+End

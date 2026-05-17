@@ -855,11 +855,20 @@ import CryptoKit
             return 0
 
     _NAMED_COLORS = {
-        'red': 'ff0000', 'green': '00ff00', 'blue': '0000ff',
-        'white': 'ffffff', 'black': '000000', 'yellow': 'ffff00',
-        'cyan': '00ffff', 'magenta': 'ff00ff', 'orange': 'ff8c00',
-        'purple': '800080', 'pink': 'ffc0cb', 'gray': '808080',
-        'grey': '808080', 'transparent': '000000',
+        'red': 'ff0000',
+        'green': '00ff00',
+        'blue': '0000ff',
+        'white': 'ffffff',
+        'black': '000000',
+        'yellow': 'ffff00',
+        'cyan': '00ffff',
+        'magenta': 'ff00ff',
+        'orange': 'ff8c00',
+        'purple': '800080',
+        'pink': 'ffc0cb',
+        'gray': '808080',
+        'grey': '808080',
+        'transparent': '000000',
     }
 
     def _css_color_to_swift(self, color_str):
@@ -919,12 +928,12 @@ import CryptoKit
         tag = node.tag
         container = 'VStack' if tag in ('section', 'article', 'main', 'nav', 'div') else 'Group'
         lines.append(f'{container} {{')
-        for child in (node.children or []):
+        for child in node.children or []:
             child_lines = self._emit_stmt(child)
             for cl in child_lines:
                 lines.append(f'    {cl}')
         lines.append('}')
-        for style_name in (node.styles or []):
+        for style_name in node.styles or []:
             name = style_name.replace('-', '_').replace(' ', '_').title().replace('_', '')
             lines[-1] += f'\n.modifier({name}Style())'
         return lines
@@ -937,8 +946,10 @@ import CryptoKit
 
         if node.layout_type == 'grid':
             cols = int(props.get('columns', 2))
-            lines.append(f'LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: {cols}), spacing: {gap}) {{')
-            for child in (node.children or []):
+            lines.append(
+                f'LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: {cols}), spacing: {gap}) {{'
+            )
+            for child in node.children or []:
                 child_lines = self._emit_stmt(child)
                 for cl in child_lines:
                     lines.append(f'    {cl}')
@@ -947,7 +958,7 @@ import CryptoKit
             direction = props.get('direction', 'column')
             container = 'HStack' if direction == 'row' else 'VStack'
             lines.append(f'{container}(spacing: {gap}) {{')
-            for child in (node.children or []):
+            for child in node.children or []:
                 child_lines = self._emit_stmt(child)
                 for cl in child_lines:
                     lines.append(f'    {cl}')
@@ -958,12 +969,12 @@ import CryptoKit
         """Register a custom View struct."""
         name = node.name.replace('-', '_').replace(' ', '_')
         param_strs = []
-        for p in (node.params or []):
+        for p in node.params or []:
             pname = p[0] if isinstance(p, tuple) else str(p)
             param_strs.append(f'    var {pname}: String = ""')
 
         body_lines = []
-        for stmt in (node.body or []):
+        for stmt in node.body or []:
             body_lines.extend(self._emit_stmt(stmt))
 
         fn_lines = [
@@ -992,11 +1003,13 @@ import CryptoKit
             dur_val = float(duration) if '.' in duration else float(duration)
         except ValueError:
             dur_val = 1.0
-        self._state_vars.append({
-            'name': f'{name}Active',
-            'type': 'Bool',
-            'default': 'false',
-        })
+        self._state_vars.append(
+            {
+                'name': f'{name}Active',
+                'type': 'Bool',
+                'default': 'false',
+            }
+        )
 
     def _emit_scene_3d(self, node):
         """Emit SceneKit 3D scene."""
@@ -1016,7 +1029,11 @@ import CryptoKit
                 lines.append(f'    scene.rootNode.addChildNode(cameraNode)')
             elif isinstance(child, ast.LightSetup):
                 lt = child.light_type
-                scn_type = {'ambient': '.ambient', 'directional': '.directional', 'point': '.omni'}.get(lt, '.ambient')
+                scn_type = {
+                    'ambient': '.ambient',
+                    'directional': '.directional',
+                    'point': '.omni',
+                }.get(lt, '.ambient')
                 lines.append(f'    let lightNode = SCNNode()')
                 lines.append(f'    lightNode.light = SCNLight()')
                 lines.append(f'    lightNode.light!.type = {scn_type}')
@@ -1033,12 +1050,16 @@ import CryptoKit
                     'cylinder': f'SCNCylinder(radius: 0.5, height: 1)',
                     'cone': f'SCNCone(topRadius: 0, bottomRadius: 0.5, height: 1)',
                 }
-                geo = geo_map.get(child.shape, 'SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)')
+                geo = geo_map.get(
+                    child.shape, 'SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)'
+                )
                 px, py, pz = child.position
                 color = self._css_color_to_swift(child.color or '#667eea')
                 lines.append(f'    let meshNode = SCNNode(geometry: {geo})')
                 lines.append(f'    meshNode.position = SCNVector3({px}, {py}, {pz})')
-                lines.append(f'    meshNode.geometry?.firstMaterial?.diffuse.contents = UIColor({color})')
+                lines.append(
+                    f'    meshNode.geometry?.firstMaterial?.diffuse.contents = UIColor({color})'
+                )
                 lines.append(f'    scene.rootNode.addChildNode(meshNode)')
 
         lines.append(f'    return scene')
@@ -1058,12 +1079,16 @@ import CryptoKit
             x, y = props.get('x', 0), props.get('y', 0)
             w, h = props.get('width', 100), props.get('height', 50)
             fill = self._css_color_to_swift(props.get('fill', '#000'))
-            lines.append(f'    context.fill(Path(CGRect(x: {x}, y: {y}, width: {w}, height: {h})), with: .color({fill}))')
+            lines.append(
+                f'    context.fill(Path(CGRect(x: {x}, y: {y}, width: {w}, height: {h})), with: .color({fill}))'
+            )
         elif shape == 'circle':
             x, y = props.get('x', 50), props.get('y', 50)
             r = props.get('radius', 25)
             fill = self._css_color_to_swift(props.get('fill', '#000'))
-            lines.append(f'    let rect = CGRect(x: {x - r}, y: {y - r}, width: {r * 2}, height: {r * 2})')
+            lines.append(
+                f'    let rect = CGRect(x: {x - r}, y: {y - r}, width: {r * 2}, height: {r * 2})'
+            )
             lines.append(f'    context.fill(Circle().path(in: rect), with: .color({fill}))')
         elif shape == 'line':
             x1, y1 = props.get('x1', 0), props.get('y1', 0)
@@ -1078,7 +1103,9 @@ import CryptoKit
             x, y = props.get('x', 10), props.get('y', 30)
             content = props.get('content', '')
             fill = self._css_color_to_swift(props.get('fill', '#000'))
-            lines.append(f'    context.draw(Text("{content}").foregroundColor({fill}), at: CGPoint(x: {x}, y: {y}))')
+            lines.append(
+                f'    context.draw(Text("{content}").foregroundColor({fill}), at: CGPoint(x: {x}, y: {y}))'
+            )
         elif shape == 'path':
             fill = self._css_color_to_swift(props.get('fill', '#000'))
             lines.append(f'    let path = Path()')
