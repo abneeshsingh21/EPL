@@ -16,13 +16,19 @@ from pathlib import Path
 from unittest import mock
 
 
+_MAIN_PY = os.path.join(os.path.dirname(__file__), '..', 'main.py')
+_HAS_MAIN = os.path.isfile(_MAIN_PY)
+
+
 def _import_main():
     """Import the root main.py regardless of CWD."""
-    main_path = os.path.join(os.path.dirname(__file__), '..', 'main.py')
-    spec = importlib.util.spec_from_file_location('main', os.path.abspath(main_path))
+    spec = importlib.util.spec_from_file_location('main', os.path.abspath(_MAIN_PY))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+_skip_no_main = unittest.skipUnless(_HAS_MAIN, 'main.py not present in checkout')
 
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -148,6 +154,7 @@ class TestCLIProduction(unittest.TestCase):
             target='linux-x64',
         )
 
+    @_skip_no_main
     def test_legacy_build_returns_nonzero_on_native_compile_failure(self):
         main_module = _import_main()
 
@@ -157,6 +164,7 @@ class TestCLIProduction(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         compile_file.assert_called_once_with('src/main.epl', opt_level=2, static=True, target=None)
 
+    @_skip_no_main
     def test_legacy_main_delegates_to_cli_main(self):
         main_module = _import_main()
 
@@ -166,6 +174,7 @@ class TestCLIProduction(unittest.TestCase):
         self.assertEqual(exit_code, 17)
         cli_entry.assert_called_once_with(['version'])
 
+    @_skip_no_main
     def test_source_checkout_main_delegates_to_cli_main(self):
         main_module = _import_main()
 
@@ -196,6 +205,7 @@ class TestCLIProduction(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), f'epl {EPL_VERSION}')
 
+    @_skip_no_main
     def test_main_module_import_does_not_strip_interpret_flag_from_sys_argv(self):
         script = """
 import importlib
