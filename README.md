@@ -1,13 +1,6 @@
 <div align="center">
 
-<br/>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/EPL-English%20Programming%20Language-ffffff?style=for-the-badge&labelColor=0d1117&color=58a6ff&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzU4YTZmZiI+PHBhdGggZD0iTTEyIDJMMyA3djEwbDkgNSA5LTVWN2wtOS01eiIvPjwvc3ZnPg==">
-  <img alt="EPL" src="https://img.shields.io/badge/EPL-English%20Programming%20Language-000000?style=for-the-badge&labelColor=0d1117&color=58a6ff&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzU4YTZmZiI+PHBhdGggZD0iTTEyIDJMMyA3djEwbDkgNSA5LTVWN2wtOS01eiIvPjwvc3ZnPg==">
-</picture>
-
-<br/>
+# 🌐 EPL — English Programming Language
 
 ### Write code the way you think. In plain English.
 
@@ -17,13 +10,12 @@
 [![Downloads](https://img.shields.io/pypi/dm/eplang?color=3572A5&label=Downloads&style=flat-square)](https://pypi.org/project/eplang/)
 [![Python](https://img.shields.io/badge/Python-3.9%E2%80%933.12-3572A5?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square)](LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/abneeshsingh21/EPL/ci.yml?label=CI&style=flat-square&logo=github)](https://github.com/abneeshsingh21/EPL/actions)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
 [![Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=flat-square&logo=github&color=e3b341)](https://github.com/abneeshsingh21/EPL/stargazers)
 
 <br/>
 
-EPL is a **production-ready, statically-analyzable programming language** where every keyword is natural English.  
+EPL is a **fully-featured programming language** where every keyword is natural English.  
 Build web apps, REST APIs, mobile apps, AI pipelines, and cloud-native services — in a syntax anyone can read, write, and maintain.
 
 <br/>
@@ -44,7 +36,7 @@ pip install eplang
 
 ## Overview
 
-EPL (English Programming Language) eliminates the gap between pseudocode and production code. Its syntax reads like structured English, while its runtime delivers the performance and tooling expected from a modern systems language — bytecode VM, LLVM native compilation, WASM targets, and a 22-package official ecosystem.
+EPL (English Programming Language) eliminates the gap between pseudocode and executable code. Its syntax reads like structured English, while its runtime delivers the performance and tooling expected from a modern language — bytecode VM, LLVM native compilation, WASM targets, and a 22-package official ecosystem.
 
 ```epl
 Note: A production-grade REST API in EPL
