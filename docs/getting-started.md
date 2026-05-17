@@ -95,16 +95,15 @@ Say greet("World")
 
 ```epl
 Class Animal
-    Function Begin takes name
-Note: [Parser Error]         this.name = name
-    End
+    name = "Unknown"
 
     Function speak
-        Say this.name + " makes a sound"
+        Say name + " makes a sound"
     End
 End
 
-dog = New Animal("Rex")
+dog = New Animal()
+dog.name = "Rex"
 dog.speak()
 ```
 
@@ -129,15 +128,18 @@ Useful REPL commands:
 ## 5. Create a Web Server
 
 ```epl
-Start server on port 8080
-    Route "/"
-        Send "Welcome to my EPL web app!"
-    End
+Create WebApp called app
 
-    Route "/hello"
-        Send "Hello from EPL!"
+Route "/" shows
+    Page "Welcome"
+        Heading "Welcome to my EPL web app!"
+        Text "This page is served by the native EPL web runtime."
     End
-Note: [Parser Error] End
+End
+
+Route "/hello" responds with
+    Send json Map with message = "Hello from EPL!"
+End
 ```
 
 Run it:

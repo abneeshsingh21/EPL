@@ -1,0 +1,14 @@
+[project]
+name = "epl-datetime"
+version = "1.0.0"
+description = "Pure date/time calculations — date arithmetic, formatting, calendar generation, ranges"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["date", "time", "calendar", "datetime", "formatting", "arithmetic"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

@@ -1,0 +1,14 @@
+[project]
+name = "epl-string"
+version = "1.0.0"
+description = "Advanced string processing — case conversion, text analysis, transformation, templates"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["string", "text", "formatting", "template", "slug", "case-conversion"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

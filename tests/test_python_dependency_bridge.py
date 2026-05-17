@@ -14,7 +14,7 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import epl.interpreter as interpreter_mod
-from epl.interpreter import Interpreter, PythonModule
+from epl.interpreter import EPLDict, Interpreter
 from epl.lexer import Lexer
 from epl.package_manager import (
     install_dependencies,
@@ -23,6 +23,14 @@ from epl.package_manager import (
     save_manifest,
 )
 from epl.parser import Parser
+from epl.python_bridge import (
+    PythonModule,
+    call_python_function,
+    call_python_method,
+    resolve_python_module,
+    unwrap_python_argument,
+    wrap_python_result,
+)
 
 
 def _parse(source: str):
@@ -142,3 +150,92 @@ class TestPythonDependencyBridge(unittest.TestCase):
                 'nested': {'ok': True},
             },
         )
+
+    def test_wrap_python_result_converts_nested_values_and_objects(self):
+        class Holder:
+            pass
+
+        wrapped = wrap_python_result(
+            {'items': [1, {'ok': True}], 'holder': Holder()},
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+        )
+
+        self.assertIsInstance(wrapped, EPLDict)
+        self.assertEqual(wrapped.data['items'][0], 1)
+        self.assertIsInstance(wrapped.data['items'][1], EPLDict)
+        self.assertTrue(wrapped.data['items'][1].data['ok'])
+        self.assertIsInstance(wrapped.data['holder'], PythonModule)
+
+    def test_wrap_python_result_guards_circular_references(self):
+        payload = {}
+        payload['self'] = payload
+
+        wrapped = wrap_python_result(
+            payload,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+        )
+
+        self.assertIsInstance(wrapped, EPLDict)
+        self.assertEqual(wrapped.data['self'], '<circular ref dict>')
+
+    def test_unwrap_python_argument_restores_epl_values_and_python_modules(self):
+        py_obj = types.SimpleNamespace(name='demo')
+        wrapped_module = PythonModule(py_obj, 'demo')
+        value = EPLDict(
+            {
+                'message': 'hello',
+                'items': [1, 2],
+                'nested': EPLDict({'ok': True}),
+                'module': wrapped_module,
+            }
+        )
+
+        unwrapped = unwrap_python_argument(
+            value,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+        )
+
+        self.assertEqual(unwrapped['message'], 'hello')
+        self.assertEqual(unwrapped['items'], [1, 2])
+        self.assertEqual(unwrapped['nested'], {'ok': True})
+        self.assertIs(unwrapped['module'], py_obj)
+
+    def test_call_python_function_round_trips_epl_payloads(self):
+        payload = EPLDict({'message': 'hello', 'items': [1, 2, 3], 'nested': EPLDict({'ok': True})})
+
+        encoded = call_python_function(
+            'json',
+            json,
+            'dumps',
+            [payload],
+            1,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+        )
+
+        self.assertEqual(
+            json.loads(encoded),
+            {'message': 'hello', 'items': [1, 2, 3], 'nested': {'ok': True}},
+        )
+
+    def test_call_python_method_wraps_noncallable_attributes(self):
+        wrapped = PythonModule(types.SimpleNamespace(config={'ok': True}), 'cfg')
+
+        result = call_python_method(
+            wrapped,
+            'config',
+            [],
+            1,
+            epl_dict_type=EPLDict,
+            python_module_type=PythonModule,
+        )
+
+        self.assertIsInstance(result, EPLDict)
+        self.assertEqual(result.data['ok'], True)
+
+    def test_resolve_python_module_imports_stdlib_modules(self):
+        module = resolve_python_module('json', 1)
+        self.assertEqual(module.loads('{"ok": true}'), {'ok': True})

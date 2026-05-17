@@ -4,7 +4,10 @@ import importlib.util
 
 import pytest
 
-HAS_LLVM = importlib.util.find_spec('llvmlite.binding') is not None
+try:
+    HAS_LLVM = importlib.util.find_spec('llvmlite') is not None
+except (ModuleNotFoundError, ValueError):
+    HAS_LLVM = False
 pytestmark = pytest.mark.skipif(not HAS_LLVM, reason='llvmlite is not installed')
 
 

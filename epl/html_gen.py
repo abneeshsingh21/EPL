@@ -526,7 +526,9 @@ html {
 """
 
 
-def generate_html(page_def, data_store=None, form_data=None, styles=None, components=None, animations=None):
+def generate_html(
+    page_def, data_store=None, form_data=None, styles=None, components=None, animations=None
+):
     """Convert a PageDef AST node into a full HTML page string.
 
     styles: list of StyleDef nodes collected from the program
@@ -613,7 +615,9 @@ def _esc_css_value(value):
     """Sanitize a CSS property value — remove dangerous characters."""
     if not isinstance(value, str):
         value = str(value)
-    return value.replace('{', '').replace('}', '').replace(';', '').replace('<', '').replace('>', '')
+    return (
+        value.replace('{', '').replace('}', '').replace(';', '').replace('<', '').replace('>', '')
+    )
 
 
 def _safe_href(url):
@@ -778,7 +782,9 @@ def _generate_animation_css(animations):
                 value = prop.value
                 if isinstance(value, ast.Literal):
                     value = value.value
-                props.append(f'        {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};')
+                props.append(
+                    f'        {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};'
+                )
             keyframe_css.append(f'    {kf.percentage}% {{\n' + '\n'.join(props) + '\n    }')
         css_parts.append(f'@keyframes {safe_name} {{\n' + '\n'.join(keyframe_css) + '\n}')
 
@@ -828,8 +834,7 @@ def _render_any_element(elem, data_store=None, form_data=None, components=None):
 
     if isinstance(elem, ast.ResponsiveBlock):
         return '\n'.join(
-            _render_any_element(c, data_store, form_data, comps)
-            for c in elem.body if c
+            _render_any_element(c, data_store, form_data, comps) for c in elem.body if c
         )
 
     if isinstance(elem, ast.Scene3D):
@@ -867,8 +872,7 @@ def _render_styled_element(elem, data_store=None, form_data=None, components=Non
 
     comps = components or {}
     children_html = '\n'.join(
-        _render_any_element(c, data_store, form_data, comps)
-        for c in elem.children if c
+        _render_any_element(c, data_store, form_data, comps) for c in elem.children if c
     )
 
     return f'<{tag}{class_attr}{id_attr}{style_attr}>\n{children_html}\n</{tag}>'
@@ -913,8 +917,7 @@ def _render_layout_container(elem, data_store=None, form_data=None, components=N
 
     comps = components or {}
     children_html = '\n'.join(
-        _render_any_element(c, data_store, form_data, comps)
-        for c in elem.children if c
+        _render_any_element(c, data_store, form_data, comps) for c in elem.children if c
     )
 
     return f'<div{style_attr}>\n{children_html}\n</div>'
@@ -958,9 +961,7 @@ def _render_scene_3d(scene):
             color = _esc_js(node.color)
             intensity = node.intensity
             if lt == 'ambient':
-                lights_js.append(
-                    f'scene.add(new THREE.AmbientLight("{color}", {intensity}));'
-                )
+                lights_js.append(f'scene.add(new THREE.AmbientLight("{color}", {intensity}));')
             elif lt == 'directional':
                 pos = node.position or [5, 10, 5]
                 lights_js.append(
@@ -998,7 +999,9 @@ def _render_scene_3d(scene):
                 f'  scene.add(mesh); }}'
             )
 
-    lights_code = '\n'.join(lights_js) if lights_js else 'scene.add(new THREE.AmbientLight("#fff", 0.5));'
+    lights_code = (
+        '\n'.join(lights_js) if lights_js else 'scene.add(new THREE.AmbientLight("#fff", 0.5));'
+    )
     meshes_code = '\n'.join(meshes_js)
 
     return (
@@ -1038,10 +1041,7 @@ def _render_draw_command(cmd):
         rw = props.get('width', 100)
         rh = props.get('height', 50)
         fill = _esc_js(props.get('fill', '#000'))
-        draw_code = (
-            f'ctx.fillStyle = "{fill}";\n'
-            f'ctx.fillRect({x}, {y}, {rw}, {rh});'
-        )
+        draw_code = f'ctx.fillStyle = "{fill}";\nctx.fillRect({x}, {y}, {rw}, {rh});'
         if 'stroke' in props:
             draw_code += f'\nctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.strokeRect({x}, {y}, {rw}, {rh});'
 
@@ -1078,18 +1078,13 @@ def _render_draw_command(cmd):
         font = _esc_js(props.get('font', '16px Arial'))
         fill = _esc_js(props.get('fill', '#000'))
         draw_code = (
-            f'ctx.font = "{font}";\n'
-            f'ctx.fillStyle = "{fill}";\n'
-            f'ctx.fillText("{content}", {x}, {y});'
+            f'ctx.font = "{font}";\nctx.fillStyle = "{fill}";\nctx.fillText("{content}", {x}, {y});'
         )
 
     elif shape == 'path':
         points = _esc_js(props.get('points', ''))
         fill = _esc_js(props.get('fill', 'transparent'))
-        draw_code = (
-            f'const p = new Path2D("{points}");\n'
-            f'ctx.fillStyle = "{fill}"; ctx.fill(p);'
-        )
+        draw_code = f'const p = new Path2D("{points}");\nctx.fillStyle = "{fill}"; ctx.fill(p);'
         if 'stroke' in props:
             draw_code += f'\nctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.stroke(p);'
 

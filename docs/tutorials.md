@@ -13,7 +13,7 @@ Say "Hello, World!"
 Run it:
 
 ```bash
-python main.py hello.epl
+epl hello.epl
 ```
 
 Output:
@@ -259,7 +259,7 @@ Say "Name: " + loaded.name
 ### Initialize a Project
 
 ```bash
-python main.py init my-app
+epl init my-app
 cd my-app
 ```
 
@@ -270,20 +270,20 @@ This creates:
 ### Install Packages
 
 ```bash
-python main.py install epl-math
-python main.py install epl-testing
+epl install epl-math
+epl install epl-test
 ```
 
 ### Run Your Project
 
 ```bash
-python main.py main.epl
+epl main.epl
 ```
 
 ### Build Your Project
 
 ```bash
-python main.py compile main.epl
+epl build main.epl
 ```
 
 ---
@@ -317,15 +317,15 @@ End
 ### Validate and publish
 
 ```bash
-python main.py validate .
-python main.py pack .
-python main.py publish .
+epl check main.epl
+epl pack .
+epl publish .
 ```
 
 ### Use in another project
 
 ```bash
-python main.py install my-utils
+epl install my-utils
 ```
 
 ```epl

@@ -1,0 +1,576 @@
+Note: EPL Math Package — Advanced Mathematics in pure EPL
+Note: Number theory, combinatorics, statistics, numerical methods, sequences.
+Note: Use "epl-math" to access these functions.
+
+Note: ===========================================================
+Note:  Number Theory
+Note: ===========================================================
+
+Define Function sieve_of_eratosthenes Takes limit
+    Create is_prime equal to []
+    For i from 0 to limit
+        Add true to is_prime
+    End
+    is_prime[0] = false
+    is_prime[1] = false
+    Create i equal to 2
+    While i * i <= limit
+        If is_prime[i] == true
+            Create j equal to i * i
+            While j <= limit
+                is_prime[j] = false
+                Set j to j + i
+            End
+        End
+        Set i to i + 1
+    End
+    Create primes equal to []
+    For k from 2 to limit
+        If is_prime[k] == true
+            Add k to primes
+        End
+    End
+    Return primes
+End
+
+Define Function prime_factors Takes n
+    Create factors equal to []
+    Create d equal to 2
+    While d * d <= n
+        While n % d == 0
+            Add d to factors
+            Set n to n / d
+        End
+        Set d to d + 1
+    End
+    If n > 1
+        Add n to factors
+    End
+    Return factors
+End
+
+Define Function nth_prime Takes n
+    If n == 1
+        Return 2
+    End
+    Create count equal to 1
+    Create candidate equal to 3
+    While count < n
+        Create is_p equal to true
+        Create d equal to 2
+        While d * d <= candidate
+            If candidate % d == 0
+                Set is_p to false
+                Break
+            End
+            Set d to d + 1
+        End
+        If is_p == true
+            Set count to count + 1
+            If count == n
+                Return candidate
+            End
+        End
+        Set candidate to candidate + 2
+    End
+    Return candidate
+End
+
+Define Function is_perfect Takes n
+    If n < 2
+        Return false
+    End
+    Create total equal to 1
+    Create d equal to 2
+    While d * d <= n
+        If n % d == 0
+            Set total to total + d
+            If d != n / d
+                Set total to total + (n / d)
+            End
+        End
+        Set d to d + 1
+    End
+    Return total == n
+End
+
+Define Function divisors Takes n
+    Create divs equal to []
+    Create d equal to 1
+    While d * d <= n
+        If n % d == 0
+            Add d to divs
+            If d != n / d
+                Add n / d to divs
+            End
+        End
+        Set d to d + 1
+    End
+    Return sorted(divs)
+End
+
+Define Function euler_totient Takes n
+    Create result equal to n
+    Create d equal to 2
+    Create temp equal to n
+    While d * d <= temp
+        If temp % d == 0
+            While temp % d == 0
+                Set temp to temp / d
+            End
+            Set result to result - (result / d)
+        End
+        Set d to d + 1
+    End
+    If temp > 1
+        Set result to result - (result / temp)
+    End
+    Return result
+End
+
+Define Function is_coprime Takes a, b
+    Return gcd(a, b) == 1
+End
+
+Define Function modular_pow Takes base, exp, mod
+    Create result equal to 1
+    Set base to base % mod
+    While exp > 0
+        If exp % 2 == 1
+            Set result to (result * base) % mod
+        End
+        Set exp to floor(exp / 2)
+        Set base to (base * base) % mod
+    End
+    Return result
+End
+
+Define Function extended_gcd Takes a, b
+    Create old_r equal to a
+    Create r equal to b
+    Create old_s equal to 1
+    Create s equal to 0
+    Create old_t equal to 0
+    Create t equal to 1
+    While r != 0
+        Create quotient equal to floor(old_r / r)
+        Create temp_r equal to r
+        Set r to old_r - quotient * r
+        Set old_r to temp_r
+        Create temp_s equal to s
+        Set s to old_s - quotient * s
+        Set old_s to temp_s
+        Create temp_t equal to t
+        Set t to old_t - quotient * t
+        Set old_t to temp_t
+    End
+    Return [old_r, old_s, old_t]
+End
+
+Define Function chinese_remainder Takes remainders, moduli
+    Create M equal to 1
+    For each m in moduli
+        Set M to M * m
+    End
+    Create x equal to 0
+    Create i equal to 0
+    While i < length(remainders)
+        Create Mi equal to M / moduli[i]
+        Create eg equal to extended_gcd(Mi, moduli[i])
+        Create yi equal to eg[1]
+        Set x to x + remainders[i] * Mi * yi
+    Set i to i + 1
+    End
+    Set x to x % M
+    If x < 0
+        Set x to x + M
+    End
+    Return x
+End
+
+Define Function is_palindrome_number Takes n
+    Create s equal to to_text(n)
+    Return s == s.reverse
+End
+
+Define Function digit_sum Takes n
+    Create s equal to to_text(absolute(n))
+    Create total equal to 0
+    For each ch in s.to_list
+        Set total to total + to_integer(ch)
+    End
+    Return total
+End
+
+Note: ===========================================================
+Note:  Combinatorics
+Note: ===========================================================
+
+Define Function permutations_count Takes n, r
+    Create result equal to 1
+    For i from 0 to r - 1
+        Set result to result * (n - i)
+    End
+    Return result
+End
+
+Define Function combinations_count Takes n, r
+    If r > n - r
+        Set r to n - r
+    End
+    Create result equal to 1
+    For i from 0 to r - 1
+        Set result to result * (n - i)
+        Set result to result / (i + 1)
+    End
+    Return result
+End
+
+Define Function generate_permutations Takes items
+    Create n equal to length(items)
+    If n == 0
+        Return [[]]
+    End
+    Create result equal to []
+    Create arr equal to []
+    For each item in items
+        Add item to arr
+    End
+    Create c equal to []
+    For i from 0 to n - 1
+        Add 0 to c
+    End
+    Add arr.copy() to result
+    Create i equal to 0
+    While i < n
+        If c[i] < i
+            If i % 2 == 0
+                Create temp equal to arr[0]
+                arr[0] = arr[i]
+                arr[i] = temp
+            Otherwise
+                Create temp equal to arr[c[i]]
+                Set arr[c[i]] to arr[i]
+                arr[i] = temp
+            End
+            Add arr.copy() to result
+            c[i] = c[i] + 1
+            Set i to 0
+        Otherwise
+            c[i] = 0
+            Set i to i + 1
+        End
+    End
+    Return result
+End
+
+Define Function generate_combinations Takes items, r
+    Create n equal to length(items)
+    If r > n
+        Return []
+    End
+    Create result equal to []
+    Create indices equal to []
+    For i from 0 to r - 1
+        Add i to indices
+    End
+    Create combo equal to []
+    For each idx in indices
+        Add items[idx] to combo
+    End
+    Add combo to result
+    While true
+        Create found equal to -1
+        Create i equal to r - 1
+        While i >= 0
+            If indices[i] != i + n - r
+                Set found to i
+                Break
+            End
+            Set i to i - 1
+        End
+        If found == -1
+            Break
+        End
+        indices[found] = indices[found] + 1
+        For j from found + 1 to r - 1
+            indices[j] = indices[j - 1] + 1
+        End
+        Create combo equal to []
+        For each idx in indices
+            Add items[idx] to combo
+        End
+        Add combo to result
+    End
+    Return result
+End
+
+Define Function catalan_number Takes n
+    Return combinations_count(2 * n, n) / (n + 1)
+End
+
+Define Function pascal_row Takes n
+    Create row equal to [1]
+    For i from 1 to n
+        Add row[i - 1] * (n - i + 1) / i to row
+    End
+    Return row
+End
+
+Note: ===========================================================
+Note:  Statistics
+Note: ===========================================================
+
+Define Function variance Takes numbers
+    Create n equal to length(numbers)
+    If n == 0
+        Return 0
+    End
+    Create mean equal to sum(numbers) / n
+    Create total equal to 0
+    For each x in numbers
+        Set total to total + (x - mean) ** 2
+    End
+    Return total / n
+End
+
+Define Function std_dev Takes numbers
+    Return sqrt(variance(numbers))
+End
+
+Define Function sample_variance Takes numbers
+    Create n equal to length(numbers)
+    If n < 2
+        Return 0
+    End
+    Create mean equal to sum(numbers) / n
+    Create total equal to 0
+    For each x in numbers
+        Set total to total + (x - mean) ** 2
+    End
+    Return total / (n - 1)
+End
+
+Define Function sample_std_dev Takes numbers
+    Return sqrt(sample_variance(numbers))
+End
+
+Define Function percentile Takes numbers, p
+    Create sorted_nums equal to sorted(numbers)
+    Create n equal to length(sorted_nums)
+    If n == 0
+        Return 0
+    End
+    Create rank equal to (p / 100) * (n - 1)
+    Create lower equal to floor(rank)
+    Create upper equal to ceil(rank)
+    If lower == upper
+        Return sorted_nums[lower]
+    End
+    Create fraction equal to rank - lower
+    Return sorted_nums[lower] + fraction * (sorted_nums[upper] - sorted_nums[lower])
+End
+
+Define Function quartiles Takes numbers
+    Return [percentile(numbers, 25), percentile(numbers, 50), percentile(numbers, 75)]
+End
+
+Define Function iqr Takes numbers
+    Create q equal to quartiles(numbers)
+    Return q[2] - q[0]
+End
+
+Define Function z_score Takes value, mean_val, std_val
+    If std_val == 0
+        Return 0
+    End
+    Return (value - mean_val) / std_val
+End
+
+Define Function correlation Takes xs, ys
+    Create n equal to length(xs)
+    If n == 0
+        Return 0
+    End
+    Create mean_x equal to sum(xs) / n
+    Create mean_y equal to sum(ys) / n
+    Create num equal to 0
+    Create den_x equal to 0
+    Create den_y equal to 0
+    For i from 0 to n - 1
+        Create dx equal to xs[i] - mean_x
+        Create dy equal to ys[i] - mean_y
+        Set num to num + dx * dy
+        Set den_x to den_x + dx ** 2
+        Set den_y to den_y + dy ** 2
+    End
+    Create denom equal to sqrt(den_x * den_y)
+    If denom == 0
+        Return 0
+    End
+    Return num / denom
+End
+
+Define Function covariance Takes xs, ys
+    Create n equal to length(xs)
+    If n == 0
+        Return 0
+    End
+    Create mean_x equal to sum(xs) / n
+    Create mean_y equal to sum(ys) / n
+    Create total equal to 0
+    For i from 0 to n - 1
+        Set total to total + (xs[i] - mean_x) * (ys[i] - mean_y)
+    End
+    Return total / n
+End
+
+Define Function linear_regression Takes xs, ys
+    Create n equal to length(xs)
+    Create mean_x equal to sum(xs) / n
+    Create mean_y equal to sum(ys) / n
+    Create num equal to 0
+    Create den equal to 0
+    For i from 0 to n - 1
+        Create dx equal to xs[i] - mean_x
+        Set num to num + dx * (ys[i] - mean_y)
+        Set den to den + dx ** 2
+    End
+    If den == 0
+        Return [0, mean_y]
+    End
+    Create slope equal to num / den
+    Create intercept equal to mean_y - slope * mean_x
+    Return [slope, intercept]
+End
+
+Define Function moving_average Takes numbers, window
+    Create result equal to []
+    Create n equal to length(numbers)
+    For i from 0 to n - window
+        Create window_sum equal to 0
+        For j from i to i + window - 1
+            Set window_sum to window_sum + numbers[j]
+        End
+        Add window_sum / window to result
+    End
+    Return result
+End
+
+Note: ===========================================================
+Note:  Numerical Methods
+Note: ===========================================================
+
+Define Function bisection Takes f, a, b, tolerance
+    Create fa equal to f(a)
+    Create max_iter equal to 100
+    Create iter equal to 0
+    While (b - a) > tolerance and iter < max_iter
+        Create mid equal to (a + b) / 2
+        Create fmid equal to f(mid)
+        If fmid == 0
+            Return mid
+        End
+        If fa * fmid < 0
+            Set b to mid
+        Otherwise
+            Set a to mid
+            Set fa to fmid
+        End
+        Set iter to iter + 1
+    End
+    Return (a + b) / 2
+End
+
+Define Function newton_raphson Takes f, df, x0, tolerance
+    Create x equal to x0
+    Create max_iter equal to 100
+    For i from 0 to max_iter - 1
+        Create fx equal to f(x)
+        Create dfx equal to df(x)
+        If absolute(dfx) < 0.0000000001
+            Return x
+        End
+        Create x_new equal to x - fx / dfx
+        If absolute(x_new - x) < tolerance
+            Return x_new
+        End
+        Set x to x_new
+    End
+    Return x
+End
+
+Define Function trapezoidal_integrate Takes f, a, b, n
+    Create h equal to (b - a) / n
+    Create total equal to (f(a) + f(b)) / 2
+    For i from 1 to n - 1
+        Set total to total + f(a + i * h)
+    End
+    Return total * h
+End
+
+Define Function derivative_at Takes f, x, h
+    Return (f(x + h) - f(x - h)) / (2 * h)
+End
+
+Define Function interpolate_linear Takes points, x
+    Create n equal to length(points)
+    If n == 0
+        Return 0
+    End
+    If x <= points[0][0]
+        Return points[0][1]
+    End
+    If x >= points[n - 1][0]
+        Return points[n - 1][1]
+    End
+    For i from 1 to n - 1
+        If x <= points[i][0]
+            Create x0 equal to points[i - 1][0]
+            Create y0 equal to points[i - 1][1]
+            Create x1 equal to points[i][0]
+            Create y1 equal to points[i][1]
+            Create t equal to (x - x0) / (x1 - x0)
+            Return y0 + t * (y1 - y0)
+        End
+    End
+    Return points[n - 1][1]
+End
+
+Note: ===========================================================
+Note:  Sequences
+Note: ===========================================================
+
+Define Function fibonacci_sequence Takes n
+    Create seq equal to []
+    If n <= 0
+        Return seq
+    End
+    Add 0 to seq
+    If n == 1
+        Return seq
+    End
+    Add 1 to seq
+    For i from 2 to n - 1
+        Add seq[i - 1] + seq[i - 2] to seq
+    End
+    Return seq
+End
+
+Define Function arithmetic_sequence Takes start, diff, n
+    Create seq equal to []
+    For i from 0 to n - 1
+        Add start + i * diff to seq
+    End
+    Return seq
+End
+
+Define Function geometric_sequence Takes start, ratio, n
+    Create seq equal to []
+    Create current equal to start
+    For i from 0 to n - 1
+        Add current to seq
+        Set current to current * ratio
+    End
+    Return seq
+End

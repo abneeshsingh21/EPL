@@ -583,7 +583,6 @@ def generate_epl_code(description, filename=None):
     code = _extract_code_block(response)
 
     if filename and code:
-
         with open(filename, 'w', encoding='utf-8') as f:
             f.write(code)
 

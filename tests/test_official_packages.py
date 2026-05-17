@@ -28,6 +28,8 @@ class TestOfficialPackages(unittest.TestCase):
             REPO_ROOT / 'epl' / 'official_packages' / 'epl-db' / 'examples' / 'basic.epl',
             REPO_ROOT / 'epl' / 'official_packages' / 'epl-test' / 'src' / 'main.epl',
             REPO_ROOT / 'epl' / 'official_packages' / 'epl-test' / 'examples' / 'basic.epl',
+            REPO_ROOT / 'epl' / 'official_packages' / 'epl-string' / 'src' / 'main.epl',
+            REPO_ROOT / 'epl' / 'official_packages' / 'epl-string' / 'examples' / 'basic.epl',
         ]
         for path in paths:
             with self.subTest(path=path.name):
@@ -43,6 +45,7 @@ class TestOfficialPackages(unittest.TestCase):
                 'Import "epl-web"\n'
                 'Import "epl-db"\n'
                 'Import "epl-test"\n'
+                'Import "epl-string"\n'
                 'Say "loaded official packages"\n',
                 encoding='utf-8',
             )
@@ -64,6 +67,7 @@ class TestOfficialPackages(unittest.TestCase):
             self.assertTrue((Path(home_dir) / '.epl' / 'packages' / 'epl-web').exists())
             self.assertTrue((Path(home_dir) / '.epl' / 'packages' / 'epl-db').exists())
             self.assertTrue((Path(home_dir) / '.epl' / 'packages' / 'epl-test').exists())
+            self.assertTrue((Path(home_dir) / '.epl' / 'packages' / 'epl-string').exists())
 
 
 if __name__ == '__main__':

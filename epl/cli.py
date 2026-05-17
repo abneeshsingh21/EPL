@@ -305,24 +305,6 @@ def _resolve_target_args(args):
     return None
 
 
-def _resolve_main_module():
-    """Resolve the source-checkout main module without re-importing when possible."""
-    main_mod = sys.modules.get('main')
-    if main_mod is None:
-        main_mod = sys.modules.get('__main__')
-    if main_mod is not None and hasattr(main_mod, 'legacy_main'):
-        return main_mod
-
-    import importlib
-
-    return importlib.import_module('main')
-
-
-def _legacy_dispatch(argv):
-    """Run a legacy command through the compatibility dispatcher in main.py."""
-    return _resolve_main_module().legacy_main(list(argv))
-
-
 # ─── Command Dispatch ─────────────────────────────────────
 
 
@@ -1110,7 +1092,12 @@ def _project_template(name, template):
         )
     elif template == 'ecommerce':
         description = f'{name} — EPL e-commerce store'
-        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        dependencies = {
+            'epl-ui': '^1.0.0',
+            'epl-css': '^1.0.0',
+            'epl-animate': '^1.0.0',
+            'epl-db': f'^{__version__}',
+        }
         scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} — E-commerce store template\n'
@@ -1120,10 +1107,10 @@ def _project_template(name, template):
             'Import "epl-db"\n\n'
             'Create db equal to open(":memory:")\n'
             'Call create_table(db, "products", Map with id = "INTEGER" and name = "TEXT" and price = "REAL" and image = "TEXT" and description = "TEXT")\n'
-            'Call execute(db, "INSERT INTO products VALUES (1, \'Wireless Headphones\', 79.99, \'/img/headphones.png\', \'Premium sound quality\')")\n'
-            'Call execute(db, "INSERT INTO products VALUES (2, \'Smart Watch\', 199.99, \'/img/watch.png\', \'Track your fitness\')")\n'
-            'Call execute(db, "INSERT INTO products VALUES (3, \'Laptop Stand\', 49.99, \'/img/stand.png\', \'Ergonomic aluminum\')")\n'
-            'Call execute(db, "INSERT INTO products VALUES (4, \'USB-C Hub\', 39.99, \'/img/hub.png\', \'7-in-1 connectivity\')")\n\n'
+            "Call execute(db, \"INSERT INTO products VALUES (1, 'Wireless Headphones', 79.99, '/img/headphones.png', 'Premium sound quality')\")\n"
+            "Call execute(db, \"INSERT INTO products VALUES (2, 'Smart Watch', 199.99, '/img/watch.png', 'Track your fitness')\")\n"
+            "Call execute(db, \"INSERT INTO products VALUES (3, 'Laptop Stand', 49.99, '/img/stand.png', 'Ergonomic aluminum')\")\n"
+            "Call execute(db, \"INSERT INTO products VALUES (4, 'USB-C Hub', 39.99, '/img/hub.png', '7-in-1 connectivity')\")\n\n"
             'Style "product-card"\n'
             '    Background "#ffffff"\n'
             '    Border "1px solid #e2e8f0"\n'
@@ -1194,7 +1181,12 @@ def _project_template(name, template):
         )
     elif template == 'dashboard':
         description = f'{name} — EPL admin dashboard'
-        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        dependencies = {
+            'epl-ui': '^1.0.0',
+            'epl-css': '^1.0.0',
+            'epl-animate': '^1.0.0',
+            'epl-db': f'^{__version__}',
+        }
         scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} — Admin dashboard template\n'
@@ -1204,9 +1196,9 @@ def _project_template(name, template):
             'Import "epl-db"\n\n'
             'Create db equal to open(":memory:")\n'
             'Call create_table(db, "users", Map with id = "INTEGER" and name = "TEXT" and email = "TEXT" and role = "TEXT")\n'
-            'Call execute(db, "INSERT INTO users VALUES (1, \'Alice\', \'alice@example.com\', \'Admin\')")\n'
-            'Call execute(db, "INSERT INTO users VALUES (2, \'Bob\', \'bob@example.com\', \'Editor\')")\n'
-            'Call execute(db, "INSERT INTO users VALUES (3, \'Charlie\', \'charlie@example.com\', \'Viewer\')")\n\n'
+            "Call execute(db, \"INSERT INTO users VALUES (1, 'Alice', 'alice@example.com', 'Admin')\")\n"
+            "Call execute(db, \"INSERT INTO users VALUES (2, 'Bob', 'bob@example.com', 'Editor')\")\n"
+            "Call execute(db, \"INSERT INTO users VALUES (3, 'Charlie', 'charlie@example.com', 'Viewer')\")\n\n"
             'Style "sidebar"\n'
             '    Width "260px"\n'
             '    Background "#1a202c"\n'
@@ -1284,7 +1276,12 @@ def _project_template(name, template):
         )
     elif template == 'blog':
         description = f'{name} — EPL blog'
-        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        dependencies = {
+            'epl-ui': '^1.0.0',
+            'epl-css': '^1.0.0',
+            'epl-animate': '^1.0.0',
+            'epl-db': f'^{__version__}',
+        }
         scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} — Blog template\n'
@@ -1294,9 +1291,9 @@ def _project_template(name, template):
             'Import "epl-db"\n\n'
             'Create db equal to open(":memory:")\n'
             'Call create_table(db, "posts", Map with id = "INTEGER" and title = "TEXT" and excerpt = "TEXT" and author = "TEXT" and date = "TEXT")\n'
-            'Call execute(db, "INSERT INTO posts VALUES (1, \'Getting Started with EPL\', \'Learn how to build your first EPL app.\', \'Admin\', \'2025-01-15\')")\n'
-            'Call execute(db, "INSERT INTO posts VALUES (2, \'Building Production Apps\', \'Best practices for production EPL applications.\', \'Admin\', \'2025-01-20\')")\n'
-            'Call execute(db, "INSERT INTO posts VALUES (3, \'EPL Style System\', \'How to use the new Style and Layout system.\', \'Admin\', \'2025-02-01\')")\n\n'
+            "Call execute(db, \"INSERT INTO posts VALUES (1, 'Getting Started with EPL', 'Learn how to build your first EPL app.', 'Admin', '2025-01-15')\")\n"
+            "Call execute(db, \"INSERT INTO posts VALUES (2, 'Building Production Apps', 'Best practices for production EPL applications.', 'Admin', '2025-01-20')\")\n"
+            "Call execute(db, \"INSERT INTO posts VALUES (3, 'EPL Style System', 'How to use the new Style and Layout system.', 'Admin', '2025-02-01')\")\n\n"
             'Style "post-card"\n'
             '    Background "#ffffff"\n'
             '    Border "1px solid #e2e8f0"\n'
@@ -1349,9 +1346,7 @@ def _project_template(name, template):
             'End\n'
         )
         test_source = (
-            'Define Function test_blog_smoke\n'
-            '    expect_true(True, "blog template loads")\n'
-            'End\n'
+            'Define Function test_blog_smoke\n    expect_true(True, "blog template loads")\nEnd\n'
         )
         readme_body = _template_readme(
             name,
@@ -2415,6 +2410,7 @@ def _serve(args):
             app, interpreter = _load_epl_web_app(filename)
             if enable_observability:
                 from epl.observability import attach
+
                 attach(app)
                 print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
             print(f'  {_yellow("⚠ Development mode")} — not for production use')
@@ -2434,6 +2430,7 @@ def _serve(args):
             app, interpreter = _load_epl_web_app(filename)
             if enable_observability:
                 from epl.observability import attach
+
                 attach(app)
                 print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
 
@@ -2497,7 +2494,19 @@ def _deploy(args):
         deploy_cli([])
         return 0
 
-    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi', 'k8s', 'aws', 'gcp', 'azure', 'all')
+    valid_targets = (
+        'gunicorn',
+        'nginx',
+        'tomcat',
+        'docker',
+        'systemd',
+        'asgi',
+        'k8s',
+        'aws',
+        'gcp',
+        'azure',
+        'all',
+    )
     if args[0] not in valid_targets:
         print(f"{_red('Error:')} Unknown deploy target '{args[0]}'")
         print(f'Valid targets: {", ".join(valid_targets)}')
@@ -4377,6 +4386,7 @@ def _registry_server(args):
 
     if subcmd == 'status':
         import urllib.request
+
         port = 4873
         if len(args) > 1 and args[1] == '--port' and len(args) > 2:
             port = int(args[2])

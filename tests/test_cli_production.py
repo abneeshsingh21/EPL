@@ -87,13 +87,11 @@ class TestCLIProduction(unittest.TestCase):
             _write_manifest(tmpdir, entry='src/main.epl')
 
             with (
-                mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                 mock.patch('epl.runtime_support.compile_file', return_value=True) as compile_file,
             ):
                 exit_code = cli_main(['build'])
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             compile_file.assert_called_once_with(
                 'src/main.epl', opt_level=2, static=True, target=None
             )
@@ -111,13 +109,11 @@ class TestCLIProduction(unittest.TestCase):
             _write_manifest(tmpdir, entry='src/main.epl')
 
             with (
-                mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                 mock.patch('epl.runtime_support.compile_file', return_value=True) as compile_file,
             ):
                 exit_code = cli_main(['build', '--no-static'])
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             compile_file.assert_called_once_with(
                 'src/main.epl', opt_level=2, static=False, target=None
             )
@@ -127,7 +123,6 @@ class TestCLIProduction(unittest.TestCase):
 
     def test_compile_command_uses_direct_native_compiler_path(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.runtime_support.compile_file', return_value=True) as compile_file,
         ):
             exit_code = cli_main(
@@ -135,7 +130,6 @@ class TestCLIProduction(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         compile_file.assert_called_once_with(
             'program.epl',
             opt_level=3,
@@ -151,6 +145,45 @@ class TestCLIProduction(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         compile_file.assert_called_once_with('src/main.epl', opt_level=2, static=True, target=None)
+
+    def test_legacy_main_delegates_to_cli_main(self):
+        import main as main_module
+
+        with mock.patch('epl.cli.cli_main', return_value=17) as cli_entry:
+            exit_code = main_module.legacy_main(['version'])
+
+        self.assertEqual(exit_code, 17)
+        cli_entry.assert_called_once_with(['version'])
+
+    def test_source_checkout_main_delegates_to_cli_main(self):
+        import main as main_module
+
+        with mock.patch('epl.cli.cli_main', return_value=23) as cli_entry:
+            exit_code = main_module.main(['version'])
+
+        self.assertEqual(exit_code, 23)
+        cli_entry.assert_called_once_with(['version'])
+
+    def test_cli_console_entrypoint_exits_with_cli_status(self):
+        import epl.cli as cli_module
+
+        with mock.patch.object(cli_module, 'cli_main', return_value=7) as cli_entry:
+            with self.assertRaises(SystemExit) as exc_info:
+                cli_module.main()
+
+        self.assertEqual(exc_info.exception.code, 7)
+        cli_entry.assert_called_once_with()
+
+    def test_python_m_epl_reports_version(self):
+        result = subprocess.run(
+            [sys.executable, '-m', 'epl', '--version'],
+            capture_output=True,
+            text=True,
+            cwd=os.getcwd(),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), f'epl {EPL_VERSION}')
 
     def test_main_module_import_does_not_strip_interpret_flag_from_sys_argv(self):
         script = """
@@ -201,15 +234,13 @@ print(module._force_interpret())
             finally:
                 os.chdir(old_cwd)
 
-    def test_init_command_uses_package_manager_without_legacy_dispatch(self):
+    def test_init_command_uses_package_manager_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.package_manager.init_project') as init_project,
         ):
             exit_code = cli_main(['init', 'workspace'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         init_project.assert_called_once_with('workspace')
 
     def test_new_project_web_template_uses_native_webapp_scaffold(self):
@@ -381,9 +412,8 @@ print(module._force_interpret())
         self.assertEqual(exit_code, 0)
         install_deps.assert_called_once_with('.', frozen=True)
 
-    def test_uninstall_uses_package_manager_without_legacy_dispatch(self):
+    def test_uninstall_uses_package_manager_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch(
                 'epl.package_manager.uninstall_package', return_value=True
             ) as uninstall_package,
@@ -391,13 +421,11 @@ print(module._force_interpret())
             exit_code = cli_main(['uninstall', 'epl-web'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         uninstall_package.assert_called_once_with('epl-web')
 
-    def test_packages_list_uses_package_manager_without_legacy_dispatch(self):
+    def test_packages_list_uses_package_manager_via_authoritative_cli(self):
         stdout = StringIO()
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch(
                 'epl.package_manager.list_packages',
                 return_value=[('epl-web', EPL_VERSION, 'Supported web facade')],
@@ -407,23 +435,19 @@ print(module._force_interpret())
             exit_code = cli_main(['packages'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         self.assertIn(f'epl-web @ {EPL_VERSION}', stdout.getvalue())
 
-    def test_add_dependency_uses_package_manager_without_legacy_dispatch(self):
+    def test_add_dependency_uses_package_manager_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.package_manager.add_dependency', return_value=True) as add_dependency,
         ):
             exit_code = cli_main(['add', 'epl-web', f'^{EPL_VERSION}', '--dev'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         add_dependency.assert_called_once_with('epl-web', f'^{EPL_VERSION}', path='.', dev=True)
 
-    def test_remove_dependency_uses_package_manager_without_legacy_dispatch(self):
+    def test_remove_dependency_uses_package_manager_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch(
                 'epl.package_manager.remove_dependency', return_value=True
             ) as remove_dependency,
@@ -431,23 +455,19 @@ print(module._force_interpret())
             exit_code = cli_main(['remove', 'epl-web'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         remove_dependency.assert_called_once_with('epl-web', path='.')
 
-    def test_tree_command_uses_package_manager_without_legacy_dispatch(self):
+    def test_tree_command_uses_package_manager_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.package_manager.print_dependency_tree') as print_dependency_tree,
         ):
             exit_code = cli_main(['tree'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         print_dependency_tree.assert_called_once_with('.')
 
-    def test_migrate_command_uses_package_manager_without_legacy_dispatch(self):
+    def test_migrate_command_uses_package_manager_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch(
                 'epl.package_manager.migrate_manifest_to_toml', return_value=True
             ) as migrate_manifest,
@@ -455,23 +475,19 @@ print(module._force_interpret())
             exit_code = cli_main(['migrate'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         migrate_manifest.assert_called_once_with('.')
 
-    def test_cache_clean_uses_package_manager_without_legacy_dispatch(self):
+    def test_cache_clean_uses_package_manager_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.package_manager.clean_cache') as clean_cache,
         ):
             exit_code = cli_main(['cache', 'clean'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         clean_cache.assert_called_once_with()
 
     def test_publish_info_and_stats_use_direct_registry_paths(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.registry.registry_publish') as registry_publish,
             mock.patch('epl.registry.registry_info') as registry_info,
             mock.patch('epl.registry.registry_stats') as registry_stats,
@@ -483,7 +499,6 @@ print(module._force_interpret())
         self.assertEqual(publish_exit, 0)
         self.assertEqual(info_exit, 0)
         self.assertEqual(stats_exit, 0)
-        legacy_dispatch.assert_not_called()
         registry_publish.assert_called_once_with('.', repo='epl-lang/epl-web')
         registry_info.assert_called_once_with('epl-web')
         registry_stats.assert_called_once_with()
@@ -518,7 +533,7 @@ print(module._force_interpret())
             self.assertIn('If x then', content)
             self.assertIn('    Print "hello"', content)
 
-    def test_serve_uses_direct_cli_runtime_without_legacy_dispatch(self):
+    def test_serve_uses_direct_cli_runtime_via_authoritative_cli(self):
         with tempfile.TemporaryDirectory(prefix='epl_cli_serve_') as tmpdir:
             source = Path(tmpdir, 'app.epl')
             source.write_text(
@@ -532,7 +547,6 @@ print(module._force_interpret())
             )
 
             with (
-                mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                 mock.patch('epl.store_backends.configure_backends') as configure_backends,
                 mock.patch('epl.deploy.serve') as serve,
             ):
@@ -552,38 +566,34 @@ print(module._force_interpret())
                 )
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             configure_backends.assert_called_once_with(store='sqlite', session='memory')
             serve.assert_called_once()
             self.assertEqual(serve.call_args.kwargs['port'], 8123)
             self.assertEqual(serve.call_args.kwargs['workers'], 2)
 
-    def test_deploy_uses_direct_module_cli_without_legacy_dispatch(self):
+    def test_deploy_uses_direct_module_cli_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.deploy.deploy_cli') as deploy_cli,
         ):
             exit_code = cli_main(['deploy', 'docker'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         deploy_cli.assert_called_once_with(['docker'])
 
-    def test_lint_emits_json_without_legacy_dispatch(self):
+    def test_lint_emits_json_via_authoritative_cli(self):
         with tempfile.TemporaryDirectory(prefix='epl_cli_lint_') as tmpdir:
             source = Path(tmpdir, 'lint_me.epl')
             source.write_text('Print "hello"   \n', encoding='utf-8')
 
             stdout = StringIO()
-            with mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch, redirect_stdout(stdout):
+            with redirect_stdout(stdout):
                 exit_code = cli_main(['lint', str(source), '--format', 'json'])
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             payload = json.loads(stdout.getvalue())
             self.assertTrue(any(issue['rule'] == 'trailing-whitespace' for issue in payload))
 
-    def test_docs_generates_requested_output_without_legacy_dispatch(self):
+    def test_docs_generates_requested_output_via_authoritative_cli(self):
         with tempfile.TemporaryDirectory(prefix='epl_cli_docs_') as tmpdir:
             source = Path(tmpdir, 'docs_me.epl')
             output_dir = Path(tmpdir, 'generated-docs')
@@ -593,133 +603,130 @@ print(module._force_interpret())
             )
 
             stdout = StringIO()
-            with mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch, redirect_stdout(stdout):
+            with redirect_stdout(stdout):
                 exit_code = cli_main(
                     ['docs', str(source), '--output', str(output_dir), '--format', 'json']
                 )
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             self.assertTrue((output_dir / 'api.json').exists())
 
-    def test_bench_uses_direct_runner_without_legacy_dispatch(self):
+    def test_bench_uses_direct_runner_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('benchmarks.run_benchmarks.run_suite') as run_suite,
         ):
             exit_code = cli_main(['bench', '--runs=1', '--warmup=0', '--json'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         run_suite.assert_called_once_with(runs=1, warmup=0, json_output=True)
 
-    def test_benchmark_command_runs_without_legacy_dispatch(self):
+    def test_benchmark_command_runs_via_authoritative_cli(self):
         with tempfile.TemporaryDirectory(prefix='epl_cli_benchmark_') as tmpdir:
             source = Path(tmpdir, 'bench.epl')
             source.write_text('Say "benchmark"\n', encoding='utf-8')
 
             stdout = StringIO()
-            with mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch, redirect_stdout(stdout):
+            with redirect_stdout(stdout):
                 exit_code = cli_main(['benchmark', str(source), '--runs=1', '--warmup=0'])
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             output = stdout.getvalue()
             self.assertIn('EPL Benchmark', output)
             self.assertIn('VM:', output)
 
-    def test_profile_command_runs_without_legacy_dispatch(self):
+    def test_profile_command_runs_via_authoritative_cli(self):
         with tempfile.TemporaryDirectory(prefix='epl_cli_profile_') as tmpdir:
             source = Path(tmpdir, 'profile.epl')
             source.write_text('Say "profile"\n', encoding='utf-8')
 
             stdout = StringIO()
-            with mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch, redirect_stdout(stdout):
+            with redirect_stdout(stdout):
                 exit_code = cli_main(['profile', str(source)])
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             output = stdout.getvalue()
             self.assertIn('EPL Profiler', output)
             self.assertIn('Wall time:', output)
 
-    def test_lsp_starts_direct_server_without_legacy_dispatch(self):
+    def test_lsp_starts_direct_server_via_authoritative_cli(self):
+        fake_socket = mock.Mock()
+        fake_conn = mock.Mock()
+        fake_reader = mock.Mock()
+        fake_writer = mock.Mock()
+        fake_socket.accept.return_value = (fake_conn, ('127.0.0.1', 50000))
+        fake_conn.makefile.side_effect = [fake_reader, fake_writer]
+
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
+            mock.patch('socket.socket', return_value=fake_socket) as socket_factory,
+            mock.patch('epl.lsp_server.JSONRPC') as transport_cls,
             mock.patch('epl.lsp_server.EPLLanguageServer') as server_cls,
         ):
             exit_code = cli_main(['lsp', '--tcp', '--port', '2099'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
-        server_cls.return_value.start_tcp.assert_called_once_with(2099)
+        socket_factory.assert_called_once()
+        fake_socket.bind.assert_called_once_with(('127.0.0.1', 2099))
+        fake_socket.listen.assert_called_once_with(1)
+        transport_cls.assert_called_once_with(reader=fake_reader, writer=fake_writer)
+        server_cls.assert_called_once_with(transport_cls.return_value)
+        server_cls.return_value.run.assert_called_once_with()
+        fake_conn.close.assert_called_once_with()
+        fake_socket.close.assert_called_once_with()
 
-    def test_playground_command_uses_direct_server_without_legacy_dispatch(self):
+    def test_playground_command_uses_direct_server_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.playground.start_playground') as start_playground,
         ):
             exit_code = cli_main(['playground', '--port', '8088'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         start_playground.assert_called_once_with(port=8088)
 
-    def test_notebook_command_uses_direct_server_without_legacy_dispatch(self):
+    def test_notebook_command_uses_direct_server_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.notebook.start_notebook') as start_notebook,
         ):
             exit_code = cli_main(['notebook', '--port', '8899'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         start_notebook.assert_called_once_with(port=8899)
 
-    def test_blocks_command_uses_direct_server_without_legacy_dispatch(self):
+    def test_blocks_command_uses_direct_server_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.block_editor.start_block_editor') as start_block_editor,
         ):
             exit_code = cli_main(['blocks', '--port', '8099'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         start_block_editor.assert_called_once_with(port=8099)
 
-    def test_copilot_web_mode_uses_direct_server_without_legacy_dispatch(self):
+    def test_copilot_web_mode_uses_direct_server_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.copilot.start_copilot_web') as start_copilot_web,
         ):
             exit_code = cli_main(['copilot', '--web', '--port', '8105'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         start_copilot_web.assert_called_once_with(port=8105)
 
-    def test_copilot_one_shot_uses_direct_generator_without_legacy_dispatch(self):
+    def test_copilot_one_shot_uses_direct_generator_via_authoritative_cli(self):
         stdout = StringIO()
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.copilot.generate_from_description', return_value='Display "Hello"\n'),
             redirect_stdout(stdout),
         ):
             exit_code = cli_main(['copilot', 'make', 'hello', 'world'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         self.assertIn('Display "Hello"', stdout.getvalue())
 
-    def test_copilot_interactive_uses_direct_runtime_without_legacy_dispatch(self):
+    def test_copilot_interactive_uses_direct_runtime_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.copilot.run_copilot_interactive') as run_copilot_interactive,
         ):
             exit_code = cli_main(['copilot'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         run_copilot_interactive.assert_called_once_with()
 
     def test_js_and_node_transpilers_use_direct_cli_paths(self):
@@ -730,13 +737,11 @@ print(module._force_interpret())
                 source = Path('hello.epl')
                 source.write_text('Say "Hello JS"\n', encoding='utf-8')
 
-                with mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch:
-                    js_exit = cli_main(['js', str(source)])
-                    node_exit = cli_main(['node', str(source)])
+                js_exit = cli_main(['js', str(source)])
+                node_exit = cli_main(['node', str(source)])
 
                 self.assertEqual(js_exit, 0)
                 self.assertEqual(node_exit, 0)
-                legacy_dispatch.assert_not_called()
                 self.assertTrue(Path('hello.js').exists())
                 self.assertTrue(Path('hello.node.js').exists())
             finally:
@@ -750,13 +755,11 @@ print(module._force_interpret())
                 source = Path('hello.epl')
                 source.write_text('Say "Hello"\n', encoding='utf-8')
 
-                with mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch:
-                    kotlin_exit = cli_main(['kotlin', str(source)])
-                    python_exit = cli_main(['python', str(source)])
+                kotlin_exit = cli_main(['kotlin', str(source)])
+                python_exit = cli_main(['python', str(source)])
 
                 self.assertEqual(kotlin_exit, 0)
                 self.assertEqual(python_exit, 0)
-                legacy_dispatch.assert_not_called()
                 self.assertTrue(Path('hello.kt').exists())
                 self.assertTrue(Path('hello.py').exists())
             finally:
@@ -771,13 +774,11 @@ print(module._force_interpret())
                 source.write_text('Say "mobile"\n', encoding='utf-8')
 
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.kotlin_gen.generate_android_project') as generator,
                 ):
                     exit_code = cli_main(['android', str(source), '--compose'])
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 generator.assert_called_once()
                 self.assertEqual(generator.call_args.args[1], 'mobile_android')
             finally:
@@ -792,7 +793,6 @@ print(module._force_interpret())
                 source.write_text('Say "mobile"\n', encoding='utf-8')
 
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.ios_gen.generate_ios_project') as generator,
                 ):
                     exit_code = cli_main(
@@ -809,7 +809,6 @@ print(module._force_interpret())
                     )
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 generator.assert_called_once()
                 self.assertEqual(generator.call_args.args[1], 'mobile_ios')
                 self.assertEqual(generator.call_args.kwargs['app_name'], 'Mobile App')
@@ -827,7 +826,6 @@ print(module._force_interpret())
                 source.write_text('Say "desktop"\n', encoding='utf-8')
 
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.desktop.generate_desktop_project') as generator,
                 ):
                     exit_code = cli_main(
@@ -844,7 +842,6 @@ print(module._force_interpret())
                     )
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 generator.assert_called_once()
                 self.assertEqual(generator.call_args.args[1], 'desktop_desktop')
                 self.assertEqual(generator.call_args.kwargs['app_name'], 'DeskApp')
@@ -862,7 +859,6 @@ print(module._force_interpret())
                 source.write_text('Say "browser"\n', encoding='utf-8')
 
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.wasm_web.generate_web_project') as generator,
                 ):
                     exit_code = cli_main(
@@ -870,7 +866,6 @@ print(module._force_interpret())
                     )
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 generator.assert_called_once()
                 self.assertEqual(generator.call_args.args[1], 'browser_web')
                 self.assertEqual(generator.call_args.kwargs['app_name'], 'BrowserApp')
@@ -888,7 +883,6 @@ print(module._force_interpret())
 
                 stdout = StringIO()
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.compiler.Compiler') as compiler_cls,
                     redirect_stdout(stdout),
                 ):
@@ -896,7 +890,6 @@ print(module._force_interpret())
                     exit_code = cli_main(['ir', str(source)])
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 self.assertIn('; mock ir', stdout.getvalue())
             finally:
                 os.chdir(old_cwd)
@@ -910,7 +903,6 @@ print(module._force_interpret())
                 source.write_text('Say "pack"\n', encoding='utf-8')
 
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.packager.package', return_value='dist/pack.zip') as package_fn,
                 ):
                     exit_code = cli_main(
@@ -918,7 +910,6 @@ print(module._force_interpret())
                     )
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 package_fn.assert_called_once()
                 self.assertEqual(package_fn.call_args.kwargs['mode'], 'zip')
                 self.assertEqual(package_fn.call_args.kwargs['output_dir'], 'dist')
@@ -936,7 +927,6 @@ print(module._force_interpret())
             fake_state.source_file = ''
 
             with (
-                mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                 mock.patch('epl.debugger.EPLDebugger') as debugger_cls,
                 mock.patch('epl.debugger.DebugInterpreter') as interpreter_cls,
             ):
@@ -944,12 +934,11 @@ print(module._force_interpret())
                 exit_code = cli_main(['debug', str(source), '-b', '5', '-b', 'main'])
 
             self.assertEqual(exit_code, 0)
-            legacy_dispatch.assert_not_called()
             fake_state.add_breakpoint.assert_any_call(line=5)
             fake_state.add_breakpoint.assert_any_call(function_name='main')
             interpreter_cls.return_value.execute.assert_called_once()
 
-    def test_test_command_uses_native_test_framework_without_legacy_dispatch(self):
+    def test_test_command_uses_native_test_framework_via_authoritative_cli(self):
         with tempfile.TemporaryDirectory(prefix='epl_cli_test_runner_') as tmpdir:
             old_cwd = os.getcwd()
             try:
@@ -965,36 +954,31 @@ print(module._force_interpret())
 
                 stdout = StringIO()
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     redirect_stdout(stdout),
                 ):
                     exit_code = cli_main(['test'])
 
                 self.assertEqual(exit_code, 0, stdout.getvalue())
-                legacy_dispatch.assert_not_called()
                 self.assertIn('Test Results', stdout.getvalue())
                 self.assertIn('passed', stdout.getvalue())
             finally:
                 os.chdir(old_cwd)
 
-    def test_repl_uses_direct_runtime_without_legacy_dispatch(self):
+    def test_repl_uses_direct_runtime_via_authoritative_cli(self):
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.runtime_support.run_repl') as run_repl,
         ):
             exit_code = cli_main(['repl'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         run_repl.assert_called_once_with()
 
-    def test_gui_command_uses_direct_runtime_without_legacy_dispatch(self):
+    def test_gui_command_uses_direct_runtime_via_authoritative_cli(self):
         fake_program = object()
         fake_interpreter = mock.Mock()
         fake_interpreter.global_env = mock.Mock()
 
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.cli._load_epl_program', return_value=('', fake_program)),
             mock.patch('epl.gui.gui_available', return_value=True),
             mock.patch('epl.interpreter.Interpreter', return_value=fake_interpreter),
@@ -1002,7 +986,6 @@ print(module._force_interpret())
             exit_code = cli_main(['gui', 'app.epl'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         fake_interpreter.global_env.define_variable.assert_called_once()
         fake_interpreter.execute.assert_called_once_with(fake_program)
 
@@ -1016,7 +999,6 @@ print(module._force_interpret())
 
                 stdout = StringIO()
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.compiler.Compiler') as compiler_cls,
                     redirect_stdout(stdout),
                 ):
@@ -1024,7 +1006,6 @@ print(module._force_interpret())
                     exit_code = cli_main(['wasm', str(source)])
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 compiler_cls.return_value.compile_to_wasm.assert_called_once()
                 self.assertIn('module.wasm', stdout.getvalue())
             finally:
@@ -1039,7 +1020,6 @@ print(module._force_interpret())
                 source.write_text('Say "mpy"\n', encoding='utf-8')
 
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch(
                         'epl.micropython_transpiler.transpile_to_micropython',
                         return_value='# micropython output\n',
@@ -1048,17 +1028,15 @@ print(module._force_interpret())
                     exit_code = cli_main(['micropython', str(source), '--target', 'pico'])
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 output_file = Path('board_pico_mpy.py')
                 self.assertTrue(output_file.exists())
                 self.assertIn('# micropython output', output_file.read_text(encoding='utf-8'))
             finally:
                 os.chdir(old_cwd)
 
-    def test_ai_prompt_uses_direct_runtime_without_legacy_dispatch(self):
+    def test_ai_prompt_uses_direct_runtime_via_authoritative_cli(self):
         stdout = StringIO()
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.ai._use_cloud', return_value=False),
             mock.patch('epl.ai.is_available', return_value=True),
             mock.patch('epl.ai.ensure_epl_model') as ensure_model,
@@ -1068,19 +1046,17 @@ print(module._force_interpret())
             exit_code = cli_main(['ai', 'write', 'hello', 'world'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         ensure_model.assert_called_once_with(verbose=False)
         code_assist.assert_called_once_with('write hello world')
         self.assertIn('Say "Hello"', stdout.getvalue())
 
-    def test_gen_command_uses_direct_generator_without_legacy_dispatch(self):
+    def test_gen_command_uses_direct_generator_via_authoritative_cli(self):
         stdout = StringIO()
         with tempfile.TemporaryDirectory(prefix='epl_cli_ai_gen_') as tmpdir:
             old_cwd = os.getcwd()
             try:
                 os.chdir(tmpdir)
                 with (
-                    mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                     mock.patch('epl.ai.is_available', return_value=True),
                     mock.patch('epl.ai.ensure_epl_model') as ensure_model,
                     mock.patch(
@@ -1092,21 +1068,19 @@ print(module._force_interpret())
                     exit_code = cli_main(['gen', 'make', 'a', 'demo'])
 
                 self.assertEqual(exit_code, 0)
-                legacy_dispatch.assert_not_called()
                 ensure_model.assert_called_once_with(verbose=False)
                 generate_code.assert_called_once_with('make a demo', filename='make_a_demo.epl')
                 self.assertIn('Saved to: make_a_demo.epl', stdout.getvalue())
             finally:
                 os.chdir(old_cwd)
 
-    def test_explain_command_uses_direct_ai_path_without_legacy_dispatch(self):
+    def test_explain_command_uses_direct_ai_path_via_authoritative_cli(self):
         stdout = StringIO()
         with tempfile.TemporaryDirectory(prefix='epl_cli_ai_explain_') as tmpdir:
             source = Path(tmpdir, 'explain.epl')
             source.write_text('Say "Explain me"\n', encoding='utf-8')
 
             with (
-                mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
                 mock.patch('epl.ai.is_available', return_value=True),
                 mock.patch('epl.ai.ensure_epl_model') as ensure_model,
                 mock.patch('epl.ai.explain_code', return_value='This says hello.') as explain_code,
@@ -1115,30 +1089,26 @@ print(module._force_interpret())
                 exit_code = cli_main(['explain', str(source)])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         ensure_model.assert_called_once_with(verbose=False)
         explain_code.assert_called_once_with('Say "Explain me"')
         self.assertIn('This says hello.', stdout.getvalue())
 
-    def test_cloud_command_uses_direct_config_without_legacy_dispatch(self):
+    def test_cloud_command_uses_direct_config_via_authoritative_cli(self):
         stdout = StringIO()
         key = 'AIzaSyDemoKeyForTesting123456'
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.ai.configure_cloud') as configure_cloud,
             redirect_stdout(stdout),
         ):
             exit_code = cli_main(['cloud', '--gemini', key, '--model', 'gemini-2.0-flash'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         configure_cloud.assert_called_once_with('gemini', key, 'gemini-2.0-flash')
         self.assertIn('Gemini configured', stdout.getvalue())
 
-    def test_train_command_uses_direct_ai_training_without_legacy_dispatch(self):
+    def test_train_command_uses_direct_ai_training_via_authoritative_cli(self):
         stdout = StringIO()
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.ai.is_available', return_value=True),
             mock.patch('epl.ai.model_exists', return_value=False),
             mock.patch('epl.ai.create_epl_model', return_value=True) as create_model,
@@ -1147,14 +1117,12 @@ print(module._force_interpret())
             exit_code = cli_main(['train', '--base', 'qwen3:4b'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         create_model.assert_called_once_with(base_model='qwen3:4b')
         self.assertIn('EPL-Coder Model Training', stdout.getvalue())
 
-    def test_model_command_uses_direct_management_without_legacy_dispatch(self):
+    def test_model_command_uses_direct_management_via_authoritative_cli(self):
         stdout = StringIO()
         with (
-            mock.patch('epl.cli._legacy_dispatch') as legacy_dispatch,
             mock.patch('epl.ai.is_available', return_value=True),
             mock.patch('epl.ai.list_models', return_value=['epl-coder:latest', 'qwen3:4b']),
             mock.patch('epl.ai.model_exists', return_value=True),
@@ -1163,6 +1131,5 @@ print(module._force_interpret())
             exit_code = cli_main(['model', 'list'])
 
         self.assertEqual(exit_code, 0)
-        legacy_dispatch.assert_not_called()
         self.assertIn('Installed Ollama Models', stdout.getvalue())
         self.assertIn('epl-coder:latest', stdout.getvalue())

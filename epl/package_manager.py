@@ -1211,6 +1211,12 @@ def find_package_module(name):
             entry = os.path.join(local_modules, entry_name)
             if os.path.isfile(entry):
                 return os.path.abspath(entry)
+        # Honor manifest-based entry points for structured local packages.
+        manifest = load_manifest(local_modules)
+        if manifest and 'entry' in manifest:
+            entry = os.path.join(local_modules, manifest['entry'])
+            if os.path.isfile(entry):
+                return os.path.abspath(entry)
     local_module_file = os.path.join('.', 'epl_modules', f'{name}.epl')
     if os.path.isfile(local_module_file):
         return os.path.abspath(local_module_file)
@@ -1993,8 +1999,7 @@ def _validate_npm_package_name(name):
     name = name.strip()
     if not _SAFE_NPM_NAME_RE.match(name.lower()):
         raise ValueError(
-            f'Invalid npm package name "{name}". '
-            f'Must match @scope/name or bare-name format.'
+            f'Invalid npm package name "{name}". Must match @scope/name or bare-name format.'
         )
     if '..' in name or '/' in name.split('@')[-1].split('/')[0] if '@' in name else '/' in name:
         raise ValueError(f'Invalid npm package name "{name}": contains path traversal.')
@@ -2015,7 +2020,6 @@ def install_js_package(name, version=None, save=True, project_path='.'):
     except ValueError as e:
         print(f'Error: {e}')
         return False
-
 
     npm_bin = shutil.which('npm')
     if not npm_bin:
@@ -2419,7 +2423,7 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
     name = _sanitize_package_name(name)
     official_pkg = _get_official_package_dir(name)
     if official_pkg:
-        return _install_from_local(official_pkg, source=f'official:{name}')
+        return _install_builtin_package(name, local=local, project_path=project_path)
     # Check built-in registry first
     if name in BUILTIN_REGISTRY:
         return _install_builtin_package(name, local=local, project_path=project_path)
@@ -2535,6 +2539,18 @@ def _install_builtin_package(name, local=False, project_path='.'):
             os.makedirs(modules_dir, exist_ok=True)
             shutil.copytree(official_pkg, dest)
             manifest = load_manifest(dest)
+            if manifest:
+                entry = manifest.get('entry', 'main.epl')
+                entry_path = os.path.join(dest, entry)
+                root_main = os.path.join(dest, 'main.epl')
+                if (
+                    entry != 'main.epl'
+                    and os.path.isfile(entry_path)
+                    and not os.path.exists(root_main)
+                ):
+                    shutil.copy2(entry_path, root_main)
+                if not os.path.exists(os.path.join(dest, MANIFEST_NAME)):
+                    save_manifest(manifest, dest, fmt='json')
             version = manifest.get('version', '?') if manifest else '?'
             print(f'  Installed: {name} @ {version} (official) -> epl_modules/')
             return True

@@ -2769,13 +2769,19 @@ class VM:
             return len(args[0]) if args else 0
 
         def _type_of(args, line):
-            return self._type_name(args[0]) if args else 'None'
+            return self._type_name(args[0]) if args else 'nothing'
 
         def _to_text(args, line):
             return str(args[0]) if args else ''
 
-        def _to_number(args, line):
+        def _to_integer(args, line):
             return int(float(args[0])) if args else 0
+
+        def _to_number(args, line):
+            if not args:
+                return 0
+            value = float(args[0])
+            return int(value) if value.is_integer() else value
 
         def _to_decimal(args, line):
             return float(args[0]) if args else 0.0
@@ -3032,8 +3038,8 @@ class VM:
             'to_string': _to_text,
             'Text': _to_text,
             'to_number': _to_number,
-            'to_integer': _to_number,
-            'Integer': _to_number,
+            'to_integer': _to_integer,
+            'Integer': _to_integer,
             'to_decimal': _to_decimal,
             'Decimal': _to_decimal,
             'Float': _to_decimal,
@@ -3092,6 +3098,7 @@ class VM:
             'keys': _keys,
             'values': _values,
             'has_key': _has_key,
+            'has': _has_key,
             'merge': _merge,
             # I/O
             'read_input': _read_input,
@@ -3359,7 +3366,7 @@ class VM:
             return list(obj.values())
         if method == 'items':
             return [[k, v] for k, v in obj.items()]
-        if method == 'has_key':
+        if method == 'has_key' or method == 'has':
             return args[0] in obj
         if method == 'get':
             return obj.get(args[0], args[1] if len(args) > 1 else None)
@@ -3444,26 +3451,26 @@ class VM:
     def _type_name(self, val):
         """Get EPL type name for a value."""
         if val is None:
-            return 'None'
+            return 'nothing'
         elif isinstance(val, bool):
-            return 'Boolean'
+            return 'boolean'
         elif isinstance(val, int):
-            return 'Integer'
+            return 'integer'
         elif isinstance(val, float):
-            return 'Decimal'
+            return 'decimal'
         elif isinstance(val, str):
-            return 'Text'
+            return 'text'
         elif isinstance(val, list):
-            return 'List'
+            return 'list'
         elif isinstance(val, dict):
-            return 'Dict'
+            return 'map'
         elif isinstance(val, VMInstance):
             return val.class_def.name
         elif isinstance(val, CompiledFunction):
-            return 'Function'
+            return 'function'
         elif isinstance(val, CompiledClass):
-            return 'Class'
-        return 'Unknown'
+            return 'class'
+        return 'unknown'
 
 
 # ─── Convenience functions ────────────────────────────────────

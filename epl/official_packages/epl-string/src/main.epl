@@ -1,0 +1,563 @@
+Note: EPL String Package — Advanced String Processing in pure EPL
+Note: Case conversion, text analysis, transformation, templates.
+Note: Use "epl-string" to access these functions.
+
+Note: ===========================================================
+Note:  Internal Helpers
+Note: ===========================================================
+
+Define Function _is_upper_char Takes ch
+    Create code equal to char_code(ch)
+    Return code >= 65 and code <= 90
+End
+
+Define Function _is_lower_char Takes ch
+    Create code equal to char_code(ch)
+    Return code >= 97 and code <= 122
+End
+
+Define Function _is_alpha_char Takes ch
+    Create code equal to char_code(ch)
+    Return (code >= 65 and code <= 90) or (code >= 97 and code <= 122)
+End
+
+Define Function _is_alnum_char Takes ch
+    Create code equal to char_code(ch)
+    Return (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or (code >= 48 and code <= 57)
+End
+
+Define Function _split_words Takes s
+    Create words equal to []
+    Create current equal to ""
+    Create prev_char equal to ""
+    For each ch in s
+        If _is_upper_char(ch) and length(current) > 0 and _is_lower_char(prev_char)
+            Add current to words
+            Set current to ch.lowercase
+        Otherwise If not _is_alnum_char(ch)
+            If length(current) > 0
+                Add current to words
+                Set current to ""
+            End
+        Otherwise
+            Set current to current + ch.lowercase
+        End
+        Set prev_char to ch
+    End
+    If length(current) > 0
+        Add current to words
+    End
+    Return words
+End
+
+Note: ===========================================================
+Note:  Case Conversion
+Note: ===========================================================
+
+Define Function to_camel_case Takes s
+    Create words equal to _split_words(s)
+    If length(words) == 0
+        Return ""
+    End
+    Create result equal to words[0]
+    For i from 1 to length(words) - 1
+        Create w equal to words[i]
+        If length(w) > 0
+            Create first equal to w.char_at(0.uppercase)
+            Set result to result + first + w.substring(1, length(w))
+        End
+    End
+    Return result
+End
+
+Define Function to_pascal_case Takes txt
+    Create words equal to _split_words(txt)
+    Create result equal to ""
+    For each w in words
+        If length(w) > 0
+            Create first equal to w.char_at(0.uppercase)
+            Set result to result + first + w.substring(1, length(w))
+        End
+    End
+    Return result
+End
+
+Define Function to_snake_case Takes txt
+    Create words equal to _split_words(txt)
+    Return words.join("_")
+End
+
+Define Function to_kebab_case Takes txt
+    Create words equal to _split_words(txt)
+    Return words.join("-")
+End
+
+Define Function to_constant_case Takes txt
+    Create words equal to _split_words(txt)
+    Return words.join("_".uppercase)
+End
+
+Define Function to_title_case_smart Takes s
+    Create small_words equal to ["a", "an", "the", "and", "but", "or", "for", "nor", "on", "at", "to", "by", "in", "of", "up"]
+    Create words equal to s.split(" ")
+    Create result equal to []
+    For i from 0 to length(words) - 1
+        Create w equal to words[i].lowercase
+        If i == 0 or not small_words.contains(w)
+            If length(w) > 0
+                Create first equal to w.char_at(0.uppercase)
+                Add first + w.substring(1, length(w)) to result
+            Otherwise
+                Add w to result
+            End
+        Otherwise
+            Add w to result
+        End
+    End
+    Return result.join(" ")
+End
+
+Note: ===========================================================
+Note:  Text Analysis
+Note: ===========================================================
+
+Define Function levenshtein_distance Takes s1, s2
+    Create m equal to length(s1)
+    Create n equal to length(s2)
+    If m == 0
+        Return n
+    End
+    If n == 0
+        Return m
+    End
+    Create prev_row equal to []
+    For j from 0 to n
+        Add j to prev_row
+    End
+    For i from 1 to m
+        Create curr_row equal to [i]
+        For j from 1 to n
+            Create cost equal to 0
+            If s1.char_at(i - 1) != s2.char_at(j - 1)
+                Set cost to 1
+            End
+            Create insert_cost equal to curr_row[j - 1] + 1
+            Create delete_cost equal to prev_row[j] + 1
+            Create replace_cost equal to prev_row[j - 1] + cost
+            Create min_cost equal to insert_cost
+            If delete_cost < min_cost
+                Set min_cost to delete_cost
+            End
+            If replace_cost < min_cost
+                Set min_cost to replace_cost
+            End
+            Add min_cost to curr_row
+        End
+        Set prev_row to curr_row
+    End
+    Return prev_row[n]
+End
+
+Define Function similarity_ratio Takes s1, s2
+    Create max_len equal to max(length(s1), length(s2))
+    If max_len == 0
+        Return 1.0
+    End
+    Return 1.0 - levenshtein_distance(s1, s2) / max_len
+End
+
+Define Function longest_common_substring Takes s1, s2
+    Create m equal to length(s1)
+    Create n equal to length(s2)
+    Create max_len equal to 0
+    Create end_idx equal to 0
+    Create prev equal to []
+    For j from 0 to n
+        Add 0 to prev
+    End
+    For i from 1 to m
+        Create curr equal to [0]
+        For j from 1 to n
+            If s1.char_at(i - 1) == s2.char_at(j - 1)
+                Add prev[j - 1] + 1 to curr
+                If curr[j] > max_len
+                    Set max_len to curr[j]
+                    Set end_idx to i
+                End
+            Otherwise
+                Add 0 to curr
+            End
+        End
+        Set prev to curr
+    End
+    If max_len == 0
+        Return ""
+    End
+    Return s1.substring(end_idx - max_len, end_idx)
+End
+
+Define Function longest_common_prefix Takes strings
+    If length(strings) == 0
+        Return ""
+    End
+    Create prefix equal to strings[0]
+    For i from 1 to length(strings) - 1
+        While not strings[i].starts_with(prefix)
+            Set prefix to prefix.substring(0, length(prefix) - 1)
+            If length(prefix) == 0
+                Return ""
+            End
+        End
+    End
+    Return prefix
+End
+
+Define Function char_frequency Takes txt
+    Create freq equal to json_parse("{}")
+    For each ch in txt
+        If has(freq, ch)
+            freq[ch] = freq[ch] + 1
+        Otherwise
+            freq[ch] = 1
+        End
+    End
+    Return freq
+End
+
+Define Function word_frequency Takes txt
+    Create freq equal to json_parse("{}")
+    Create words equal to txt.lowercase.split(" ")
+    For each w in words
+        If length(w) > 0
+            If has(freq, w)
+                freq[w] = freq[w] + 1
+            Otherwise
+                freq[w] = 1
+            End
+        End
+    End
+    Return freq
+End
+
+Define Function is_anagram Takes s1, s2
+    Create first_chars equal to sorted(s1.lowercase.replace(" ", "").to_list())
+    Create second_chars equal to sorted(s2.lowercase.replace(" ", "").to_list())
+    Return first_chars == second_chars
+End
+
+Note: ===========================================================
+Note:  Text Transformation
+Note: ===========================================================
+
+Define Function word_wrap Takes txt, width
+    Create words equal to txt.split(" ")
+    Create lines equal to []
+    Create current_line equal to ""
+    For each word in words
+        If length(current_line) == 0
+            Set current_line to word
+        Otherwise If length(current_line) + 1 + length(word) <= width
+            Set current_line to current_line + " " + word
+        Otherwise
+            Add current_line to lines
+            Set current_line to word
+        End
+    End
+    If length(current_line) > 0
+        Add current_line to lines
+    End
+    Return lines.join("\n")
+End
+
+Define Function dedent Takes txt
+    Create lines equal to txt.split("\n")
+    Create min_indent equal to 999999
+    For each line in lines
+        If length(trim(line)) > 0
+            Create indent equal to 0
+            While indent < length(line) and line.char_at(indent) == " "
+                Set indent to indent + 1
+            End
+            If indent < min_indent
+                Set min_indent to indent
+            End
+        End
+    End
+    If min_indent == 999999
+        Return txt
+    End
+    Create result equal to []
+    For each line in lines
+        If length(line) >= min_indent
+            Add line.substring(min_indent, length(line)) to result
+        Otherwise
+            Add line to result
+        End
+    End
+    Return result.join("\n")
+End
+
+Define Function indent Takes txt, prefix
+    Create lines equal to txt.split("\n")
+    Create result equal to []
+    For each line in lines
+        Add prefix + line to result
+    End
+    Return result.join("\n")
+End
+
+Define Function squeeze Takes txt
+    Create result equal to ""
+    Create prev_space equal to false
+    For each ch in txt
+        If ch == " "
+            If not prev_space
+                Set result to result + ch
+            End
+            Set prev_space to true
+        Otherwise
+            Set result to result + ch
+            Set prev_space to false
+        End
+    End
+    Return result
+End
+
+Define Function strip_chars Takes txt, chars
+    Create result equal to ""
+    For each ch in txt
+        If not chars.contains(ch)
+            Set result to result + ch
+        End
+    End
+    Return result
+End
+
+Define Function mask_text Takes txt, start, end_pos, mask_char
+    Create prefix equal to txt.substring(0, start)
+    Create suffix equal to txt.substring(end_pos, length(txt))
+    Create mask equal to repeat(mask_char, end_pos - start)
+    Return prefix + mask + suffix
+End
+
+Define Function rot13 Takes txt
+    Create result equal to ""
+    For each ch in txt
+        Create code equal to char_code(ch)
+        If code >= 65 and code <= 90
+            Set result to result + from_char_code(((code - 65 + 13) % 26) + 65)
+        Otherwise If code >= 97 and code <= 122
+            Set result to result + from_char_code(((code - 97 + 13) % 26) + 97)
+        Otherwise
+            Set result to result + ch
+        End
+    End
+    Return result
+End
+
+Define Function caesar_cipher Takes txt, shift
+    Create result equal to ""
+    For each ch in txt
+        Create code equal to char_code(ch)
+        If code >= 65 and code <= 90
+            Set result to result + from_char_code(((code - 65 + shift) % 26 + 26) % 26 + 65)
+        Otherwise If code >= 97 and code <= 122
+            Set result to result + from_char_code(((code - 97 + shift) % 26 + 26) % 26 + 97)
+        Otherwise
+            Set result to result + ch
+        End
+    End
+    Return result
+End
+
+Define Function reverse_words Takes txt
+    Create words equal to txt.split(" ")
+    Create reversed_list equal to reversed(words)
+    Return reversed_list.join(" ")
+End
+
+Define Function remove_duplicate_chars Takes txt
+    Create seen equal to []
+    Create result equal to ""
+    For each ch in txt
+        If not seen.contains(ch)
+            Set result to result + ch
+            Add ch to seen
+        End
+    End
+    Return result
+End
+
+Define Function surround Takes txt, wrapper
+    Return wrapper + txt + wrapper
+End
+
+Define Function excerpt Takes txt, max_length, suffix
+    If length(txt) <= max_length
+        Return txt
+    End
+    Create cut equal to txt.substring(0, max_length)
+    Create last_space equal to -1
+    For i from length(cut) - 1 to 0
+        If cut.char_at(i) == " "
+            Set last_space to i
+            Break
+        End
+    End
+    If last_space > 0
+        Set cut to cut.substring(0, last_space)
+    End
+    Return cut + suffix
+End
+
+Note: ===========================================================
+Note:  Slug and URL
+Note: ===========================================================
+
+Define Function slugify Takes txt
+    Create result equal to ""
+    Create prev_dash equal to false
+    For each ch in txt.lowercase
+        If _is_alnum_char(ch)
+            Set result to result + ch
+            Set prev_dash to false
+        Otherwise
+            If not prev_dash and length(result) > 0
+                Set result to result + "-"
+                Set prev_dash to true
+            End
+        End
+    End
+    If length(result) > 0 and result.char_at(length(result) - 1) == "-"
+        Set result to result.substring(0, length(result) - 1)
+    End
+    Return result
+End
+
+Define Function strip_html_tags Takes txt
+    Create result equal to ""
+    Create inside_tag equal to false
+    For each ch in txt
+        If ch == "<"
+            Set inside_tag to true
+        Otherwise If ch == ">"
+            Set inside_tag to false
+        Otherwise If not inside_tag
+            Set result to result + ch
+        End
+    End
+    Return result
+End
+
+Define Function escape_html Takes txt
+    Create result equal to txt
+    Set result to result.replace("&", "&amp;")
+    Set result to result.replace("<", "&lt;")
+    Set result to result.replace(">", "&gt;")
+    Set result to result.replace("\"", "&quot;")
+    Set result to result.replace("'", "&#39;")
+    Return result
+End
+
+Define Function to_url_safe Takes txt
+    Create safe equal to "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~"
+    Create result equal to ""
+    For each ch in txt
+        If safe.contains(ch)
+            Set result to result + ch
+        Otherwise
+            Create code equal to char_code(ch)
+            Create hex equal to ""
+            Create high equal to floor(code / 16)
+            Create low equal to code % 16
+            Create hex_chars equal to "0123456789ABCDEF"
+            Set result to result + "%" + hex_chars.char_at(high) + hex_chars.char_at(low)
+        End
+    End
+    Return result
+End
+
+Note: ===========================================================
+Note:  Templates
+Note: ===========================================================
+
+Define Function template_replace Takes template, data
+    Create result equal to template
+    Create template_keys equal to keys(data)
+    For each k in template_keys
+        Set result to result.replace("{{" + k + "}}", to_text(data[k]))
+    End
+    Return result
+End
+
+Define Function pluralize Takes word, count
+    If count == 1
+        Return word
+    End
+    Create len equal to length(word)
+    If len == 0
+        Return word
+    End
+    Create last equal to word.char_at(len - 1)
+    Create last2 equal to ""
+    If len >= 2
+        Set last2 to word.substring(len - 2, len)
+    End
+    If last == "s" or last == "x" or last == "z" or last2 == "sh" or last2 == "ch"
+        Return word + "es"
+    End
+    If last == "y" and len >= 2 and not "aeiou".contains(word.char_at(len - 2))
+        Return word.substring(0, len - 1) + "ies"
+    End
+    Return word + "s"
+End
+
+Define Function ordinalize Takes n
+    Create abs_n equal to absolute(n)
+    Create mod100 equal to abs_n % 100
+    If mod100 >= 11 and mod100 <= 13
+        Return to_text(n) + "th"
+    End
+    Create mod10 equal to abs_n % 10
+    If mod10 == 1
+        Return to_text(n) + "st"
+    End
+    If mod10 == 2
+        Return to_text(n) + "nd"
+    End
+    If mod10 == 3
+        Return to_text(n) + "rd"
+    End
+    Return to_text(n) + "th"
+End
+
+Note: ===========================================================
+Note:  Validation
+Note: ===========================================================
+
+Define Function is_palindrome Takes txt
+    Create clean equal to txt.lowercase.replace(" ", "")
+    Return clean == reversed(clean)
+End
+
+Define Function count_vowels Takes txt
+    Create count equal to 0
+    Create vowels equal to "aeiouAEIOU"
+    For each ch in txt
+        If vowels.contains(ch)
+            Set count to count + 1
+        End
+    End
+    Return count
+End
+
+Define Function count_consonants Takes txt
+    Create count equal to 0
+    Create vowels equal to "aeiouAEIOU"
+    For each ch in txt
+        If _is_alpha_char(ch) and not vowels.contains(ch)
+            Set count to count + 1
+        End
+    End
+    Return count
+End

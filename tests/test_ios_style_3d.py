@@ -1,6 +1,8 @@
 """Tests for iOS/SwiftUI v6.0+v6.1: Style, Layout, 3D & Canvas."""
+
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from epl.lexer import Lexer
@@ -80,7 +82,9 @@ class TestComponentSwiftUI:
 
 class TestScene3DSwiftUI:
     def test_scene_generates_scenekit(self):
-        out = to_swift('Scene "demo" width 800 height 600\n    Mesh "cube" position 0, 0, 0 color "#ff0000"\nEnd\n')
+        out = to_swift(
+            'Scene "demo" width 800 height 600\n    Mesh "cube" position 0, 0, 0 color "#ff0000"\nEnd\n'
+        )
         assert 'SCNScene' in out
         assert 'SCNBox' in out
 

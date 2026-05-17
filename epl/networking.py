@@ -397,7 +397,9 @@ class HTTPClient:
         parsed = urllib.parse.urlparse(full_url)
         hostname = parsed.hostname or ''
         if self._is_private_ip(hostname):
-            raise ConnectionError(f'Request blocked: {hostname} resolves to a private/internal address')
+            raise ConnectionError(
+                f'Request blocked: {hostname} resolves to a private/internal address'
+            )
 
         # Add query params
         if params:

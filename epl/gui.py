@@ -5,7 +5,6 @@ windows, buttons, labels, text inputs, checkboxes, dropdowns, canvases,
 menus, dialogs, and event handling.
 """
 
-
 try:
     import tkinter as tk
     from tkinter import colorchooser, filedialog, messagebox, ttk

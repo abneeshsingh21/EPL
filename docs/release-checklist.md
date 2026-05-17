@@ -1,12 +1,12 @@
 # EPL Release Checklist
 
-Use this checklist before publishing a new EPL release.
+Use this checklist before publishing a new EPL release. Treat the support boundary in `docs/support-matrix.md` as the source of truth for what the release is claiming to support.
 
 ## Version and Docs
 
 - update version in the authoritative source
 - update `CHANGELOG.md`
-- verify README/docs/examples match the release behavior
+- verify README/docs/examples match the release behavior and do not claim support beyond `docs/support-matrix.md`
 - verify deprecations and removals are documented
 
 ## Test Gates
@@ -41,6 +41,7 @@ Reference platform gates:
 - Python dependency bridge smoke passes
 - GitHub project workflow smoke passes
 - reference fullstack deploy generation smoke passes
+- optional extras and toolchain-dependent paths are documented with the same caveats used in `docs/support-matrix.md`
 
 Native build gate:
 
@@ -58,4 +59,5 @@ Native build gate:
 - verify support matrix changes, if any
 - review security-impacting changes
 - confirm reference app docs still match the generated/tested behavior
+- confirm docs use terms like "supported", "CI-gated", and "not yet release-gated" consistently with `docs/support-matrix.md`
 - confirm CI is green on the release commit

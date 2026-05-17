@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -13,9 +14,21 @@ import unittest
 import venv
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RELEASE_ENV_VAR = 'EPL_RUN_RELEASE_TESTS'
+
+
+def _load_module_from_path(module_path: Path, module_name: str):
+    sys.modules.pop(module_name, None)
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f'Unable to import module from {module_path}')
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 class TestReleasePackaging(unittest.TestCase):
@@ -82,6 +95,112 @@ class TestReleasePackaging(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip().splitlines(), ['0', '1'])
+
+    def test_ci_release_smoke_requires_built_wheel(self):
+        script = _load_module_from_path(
+            REPO_ROOT / 'scripts' / 'ci_release_smoke.py',
+            'epl_ci_release_smoke_test_missing_wheel',
+        )
+
+        with tempfile.TemporaryDirectory(prefix='epl_release_script_empty_') as tmpdir:
+            with self.assertRaises(SystemExit) as exc:
+                script.main([tmpdir])
+
+        self.assertIn('no wheel found', str(exc.exception))
+
+    def test_ci_release_smoke_runs_clean_room_cli_flow(self):
+        script = _load_module_from_path(
+            REPO_ROOT / 'scripts' / 'ci_release_smoke.py',
+            'epl_ci_release_smoke_test_core_flow',
+        )
+
+        with tempfile.TemporaryDirectory(prefix='epl_release_script_dist_') as dist_tmp:
+            with tempfile.TemporaryDirectory(prefix='epl_release_script_root_') as root_tmp:
+                wheel_path = Path(dist_tmp) / 'epl-0.0.0-py3-none-any.whl'
+                wheel_path.write_bytes(b'wheel-bytes')
+                root = Path(root_tmp)
+                executed: list[tuple[list[str], Path]] = []
+
+                def fake_run(args, *, cwd, env=None):
+                    normalized = [str(arg) for arg in args]
+                    executed.append((normalized, Path(cwd)))
+                    if normalized[-1] == '--version':
+                        return 'epl 9.9.9\n'
+                    if normalized[-1] == 'run':
+                        return 'Hello from smoke-demo!\n'
+                    if normalized[-3:] == ['install', '--no-save', 'epl-web']:
+                        return 'Installed: epl-web\n'
+                    return ''
+
+                def has_tail(*tail: str) -> bool:
+                    expected = list(tail)
+                    return any(command[-len(expected) :] == expected for command, _ in executed)
+
+                with (
+                    mock.patch.object(script.tempfile, 'mkdtemp', return_value=str(root)),
+                    mock.patch.object(script.venv, 'EnvBuilder') as env_builder,
+                    mock.patch.object(script, '_run', side_effect=fake_run),
+                    mock.patch.object(script.shutil, 'rmtree') as rmtree,
+                ):
+                    exit_code = script.main([dist_tmp])
+
+                self.assertEqual(exit_code, 0)
+                env_builder.assert_called_once_with(with_pip=True)
+                env_builder.return_value.create.assert_called_once_with(root / 'venv')
+                rmtree.assert_called_once_with(root, ignore_errors=True)
+                self.assertTrue(has_tail('-m', 'pip', 'install', '--upgrade', 'pip'))
+                self.assertTrue(has_tail('-m', 'pip', 'install', str(wheel_path)))
+                self.assertTrue(has_tail('new', 'smoke-demo'))
+                self.assertTrue(has_tail('run'))
+                self.assertTrue(has_tail('lock'))
+                self.assertTrue(has_tail('install', '--frozen'))
+                self.assertTrue(has_tail('install', '--no-save', 'epl-web'))
+
+    def test_ci_release_smoke_llvm_mode_installs_llvmlite_and_builds(self):
+        script = _load_module_from_path(
+            REPO_ROOT / 'scripts' / 'ci_release_smoke.py',
+            'epl_ci_release_smoke_test_llvm_flow',
+        )
+
+        with tempfile.TemporaryDirectory(prefix='epl_release_script_dist_') as dist_tmp:
+            with tempfile.TemporaryDirectory(prefix='epl_release_script_root_') as root_tmp:
+                wheel_path = Path(dist_tmp) / 'epl-0.0.0-py3-none-any.whl'
+                wheel_path.write_bytes(b'wheel-bytes')
+                root = Path(root_tmp)
+                executed: list[list[str]] = []
+
+                def fake_run(args, *, cwd, env=None):
+                    normalized = [str(arg) for arg in args]
+                    executed.append(normalized)
+                    if normalized[-1] == '--version':
+                        return 'epl 9.9.9\n'
+                    if normalized[-1] == 'run':
+                        return 'Hello from smoke-demo!\n'
+                    if normalized[-3:] == ['install', '--no-save', 'epl-web']:
+                        return 'Installed: epl-web\n'
+                    if normalized[-1] == 'build':
+                        return 'Compiled successfully\n'
+                    return ''
+
+                def has_tail(*tail: str) -> bool:
+                    expected = list(tail)
+                    return any(command[-len(expected) :] == expected for command in executed)
+
+                with (
+                    mock.patch.object(script.tempfile, 'mkdtemp', return_value=str(root)),
+                    mock.patch.object(script.venv, 'EnvBuilder') as env_builder,
+                    mock.patch.object(script, '_run', side_effect=fake_run),
+                    mock.patch.object(script.shutil, 'rmtree') as rmtree,
+                ):
+                    exit_code = script.main([dist_tmp, '--llvm-smoke'])
+
+                self.assertEqual(exit_code, 0)
+                env_builder.assert_called_once_with(with_pip=True)
+                env_builder.return_value.create.assert_called_once_with(root / 'venv')
+                rmtree.assert_called_once_with(root, ignore_errors=True)
+                self.assertTrue(has_tail('-m', 'pip', 'install', str(wheel_path)))
+                self.assertTrue(has_tail('-m', 'pip', 'install', 'llvmlite'))
+                self.assertTrue(has_tail('build'))
 
     @unittest.skipUnless(
         os.environ.get(RELEASE_ENV_VAR) == '1',

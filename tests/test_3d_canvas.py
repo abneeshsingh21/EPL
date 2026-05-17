@@ -1,4 +1,5 @@
 """Tests for EPL v6.1: 3D & Canvas System."""
+
 import pytest
 import sys
 import os
@@ -192,7 +193,9 @@ class TestScene3DHTMLRendering:
 
 class TestDrawCommandHTMLRendering:
     def test_rect_canvas(self):
-        cmd = ast.DrawCommand('rect', {'x': 10, 'y': 20, 'width': 100, 'height': 50, 'fill': '#ff0000'}, 1)
+        cmd = ast.DrawCommand(
+            'rect', {'x': 10, 'y': 20, 'width': 100, 'height': 50, 'fill': '#ff0000'}, 1
+        )
         html = _render_draw_command(cmd)
         assert 'canvas' in html.lower()
         assert 'fillStyle = "#ff0000"' in html
@@ -205,7 +208,9 @@ class TestDrawCommandHTMLRendering:
         assert 'fillStyle = "#00ff00"' in html
 
     def test_line_canvas(self):
-        cmd = ast.DrawCommand('line', {'x1': 0, 'y1': 0, 'x2': 100, 'y2': 100, 'stroke': '#000', 'width': 2}, 1)
+        cmd = ast.DrawCommand(
+            'line', {'x1': 0, 'y1': 0, 'x2': 100, 'y2': 100, 'stroke': '#000', 'width': 2}, 1
+        )
         html = _render_draw_command(cmd)
         assert 'moveTo(0, 0)' in html
         assert 'lineTo(100, 100)' in html
@@ -213,7 +218,9 @@ class TestDrawCommandHTMLRendering:
         assert 'lineWidth = 2' in html
 
     def test_text_canvas(self):
-        cmd = ast.DrawCommand('text', {'x': 10, 'y': 30, 'content': 'Hello', 'font': '16px Arial', 'fill': '#000'}, 1)
+        cmd = ast.DrawCommand(
+            'text', {'x': 10, 'y': 30, 'content': 'Hello', 'font': '16px Arial', 'fill': '#000'}, 1
+        )
         html = _render_draw_command(cmd)
         assert 'font = "16px Arial"' in html
         assert 'fillText("Hello", 10, 30)' in html
@@ -296,19 +303,24 @@ class TestDrawInsidePage:
 
 class TestPackagesParse:
     def test_epl_3d_parses(self):
-        with open(os.path.join(os.path.dirname(__file__), '..', 'epl_packages', 'epl-3d', 'main.epl')) as f:
+        with open(
+            os.path.join(os.path.dirname(__file__), '..', 'epl_packages', 'epl-3d', 'main.epl')
+        ) as f:
             code = f.read()
         prog = parse(code)
         assert len(prog.statements) > 0
 
     def test_epl_canvas_parses(self):
-        with open(os.path.join(os.path.dirname(__file__), '..', 'epl_packages', 'epl-canvas', 'main.epl')) as f:
+        with open(
+            os.path.join(os.path.dirname(__file__), '..', 'epl_packages', 'epl-canvas', 'main.epl')
+        ) as f:
             code = f.read()
         prog = parse(code)
         assert len(prog.statements) > 0
 
     def test_game_2d_template_parses(self):
         from epl.cli import _project_template
+
         _, main_src, _, _ = _project_template('test-game', 'game-2d')
         prog = parse(main_src)
         assert len(prog.statements) > 0

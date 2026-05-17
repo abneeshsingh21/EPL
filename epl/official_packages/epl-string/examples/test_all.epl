@@ -1,0 +1,96 @@
+Note: ============================================================
+Note:  epl-string package — Full Test Suite
+Note:  Tests every function exported by src/main.epl
+Note: ============================================================
+
+Import "epl/official_packages/epl-string/src/main" As str
+
+Create pass_count equal to 0
+Create fail_count equal to 0
+
+Define Function expect Takes label, got, want
+    If got == want
+        Say "  PASS: " + label
+        Set pass_count to pass_count + 1
+    Otherwise
+        Say "  FAIL: " + label + " => got: " + to_text(got) + "  expected: " + to_text(want)
+        Set fail_count to fail_count + 1
+    End
+End
+
+Note: --- Case Conversion ---
+Say ""
+Say "=== Case Conversion ==="
+expect("to_camel_case", str.to_camel_case("hello world"), "helloWorld")
+expect("to_camel_case kebab", str.to_camel_case("my-variable-name"), "myVariableName")
+expect("to_pascal_case", str.to_pascal_case("hello world"), "HelloWorld")
+expect("to_snake_case", str.to_snake_case("helloWorld"), "hello_world")
+expect("to_kebab_case", str.to_kebab_case("Hello World"), "hello-world")
+expect("to_constant_case", str.to_constant_case("hello world"), "HELLO_WORLD")
+expect("to_title_case_smart basic", str.to_title_case_smart("the quick brown fox"), "The Quick Brown Fox")
+expect("to_title_case_smart small words", str.to_title_case_smart("war and peace"), "War and Peace")
+
+Note: --- Text Analysis ---
+Say ""
+Say "=== Text Analysis ==="
+expect("levenshtein_distance same", str.levenshtein_distance("kitten", "kitten"), 0)
+expect("levenshtein_distance diff", str.levenshtein_distance("kitten", "sitting"), 3)
+expect("similarity_ratio equal", str.similarity_ratio("abc", "abc"), 1.0)
+expect("longest_common_substring", str.longest_common_substring("abcdef", "zcdemf"), "cde")
+expect("longest_common_prefix", str.longest_common_prefix(["flower", "flow", "flight"]), "fl")
+expect("is_anagram true", str.is_anagram("listen", "silent"), true)
+expect("is_anagram false", str.is_anagram("hello", "world"), false)
+expect("is_palindrome true", str.is_palindrome("racecar"), true)
+expect("is_palindrome false", str.is_palindrome("hello"), false)
+expect("count_vowels", str.count_vowels("hello world"), 3)
+expect("count_consonants", str.count_consonants("hello"), 3)
+
+Note: --- Text Transformation ---
+Say ""
+Say "=== Text Transformation ==="
+expect("word_wrap short", str.word_wrap("Hi there", 20), "Hi there")
+expect("dedent", str.dedent("    hello\n    world"), "hello\nworld")
+expect("indent", str.indent("hello\nworld", ">> "), ">> hello\n>> world")
+expect("squeeze", str.squeeze("hello   world"), "hello world")
+expect("strip_chars", str.strip_chars("h!e?l!l?o", "!?"), "hello")
+expect("mask_text", str.mask_text("1234567890", 2, 8, "*"), "12******90")
+expect("rot13 encode", str.rot13("Hello"), "Uryyb")
+expect("rot13 round-trip", str.rot13(str.rot13("Hello")), "Hello")
+expect("caesar_cipher shift 3", str.caesar_cipher("ABC", 3), "DEF")
+expect("reverse_words", str.reverse_words("hello world foo"), "foo world hello")
+expect("remove_duplicate_chars", str.remove_duplicate_chars("aabbcc"), "abc")
+expect("surround", str.surround("hello", "**"), "**hello**")
+expect("excerpt short", str.excerpt("Hi", 10, "..."), "Hi")
+expect("excerpt long", str.excerpt("The quick brown fox jumps", 15, "..."), "The quick...")
+
+Note: --- Slug and URL ---
+Say ""
+Say "=== Slug and URL ==="
+expect("slugify", str.slugify("Hello World! This is EPL"), "hello-world-this-is-epl")
+expect("strip_html_tags", str.strip_html_tags("<b>Hello</b> World"), "Hello World")
+expect("escape_html ampersand", str.escape_html("<b>"), "&lt;b&gt;")
+
+Note: --- Templates ---
+Say ""
+Say "=== Templates ==="
+Create tmpl_data equal to Map with name = "Abneesh" and lang = "EPL"
+expect("template_replace", str.template_replace("Hello {{name}}, welcome to {{lang}}!", tmpl_data), "Hello Abneesh, welcome to EPL!")
+expect("pluralize 1", str.pluralize("cat", 1), "cat")
+expect("pluralize many", str.pluralize("cat", 5), "cats")
+expect("pluralize -ch", str.pluralize("church", 2), "churches")
+expect("ordinalize 1st", str.ordinalize(1), "1st")
+expect("ordinalize 2nd", str.ordinalize(2), "2nd")
+expect("ordinalize 3rd", str.ordinalize(3), "3rd")
+expect("ordinalize 4th", str.ordinalize(4), "4th")
+expect("ordinalize 11th", str.ordinalize(11), "11th")
+expect("ordinalize 21st", str.ordinalize(21), "21st")
+
+Note: --- Summary ---
+Say ""
+Say "============================================"
+Say "Results: " + to_text(pass_count) + " passed, " + to_text(fail_count) + " failed"
+If fail_count == 0
+    Say "All tests PASSED!"
+Otherwise
+    Say "SOME TESTS FAILED!"
+End

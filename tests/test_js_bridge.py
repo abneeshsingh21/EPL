@@ -144,6 +144,7 @@ class TestBridgeSerialization(unittest.TestCase):
 
     def setUp(self):
         from epl.js_bridge import NodeBridge
+
         self.bridge = NodeBridge()  # Don't start the process
 
     def test_serialize_none(self):
@@ -173,11 +174,14 @@ class TestBridgeSerialization(unittest.TestCase):
 
     def test_deserialize_handle(self):
         from epl.js_bridge import JSModuleHandle
-        result = self.bridge._deserialize_result({
-            'type': 'handle',
-            'handle': 'h42',
-            'typeName': 'Function',
-        })
+
+        result = self.bridge._deserialize_result(
+            {
+                'type': 'handle',
+                'handle': 'h42',
+                'typeName': 'Function',
+            }
+        )
         self.assertIsInstance(result, JSModuleHandle)
         self.assertEqual(result.handle, 'h42')
         self.assertEqual(result.type_name, 'Function')
@@ -223,8 +227,10 @@ class TestJSTranspiler(unittest.TestCase):
 class TestErrorExplainer(unittest.TestCase):
     def _make_error(self, message):
         """Create a simple mock error object for the explainer."""
+
         class MockError:
             pass
+
         err = MockError()
         err.message = message
         err.line = 1
@@ -232,18 +238,21 @@ class TestErrorExplainer(unittest.TestCase):
 
     def test_node_not_installed_pattern(self):
         from epl.error_explainer import explain
+
         err = self._make_error('Node.js is not installed or not found in PATH.')
         result = explain(err)
         self.assertIn('Node.js', result.what_went_wrong)
 
     def test_module_not_found_pattern(self):
         from epl.error_explainer import explain
+
         err = self._make_error('Cannot load module "fancy-lib": MODULE_NOT_FOUND')
         result = explain(err)
         self.assertIn('fancy-lib', result.what_went_wrong)
 
     def test_pipe_broken_pattern(self):
         from epl.error_explainer import explain
+
         err = self._make_error('JS bridge pipe broken: connection reset')
         result = explain(err)
         self.assertIn('crashed', result.what_went_wrong)
@@ -260,14 +269,17 @@ class TestIntegration(unittest.TestCase):
 
     def setUp(self):
         from epl.js_bridge import NodeBridge
+
         NodeBridge.reset()
 
     def tearDown(self):
         from epl.js_bridge import NodeBridge
+
         NodeBridge.reset()
 
     def test_require_path_module(self):
         from epl.js_bridge import NodeBridge
+
         bridge = NodeBridge.get_instance()
         handle = bridge.require('path')
         self.assertIsInstance(handle, str)
@@ -275,6 +287,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_call_path_join(self):
         from epl.js_bridge import NodeBridge
+
         bridge = NodeBridge.get_instance()
         handle = bridge.require('path')
         result = bridge.call(handle, 'join', ['/home', 'user', 'file.txt'])
@@ -283,6 +296,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_call_path_basename(self):
         from epl.js_bridge import NodeBridge
+
         bridge = NodeBridge.get_instance()
         handle = bridge.require('path')
         result = bridge.call(handle, 'basename', ['/home/user/file.txt'])
@@ -290,6 +304,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_get_property(self):
         from epl.js_bridge import NodeBridge
+
         bridge = NodeBridge.get_instance()
         handle = bridge.require('path')
         sep = bridge.get_prop(handle, 'sep')
@@ -298,6 +313,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_require_os_module(self):
         from epl.js_bridge import NodeBridge
+
         bridge = NodeBridge.get_instance()
         handle = bridge.require('os')
         result = bridge.call(handle, 'platform', [])
@@ -306,6 +322,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_error_invalid_module(self):
         from epl.js_bridge import NodeBridge, NodeBridgeError
+
         bridge = NodeBridge.get_instance()
         with self.assertRaises(NodeBridgeError):
             bridge.require('this_module_definitely_does_not_exist_xyz123')
@@ -319,11 +336,13 @@ class TestIntegration(unittest.TestCase):
 class TestJSModuleClass(unittest.TestCase):
     def test_jsmodule_repr(self):
         from epl.interpreter import JSModule
+
         mod = JSModule(None, 'h1', 'lodash')
         self.assertEqual(repr(mod), '<js module lodash>')
 
     def test_jsmodule_name(self):
         from epl.interpreter import JSModule
+
         mod = JSModule(None, 'h2', 'path')
         self.assertEqual(mod.name, 'path')
         self.assertEqual(mod.handle, 'h2')

@@ -1,6 +1,6 @@
 # Database & ORM Guide
 
-EPL provides three levels of database access: raw SQLite, production databases (PostgreSQL/MySQL), and a full ORM.
+EPL's most directly supported database workflow is built-in SQLite via the `db_*` functions. Additional adapters and ORM-style helpers are available, but non-SQLite production deployments should be validated in your own environment and against the current support boundary in the support matrix.
 
 ## Level 1: SQLite (Built-in)
 
@@ -16,9 +16,9 @@ Say users
 db_close(db)
 ```
 
-## Level 2: Production Databases
+## Level 2: Additional Database Adapters
 
-Connect to PostgreSQL or MySQL:
+Connect to PostgreSQL, MySQL, or SQLite through the `real_db_*` helpers when the required driver/toolchain is available. These helpers are useful for integration work, but they are not the primary release-gated database contract.
 
 ```epl
 Note: PostgreSQL
@@ -48,7 +48,9 @@ real_db_execute(db, "UPDATE accounts SET balance = balance + 100 WHERE id = ?", 
 real_db_commit(db)
 ```
 
-## Level 3: ORM
+## Level 3: ORM-Style Helpers
+
+ORM helpers are available for convenience and local application scaffolding. Treat them as a higher-level layer over the core database surface, and validate migrations and query behavior against your target database before relying on them in production.
 
 ```epl
 db = orm_open("myapp.db")
@@ -96,7 +98,7 @@ orm_add_index(db, "User", "email")
 | `db_open(path)` | Open SQLite database |
 | `db_query(db, sql, params)` | Execute query, return rows |
 | `db_execute(db, sql, params)` | Execute statement |
-| `real_db_connect(url)` | Connect to PostgreSQL/MySQL/SQLite |
+| `real_db_connect(url)` | Connect to PostgreSQL/MySQL/SQLite when the matching driver/toolchain is available |
 | `orm_define_model(db, name)` | Define ORM model |
 | `orm_migrate(db)` | Run migrations |
 | `orm_create(db, model, data)` | Create record |

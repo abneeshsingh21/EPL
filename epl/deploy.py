@@ -88,7 +88,6 @@ class WSGIAdapter:
         """WSGI entry point — translate environ to Request, route, return Response."""
         import html as _html_mod
 
-
         method = environ.get('REQUEST_METHOD', 'GET')
         path = environ.get('PATH_INFO', '/')
         query_string = environ.get('QUERY_STRING', '')
@@ -2360,6 +2359,7 @@ def deploy_generate(target, output_dir='.', **kwargs):
 
     if target in ('k8s', 'all'):
         from epl.k8s_gen import generate_all as k8s_generate_all
+
         k8s_dir = os.path.join(output_dir, 'k8s')
         k8s_files = k8s_generate_all(
             app_name=app_name,
@@ -2375,6 +2375,7 @@ def deploy_generate(target, output_dir='.', **kwargs):
 
     if target in ('aws', 'all'):
         from epl.cloud_deploy import generate_aws_all
+
         aws_files = generate_aws_all(
             app_name=app_name,
             image=kwargs.get('image', f'{app_name}:latest'),
@@ -2387,6 +2388,7 @@ def deploy_generate(target, output_dir='.', **kwargs):
 
     if target in ('gcp', 'all'):
         from epl.cloud_deploy import generate_gcp_all
+
         gcp_files = generate_gcp_all(
             app_name=app_name,
             image=kwargs.get('image', f'{app_name}:latest'),
@@ -2399,6 +2401,7 @@ def deploy_generate(target, output_dir='.', **kwargs):
 
     if target in ('azure', 'all'):
         from epl.cloud_deploy import generate_azure_all
+
         azure_files = generate_azure_all(
             app_name=app_name,
             image=kwargs.get('image', f'{app_name}:latest'),
@@ -2409,7 +2412,6 @@ def deploy_generate(target, output_dir='.', **kwargs):
         generated.extend(azure_files)
 
     return generated
-
 
 
 def deploy_cli(args):
@@ -2450,7 +2452,19 @@ def deploy_cli(args):
         return
 
     target = args[0]
-    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi','k8s','aws','gcp','azure','all')
+    valid_targets = (
+        'gunicorn',
+        'nginx',
+        'tomcat',
+        'docker',
+        'systemd',
+        'asgi',
+        'k8s',
+        'aws',
+        'gcp',
+        'azure',
+        'all',
+    )
     if target not in valid_targets:
         print(f"EPL Error: Unknown deploy target '{target}'")
         print(f'Valid targets: {", ".join(valid_targets)}')

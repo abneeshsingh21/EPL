@@ -2427,11 +2427,16 @@ class Parser:
 
         # v6.0: Structural elements inside Page
         _structural_map = {
-            TokenType.DIV: 'div', TokenType.SECTION: 'section',
-            TokenType.NAV: 'nav', TokenType.HEADER_EL: 'header',
-            TokenType.FOOTER_EL: 'footer', TokenType.SPAN: 'span',
-            TokenType.ARTICLE: 'article', TokenType.ASIDE: 'aside',
-            TokenType.MAIN_EL: 'main', TokenType.CONTAINER: 'container',
+            TokenType.DIV: 'div',
+            TokenType.SECTION: 'section',
+            TokenType.NAV: 'nav',
+            TokenType.HEADER_EL: 'header',
+            TokenType.FOOTER_EL: 'footer',
+            TokenType.SPAN: 'span',
+            TokenType.ARTICLE: 'article',
+            TokenType.ASIDE: 'aside',
+            TokenType.MAIN_EL: 'main',
+            TokenType.CONTAINER: 'container',
         }
         if tok.type in _structural_map:
             return self._parse_styled_element(_structural_map[tok.type])
@@ -3332,10 +3337,19 @@ class Parser:
         """Try to parse as HTML element first, then fall back to statement."""
         tok = self._current()
         nxt = self._peek()
-        if tok.type in (
-            TokenType.HEADING, TokenType.SUBHEADING, TokenType.LINK,
-            TokenType.IMAGE, TokenType.BUTTON, TokenType.FORM,
-        ) and nxt and nxt.type == TokenType.STRING:
+        if (
+            tok.type
+            in (
+                TokenType.HEADING,
+                TokenType.SUBHEADING,
+                TokenType.LINK,
+                TokenType.IMAGE,
+                TokenType.BUTTON,
+                TokenType.FORM,
+            )
+            and nxt
+            and nxt.type == TokenType.STRING
+        ):
             return self._parse_html_element()
         if tok.type == TokenType.TYPE_TEXT and nxt and nxt.type == TokenType.STRING:
             return self._parse_html_element()
@@ -3373,7 +3387,9 @@ class Parser:
         line = self._current().line
         parts = []
 
-        while not self._match(TokenType.STRING, TokenType.NUMBER, TokenType.NEWLINE, TokenType.EOF, TokenType.END):
+        while not self._match(
+            TokenType.STRING, TokenType.NUMBER, TokenType.NEWLINE, TokenType.EOF, TokenType.END
+        ):
             tok = self._current()
             parts.append(tok.value.lower() if tok.value else '')
             self._advance()
@@ -3419,7 +3435,9 @@ class Parser:
                     class_names.append(self._advance().value)
                 continue
             tok = self._current()
-            if tok.type == TokenType.CLASS or (tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'class'):
+            if tok.type == TokenType.CLASS or (
+                tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'class'
+            ):
                 self._advance()
                 if self._match(TokenType.STRING):
                     class_names.append(self._advance().value)
@@ -3457,7 +3475,7 @@ class Parser:
 
     def _parse_layout_container(self, layout_type):
         """Flex direction "row" gap "16px" align "center" ... End
-           Grid columns 3 gap "20px" ... End"""
+        Grid columns 3 gap "20px" ... End"""
         line = self._current().line
         self._advance()  # consume FLEX/GRID
 
@@ -3465,7 +3483,9 @@ class Parser:
         while not self._match(TokenType.NEWLINE, TokenType.EOF):
             tok = self._current()
             if tok.type == TokenType.IDENTIFIER or tok.type in (
-                TokenType.GRID, TokenType.FLEX, TokenType.ANIMATE,
+                TokenType.GRID,
+                TokenType.FLEX,
+                TokenType.ANIMATE,
             ):
                 prop_name = tok.value.lower()
                 self._advance()
@@ -3699,7 +3719,11 @@ class Parser:
             if tok.type == TokenType.POSITION:
                 self._advance()
                 position = self._parse_number_list(3)
-            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() in ('look_at', 'lookat', 'target'):
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() in (
+                'look_at',
+                'lookat',
+                'target',
+            ):
                 self._advance()
                 look_at = self._parse_number_list(3)
             elif tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'fov':
@@ -3814,7 +3838,9 @@ class Parser:
         while not self._match(TokenType.NEWLINE, TokenType.EOF):
             tok = self._current()
             if tok.type == TokenType.IDENTIFIER or tok.type in (
-                TokenType.FILL, TokenType.STROKE, TokenType.POSITION,
+                TokenType.FILL,
+                TokenType.STROKE,
+                TokenType.POSITION,
                 TokenType.SCALE_KW,
             ):
                 prop_name = tok.value.lower()
