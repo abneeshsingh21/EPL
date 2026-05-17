@@ -15,11 +15,8 @@ This automatically adds /_health, /_ready, /_metrics to any EPL web app.
 
 import json
 import sys
-import time
 import threading
-import logging
-from typing import Optional
-
+import time
 
 # ═══════════════════════════════════════════════════════════
 # Internal State — tracks app metrics

@@ -1948,8 +1948,8 @@ def _pkg_publish(args):
         manifest_path = os.path.join(path, 'epl.toml')
         if os.path.isfile(manifest_path):
             try:
-                from epl.publisher import run_publish_checks
                 from epl.package_manager import load_manifest
+                from epl.publisher import run_publish_checks
 
                 manifest = load_manifest(path)
                 checks = run_publish_checks(manifest, path)
@@ -3714,7 +3714,7 @@ def _copilot(args):
 
 
 def _start_lsp(args):
-    from epl.lsp_server import EPLLanguageServer, JSONRPC
+    from epl.lsp_server import JSONRPC, EPLLanguageServer
 
     tcp_mode = '--tcp' in args
     port = 2087

@@ -914,11 +914,11 @@ import CryptoKit
         mod_chain = '\n            '.join(modifiers) if modifiers else ''
         fn_lines = [
             f'    struct {name}Style: ViewModifier {{',
-            f'        func body(content: Content) -> some View {{',
-            f'            content',
+            '        func body(content: Content) -> some View {',
+            '            content',
             f'            {mod_chain}',
-            f'        }}',
-            f'    }}',
+            '        }',
+            '    }',
         ]
         self._functions.append(fn_lines)
 
@@ -981,13 +981,13 @@ import CryptoKit
             f'    struct {name}View: View {{',
         ]
         fn_lines.extend(param_strs)
-        fn_lines.append(f'        var body: some View {{')
-        fn_lines.append(f'            VStack {{')
+        fn_lines.append('        var body: some View {')
+        fn_lines.append('            VStack {')
         for bl in body_lines:
             fn_lines.append(f'                {bl}')
-        fn_lines.append(f'            }}')
-        fn_lines.append(f'        }}')
-        fn_lines.append(f'    }}')
+        fn_lines.append('            }')
+        fn_lines.append('        }')
+        fn_lines.append('    }')
         self._functions.append(fn_lines)
 
     def _emit_component_use(self, node):
@@ -1017,16 +1017,16 @@ import CryptoKit
         lines = []
         w, h = node.width, node.height
         lines.append(f'// 3D Scene: {node.name}')
-        lines.append(f'SceneView(scene: {{')
-        lines.append(f'    let scene = SCNScene()')
+        lines.append('SceneView(scene: {')
+        lines.append('    let scene = SCNScene()')
 
         for child in node.body:
             if isinstance(child, ast.CameraSetup):
                 px, py, pz = child.position
-                lines.append(f'    let cameraNode = SCNNode()')
-                lines.append(f'    cameraNode.camera = SCNCamera()')
+                lines.append('    let cameraNode = SCNNode()')
+                lines.append('    cameraNode.camera = SCNCamera()')
                 lines.append(f'    cameraNode.position = SCNVector3({px}, {py}, {pz})')
-                lines.append(f'    scene.rootNode.addChildNode(cameraNode)')
+                lines.append('    scene.rootNode.addChildNode(cameraNode)')
             elif isinstance(child, ast.LightSetup):
                 lt = child.light_type
                 scn_type = {
@@ -1034,21 +1034,21 @@ import CryptoKit
                     'directional': '.directional',
                     'point': '.omni',
                 }.get(lt, '.ambient')
-                lines.append(f'    let lightNode = SCNNode()')
-                lines.append(f'    lightNode.light = SCNLight()')
+                lines.append('    let lightNode = SCNNode()')
+                lines.append('    lightNode.light = SCNLight()')
                 lines.append(f'    lightNode.light!.type = {scn_type}')
                 lines.append(f'    lightNode.light!.intensity = {child.intensity * 1000}')
                 if child.position:
                     px, py, pz = child.position
                     lines.append(f'    lightNode.position = SCNVector3({px}, {py}, {pz})')
-                lines.append(f'    scene.rootNode.addChildNode(lightNode)')
+                lines.append('    scene.rootNode.addChildNode(lightNode)')
             elif isinstance(child, ast.MeshAdd):
                 geo_map = {
-                    'cube': f'SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)',
-                    'sphere': f'SCNSphere(radius: 1)',
-                    'plane': f'SCNFloor()',
-                    'cylinder': f'SCNCylinder(radius: 0.5, height: 1)',
-                    'cone': f'SCNCone(topRadius: 0, bottomRadius: 0.5, height: 1)',
+                    'cube': 'SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)',
+                    'sphere': 'SCNSphere(radius: 1)',
+                    'plane': 'SCNFloor()',
+                    'cylinder': 'SCNCylinder(radius: 0.5, height: 1)',
+                    'cone': 'SCNCone(topRadius: 0, bottomRadius: 0.5, height: 1)',
                 }
                 geo = geo_map.get(
                     child.shape, 'SCNBox(width: 1, height: 1, length: 1, chamferRadius: 0)'
@@ -1060,10 +1060,10 @@ import CryptoKit
                 lines.append(
                     f'    meshNode.geometry?.firstMaterial?.diffuse.contents = UIColor({color})'
                 )
-                lines.append(f'    scene.rootNode.addChildNode(meshNode)')
+                lines.append('    scene.rootNode.addChildNode(meshNode)')
 
-        lines.append(f'    return scene')
-        lines.append(f'}}(), options: [.allowsCameraControl])')
+        lines.append('    return scene')
+        lines.append('}(), options: [.allowsCameraControl])')
         lines.append(f'.frame(width: {w}, height: {h})')
         return lines
 
@@ -1095,7 +1095,7 @@ import CryptoKit
             x2, y2 = props.get('x2', 100), props.get('y2', 100)
             stroke = self._css_color_to_swift(props.get('stroke', '#000'))
             lw = props.get('width', 1)
-            lines.append(f'    var path = Path()')
+            lines.append('    var path = Path()')
             lines.append(f'    path.move(to: CGPoint(x: {x1}, y: {y1}))')
             lines.append(f'    path.addLine(to: CGPoint(x: {x2}, y: {y2}))')
             lines.append(f'    context.stroke(path, with: .color({stroke}), lineWidth: {lw})')
@@ -1108,7 +1108,7 @@ import CryptoKit
             )
         elif shape == 'path':
             fill = self._css_color_to_swift(props.get('fill', '#000'))
-            lines.append(f'    let path = Path()')
+            lines.append('    let path = Path()')
             lines.append(f'    context.fill(path, with: .color({fill}))')
 
         lines.append('}')

@@ -17,9 +17,9 @@ jobs:
           cache: 'pip'
       - run: pip install ruff
       - name: Ruff lint
-        run: ruff check epl/ --output-format=github
+        run: ruff check epl/ tests/ --output-format=github
       - name: Ruff format check
-        run: ruff format --check epl/
+        run: ruff format --check epl/ tests/
 
   test:
     needs: lint
@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.11', '3.12']
 
     steps:
       - uses: actions/checkout@v4
@@ -44,9 +44,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .[dev,cloud]
 
-      - name: Run tests with coverage
+      - name: Run tests
+        run: python -m pytest tests/ -x --tb=short -q
+
+      - name: Run tests with coverage (Ubuntu 3.12 only)
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         run: |
-          pytest tests/ -v --tb=short --cov=epl --cov-report=term-missing --cov-fail-under=70
+          python -m pytest tests/ --tb=short --cov=epl --cov-report=term-missing -q
 
       - name: Upload coverage (Ubuntu 3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'

@@ -1,13 +1,13 @@
 """Tests for iOS/SwiftUI v6.0+v6.1: Style, Layout, 3D & Canvas."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.ios_gen import SwiftUIGenerator
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.ios_gen import SwiftUIGenerator
 
 
 def parse(src):

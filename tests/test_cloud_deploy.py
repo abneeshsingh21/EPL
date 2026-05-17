@@ -2,20 +2,19 @@
 
 import os
 import tempfile
-import pytest
+
 from epl.cloud_deploy import (
-    generate_ecr_push_script,
-    generate_ecs_task_definition,
-    generate_ecs_service,
     generate_aws_all,
-    generate_cloudrun_deploy_script,
-    generate_cloudbuild_yaml,
-    generate_gcp_all,
+    generate_azure_all,
     generate_azure_containerapp,
     generate_azure_deploy_script,
-    generate_azure_all,
+    generate_cloudbuild_yaml,
+    generate_cloudrun_deploy_script,
+    generate_ecr_push_script,
+    generate_ecs_service,
+    generate_ecs_task_definition,
+    generate_gcp_all,
 )
-
 
 # ── AWS Tests ──────────────────────────────────────────────
 

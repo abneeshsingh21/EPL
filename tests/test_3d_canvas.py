@@ -1,16 +1,17 @@
 """Tests for EPL v6.1: 3D & Canvas System."""
 
-import pytest
-import sys
 import os
+import sys
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl import ast_nodes as ast
+from epl.html_gen import _render_draw_command, _render_scene_3d
+from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.interpreter import Interpreter
-from epl import ast_nodes as ast
-from epl.html_gen import _render_scene_3d, _render_draw_command
 
 
 def parse(code):
@@ -301,19 +302,25 @@ class TestDrawInsidePage:
         assert div.tag == 'div'
 
 
+_PKG_3D = os.path.join(os.path.dirname(__file__), '..', 'epl_packages', 'epl-3d', 'main.epl')
+_PKG_CANVAS = os.path.join(
+    os.path.dirname(__file__), '..', 'epl_packages', 'epl-canvas', 'main.epl'
+)
+
+
 class TestPackagesParse:
+    @pytest.mark.skipif(not os.path.isfile(_PKG_3D), reason='epl_packages/epl-3d not present')
     def test_epl_3d_parses(self):
-        with open(
-            os.path.join(os.path.dirname(__file__), '..', 'epl_packages', 'epl-3d', 'main.epl')
-        ) as f:
+        with open(_PKG_3D) as f:
             code = f.read()
         prog = parse(code)
         assert len(prog.statements) > 0
 
+    @pytest.mark.skipif(
+        not os.path.isfile(_PKG_CANVAS), reason='epl_packages/epl-canvas not present'
+    )
     def test_epl_canvas_parses(self):
-        with open(
-            os.path.join(os.path.dirname(__file__), '..', 'epl_packages', 'epl-canvas', 'main.epl')
-        ) as f:
+        with open(_PKG_CANVAS) as f:
             code = f.read()
         prog = parse(code)
         assert len(prog.statements) > 0

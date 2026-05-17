@@ -1174,7 +1174,7 @@ object EPLRuntime {{
             c = ''.join(ch * 2 for ch in c)
         if len(c) == 6 and all(ch in '0123456789abcdefABCDEF' for ch in c):
             return f'Color(0xFF{c})'
-        return f'Color(0xFF000000)'
+        return 'Color(0xFF000000)'
 
     def _css_value_to_dp(self, value):
         """Extract numeric value from CSS size string."""
@@ -1270,7 +1270,7 @@ object EPLRuntime {{
             self.imports.add('androidx.compose.foundation.lazy.grid.LazyVerticalGrid')
             self.imports.add('androidx.compose.foundation.lazy.grid.GridCells')
             cols = int(props.get('columns', 2))
-            self._line(f'LazyVerticalGrid(')
+            self._line('LazyVerticalGrid(')
             self.indent += 1
             self._line(f'columns = GridCells.Fixed({cols}),')
             self._line(f'horizontalArrangement = Arrangement.spacedBy({gap}.dp),')
@@ -1327,7 +1327,7 @@ object EPLRuntime {{
         duration_ms = self._parse_duration_ms(node.duration)
         self._line(f'val {name}Anim = animateFloatAsState(')
         self.indent += 1
-        self._line(f'targetValue = 1f,')
+        self._line('targetValue = 1f,')
         self._line(f'animationSpec = tween(durationMillis = {duration_ms})')
         self.indent -= 1
         self._line(')')
@@ -1345,7 +1345,7 @@ object EPLRuntime {{
         self._line(f'// 3D Scene: {node.name}')
         self._line(f'Canvas(modifier = Modifier.size({w}.dp, {h}.dp)) {{')
         self.indent += 1
-        self._line(f'drawRect(color = Color(0xFF1a1a2e), size = size)')
+        self._line('drawRect(color = Color(0xFF1a1a2e), size = size)')
         for child in node.body:
             if isinstance(child, ast.MeshAdd):
                 color = self._css_color_to_compose(child.color or '#667eea')
@@ -1405,7 +1405,7 @@ object EPLRuntime {{
             self._line(f'// Text: {props.get("content", "")}')
         elif shape == 'path':
             fill = self._css_color_to_compose(props.get('fill', '#000'))
-            self._line(f'val path = Path()')
+            self._line('val path = Path()')
             self._line(f'drawPath(path = path, color = {fill})')
         self.indent -= 1
         self._line('}')

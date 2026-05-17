@@ -1,13 +1,13 @@
 """Tests for Desktop/Compose v6.0+v6.1: Style, Layout, 3D & Canvas."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.desktop import DesktopComposeGenerator
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.desktop import DesktopComposeGenerator
 
 
 def parse(src):

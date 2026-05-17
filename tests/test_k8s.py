@@ -2,15 +2,15 @@
 
 import os
 import tempfile
-import pytest
+
 from epl.k8s_gen import (
-    generate_namespace,
+    generate_all,
     generate_configmap,
     generate_deployment,
-    generate_service,
-    generate_ingress,
     generate_hpa,
-    generate_all,
+    generate_ingress,
+    generate_namespace,
+    generate_service,
 )
 
 

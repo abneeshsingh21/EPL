@@ -1727,7 +1727,7 @@ class KotlinGenerator:
             c = ''.join(ch * 2 for ch in c)
         if len(c) == 6 and all(ch in '0123456789abcdefABCDEF' for ch in c):
             return f'Color(0xFF{c})'
-        return f'Color(0xFF000000)'
+        return 'Color(0xFF000000)'
 
     def _css_value_to_dp(self, value):
         """Extract numeric value from CSS size string (e.g., '16px' -> 16)."""
@@ -1776,7 +1776,7 @@ class KotlinGenerator:
         self.imports.add('androidx.compose.runtime.Composable')
 
         name = node.name.replace('-', '_').replace(' ', '_').title().replace('_', '')
-        self._line(f'@Composable')
+        self._line('@Composable')
         self._line(f'fun {name}Style(content: @Composable () -> Unit) {{')
         self.indent += 1
 
@@ -1853,7 +1853,7 @@ class KotlinGenerator:
             self.imports.add('androidx.compose.foundation.lazy.grid.LazyVerticalGrid')
             self.imports.add('androidx.compose.foundation.lazy.grid.GridCells')
             cols = int(props.get('columns', 2))
-            self._line(f'LazyVerticalGrid(')
+            self._line('LazyVerticalGrid(')
             self.indent += 1
             self._line(f'columns = GridCells.Fixed({cols}),')
             self._line(f'horizontalArrangement = Arrangement.spacedBy({gap}.dp),')
@@ -1889,7 +1889,7 @@ class KotlinGenerator:
             pname = p[0] if isinstance(p, tuple) else str(p)
             param_strs.append(f'{pname}: Any? = null')
         params = ', '.join(param_strs)
-        self._line(f'@Composable')
+        self._line('@Composable')
         self._line(f'fun {name}({params}) {{')
         self.indent += 1
         for stmt in node.body or []:
@@ -1926,12 +1926,12 @@ class KotlinGenerator:
             self._line(f'val {name}Transition = rememberInfiniteTransition()')
             self._line(f'val {name}Anim by {name}Transition.animateFloat(')
             self.indent += 1
-            self._line(f'initialValue = 0f,')
-            self._line(f'targetValue = 1f,')
-            self._line(f'animationSpec = infiniteRepeatable(')
+            self._line('initialValue = 0f,')
+            self._line('targetValue = 1f,')
+            self._line('animationSpec = infiniteRepeatable(')
             self.indent += 1
             self._line(f'animation = tween(durationMillis = {duration_ms}, easing = {easing}),')
-            self._line(f'repeatMode = RepeatMode.Restart')
+            self._line('repeatMode = RepeatMode.Restart')
             self.indent -= 1
             self._line(')')
             self.indent -= 1
@@ -1939,7 +1939,7 @@ class KotlinGenerator:
         else:
             self._line(f'val {name}Anim = animateFloatAsState(')
             self.indent += 1
-            self._line(f'targetValue = 1f,')
+            self._line('targetValue = 1f,')
             self._line(f'animationSpec = tween(durationMillis = {duration_ms}, easing = {easing})')
             self.indent -= 1
             self._line(')')
@@ -1957,7 +1957,7 @@ class KotlinGenerator:
         self._line(f'// 3D Scene: {node.name}')
         self._line(f'Canvas(modifier = Modifier.size({w}.dp, {h}.dp)) {{')
         self.indent += 1
-        self._line(f'drawRect(color = Color(0xFF1a1a2e), size = size)')
+        self._line('drawRect(color = Color(0xFF1a1a2e), size = size)')
 
         for child in node.body:
             if isinstance(child, ast.MeshAdd):
@@ -2027,7 +2027,7 @@ class KotlinGenerator:
                 f'strokeWidth = {lw}f)'
             )
         elif shape == 'text':
-            self._line(f'// Text drawing requires native canvas')
+            self._line('// Text drawing requires native canvas')
             x, y = props.get('x', 10), props.get('y', 30)
             content = props.get('content', '')
             fill = self._css_color_to_compose(props.get('fill', '#000'))
@@ -2039,7 +2039,7 @@ class KotlinGenerator:
             points = props.get('points', '')
             fill = self._css_color_to_compose(props.get('fill', '#000'))
             self._line(f'// SVG Path: {points}')
-            self._line(f'val path = Path()')
+            self._line('val path = Path()')
             self._line(f'drawPath(path = path, color = {fill})')
 
         self.indent -= 1

@@ -1,18 +1,17 @@
 """Tests for EPL Observability Module."""
 
-import time
 import json
-import pytest
+
 from epl.observability import (
-    health_response,
-    readiness_response,
-    metrics_response,
-    record_request,
-    set_ready,
-    get_uptime,
+    StructuredLogger,
     get_avg_response_time,
     get_logger,
-    StructuredLogger,
+    get_uptime,
+    health_response,
+    metrics_response,
+    readiness_response,
+    record_request,
+    set_ready,
 )
 
 

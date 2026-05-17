@@ -1,13 +1,13 @@
 """Tests for Kotlin/Android v6.0+v6.1: Style, Layout, 3D & Canvas in Compose."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.kotlin_gen import KotlinGenerator
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.kotlin_gen import KotlinGenerator
 
 
 def parse(src):

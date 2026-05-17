@@ -1,13 +1,13 @@
 """Tests for JS transpiler v6.1: Scene3D and DrawCommand."""
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.js_transpiler import transpile_to_js
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.js_transpiler import transpile_to_js
 
 
 def to_js(src):

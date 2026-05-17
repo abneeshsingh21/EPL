@@ -11,11 +11,10 @@ Usage via CLI:
     epl deploy azure --image myapp:latest --region eastus
 """
 
-import os
 import json
+import os
 import re
 import textwrap
-
 
 # ═══════════════════════════════════════════════════════════
 # Input Validation — prevent shell/YAML injection

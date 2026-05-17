@@ -8,10 +8,10 @@ import os as _os
 import re as _re
 import smtplib as _smtplib
 import string as _string
+from email import encoders as _encoders
 from email.mime.base import MIMEBase as _MIMEBase
 from email.mime.multipart import MIMEMultipart as _MIMEMultipart
 from email.mime.text import MIMEText as _MIMEText
-from email import encoders as _encoders
 
 # ═══════════════════════════════════════════════════════════
 #  SMTP Connection

@@ -12,9 +12,11 @@ import os as _os
 # ═══════════════════════════════════════════════════════════
 
 try:
+    from cryptography.hazmat.primitives import hashes as _hashes
+    from cryptography.hazmat.primitives import serialization as _ser
+    from cryptography.hazmat.primitives.asymmetric import padding as _padding
+    from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM
-    from cryptography.hazmat.primitives.asymmetric import rsa as _rsa, padding as _padding
-    from cryptography.hazmat.primitives import hashes as _hashes, serialization as _ser
 
     _HAS_CRYPTOGRAPHY = True
 except ImportError:

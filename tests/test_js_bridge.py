@@ -13,7 +13,6 @@ Tests cover:
 """
 
 import os
-import re
 import shutil
 import sys
 import unittest
@@ -23,7 +22,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from epl import ast_nodes as ast
 from epl.tokens import KEYWORDS, TokenType
-
 
 # ═══════════════════════════════════════════════════════════
 #  1. Parser Tests

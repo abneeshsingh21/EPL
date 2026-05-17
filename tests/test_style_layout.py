@@ -11,12 +11,11 @@ Tests parser, HTML generation, and JS transpilation of:
 """
 
 import pytest
-
+from epl import ast_nodes as ast
+from epl.html_gen import _generate_animation_css, _generate_custom_css, generate_html
+from epl.js_transpiler import transpile_to_js
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl import ast_nodes as ast
-from epl.html_gen import generate_html, _generate_custom_css, _generate_animation_css
-from epl.js_transpiler import transpile_to_js
 
 
 def _parse(code):
