@@ -15,7 +15,6 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-
 _MAIN_PY = os.path.join(os.path.dirname(__file__), '..', 'main.py')
 _HAS_MAIN = os.path.isfile(_MAIN_PY)
 
