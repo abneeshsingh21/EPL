@@ -4,21 +4,36 @@
   "scopeName": "source.epl",
   "patterns": [
     { "include": "#comments" },
+    { "include": "#triple-strings" },
     { "include": "#strings" },
     { "include": "#numbers" },
     { "include": "#keywords-control" },
     { "include": "#keywords-declaration" },
+    { "include": "#keywords-web" },
+    { "include": "#keywords-gui" },
     { "include": "#keywords-operator" },
+    { "include": "#keywords-english-comparison" },
     { "include": "#keywords-builtin" },
     { "include": "#keywords-type" },
     { "include": "#keywords-constant" },
-    { "include": "#function-call" }
+    { "include": "#keywords-modifier" },
+    { "include": "#function-def" },
+    { "include": "#class-def" },
+    { "include": "#function-call" },
+    { "include": "#punctuation" }
   ],
   "repository": {
     "comments": {
       "patterns": [
         {
-          "name": "comment.line.epl",
+          "name": "comment.block.epl",
+          "begin": "^\\s*NoteBlock\\b",
+          "end": "^\\s*End\\b",
+          "beginCaptures": { "0": { "name": "punctuation.definition.comment.begin.epl" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.comment.end.epl" } }
+        },
+        {
+          "name": "comment.line.note.epl",
           "match": "^\\s*Note:.*$"
         },
         {
@@ -31,6 +46,17 @@
         }
       ]
     },
+    "triple-strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.triple.epl",
+          "begin": "\"\"\"",
+          "end": "\"\"\"",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.epl" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.epl" } }
+        }
+      ]
+    },
     "strings": {
       "patterns": [
         {
@@ -40,7 +66,11 @@
           "patterns": [
             {
               "name": "constant.character.escape.epl",
-              "match": "\\\\."
+              "match": "\\\\[nrt\\\\\"']"
+            },
+            {
+              "name": "variable.other.interpolation.epl",
+              "match": "\\{[^}]+\\}"
             }
           ]
         },
@@ -60,20 +90,56 @@
     "numbers": {
       "patterns": [
         {
+          "name": "constant.numeric.hex.epl",
+          "match": "\\b0[xX][0-9a-fA-F][0-9a-fA-F_]*\\b"
+        },
+        {
+          "name": "constant.numeric.binary.epl",
+          "match": "\\b0[bB][01][01_]*\\b"
+        },
+        {
+          "name": "constant.numeric.octal.epl",
+          "match": "\\b0[oO][0-7][0-7_]*\\b"
+        },
+        {
           "name": "constant.numeric.float.epl",
-          "match": "\\b\\d+\\.\\d+\\b"
+          "match": "\\b\\d[\\d_]*\\.\\d[\\d_]*\\b"
         },
         {
           "name": "constant.numeric.integer.epl",
-          "match": "\\b\\d+\\b"
+          "match": "\\b\\d[\\d_]*\\b"
         }
       ]
     },
     "keywords-control": {
       "patterns": [
         {
-          "name": "keyword.control.epl",
-          "match": "\\b(If|Then|Else|Otherwise|End|While|For|Each|In|Repeat|Times|Try|Catch|Finally|Throw|Match|When|Default|Return|Break|Continue|Await|Async|Yield|Scene|Canvas|Style|Layout|Grid|Flex|Responsive|Animate)\\b"
+          "name": "keyword.control.conditional.epl",
+          "match": "\\b(If|Then|Otherwise|Else)\\b"
+        },
+        {
+          "name": "keyword.control.loop.epl",
+          "match": "\\b(While|For|Each|In|Repeat|Times|From|By|Step)\\b"
+        },
+        {
+          "name": "keyword.control.flow.epl",
+          "match": "\\b(Return|Break|Continue|Exit|Yield|Yields)\\b"
+        },
+        {
+          "name": "keyword.control.exception.epl",
+          "match": "\\b(Try|Catch|Finally|Throw|Assert)\\b"
+        },
+        {
+          "name": "keyword.control.match.epl",
+          "match": "\\b(Match|When|Default)\\b"
+        },
+        {
+          "name": "keyword.control.async.epl",
+          "match": "\\b(Async|Await|Spawn|Parallel)\\b"
+        },
+        {
+          "name": "keyword.control.end.epl",
+          "match": "\\bEnd\\b"
         }
       ]
     },
@@ -81,38 +147,90 @@
       "patterns": [
         {
           "name": "keyword.other.declaration.epl",
-          "match": "\\b(Set|To|Create|Define|Function|Class|Extends|Implements|Module|Import|From|Use|Route|Constant|Enum|Interface|Mesh|Light|Camera|Component|Window|Spawn|Parallel)\\b"
+          "match": "\\b(Set|To|Create|Define|Constant|Remember|Variable|Named|Equal)\\b"
+        },
+        {
+          "name": "keyword.other.module.epl",
+          "match": "\\b(Import|Export|Module|Use|From)\\b"
+        },
+        {
+          "name": "keyword.other.class.epl",
+          "match": "\\b(Class|Extends|Implements|Interface|Enum|Generic|Where)\\b"
         },
         {
           "name": "storage.type.function.epl",
-          "match": "\\b(takes|returns|with|as)\\b"
+          "match": "\\b(Function|takes|returns|with|as|and|that|nothing)\\b"
+        }
+      ]
+    },
+    "keywords-web": {
+      "patterns": [
+        {
+          "name": "support.class.web.epl",
+          "match": "\\b(WebApp|Route|Page|Start|Heading|SubHeading|Text|Link|Image|Button|Form|Send|Redirect|Store|Fetch|Delete|Script|Json|Port)\\b"
+        }
+      ]
+    },
+    "keywords-gui": {
+      "patterns": [
+        {
+          "name": "support.class.gui.epl",
+          "match": "\\b(Window|Canvas|Dialog|Layout|Row|Column|Menu|Bind|Label|TextBox|Checkbox|Dropdown|Slider|Progress|TextArea|Tab|Tree|Widget|Scene|Mesh|Light|Camera|Component|Style|Grid|Flex|Responsive|Animate)\\b"
+        }
+      ]
+    },
+    "keywords-english-comparison": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.english.epl",
+          "match": "\\b(is greater than or equal to|is less than or equal to|is greater than|is less than|is equal to|is not equal to|does not equal|is at least|is at most|is between|raised to|equals|not equals)\\b"
         }
       ]
     },
     "keywords-operator": {
       "patterns": [
         {
-          "name": "keyword.operator.comparison.epl",
-          "match": "\\b(Is Equal To|Is Not Equal To|Is Greater Than|Is Less Than|Is Greater Than Or Equal To|Is Less Than Or Equal To|Not Equal To)\\b"
+          "name": "keyword.operator.logical.epl",
+          "match": "\\b(And|Or|Not|Is)\\b"
         },
         {
-          "name": "keyword.operator.logical.epl",
-          "match": "\\b(And|Or|Not)\\b"
+          "name": "keyword.operator.arithmetic.word.epl",
+          "match": "\\b(Plus|Minus|Mod|Increase|Decrease|Multiply|Divide|Add|Sort|Reverse)\\b"
+        },
+        {
+          "name": "keyword.operator.assignment.epl",
+          "match": "(\\+=|-=|\\*=|/=|%=|==|!=|>=|<=|\\*\\*|//)"
+        },
+        {
+          "name": "keyword.operator.arrow.epl",
+          "match": "->"
         }
       ]
     },
     "keywords-builtin": {
       "patterns": [
         {
-          "name": "support.function.builtin.epl",
-          "match": "\\b(Say|Print|Display|Ask|Read|Write|Append|Remove|Length|Sort|Reverse|Contains|Replace|Split|Join|Trim|Map|List|Store|Fetch|Delete|Send|Redirect|Start|Page|Heading|SubHeading|Text|Button|Link|Form|Input|Show|Deploy|Observe|Monitor|Remember|Increase|Decrease|Add|Call)\\b"
+          "name": "support.function.io.epl",
+          "match": "\\b(Say|Print|Display|Show|Ask|Input|Read|Write|Append)\\b"
+        },
+        {
+          "name": "support.function.call.epl",
+          "match": "\\b(Call|New|Super|This)\\b"
+        },
+        {
+          "name": "support.function.collection.epl",
+          "match": "\\b(Map|List|Remove|Length|Contains|Replace|Split|Join|Trim)\\b"
+        },
+        {
+          "name": "support.function.web.epl",
+          "match": "\\b(Deploy|Observe|Monitor|Wait|Seconds)\\b"
         }
       ]
     },
     "keywords-type": {
       "patterns": [
         {
-          "name": "support.type.epl",
+          "name": "support.type.primitive.epl",
           "match": "\\b(integer|decimal|text|boolean|list|map|nothing|any)\\b"
         }
       ]
@@ -120,16 +238,108 @@
     "keywords-constant": {
       "patterns": [
         {
-          "name": "constant.language.epl",
-          "match": "\\b(true|false|nothing|null)\\b"
+          "name": "constant.language.boolean.epl",
+          "match": "\\b(true|false|yes|no)\\b"
+        },
+        {
+          "name": "constant.language.null.epl",
+          "match": "\\b(nothing|null)\\b"
+        }
+      ]
+    },
+    "keywords-modifier": {
+      "patterns": [
+        {
+          "name": "storage.modifier.access.epl",
+          "match": "\\b(Public|Private|Protected|Static|Abstract|Override)\\b"
+        }
+      ]
+    },
+    "function-def": {
+      "patterns": [
+        {
+          "match": "\\b(Function|Define\\s+(?:a\\s+|an\\s+|the\\s+)?Function)\\s+(\\w+)",
+          "captures": {
+            "1": { "name": "keyword.other.declaration.epl" },
+            "2": { "name": "entity.name.function.definition.epl" }
+          }
+        }
+      ]
+    },
+    "class-def": {
+      "patterns": [
+        {
+          "match": "\\b(Class)\\s+(\\w+)",
+          "captures": {
+            "1": { "name": "keyword.other.class.epl" },
+            "2": { "name": "entity.name.type.class.epl" }
+          }
+        },
+        {
+          "match": "\\b(Enum)\\s+(\\w+)",
+          "captures": {
+            "1": { "name": "keyword.other.class.epl" },
+            "2": { "name": "entity.name.type.enum.epl" }
+          }
+        },
+        {
+          "match": "\\b(Interface)\\s+(\\w+)",
+          "captures": {
+            "1": { "name": "keyword.other.class.epl" },
+            "2": { "name": "entity.name.type.interface.epl" }
+          }
         }
       ]
     },
     "function-call": {
       "patterns": [
         {
-          "name": "entity.name.function.epl",
+          "name": "entity.name.function.call.epl",
           "match": "\\b([a-z_][a-z0-9_]*)\\s*\\("
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.comma.epl",
+          "match": ","
+        },
+        {
+          "name": "punctuation.terminator.period.epl",
+          "match": "\\.$"
+        },
+        {
+          "name": "punctuation.section.brackets.begin.epl",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.section.brackets.end.epl",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.section.parens.begin.epl",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.epl",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.section.braces.begin.epl",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.braces.end.epl",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.accessor.dot.epl",
+          "match": "\\."
+        },
+        {
+          "name": "punctuation.accessor.double-colon.epl",
+          "match": "::"
         }
       ]
     }

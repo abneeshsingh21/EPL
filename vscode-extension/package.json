@@ -2,7 +2,7 @@
   "name": "epl-lang",
   "displayName": "EPL — English Programming Language",
   "description": "Syntax highlighting, real-time diagnostics, auto-completions, hover docs and run/check commands for EPL (.epl files)",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "publisher": "epl-lang",
   "license": "Apache-2.0",
   "icon": "icon.png",
@@ -24,7 +24,8 @@
   "categories": [
     "Programming Languages",
     "Linters",
-    "Formatters"
+    "Formatters",
+    "Snippets"
   ],
   "keywords": [
     "epl",
@@ -55,6 +56,15 @@
         "icon": {
           "light": "./epl_file_icon.svg",
           "dark": "./epl_file_icon.svg"
+        }
+      },
+      {
+        "id": "epl-compiled",
+        "aliases": ["EPL Compiled"],
+        "extensions": [".eplc"],
+        "icon": {
+          "light": "./epl_compiled_icon.svg",
+          "dark": "./epl_compiled_icon.svg"
         }
       }
     ],
