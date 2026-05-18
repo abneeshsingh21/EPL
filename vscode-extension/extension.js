@@ -115,6 +115,68 @@ function updateDiagnosticStatus() {
     diagnosticStatusItem.show();
 }
 
+// ── PyPI Update Checker ─────────────────────────────────
+
+function checkForEplUpdate(eplPath, logFn) {
+    const { exec } = require('child_process');
+    const https = require('https');
+
+    // Get installed version
+    exec(`"${eplPath}" --version`, { timeout: 5000 }, (err, stdout) => {
+        if (err) {
+            logFn('Update check: Could not determine installed EPL version');
+            return;
+        }
+
+        // Parse installed version from output like "EPL v7.6.0" or "7.6.0"
+        const match = stdout.trim().match(/(\d+\.\d+\.\d+)/);
+        if (!match) return;
+        const installed = match[1];
+
+        // Fetch latest from PyPI
+        const req = https.get('https://pypi.org/pypi/eplang/json', { timeout: 5000 }, (res) => {
+            let data = '';
+            res.on('data', chunk => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    const info = JSON.parse(data);
+                    const latest = info.info && info.info.version;
+                    if (!latest) return;
+
+                    // Compare versions
+                    const toNum = v => v.split('.').map(Number);
+                    const inst = toNum(installed);
+                    const lat = toNum(latest);
+                    const isNewer = lat[0] > inst[0] ||
+                        (lat[0] === inst[0] && lat[1] > inst[1]) ||
+                        (lat[0] === inst[0] && lat[1] === inst[1] && lat[2] > inst[2]);
+
+                    if (isNewer) {
+                        logFn(`Update available: v${installed} → v${latest}`);
+                        vscode.window.showInformationMessage(
+                            `EPL v${latest} is available (you have v${installed}).`,
+                            'Update Now',
+                            'Dismiss'
+                        ).then(choice => {
+                            if (choice === 'Update Now') {
+                                const terminal = vscode.window.createTerminal('EPL Update');
+                                terminal.sendText('pip install --upgrade eplang');
+                                terminal.show();
+                            }
+                        });
+                    } else {
+                        logFn(`EPL is up to date (v${installed})`);
+                    }
+                } catch (e) {
+                    logFn('Update check: Failed to parse PyPI response');
+                }
+            });
+        });
+        req.on('error', () => { logFn('Update check: Network request failed'); });
+        req.end();
+    });
+}
+
 // ── Activation ──────────────────────────────────────────
 
 function activate(context) {
@@ -317,6 +379,9 @@ function activate(context) {
         statusBarItem.tooltip = `EPL v${extensionVersion} — Language Server disabled`;
         log('LSP: Disabled by user setting');
     }
+
+    // ── Background Update Check ──────────────────────
+    checkForEplUpdate(eplPath, log);
 
     log('Extension ready');
 }

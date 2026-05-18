@@ -313,6 +313,14 @@ def cli_main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
+    # Non-blocking background update check (daemon thread, never slows CLI)
+    try:
+        from epl.update_checker import check_for_updates
+
+        check_for_updates()
+    except Exception:
+        pass  # Update checker must never break the CLI
+
     # No args → REPL
     if not argv:
         _run_repl([])
