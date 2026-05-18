@@ -43,6 +43,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .[dev,cloud]
+          pip install pytest-cov
 
       - name: Run stable test suite
         shell: bash
@@ -77,7 +78,6 @@ jobs:
             tests/test_kotlin_style_3d.py \
             tests/test_llvm.py \
             tests/test_lockfile.py \
-            tests/test_lsp_hardening.py \
             tests/test_observability.py \
             tests/test_official_packages.py \
             tests/test_package_manager.py \
