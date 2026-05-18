@@ -16,7 +16,14 @@ import sys
 import threading
 import time
 
-from epl import __version__
+
+def _get_version():
+    """Lazy version getter to avoid circular imports."""
+    try:
+        from epl import __version__
+        return __version__
+    except ImportError:
+        return '0.0.0'
 
 # ── Configuration ────────────────────────────────────────
 
@@ -59,7 +66,7 @@ def _write_cache(latest_version):
         data = {
             'last_check': time.time(),
             'latest_version': latest_version,
-            'current_version': __version__,
+            'current_version': _get_version(),
         }
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
@@ -89,6 +96,7 @@ def _is_newer(latest, current):
 
 def _format_notification(latest_version):
     """Format the update notification message."""
+    current = _get_version()
     is_tty = hasattr(sys.stderr, 'isatty') and sys.stderr.isatty()
     no_color = os.environ.get('NO_COLOR')
 
@@ -102,7 +110,7 @@ def _format_notification(latest_version):
         return (
             f'\n{dim}╭─────────────────────────────────────────────╮{reset}\n'
             f'{dim}│{reset}  {yellow}⚡ EPL {bold}v{latest_version}{reset}{yellow} available{reset}'
-            f'  {dim}(you have v{__version__}){reset}    {dim}│{reset}\n'
+            f'  {dim}(you have v{current}){reset}    {dim}│{reset}\n'
             f'{dim}│{reset}  {cyan}pip install --upgrade {_PACKAGE_NAME}{reset}'
             f'             {dim}│{reset}\n'
             f'{dim}╰─────────────────────────────────────────────╯{reset}\n'
@@ -110,7 +118,7 @@ def _format_notification(latest_version):
     else:
         # Plain text fallback
         return (
-            f'\n  EPL v{latest_version} available (you have v{__version__}).\n'
+            f'\n  EPL v{latest_version} available (you have v{current}).\n'
             f'  Update: pip install --upgrade {_PACKAGE_NAME}\n'
         )
 
@@ -138,7 +146,7 @@ def _check_and_notify():
     _write_cache(latest)
 
     # Notify only if a newer version exists
-    if _is_newer(latest, __version__):
+    if _is_newer(latest, _get_version()):
         msg = _format_notification(latest)
         # Print to stderr so it doesn't interfere with program stdout
         try:
@@ -160,7 +168,7 @@ def _should_check():
     # If cache is fresh, check if we should show a cached notification
     if elapsed < _CHECK_INTERVAL:
         cached_latest = cache.get('latest_version')
-        if cached_latest and _is_newer(cached_latest, __version__):
+        if cached_latest and _is_newer(cached_latest, _get_version()):
             # Show cached notification (no network needed)
             msg = _format_notification(cached_latest)
             try:
