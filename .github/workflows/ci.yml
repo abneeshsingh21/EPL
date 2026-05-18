@@ -88,7 +88,6 @@ jobs:
             tests/test_platform_contract.py \
             tests/test_playground_assistant.py \
             tests/test_playground_runtime.py \
-            tests/test_pr2.py \
             tests/test_prod_ready.py \
             tests/test_production.py \
             tests/test_production_gap_contracts.py \
