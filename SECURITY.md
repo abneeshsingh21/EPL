@@ -1,55 +1,99 @@
-# Security Policy
+<div align="center">
+
+# 🔒 Security Policy
+
+**EPL — English Programming Language**
+
+</div>
+
+---
 
 ## Supported Versions
 
-Only the current major release line is actively supported for security fixes.
+| Version | Status | Support Level |
+|---------|--------|---------------|
+| `7.x` | ✅ Active | Full security support |
+| `< 7.0` | ❌ EOL | No support — upgrade immediately |
 
-At the time of writing:
+Only the current major release line receives active security patches.
 
-- `7.x` - supported
-
-Older lines should be treated as unsupported unless explicitly stated otherwise in release notes.
+---
 
 ## Reporting a Vulnerability
 
-Do not publish a working exploit in a public issue.
+> **⚠️ Do NOT publish exploit details in a public issue.**
 
-Preferred path:
+### Preferred Reporting Channels
 
-- use GitHub private vulnerability reporting or a private maintainer contact channel if available
+| Priority | Method |
+|----------|--------|
+| **1st** | [GitHub Private Vulnerability Reporting](https://github.com/abneeshsingh21/EPL/security/advisories/new) |
+| **2nd** | Email: **singhabneesh250@gmail.com** (subject: `[SECURITY] EPL Vulnerability Report`) |
+| **Fallback** | Open a minimal public issue requesting a secure reporting channel — **without disclosing exploit details** |
 
-Fallback path when no private channel is available:
+### What to Include
 
-- open a minimal public issue requesting a secure reporting path without disclosing exploit details
+- Description of the vulnerability
+- Steps to reproduce
+- Affected version(s)
+- Potential impact assessment
+- Suggested fix (if any)
 
-## Response Targets
+---
 
-EPL aims to respond on this timeline:
+## Response Timeline
 
-- critical: acknowledge within 48 hours, target a fix or mitigation within 7 days
-- high: acknowledge within 7 days, target a fix within 30 days
-- medium or low: address in the next scheduled release unless active exploitation changes the priority
+| Severity | Acknowledgment | Fix Target |
+|----------|----------------|------------|
+| 🔴 **Critical** | Within 48 hours | 7 days |
+| 🟠 **High** | Within 7 days | 30 days |
+| 🟡 **Medium** | Within 14 days | Next scheduled release |
+| 🟢 **Low** | Within 30 days | Next scheduled release |
 
-These are targets, not guarantees, but they define the expected maintainer response standard for the project.
+These are targets, not guarantees, but they define the expected maintainer response standard.
 
-## Security Expectations
+---
 
-Security-sensitive changes should include:
+## High-Sensitivity Areas
 
-- regression tests where feasible
-- a clear explanation of impact
-- notes about compatibility or required operator action
+The following components are considered security-critical and receive heightened scrutiny:
 
-High-sensitivity areas include:
+| Area | Risk | Files |
+|------|------|-------|
+| **Package Manager** | Supply chain, manifest injection | `epl/package_manager.py` |
+| **Python Bridge** | Arbitrary code execution | `epl/interpreter.py` (`Use python`) |
+| **JS/TS Bridge** | Subprocess injection, npm supply chain | `epl/js_bridge/` |
+| **Web Server** | Request handling, XSS, SSRF | `epl/web.py`, `epl/asgi.py` |
+| **File I/O** | Path traversal, arbitrary file access | `epl/stdlib.py` (file operations) |
+| **Cloud Operations** | Credential exposure, S3/Lambda abuse | `epl/cloud.py` |
+| **Archive Handling** | Zip slip, decompression bombs | `epl/package_manager.py` |
+| **Process Execution** | Command injection | `epl/stdlib.py` (`run_command`) |
+| **Template Rendering** | Server-side template injection | `epl/web.py` (template engine) |
 
-- package installation and manifest handling
-- Python bridge / `Use python`
-- web server and request handling
-- file-system and process execution features
-- archive extraction, download, and GitHub/package workflows
+---
 
-## Release Expectations For Security Fixes
+## Security Expectations for Contributors
 
-- security fixes should include regression coverage where feasible
-- user-visible risk or operator action should be documented in release notes
-- emergency fixes may ship outside the normal feature cadence
+All security-sensitive changes **must** include:
+
+- ✅ Regression tests covering the vulnerability
+- ✅ Clear explanation of impact and attack vector
+- ✅ Notes about backward compatibility or required user action
+- ✅ Updated `CHANGELOG.md` under the `### Security` heading
+
+---
+
+## Release Expectations for Security Fixes
+
+- Security fixes include regression test coverage
+- User-visible risk or operator action is documented in release notes
+- Emergency patches may ship outside the normal feature release cadence
+- Critical vulnerabilities trigger an immediate point release
+
+---
+
+<div align="center">
+
+**Thank you for helping keep EPL secure.** 🛡️
+
+</div>
