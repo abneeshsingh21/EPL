@@ -15,14 +15,14 @@
 
 # ─── Production Web Server ───
 # Linux/macOS (recommended):
-# gunicorn>=21.2.0
+gunicorn>=21.2.0
 # Windows (recommended):
 # waitress>=2.1.0
 # ASGI (optional):
 # uvicorn>=0.25.0
 
 # ─── Web framework ───
-# flask>=3.0.0
+flask>=3.0.0
 # markupsafe>=2.1.0
 
 # ─── LLVM native compilation ───
