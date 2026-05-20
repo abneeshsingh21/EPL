@@ -20,9 +20,9 @@ import os
 import sys
 import time
 
-from flask import Flask, Response, request, jsonify
+from flask import Flask, Response, jsonify, request
 
-from epl.mcp_server import _handle_request, TOOLS, _get_version
+from epl.mcp_server import TOOLS, _get_version, _handle_request
 
 app = Flask(__name__)
 
@@ -106,10 +106,10 @@ def mcp_endpoint():
 def mcp_sse():
     """Server-Sent Events endpoint for MCP streaming transport."""
     def event_stream():
-        yield f"event: endpoint\ndata: /mcp\n\n"
+        yield "event: endpoint\ndata: /mcp\n\n"
         # Keep connection alive
         while True:
-            yield f": ping\n\n"
+            yield ": ping\n\n"
             time.sleep(30)
 
     return Response(
@@ -151,6 +151,6 @@ def server_card():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"[epl-mcp-http] Starting on http://0.0.0.0:{port}", file=sys.stderr)
-    print(f"[epl-mcp-http] MCP endpoint: POST /mcp", file=sys.stderr)
-    print(f"[epl-mcp-http] Health: GET /health", file=sys.stderr)
+    print("[epl-mcp-http] MCP endpoint: POST /mcp", file=sys.stderr)
+    print("[epl-mcp-http] Health: GET /health", file=sys.stderr)
     app.run(host="0.0.0.0", port=port, debug=False)

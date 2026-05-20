@@ -40,8 +40,8 @@ except Exception:
     llvm = None  # type: ignore
     HAS_LLVM = False
 
-from epl import ast_nodes as ast
 from epl import __version__
+from epl import ast_nodes as ast
 from epl.errors import RuntimeError as EPLRuntimeError
 
 TAG_INT = 0
