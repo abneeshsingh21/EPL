@@ -1,4 +1,4 @@
-"""EPL Store Backends (v4.1)
+"""EPL Store Backends (v7.6)
 
 Pluggable session and data store backends:
 - MemoryBackend: In-process dict (default, fast, not shared)

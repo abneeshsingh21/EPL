@@ -1,5 +1,5 @@
 """
-EPL AST Node Definitions (v5.0)
+EPL AST Node Definitions (v7.6)
 Defines all Abstract Syntax Tree node types for EPL.
 Includes Visitor pattern support — adding a new AST node only requires:
   1. Define the class here (inherits ASTNode, gets accept() automatically)

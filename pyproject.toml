@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Compilers",
     "Topic :: Software Development :: Interpreters",
 ]
@@ -52,11 +53,13 @@ all = [
 
 [project.scripts]
 epl = "epl.cli:main"
+epl-mcp = "epl.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/abneeshsingh21/EPL"
 Documentation = "https://github.com/abneeshsingh21/EPL/tree/main/docs"
 Repository = "https://github.com/abneeshsingh21/EPL"
+Changelog = "https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md"
 
 [tool.setuptools.dynamic]
 version = {attr = "epl.__version__"}

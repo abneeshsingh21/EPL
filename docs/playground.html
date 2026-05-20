@@ -574,6 +574,124 @@
             font-size: 0.8rem;
             font-weight: 600;
         }
+
+        /* EXAMPLES SIDEBAR */
+        .examples-sidebar {
+            position: fixed; top: 60px; right: -340px; width: 340px;
+            height: calc(100vh - 60px); background: rgba(24,24,27,0.98);
+            backdrop-filter: blur(12px); border-left: 2px solid var(--border);
+            z-index: 100; display: flex; flex-direction: column;
+            transition: right 0.3s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+        .examples-sidebar.open { right: 0; }
+        .sidebar-header {
+            padding: 1rem 1.25rem; border-bottom: 2px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            font-weight: 800; text-transform: uppercase; font-size: 0.85rem; background: #000;
+        }
+        .sidebar-close {
+            cursor: pointer; color: var(--text-dim); background: none;
+            border: none; font-size: 1.2rem; transition: color 0.2s;
+        }
+        .sidebar-close:hover { color: var(--error); }
+        .sidebar-body { flex: 1; overflow-y: auto; padding: 0.75rem; }
+        .sidebar-category { margin-bottom: 0.75rem; }
+        .sidebar-category h4 {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+            text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent);
+            padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); margin-bottom: 0.25rem;
+        }
+        .example-btn {
+            display: block; width: 100%; text-align: left; padding: 0.6rem 0.75rem;
+            background: transparent; border: none; color: var(--text-dim);
+            font-family: 'Inter', sans-serif; font-size: 0.85rem; cursor: pointer;
+            border-radius: 4px; transition: all 0.15s;
+        }
+        .example-btn:hover { background: rgba(255,69,0,0.1); color: var(--text); }
+        .example-btn.active { background: rgba(255,69,0,0.15); color: var(--accent); font-weight: 600; }
+
+        /* SHORTCUTS MODAL */
+        .shortcuts-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px); z-index: 2000; display: flex;
+            align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .shortcuts-overlay.active { opacity: 1; pointer-events: all; }
+        .shortcuts-box {
+            background: var(--surface); border: 2px solid var(--border);
+            width: 420px; max-width: 90vw; box-shadow: 10px 10px 0 rgba(0,0,0,0.8);
+        }
+        .shortcuts-header {
+            padding: 1rem 1.25rem; border-bottom: 2px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            font-weight: 800; text-transform: uppercase; font-size: 0.85rem; background: #000;
+        }
+        .shortcut-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.6rem 1.25rem; border-bottom: 1px solid rgba(63,63,70,0.5); font-size: 0.85rem;
+        }
+        .shortcut-row:last-child { border-bottom: none; }
+        .shortcut-key { display: inline-flex; gap: 4px; }
+        .shortcut-key kbd {
+            background: #000; border: 1px solid var(--border); padding: 2px 8px;
+            border-radius: 3px; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; font-weight: 700; color: var(--accent);
+        }
+
+        /* SHARE TOAST */
+        .share-toast {
+            position: fixed; bottom: 2rem; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--accent); color: #000;
+            font-family: 'JetBrains Mono', monospace; font-weight: 800; font-size: 0.85rem;
+            padding: 0.75rem 1.5rem; z-index: 3000; opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175,0.885,0.32,1.275);
+            box-shadow: 0 4px 20px rgba(255,69,0,0.4);
+        }
+        .share-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* NAV BUTTONS */
+        .nav-btn {
+            background: transparent; color: var(--text-dim); border: none;
+            border-left: 2px solid var(--border); padding: 0 1.25rem;
+            font-family: 'JetBrains Mono', monospace; font-weight: 700;
+            font-size: 0.8rem; text-transform: uppercase; cursor: pointer;
+            display: flex; align-items: center; gap: 6px; transition: all 0.2s;
+        }
+        .nav-btn:hover { color: var(--accent); background: rgba(255,69,0,0.05); }
+
+        /* MCP BADGE */
+        .mcp-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+            padding: 3px 10px; font-weight: 700; text-transform: uppercase;
+            background: rgba(16,185,129,0.1); color: #10b981;
+            border: 1px solid rgba(16,185,129,0.3); margin-right: 8px; border-radius: 3px;
+        }
+
+        /* COPY OUTPUT */
+        .copy-output-btn { cursor: pointer; color: var(--text-dim); transition: color 0.2s; }
+        .copy-output-btn:hover { color: var(--accent); }
+
+        /* MOBILE IMPROVEMENTS */
+        @media (max-width: 900px) {
+            .workspace { flex-direction: column; padding: 10px; gap: 10px; }
+            .panel { box-shadow: 4px 4px 0 rgba(0,0,0,0.3); }
+            .panel:hover { transform: none; box-shadow: 4px 4px 0 rgba(0,0,0,0.3); }
+            .editor-container, .output-container { flex: 1; min-height: 38vh; }
+            nav { height: auto; min-height: 50px; flex-wrap: wrap; }
+            .logo { padding: 0 1rem; font-size: 1rem; border-right: none; flex: 1; }
+            .controls { flex-wrap: wrap; width: 100%; }
+            .nav-btn { padding: 0 0.75rem; font-size: 0.7rem; }
+            .btn-run { padding: 0 1rem; font-size: 0.8rem; }
+            .status-box { font-size: 0.7rem; padding: 0 0.75rem; }
+            .mcp-badge { display: none; }
+            .chatbot-window { width: calc(100vw - 20px); right: 10px; bottom: 5rem; height: 60vh; }
+            .chatbot-fab { width: 50px; height: 50px; font-size: 1.2rem; bottom: 1rem; right: 1rem; }
+            .examples-sidebar { width: 100%; right: -100%; }
+        }
     </style>
 </head>
 <body>
@@ -583,7 +701,11 @@
             <span>&#9632;</span> EPL Playground
         </a>
         <div class="controls">
+            <span class="mcp-badge" title="MCP Server: python -m epl.mcp_server"><i class="fa-solid fa-plug" style="font-size:0.5rem"></i> MCP Ready</span>
             <span id="ast-badge" class="ast-badge analyzing" style="margin-right:8px;"><i class="fa-solid fa-circle-notch spinner" style="font-size:0.6rem"></i> AST</span>
+            <button class="nav-btn" onclick="shareCode()" title="Share code via URL (Ctrl+S)"><i class="fa-solid fa-share-nodes"></i> Share</button>
+            <button class="nav-btn" onclick="toggleSidebar()" title="Example templates (Ctrl+E)"><i class="fa-solid fa-book-open"></i> Examples</button>
+            <button class="nav-btn" onclick="toggleShortcuts()" title="Keyboard shortcuts (?)"><i class="fa-solid fa-keyboard"></i></button>
             <div id="status-text" class="status-box">
                 <i class="fa-solid fa-circle-notch spinner" style="margin-right:8px; color: var(--accent);"></i> Booting Engine
             </div>
@@ -597,7 +719,7 @@
         <div class="panel editor-container">
             <div class="panel-header">
                 <span><i class="fa-solid fa-code"></i> INPUT.EPL</span>
-                <span style="color:var(--text-dim); font-size:0.7rem">eplang latest</span>
+                <span style="color:var(--text-dim); font-size:0.7rem">EPL v7.7.0</span>
             </div>
             <textarea id="code-editor">Note: Welcome to the EPL Interactive Playground!
 Note: This loads the published EPL runtime from PyPI inside Pyodide.
@@ -620,7 +742,10 @@ Say greet("Abneesh")
         <div class="panel output-container">
             <div class="panel-header">
                 <span><i class="fa-solid fa-terminal"></i> OUTPUT</span>
-                <i class="fa-solid fa-trash" style="cursor:pointer; color:var(--text-dim);" onclick="clearTerminal()" title="Clear"></i>
+                <span>
+                    <i class="fa-solid fa-copy copy-output-btn" onclick="copyOutput()" title="Copy output"></i>
+                    <i class="fa-solid fa-trash" style="cursor:pointer; color:var(--text-dim); margin-left:10px;" onclick="clearTerminal()" title="Clear"></i>
+                </span>
             </div>
             <div id="terminal" class="terminal"><span class="system-msg">> Loading Pyodide and the EPL runtime. First load can take ~10s...</span><br></div>
         </div>
@@ -670,6 +795,33 @@ Say greet("Abneesh")
             </div>
         </div>
     </div>
+
+    <!-- EXAMPLES SIDEBAR -->
+    <div class="examples-sidebar" id="examples-sidebar">
+        <div class="sidebar-header">
+            <span><i class="fa-solid fa-book-open"></i> Examples</span>
+            <button class="sidebar-close" onclick="toggleSidebar()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="sidebar-body" id="sidebar-body"></div>
+    </div>
+
+    <!-- SHORTCUTS MODAL -->
+    <div class="shortcuts-overlay" id="shortcuts-overlay" onclick="if(event.target===this)toggleShortcuts()">
+        <div class="shortcuts-box">
+            <div class="shortcuts-header">
+                <span><i class="fa-solid fa-keyboard"></i> Shortcuts</span>
+                <button class="sidebar-close" onclick="toggleShortcuts()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="shortcut-row"><span>Run Code</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>Enter</kbd></span></div>
+            <div class="shortcut-row"><span>Share Code URL</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>S</kbd></span></div>
+            <div class="shortcut-row"><span>Toggle Examples</span><span class="shortcut-key"><kbd>Ctrl</kbd><kbd>E</kbd></span></div>
+            <div class="shortcut-row"><span>Close Panel</span><span class="shortcut-key"><kbd>Esc</kbd></span></div>
+            <div class="shortcut-row"><span>Show Shortcuts</span><span class="shortcut-key"><kbd>?</kbd></span></div>
+        </div>
+    </div>
+
+    <!-- SHARE TOAST -->
+    <div class="share-toast" id="share-toast"><i class="fa-solid fa-check"></i> Link copied to clipboard!</div>
 
     <script>
         // Lightweight EPL mode for the static playground editor.
@@ -749,6 +901,9 @@ Say greet("Abneesh")
 
                 // Run initial AST analysis on the default editor content
                 analyzeCodeAST(editor.getValue());
+
+                // Load shared code from URL hash if present
+                loadFromHash();
 
             } catch (err) {
                 printToTerminal(`> KERNEL PANIC: ${err}`, "error");
@@ -1494,6 +1649,138 @@ The user's CURRENT CODE and LAST TERMINAL OUTPUT will be injected at the bottom 
                 chatInput.focus();
             }
         };
+
+        // ═══════════════════════════════════════════════════════
+        // PHASE 2: SHARE, EXAMPLES, SHORTCUTS, COPY OUTPUT
+        // ═══════════════════════════════════════════════════════
+
+        // ── Share via URL ────────────────────────────────────
+        window.shareCode = function() {
+            const code = editor.getValue();
+            if (!code.trim()) return;
+            try {
+                const encoded = btoa(unescape(encodeURIComponent(code)));
+                const url = window.location.origin + window.location.pathname + '#code=' + encoded;
+                navigator.clipboard.writeText(url).then(function() {
+                    const toast = document.getElementById('share-toast');
+                    toast.innerHTML = '<i class="fa-solid fa-check"></i> Link copied to clipboard!';
+                    toast.classList.add('show');
+                    setTimeout(function() { toast.classList.remove('show'); }, 2500);
+                });
+                history.replaceState(null, '', '#code=' + encoded);
+            } catch(e) {
+                console.error('Share failed:', e);
+            }
+        };
+
+        function loadFromHash() {
+            var hash = window.location.hash;
+            if (hash && hash.indexOf('#code=') === 0) {
+                try {
+                    var encoded = hash.substring(6);
+                    var code = decodeURIComponent(escape(atob(encoded)));
+                    editor.setValue(code);
+                    if (pyodideReady) analyzeCodeAST(code);
+                } catch(e) {
+                    console.error('Failed to decode shared code:', e);
+                }
+            }
+        }
+        window.addEventListener('hashchange', loadFromHash);
+
+        // ── Examples Sidebar ─────────────────────────────────
+        var EXAMPLES = [
+            { cat: 'Basics', name: 'Hello World', code: 'Say "Hello, World!"\nSay "Welcome to EPL!"' },
+            { cat: 'Basics', name: 'Variables & Math', code: 'Create name = "Alice"\nCreate age = 25\nCreate score = 95.5\nSay "Name: " + name\nSay "Age: " + age\nSay "Score: " + score' },
+            { cat: 'Basics', name: 'If / Otherwise', code: 'Create score = 85\n\nIf score > 90 Then\n    Say "Grade: A"\nOtherwise If score > 80 Then\n    Say "Grade: B"\nOtherwise\n    Say "Grade: C"\nEnd' },
+            { cat: 'Basics', name: 'Loops', code: 'Repeat 5 times\n    Say "Hello!"\nEnd\n\nFor i from 1 to 5\n    Say "Number: " + i\nEnd' },
+            { cat: 'Basics', name: 'Functions', code: 'Function greet takes name\n    Return "Hello, " + name + "!"\nEnd\n\nSay greet("Alice")\nSay greet("Bob")\n\nFunction add(a, b)\n    Return a + b\nEnd\n\nSay "10 + 20 = " + add(10, 20)' },
+            { cat: 'Web', name: 'API Server', code: 'Create WebApp called api\n\nRoute "/api/health" responds with\n    Send json Map with status = "ok" and uptime = 99.9\nEnd\n\nRoute "/" shows\n    Page "Home"\n        Heading "My API"\n        Text "Built with EPL"\n        Link "Health Check" to "/api/health"\n    End\nEnd\n\nStart api on port 8080' },
+            { cat: 'Web', name: 'Task Manager', code: 'Create WebApp called app\n\nRoute "/tasks" shows\n    Store form "task" in "tasks"\n    Page "Tasks"\n        Heading "Task Manager"\n        Say items from "tasks" delete "/delete"\n    End\nEnd\n\nStart app on port 8080' },
+            { cat: 'Advanced', name: 'Classes & OOP', code: 'Class Animal\n    Set name to "Unknown"\n    Set sound to "..."\n\n    Function speak\n        Return name + " says " + sound\n    End\nEnd\n\nCreate dog = new Animal()\ndog.name = "Rex"\ndog.sound = "Woof!"\nSay dog.speak()' },
+            { cat: 'Advanced', name: 'Error Handling', code: 'Try\n    Create result = 10 / 0\nCatch error\n    Say "Caught: " + error\nEnd\n\nSay "Program continues!"' },
+            { cat: 'Advanced', name: 'Fibonacci', code: 'Function fibonacci takes n\n    If n <= 1 Then\n        Return n\n    End\n    Return fibonacci(n - 1) + fibonacci(n - 2)\nEnd\n\nFor i from 0 to 10\n    Say "fib(" + i + ") = " + fibonacci(i)\nEnd' },
+            { cat: 'Advanced', name: 'FizzBuzz', code: 'For i from 1 to 30\n    If i % 15 == 0 Then\n        Say "FizzBuzz"\n    Otherwise If i % 3 == 0 Then\n        Say "Fizz"\n    Otherwise If i % 5 == 0 Then\n        Say "Buzz"\n    Otherwise\n        Say i\n    End\nEnd' },
+            { cat: 'Advanced', name: 'Maps', code: 'Create profile = Map with name = "Ada" and role = "builder" and level = 99\nSay profile.name\nSay profile.role\nSay profile.level' },
+        ];
+
+        function renderExamples() {
+            var body = document.getElementById('sidebar-body');
+            var cats = {};
+            EXAMPLES.forEach(function(ex) {
+                if (!cats[ex.cat]) cats[ex.cat] = [];
+                cats[ex.cat].push(ex);
+            });
+            var html = '';
+            for (var cat in cats) {
+                html += '<div class="sidebar-category"><h4>' + cat + '</h4>';
+                cats[cat].forEach(function(ex) {
+                    var idx = EXAMPLES.indexOf(ex);
+                    html += '<button class="example-btn" onclick="loadExample(' + idx + ')">' + ex.name + '</button>';
+                });
+                html += '</div>';
+            }
+            body.innerHTML = html;
+        }
+
+        window.loadExample = function(idx) {
+            var ex = EXAMPLES[idx];
+            if (!ex) return;
+            editor.setValue(ex.code);
+            var btns = document.querySelectorAll('.example-btn');
+            btns.forEach(function(b, i) { b.classList.toggle('active', i === idx); });
+            if (pyodideReady) analyzeCodeAST(ex.code);
+        };
+
+        window.toggleSidebar = function() {
+            document.getElementById('examples-sidebar').classList.toggle('open');
+        };
+
+        // ── Shortcuts Modal ──────────────────────────────────
+        window.toggleShortcuts = function() {
+            document.getElementById('shortcuts-overlay').classList.toggle('active');
+        };
+
+        // ── Copy Output ──────────────────────────────────────
+        window.copyOutput = function() {
+            var text = terminal.innerText;
+            if (!text.trim()) return;
+            navigator.clipboard.writeText(text).then(function() {
+                var toast = document.getElementById('share-toast');
+                toast.innerHTML = '<i class="fa-solid fa-clipboard-check"></i> Output copied!';
+                toast.classList.add('show');
+                setTimeout(function() {
+                    toast.classList.remove('show');
+                    setTimeout(function() {
+                        toast.innerHTML = '<i class="fa-solid fa-check"></i> Link copied to clipboard!';
+                    }, 300);
+                }, 2000);
+            });
+        };
+
+        // ── Global Keyboard Shortcuts ────────────────────────
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.getElementById('examples-sidebar').classList.remove('open');
+                document.getElementById('shortcuts-overlay').classList.remove('active');
+                document.getElementById('chatbot-window').classList.remove('active');
+            }
+            if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                shareCode();
+            }
+            if (e.ctrlKey && e.key === 'e') {
+                e.preventDefault();
+                toggleSidebar();
+            }
+            if (e.key === '?' && !e.ctrlKey && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+                var cmFocused = document.activeElement.closest && document.activeElement.closest('.CodeMirror');
+                if (!cmFocused) toggleShortcuts();
+            }
+        });
+
+        // ── Initialize ───────────────────────────────────────
+        renderExamples();
 
         bootstrapAiConfig();
     </script>

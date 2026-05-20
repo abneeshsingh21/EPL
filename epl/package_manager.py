@@ -1,5 +1,5 @@
 """
-EPL Package Manager (v3.0)
+EPL Package Manager (v7.6)
 Install, manage, and publish EPL packages.
 Supports: semver resolution, transitive dependencies, lockfiles with integrity verification,
 conflict detection, local/GitHub/URL/registry sources, publish workflow, and EPL manifests.

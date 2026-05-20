@@ -1,5 +1,5 @@
 """
-EPL WSGI/ASGI Server Adapter v4.0
+EPL WSGI/ASGI Server Adapter v7.6
 Production-grade web server with:
   - WSGI interface for compatibility with gunicorn, uWSGI, etc.
   - ASGI interface for async frameworks
@@ -525,7 +525,8 @@ def serve(app, host='0.0.0.0', port=8000):
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
 
-    print('  EPL Production Server v4.0')
+    from epl import __version__ as _v
+    print(f'  EPL Production Server v{_v}')
     print(f'  Listening on http://{host}:{port}')
     print('  Press Ctrl+C to stop\n')
 

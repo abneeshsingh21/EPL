@@ -4,6 +4,8 @@ include LICENSE
 include CONTRIBUTING.md
 include CHANGELOG.md
 include pyproject.toml
+include llms.txt
+include llms-full.txt
 
 # Include EPL source files
 recursive-include epl *.py *.epl *.json *.c *.md

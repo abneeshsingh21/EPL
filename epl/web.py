@@ -1,4 +1,4 @@
-"""EPL Web Server (v4.0 Production-Grade)
+"""EPL Web Server (v7.6 Production-Grade)
 Production HTTP server with: async I/O (asyncio), thread-pool executor for sync work,
 connection-pooled SQLite, proper Request/Response abstractions, blueprint/router system,
 ETag/streaming static files, template engine with inheritance, graceful shutdown,
@@ -2439,7 +2439,7 @@ def _graceful_shutdown(signum, frame):
 
 
 def start_server(app, port=3000, interpreter=None, threaded=True, workers=32):
-    """Start the EPL web server (v4.0 production-grade).
+    """Start the EPL web server (production-grade).
 
     Args:
         app: EPLWebApp instance
@@ -2481,7 +2481,8 @@ def start_server(app, port=3000, interpreter=None, threaded=True, workers=32):
 
     total_routes = len(app.routes) + sum(len(v) for v in app.param_routes.values())
     print('\n  ╔══════════════════════════════════════╗')
-    print('  ║  EPL Web Server v4.0                 ║')
+    from epl import __version__ as _v
+    print(f'  ║  EPL Web Server v{_v:<21}║')
     print(f'  ║  {app.name:<36} ║')
     print('  ╠══════════════════════════════════════╣')
     print(f'  ║  {protocol}://localhost:{port:<22} ║')
@@ -2579,7 +2580,8 @@ class AsyncEPLServer:
         )
         total_routes = len(self.app.routes) + sum(len(v) for v in self.app.param_routes.values())
         print('\n  ╔══════════════════════════════════════╗')
-        print('  ║  EPL Async Web Server v4.0           ║')
+        from epl import __version__ as _v
+        print(f'  ║  EPL Async Web Server v{_v:<15}║')
         print(f'  ║  {self.app.name:<36} ║')
         print('  ╠══════════════════════════════════════╣')
         print(f'  ║  {protocol}://localhost:{self.port:<22} ║')

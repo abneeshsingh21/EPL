@@ -1,5 +1,5 @@
 """
-EPL Profiler & Debug Adapter Protocol (DAP) Server (v6.0)
+EPL Profiler & Debug Adapter Protocol (DAP) Server (v7.6)
 Production-ready performance profiling, memory tracking, tracing, and IDE debug integration.
 """
 

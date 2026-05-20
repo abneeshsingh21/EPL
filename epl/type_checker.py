@@ -1,5 +1,5 @@
 """
-EPL Type Checker v2.0
+EPL Type Checker v7.6
 =====================
 Static type analysis for EPL programs. Runs on the AST before interpretation
 or compilation, catching type errors at parse time.
