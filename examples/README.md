@@ -17,7 +17,26 @@ epl run examples/hello.epl
 
 ---
 
-## Examples by Category
+## 🔥 Killer Demos — Start Here
+
+> These 3 programs prove EPL's real-world power. Run them first.
+
+| File | What it does | Concepts Shown |
+|------|-------------|----------------|
+| [`killer_budget_tracker.epl`](killer_budget_tracker.epl) | Personal finance analyzer with visual bar charts, smart spending insights, and budget health check | Lists, loops, math, formatted output |
+| [`killer_grade_manager.epl`](killer_grade_manager.epl) | Full classroom grade system with OOP student records, class stats, grade distribution, teacher recommendations | Classes, methods, OOP, analytics |
+| [`killer_password_analyzer.epl`](killer_password_analyzer.epl) | Security tool that scores passwords 0–8, detects patterns, shows visual strength meter | Functions, string analysis, pattern detection |
+| [`killer_word_analyzer.epl`](killer_word_analyzer.epl) | Text analytics engine with word frequency ranking, bar charts, readability scoring, and vocab richness | Parallel lists, sorting algorithms, maps |
+
+```bash
+epl run examples/killer_budget_tracker.epl
+epl run examples/killer_grade_manager.epl
+epl run examples/killer_password_analyzer.epl
+epl run examples/killer_word_analyzer.epl
+```
+
+---
+
 
 ### 🟢 Beginner
 

@@ -677,6 +677,24 @@ class Parser:
         if self._match_identifier():
             return self._parse_shorthand_assignment()
 
+        # v7.8: Smart keyword suggestion for misspelled words
+        import difflib
+        _statement_keywords = [
+            'Create', 'Make', 'Let', 'Set', 'Print', 'Display', 'Show', 'Say', 'Output',
+            'If', 'While', 'For', 'Repeat', 'Define', 'Declare', 'Function', 'Class',
+            'Return', 'Call', 'Try', 'Catch', 'Match', 'When', 'Import', 'Use',
+            'Write', 'Read', 'Append', 'Break', 'Continue', 'Throw', 'Assert',
+            'Wait', 'Exit', 'Constant', 'Increase', 'Decrease', 'Add', 'Sort',
+            'Reverse', 'Route', 'Start', 'Page', 'Send', 'Window', 'Async',
+            'Otherwise', 'Else', 'End', 'Remember', 'Multiply', 'Divide',
+        ]
+        suggestions = difflib.get_close_matches(tok.value, _statement_keywords, n=2, cutoff=0.6)
+        if suggestions:
+            hint = ' or '.join(f'"{s}"' for s in suggestions)
+            raise ParserError(
+                f'Unknown keyword "{tok.value}". Did you mean {hint}?',
+                tok.line,
+            )
         raise ParserError(
             f'Unexpected token "{tok.value}". Expected a statement like Create, Set, Print, If, etc.',
             tok.line,
@@ -794,6 +812,24 @@ class Parser:
             self._end_statement()
             return ast.AugmentedAssignment(var_name, op, value, line)
 
+        # v7.8: Smart keyword suggestion for misspelled words
+        import difflib
+        _statement_keywords = [
+            'Create', 'Make', 'Let', 'Set', 'Print', 'Display', 'Show', 'Say', 'Output',
+            'If', 'While', 'For', 'Repeat', 'Define', 'Declare', 'Function', 'Class',
+            'Return', 'Call', 'Try', 'Catch', 'Match', 'When', 'Import', 'Use',
+            'Write', 'Read', 'Append', 'Break', 'Continue', 'Throw', 'Assert',
+            'Wait', 'Exit', 'Constant', 'Increase', 'Decrease', 'Add', 'Sort',
+            'Reverse', 'Route', 'Start', 'Page', 'Send', 'Window', 'Async',
+            'Otherwise', 'Else', 'End', 'Remember', 'Multiply', 'Divide',
+        ]
+        suggestions = difflib.get_close_matches(var_name, _statement_keywords, n=2, cutoff=0.6)
+        if suggestions:
+            hint = ' or '.join(f'"{s}"' for s in suggestions)
+            raise ParserError(
+                f'Unknown word "{var_name}". Did you mean {hint}?',
+                self._current().line,
+            )
         raise ParserError(
             f'Unexpected token after "{var_name}". Did you mean "{var_name} = ..."?',
             self._current().line,
@@ -828,8 +864,8 @@ class Parser:
         # Skip optional "variable" keyword
         self._optional(TokenType.VARIABLE)
 
-        # Skip optional "named"
-        self._optional(TokenType.NAMED)
+        # Skip optional "named" or "called" (v7.8: synonym support)
+        self._optional(TokenType.NAMED, TokenType.CALLED)
 
         # Variable name
         name_tok = self._expect_identifier('Expected a variable name after "Create".')

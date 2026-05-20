@@ -28,7 +28,7 @@ def test_syntax_reference_examples_are_parseable():
 
 
 def test_analyze_code_reports_parser_diagnostics():
-    analysis = analyze_code('If True Then\n    Say "ok"\nElse\n    Say "bad"\nEnd\n')
+    analysis = analyze_code('If True Then\n    Say "ok"\nElsee\n    Say "bad"\nEnd\n')
 
     assert analysis['syntax_ok'] is False
     assert analysis['diagnostics']

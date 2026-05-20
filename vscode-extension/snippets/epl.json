@@ -1,471 +1,520 @@
 {
-  "Print": {
-    "prefix": "print",
-    "body": ["Print \"$1\""],
-    "description": "Print a value"
-  },
-  "Say": {
-    "prefix": "say",
-    "body": ["Say \"$1\""],
-    "description": "Print a value"
-  },
-  "Display": {
-    "prefix": "display",
-    "body": ["Say \"$1\""],
-    "description": "Print a value"
-  },
-  "Create Variable": {
-    "prefix": "create",
-    "body": ["Create ${1:name} equal to ${2:value}"],
-    "description": "Create a variable"
-  },
-  "Set Variable": {
-    "prefix": "set",
-    "body": ["Set ${1:name} to ${2:value}"],
-    "description": "Set a variable"
-  },
-  "Constant": {
-    "prefix": "const",
-    "body": ["Constant ${1:NAME} = ${2:value}"],
-    "description": "Define a constant"
-  },
-  "Input": {
-    "prefix": "input",
-    "body": ["Input ${1:name} with prompt \"${2:Enter value: }\""],
-    "description": "Read user input"
-  },
-  "Ask": {
-    "prefix": "ask",
-    "body": ["Ask \"${1:What is your name?}\" and store in ${2:answer}"],
-    "description": "Ask and store input"
-  },
-  "If Block": {
-    "prefix": "if",
-    "body": [
-      "If ${1:condition} then",
-      "    $0",
-      "End"
-    ],
-    "description": "If conditional block"
-  },
-  "If Otherwise": {
-    "prefix": "ifelse",
-    "body": [
-      "If ${1:condition} then",
-      "    $2",
-      "Otherwise",
-      "    $3",
-      "End"
-    ],
-    "description": "If/Otherwise conditional block"
-  },
-  "Ternary": {
-    "prefix": "ternary",
-    "body": ["Set ${1:result} to ${2:\"yes\"} if ${3:condition} otherwise ${4:\"no\"}"],
-    "description": "Ternary expression"
-  },
-  "While Loop": {
-    "prefix": "while",
-    "body": [
-      "While ${1:condition}",
-      "    $0",
-      "End"
-    ],
-    "description": "While loop"
-  },
-  "For Each": {
-    "prefix": "foreach",
-    "body": [
-      "For each ${1:item} in ${2:list}",
-      "    $0",
-      "End"
-    ],
-    "description": "For each loop"
-  },
-  "For Range": {
-    "prefix": "for",
-    "body": [
-      "For ${1:i} from ${2:1} to ${3:10}",
-      "    $0",
-      "End"
-    ],
-    "description": "For range loop"
-  },
-  "For Step": {
-    "prefix": "forstep",
-    "body": [
-      "For ${1:i} from ${2:0} to ${3:100} step ${4:5}",
-      "    $0",
-      "End"
-    ],
-    "description": "For loop with step"
-  },
-  "Repeat": {
-    "prefix": "repeat",
-    "body": [
-      "Repeat ${1:5} times",
-      "    $0",
-      "End"
-    ],
-    "description": "Repeat N times"
-  },
-  "Function": {
-    "prefix": "function",
-    "body": [
-      "Function ${1:name} takes ${2:param}",
-      "    $0",
-      "    Return ${3:result}",
-      "End"
-    ],
-    "description": "Define a function"
-  },
-  "Function No Params": {
-    "prefix": "fn",
-    "body": [
-      "Function ${1:name} takes nothing",
-      "    $0",
-      "End"
-    ],
-    "description": "Function with no parameters"
-  },
-  "Async Function": {
-    "prefix": "async",
-    "body": [
-      "Async Function ${1:name} takes ${2:param}",
-      "    $0",
-      "End"
-    ],
-    "description": "Async function"
-  },
-  "Lambda": {
-    "prefix": "lambda",
-    "body": ["lambda ${1:x} -> ${2:x * 2}"],
-    "description": "Lambda expression"
-  },
-  "Class": {
-    "prefix": "class",
-    "body": [
-      "Class ${1:Name}",
-      "    Function init takes ${2:self}",
-      "        $0",
-      "    End",
-      "End"
-    ],
-    "description": "Class with constructor"
-  },
-  "Class Extends": {
-    "prefix": "classext",
-    "body": [
-      "Class ${1:Child} extends ${2:Parent}",
-      "    Override Function init takes ${3:self}",
-      "        Super()",
-      "        $0",
-      "    End",
-      "End"
-    ],
-    "description": "Class with inheritance"
-  },
-  "Interface": {
-    "prefix": "interface",
-    "body": [
-      "Interface ${1:Name}",
-      "    Function ${2:method} takes ${3:param} and returns ${4:text}",
-      "End"
-    ],
-    "description": "Interface definition"
-  },
-  "Enum": {
-    "prefix": "enum",
-    "body": ["Enum ${1:Color} as ${2:Red}, ${3:Green}, ${4:Blue}"],
-    "description": "Enum definition"
-  },
-  "Enum Match": {
-    "prefix": "enummatch",
-    "body": [
-      "Enum ${1:Status} as Active, Inactive, Pending",
-      "",
-      "Match ${2:status}",
-      "    When Active",
-      "        $3",
-      "    When Inactive",
-      "        $4",
-      "    Default",
-      "        $5",
-      "End"
-    ],
-    "description": "Enum with pattern matching"
-  },
-  "Match": {
-    "prefix": "match",
-    "body": [
-      "Match ${1:value}",
-      "    When ${2:pattern}",
-      "        $3",
-      "    Default",
-      "        $4",
-      "End"
-    ],
-    "description": "Pattern matching"
-  },
-  "Try Catch": {
-    "prefix": "trycatch",
-    "body": [
-      "Try",
-      "    $1",
-      "Catch ${2:error}",
-      "    Print ${2:error}",
-      "End"
-    ],
-    "description": "Try/Catch error handling"
-  },
-  "Try Catch Finally": {
-    "prefix": "tryfinally",
-    "body": [
-      "Try",
-      "    $1",
-      "Catch ${2:error}",
-      "    Print ${2:error}",
-      "Finally",
-      "    $3",
-      "End"
-    ],
-    "description": "Try/Catch/Finally"
-  },
-  "Assert": {
-    "prefix": "assert",
-    "body": ["Assert ${1:condition}"],
-    "description": "Assert condition"
-  },
-  "Module": {
-    "prefix": "module",
-    "body": [
-      "Module ${1:Name}",
-      "    Export ${2:function_name}",
-      "    $0",
-      "End"
-    ],
-    "description": "Module definition"
-  },
-  "Import": {
-    "prefix": "import",
-    "body": ["Import \"${1:module}\""],
-    "description": "Import a module"
-  },
-  "Import As": {
-    "prefix": "importas",
-    "body": ["Import \"${1:module}\" as ${2:alias}"],
-    "description": "Import with alias"
-  },
-  "Use Python": {
-    "prefix": "usepython",
-    "body": ["Use python \"${1:json}\" as ${2:json_mod}"],
-    "description": "Import a Python module"
-  },
-  "Use JavaScript": {
-    "prefix": "usejavascript",
-    "body": [
-      "Use javascript \"${1:lodash}\" as ${2:_}",
-      "",
-      "Say ${2:_}.${3:capitalize}(\"${4:hello}\")"
-    ],
-    "description": "Import an NPM package"
-  },
-  "File Read": {
-    "prefix": "readfile",
-    "body": ["Create ${1:content} equal to Read file \"${2:data.txt}\""],
-    "description": "Read a file"
-  },
-  "File Write": {
-    "prefix": "writefile",
-    "body": ["Write ${1:content} to file \"${2:output.txt}\""],
-    "description": "Write to a file"
-  },
-  "List": {
-    "prefix": "list",
-    "body": ["Create ${1:items} equal to [${2:1, 2, 3}]"],
-    "description": "Create a list"
-  },
-  "Map": {
-    "prefix": "map",
-    "body": ["Create ${1:data} equal to Map with ${2:key} = ${3:value} and ${4:key2} = ${5:value2}"],
-    "description": "Create a map"
-  },
-  "Web App": {
-    "prefix": "webapp",
-    "body": [
-      "Create WebApp called ${1:app}",
-      "",
-      "Route \"/\" shows",
-      "    Page \"${2:Home}\"",
-      "        Heading \"${3:Welcome to EPL}\"",
-      "        Text \"${4:Built with the English Programming Language}\"",
-      "    End",
-      "End",
-      "",
-      "Start ${1:app} on port ${5:8000}"
-    ],
-    "description": "Full web application scaffold"
-  },
-  "Route JSON": {
-    "prefix": "route",
-    "body": [
-      "Route \"${1:/api/data}\" responds with",
-      "    Send json Map with ${2:status} = \"ok\" and ${3:data} = ${4:result}",
-      "End"
-    ],
-    "description": "JSON API route"
-  },
-  "Route Page": {
-    "prefix": "page",
-    "body": [
-      "Route \"${1:/about}\" shows",
-      "    Page \"${2:About}\"",
-      "        Heading \"${3:About Us}\"",
-      "        Text \"${4:Description here}\"",
-      "    End",
-      "End"
-    ],
-    "description": "HTML page route"
-  },
-  "Health Check": {
-    "prefix": "health",
-    "body": [
-      "Route \"/api/health\" responds with",
-      "    Send json Map with status = \"ok\" and version = \"${1:1.0.0}\"",
-      "End"
-    ],
-    "description": "Health check endpoint"
-  },
-  "CRUD Routes": {
-    "prefix": "crud",
-    "body": [
-      "Note: GET all",
-      "Route \"/api/${1:items}\" responds with",
-      "    ${2:results} = db_query(db, \"SELECT * FROM ${1:items}\")",
-      "    Send json Map with data = ${2:results} and status = \"ok\"",
-      "End",
-      "",
-      "Note: POST create",
-      "Route \"/api/${1:items}\" on \"POST\" responds with",
-      "    ${3:body} = request_body()",
-      "    db_insert(db, \"${1:items}\", ${3:body})",
-      "    Send json Map with status = \"created\"",
-      "End"
-    ],
-    "description": "CRUD API routes"
-  },
-  "Database Setup": {
-    "prefix": "database",
-    "body": [
-      "Create db equal to db_open(\"${1:app.db}\")",
-      "db_execute(db, \"CREATE TABLE IF NOT EXISTS ${2:items} (id INTEGER PRIMARY KEY, ${3:name} TEXT, ${4:created_at} TEXT)\")",
-      ""
-    ],
-    "description": "SQLite database setup"
-  },
-  "Test": {
-    "prefix": "test",
-    "body": [
-      "Test \"${1:should do something}\"",
-      "    $0",
-      "End"
-    ],
-    "description": "Test block"
-  },
-  "AWS S3": {
-    "prefix": "s3",
-    "body": [
-      "Import \"epl-cloud\"",
-      "",
-      "Create bucket equal to cloud_s3_bucket(\"${1:my-bucket}\")",
-      "cloud_s3_upload(bucket, \"${2:file.txt}\", \"${3:content}\")"
-    ],
-    "description": "AWS S3 upload"
-  },
-  "AI Chat": {
-    "prefix": "ai",
-    "body": [
-      "Import \"epl.ai\" As ai",
-      "",
-      "Create messages equal to [Map with role = \"user\" and content = \"${1:Hello}\"]",
-      "Create response equal to ai.chat(messages)",
-      "Say response"
-    ],
-    "description": "AI chat interaction"
-  },
-  "Style Block": {
-    "prefix": "style",
-    "body": [
-      "Style \"${1:card}\"",
-      "    background \"${2:#ffffff}\"",
-      "    border-radius \"${3:12px}\"",
-      "    padding \"${4:24px}\"",
-      "    box-shadow \"${5:0 2px 8px rgba(0,0,0,0.1)}\"",
-      "End"
-    ],
-    "description": "CSS style block"
-  },
-  "3D Scene": {
-    "prefix": "scene",
-    "body": [
-      "Scene \"${1:demo}\" width ${2:800} height ${3:600}",
-      "    Mesh \"cube\" position 0, 1, 0 color \"${4:#ff4500}\"",
-      "    Light \"ambient\" color \"#ffffff\" intensity 1.0 position 5, 10, 5",
-      "    Camera position 0, 5, 10 look_at 0, 0, 0",
-      "End"
-    ],
-    "description": "3D WebGL scene"
-  },
-  "Canvas Draw": {
-    "prefix": "canvas",
-    "body": ["Canvas ${1:art} draw ${2:rect} x ${3:10} y ${4:10} width ${5:200} height ${6:100} fill \"${7:#3498db}\""],
-    "description": "Draw on canvas"
-  },
-  "Grid Layout": {
-    "prefix": "grid",
-    "body": [
-      "Grid columns ${1:3} gap \"${2:16px}\"",
-      "    $0",
-      "End"
-    ],
-    "description": "Responsive grid layout"
-  },
-  "Observability": {
-    "prefix": "observability",
-    "body": [
-      "Import \"epl.observability\" As obs",
-      "obs.attach(${1:app})",
-      "",
-      "Note: Endpoints: /_health, /_ready, /_metrics"
-    ],
-    "description": "Attach health checks and metrics"
-  },
-  "Deploy K8s": {
-    "prefix": "deployk8s",
-    "body": [
-      "Note: Deploy to Kubernetes:",
-      "Note: epl deploy k8s --image ${1:myapp}:${2:1.0} --host ${3:app.example.com} --tls"
-    ],
-    "description": "Kubernetes deployment command"
-  },
-  "GUI Window": {
-    "prefix": "window",
-    "body": [
-      "Window \"${1:My App}\" ${2:800} by ${3:600}",
-      "    Label \"${4:Hello, World!}\"",
-      "    Button \"${5:Click Me}\" does ${6:handle_click}",
-      "End"
-    ],
-    "description": "Desktop GUI window"
-  },
-  "EPL Program": {
-    "prefix": "epl",
-    "body": [
-      "Note: ${1:Program description}",
-      "",
-      "$0",
-      ""
-    ],
-    "description": "EPL program skeleton"
-  }
+    "Print": {
+        "prefix": "print",
+        "body": [
+            "Print \"$1\""
+        ],
+        "description": "Print a value"
+    },
+    "Say": {
+        "prefix": "say",
+        "body": [
+            "Say \"$1\""
+        ],
+        "description": "Print a value"
+    },
+    "Display": {
+        "prefix": "display",
+        "body": [
+            "Say \"$1\""
+        ],
+        "description": "Print a value"
+    },
+    "Create Variable": {
+        "prefix": "create",
+        "body": [
+            "Create ${1:name} equal to ${2:value}"
+        ],
+        "description": "Create a variable"
+    },
+    "Set Variable": {
+        "prefix": "set",
+        "body": [
+            "Set ${1:name} to ${2:value}"
+        ],
+        "description": "Set a variable"
+    },
+    "Constant": {
+        "prefix": "const",
+        "body": [
+            "Constant ${1:NAME} = ${2:value}"
+        ],
+        "description": "Define a constant"
+    },
+    "Input": {
+        "prefix": "input",
+        "body": [
+            "Input ${1:name} with prompt \"${2:Enter value: }\""
+        ],
+        "description": "Read user input"
+    },
+    "Ask": {
+        "prefix": "ask",
+        "body": [
+            "Ask \"${1:What is your name?}\" and store in ${2:answer}"
+        ],
+        "description": "Ask and store input"
+    },
+    "If Block": {
+        "prefix": "if",
+        "body": [
+            "If ${1:condition} then",
+            "    $0",
+            "End"
+        ],
+        "description": "If conditional block"
+    },
+    "If Otherwise": {
+        "prefix": "ifelse",
+        "body": [
+            "If ${1:condition} then",
+            "    $2",
+            "Otherwise",
+            "    $3",
+            "End"
+        ],
+        "description": "If/Otherwise conditional block"
+    },
+    "Ternary": {
+        "prefix": "ternary",
+        "body": [
+            "Set ${1:result} to ${2:\"yes\"} if ${3:condition} otherwise ${4:\"no\"}"
+        ],
+        "description": "Ternary expression"
+    },
+    "While Loop": {
+        "prefix": "while",
+        "body": [
+            "While ${1:condition}",
+            "    $0",
+            "End"
+        ],
+        "description": "While loop"
+    },
+    "For Each": {
+        "prefix": "foreach",
+        "body": [
+            "For each ${1:item} in ${2:list}",
+            "    $0",
+            "End"
+        ],
+        "description": "For each loop"
+    },
+    "For Range": {
+        "prefix": "for",
+        "body": [
+            "For ${1:i} from ${2:1} to ${3:10}",
+            "    $0",
+            "End"
+        ],
+        "description": "For range loop"
+    },
+    "For Step": {
+        "prefix": "forstep",
+        "body": [
+            "For ${1:i} from ${2:0} to ${3:100} step ${4:5}",
+            "    $0",
+            "End"
+        ],
+        "description": "For loop with step"
+    },
+    "Repeat": {
+        "prefix": "repeat",
+        "body": [
+            "Repeat ${1:5} times",
+            "    $0",
+            "End"
+        ],
+        "description": "Repeat N times"
+    },
+    "Function": {
+        "prefix": "function",
+        "body": [
+            "Function ${1:name} takes ${2:param}",
+            "    $0",
+            "    Return ${3:result}",
+            "End"
+        ],
+        "description": "Define a function"
+    },
+    "Function No Params": {
+        "prefix": "fn",
+        "body": [
+            "Function ${1:name} takes nothing",
+            "    $0",
+            "End"
+        ],
+        "description": "Function with no parameters"
+    },
+    "Async Function": {
+        "prefix": "async",
+        "body": [
+            "Async Function ${1:name} takes ${2:param}",
+            "    $0",
+            "End"
+        ],
+        "description": "Async function"
+    },
+    "Lambda": {
+        "prefix": "lambda",
+        "body": [
+            "lambda ${1:x} -> ${2:x * 2}"
+        ],
+        "description": "Lambda expression"
+    },
+    "Class": {
+        "prefix": "class",
+        "body": [
+            "Class ${1:Name}",
+            "    Function init takes ${2:self}",
+            "        $0",
+            "    End",
+            "End"
+        ],
+        "description": "Class with constructor"
+    },
+    "Class Extends": {
+        "prefix": "classext",
+        "body": [
+            "Class ${1:Child} extends ${2:Parent}",
+            "    Override Function init takes ${3:self}",
+            "        Super()",
+            "        $0",
+            "    End",
+            "End"
+        ],
+        "description": "Class with inheritance"
+    },
+    "Interface": {
+        "prefix": "interface",
+        "body": [
+            "Interface ${1:Name}",
+            "    Function ${2:method} takes ${3:param} and returns ${4:text}",
+            "End"
+        ],
+        "description": "Interface definition"
+    },
+    "Enum": {
+        "prefix": "enum",
+        "body": [
+            "Enum ${1:Color} as ${2:Red}, ${3:Green}, ${4:Blue}"
+        ],
+        "description": "Enum definition"
+    },
+    "Enum Match": {
+        "prefix": "enummatch",
+        "body": [
+            "Enum ${1:Status} as Active, Inactive, Pending",
+            "",
+            "Match ${2:status}",
+            "    When Active",
+            "        $3",
+            "    When Inactive",
+            "        $4",
+            "    Default",
+            "        $5",
+            "End"
+        ],
+        "description": "Enum with pattern matching"
+    },
+    "Match": {
+        "prefix": "match",
+        "body": [
+            "Match ${1:value}",
+            "    When ${2:pattern}",
+            "        $3",
+            "    Default",
+            "        $4",
+            "End"
+        ],
+        "description": "Pattern matching"
+    },
+    "Try Catch": {
+        "prefix": "trycatch",
+        "body": [
+            "Try",
+            "    $1",
+            "Catch ${2:error}",
+            "    Print ${2:error}",
+            "End"
+        ],
+        "description": "Try/Catch error handling"
+    },
+    "Try Catch Finally": {
+        "prefix": "tryfinally",
+        "body": [
+            "Try",
+            "    $1",
+            "Catch ${2:error}",
+            "    Print ${2:error}",
+            "Finally",
+            "    $3",
+            "End"
+        ],
+        "description": "Try/Catch/Finally"
+    },
+    "Assert": {
+        "prefix": "assert",
+        "body": [
+            "Assert ${1:condition}"
+        ],
+        "description": "Assert condition"
+    },
+    "Module": {
+        "prefix": "module",
+        "body": [
+            "Module ${1:Name}",
+            "    Export ${2:function_name}",
+            "    $0",
+            "End"
+        ],
+        "description": "Module definition"
+    },
+    "Import": {
+        "prefix": "import",
+        "body": [
+            "Import \"${1:module}\""
+        ],
+        "description": "Import a module"
+    },
+    "Import As": {
+        "prefix": "importas",
+        "body": [
+            "Import \"${1:module}\" as ${2:alias}"
+        ],
+        "description": "Import with alias"
+    },
+    "Use Python": {
+        "prefix": "usepython",
+        "body": [
+            "Use python \"${1:json}\" as ${2:json_mod}"
+        ],
+        "description": "Import a Python module"
+    },
+    "Use JavaScript": {
+        "prefix": "usejavascript",
+        "body": [
+            "Use javascript \"${1:lodash}\" as ${2:_}",
+            "",
+            "Say ${2:_}.${3:capitalize}(\"${4:hello}\")"
+        ],
+        "description": "Import an NPM package"
+    },
+    "File Read": {
+        "prefix": "readfile",
+        "body": [
+            "Create ${1:content} equal to Read file \"${2:data.txt}\""
+        ],
+        "description": "Read a file"
+    },
+    "File Write": {
+        "prefix": "writefile",
+        "body": [
+            "Write ${1:content} to file \"${2:output.txt}\""
+        ],
+        "description": "Write to a file"
+    },
+    "List": {
+        "prefix": "list",
+        "body": [
+            "Create ${1:items} equal to [${2:1, 2, 3}]"
+        ],
+        "description": "Create a list"
+    },
+    "Map": {
+        "prefix": "map",
+        "body": [
+            "Create ${1:data} equal to Map with ${2:key} = ${3:value} and ${4:key2} = ${5:value2}"
+        ],
+        "description": "Create a map"
+    },
+    "Web App": {
+        "prefix": "webapp",
+        "body": [
+            "Create WebApp called ${1:app}",
+            "",
+            "Route \"/\" shows",
+            "    Page \"${2:Home}\"",
+            "        Heading \"${3:Welcome to EPL}\"",
+            "        Text \"${4:Built with the English Programming Language}\"",
+            "    End",
+            "End",
+            "",
+            "Start ${1:app} on port ${5:8000}"
+        ],
+        "description": "Full web application scaffold"
+    },
+    "Route JSON": {
+        "prefix": "route",
+        "body": [
+            "Route \"${1:/api/data}\" responds with",
+            "    Send json Map with ${2:status} = \"ok\" and ${3:data} = ${4:result}",
+            "End"
+        ],
+        "description": "JSON API route"
+    },
+    "Route Page": {
+        "prefix": "page",
+        "body": [
+            "Route \"${1:/about}\" shows",
+            "    Page \"${2:About}\"",
+            "        Heading \"${3:About Us}\"",
+            "        Text \"${4:Description here}\"",
+            "    End",
+            "End"
+        ],
+        "description": "HTML page route"
+    },
+    "Health Check": {
+        "prefix": "health",
+        "body": [
+            "Route \"/api/health\" responds with",
+            "    Send json Map with status = \"ok\" and version = \"${1:1.0.0}\"",
+            "End"
+        ],
+        "description": "Health check endpoint"
+    },
+    "CRUD Routes": {
+        "prefix": "crud",
+        "body": [
+            "Note: GET all",
+            "Route \"/api/${1:items}\" responds with",
+            "    ${2:results} = db_query(db, \"SELECT * FROM ${1:items}\")",
+            "    Send json Map with data = ${2:results} and status = \"ok\"",
+            "End",
+            "",
+            "Note: POST create",
+            "Route \"/api/${1:items}\" on \"POST\" responds with",
+            "    ${3:body} = request_body()",
+            "    db_insert(db, \"${1:items}\", ${3:body})",
+            "    Send json Map with status = \"created\"",
+            "End"
+        ],
+        "description": "CRUD API routes"
+    },
+    "Database Setup": {
+        "prefix": "database",
+        "body": [
+            "Create db equal to db_open(\"${1:app.db}\")",
+            "db_execute(db, \"CREATE TABLE IF NOT EXISTS ${2:items} (id INTEGER PRIMARY KEY, ${3:name} TEXT, ${4:created_at} TEXT)\")",
+            ""
+        ],
+        "description": "SQLite database setup"
+    },
+    "Test": {
+        "prefix": "test",
+        "body": [
+            "Test \"${1:should do something}\"",
+            "    $0",
+            "End"
+        ],
+        "description": "Test block"
+    },
+    "AWS S3": {
+        "prefix": "s3",
+        "body": [
+            "Import \"epl-cloud\"",
+            "",
+            "Create bucket equal to cloud_s3_bucket(\"${1:my-bucket}\")",
+            "cloud_s3_upload(bucket, \"${2:file.txt}\", \"${3:content}\")"
+        ],
+        "description": "AWS S3 upload"
+    },
+    "AI Chat": {
+        "prefix": "ai",
+        "body": [
+            "Import \"epl.ai\" As ai",
+            "",
+            "Create messages equal to [Map with role = \"user\" and content = \"${1:Hello}\"]",
+            "Create response equal to ai.chat(messages)",
+            "Say response"
+        ],
+        "description": "AI chat interaction"
+    },
+    "Style Block": {
+        "prefix": "style",
+        "body": [
+            "Style \"${1:card}\"",
+            "    background \"${2:#ffffff}\"",
+            "    border-radius \"${3:12px}\"",
+            "    padding \"${4:24px}\"",
+            "    box-shadow \"${5:0 2px 8px rgba(0,0,0,0.1)}\"",
+            "End"
+        ],
+        "description": "CSS style block"
+    },
+    "3D Scene": {
+        "prefix": "scene",
+        "body": [
+            "Scene \"${1:demo}\" width ${2:800} height ${3:600}",
+            "    Mesh \"cube\" position 0, 1, 0 color \"${4:#ff4500}\"",
+            "    Light \"ambient\" color \"#ffffff\" intensity 1.0 position 5, 10, 5",
+            "    Camera position 0, 5, 10 look_at 0, 0, 0",
+            "End"
+        ],
+        "description": "3D WebGL scene"
+    },
+    "Canvas Draw": {
+        "prefix": "canvas",
+        "body": [
+            "Canvas ${1:art} draw ${2:rect} x ${3:10} y ${4:10} width ${5:200} height ${6:100} fill \"${7:#3498db}\""
+        ],
+        "description": "Draw on canvas"
+    },
+    "Grid Layout": {
+        "prefix": "grid",
+        "body": [
+            "Grid columns ${1:3} gap \"${2:16px}\"",
+            "    $0",
+            "End"
+        ],
+        "description": "Responsive grid layout"
+    },
+    "Observability": {
+        "prefix": "observability",
+        "body": [
+            "Import \"epl.observability\" As obs",
+            "obs.attach(${1:app})",
+            "",
+            "Note: Endpoints: /_health, /_ready, /_metrics"
+        ],
+        "description": "Attach health checks and metrics"
+    },
+    "Deploy K8s": {
+        "prefix": "deployk8s",
+        "body": [
+            "Note: Deploy to Kubernetes:",
+            "Note: epl deploy k8s --image ${1:myapp}:${2:1.0} --host ${3:app.example.com} --tls"
+        ],
+        "description": "Kubernetes deployment command"
+    },
+    "GUI Window": {
+        "prefix": "window",
+        "body": [
+            "Window \"${1:My App}\" ${2:800} by ${3:600}",
+            "    Label \"${4:Hello, World!}\"",
+            "    Button \"${5:Click Me}\" does ${6:handle_click}",
+            "End"
+        ],
+        "description": "Desktop GUI window"
+    },
+    "EPL Program": {
+        "prefix": "epl",
+        "body": [
+            "Note: ${1:Program description}",
+            "",
+            "$0",
+            ""
+        ],
+        "description": "EPL program skeleton"
+    },
+    "Test Function": {
+        "prefix": "test",
+        "body": [
+            "Test Function test_",
+            "\t",
+            "End"
+        ],
+        "description": "EPL Test Function snippet"
+    }
 }

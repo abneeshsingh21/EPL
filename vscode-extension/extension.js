@@ -187,7 +187,7 @@ function activate(context) {
 
     // ── Output Channel ──────────────────────────────────
     outputChannel = vscode.window.createOutputChannel('EPL', { log: true });
-    outputChannel.appendLine(`EPL Extension v${extensionVersion} activated`);
+    outputChannel.appendLine(`EPL extension v${extensionVersion} activated`);
     outputChannel.appendLine(`Platform: ${process.platform}, LSP enabled: ${lspEnabled}`);
     context.subscriptions.push(outputChannel);
 

@@ -187,7 +187,9 @@ def run_file(
         except (KeyboardInterrupt, SystemExit, MemoryError):
             raise
         except Exception:
-            print(f'  [EPL] VM fallback to interpreter for: {filepath}', file=sys.stderr)
+            # v7.8: Only show fallback message in verbose mode to reduce noise
+            if os.environ.get('EPL_VERBOSE') or '--verbose' in sys.argv:
+                print(f'  [EPL] VM fallback to interpreter for: {filepath}', file=sys.stderr)
 
     interpreter = Interpreter(safe_mode=safe_mode)
     return run_source(
