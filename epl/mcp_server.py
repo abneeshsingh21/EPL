@@ -31,7 +31,6 @@ import tempfile
 import traceback
 from typing import Any
 
-
 # ── Logging (stderr only — stdout is reserved for JSON-RPC) ──────────
 
 def _log(msg: str) -> None:
@@ -356,7 +355,7 @@ def _tool_error_lookup(args: dict) -> str:
         return json.dumps({"error": "No error code provided."})
 
     try:
-        from epl.errors import ERROR_CODES, _HINTS
+        from epl.errors import _HINTS, ERROR_CODES
     except ImportError:
         return json.dumps({"error": "EPL is not installed."})
 

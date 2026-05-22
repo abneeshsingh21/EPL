@@ -676,14 +676,25 @@ def _render_element(elem, data_store=None, form_data=None):
     if tag == 'input':
         name = attrs.get('name', '')
         ph = attrs.get('placeholder', '')
-        return f'<input type="text" name="{_esc(name)}" id="{_esc(name)}" placeholder="{_esc(ph)}">'
+        # Auto-detect input type from name attribute
+        input_type = attrs.get('type', 'text')
+        if input_type == 'text' and 'password' in name.lower():
+            input_type = 'password'
+        elif input_type == 'text' and 'email' in name.lower():
+            input_type = 'email'
+        return f'<input type="{_esc(input_type)}" name="{_esc(name)}" id="{_esc(name)}" placeholder="{_esc(ph)}">'
 
     if tag == 'form':
         action = attrs.get('action', '')
         children_html = '\n'.join(
             _render_element(c, store, form_data) for c in (elem.children or [])
         )
-        return f'<form action="{_esc(action)}" method="POST">\n{children_html}\n<button type="submit" class="btn">Submit</button>\n</form>'
+        # Only add a default Submit button if the form doesn't already have one
+        has_button = any(
+            getattr(c, 'tag', '') == 'button' for c in (elem.children or [])
+        )
+        submit_btn = '' if has_button else '\n<button type="submit" class="btn">Submit</button>'
+        return f'<form action="{_esc(action)}" method="POST">\n{children_html}{submit_btn}\n</form>'
 
     if tag == 'list':
         # content is a ListLiteral or evaluated list

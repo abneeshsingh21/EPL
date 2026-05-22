@@ -126,7 +126,7 @@ def _format_notification(latest_version):
 def _fetch_latest_version():
     """Fetch the latest version from PyPI. Returns version string or None."""
     try:
-        from urllib.request import urlopen, Request
+        from urllib.request import Request, urlopen
 
         req = Request(_PYPI_URL, headers={'Accept': 'application/json'})
         with urlopen(req, timeout=_REQUEST_TIMEOUT) as resp:

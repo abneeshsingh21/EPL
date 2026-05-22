@@ -141,6 +141,9 @@ STDLIB_FUNCTIONS = {
     'json_parse',
     'json_stringify',
     'json_pretty',
+    # Hashing
+    'sha256',
+    'md5',
     # Database
     'db_open',
     'db_close',
@@ -2104,7 +2107,7 @@ def _url_parse(url):
 # ═══════════════════════════════════════════════════════════
 
 
-def call_stdlib(name, args, line):
+def call_stdlib(name, args, line, interpreter=None):
     """Dispatch a stdlib function call.
 
     Args:
@@ -2119,6 +2122,19 @@ def call_stdlib(name, args, line):
         EPLRuntimeError on failure
     """
     try:
+        # ── Hashing ──
+        if name == 'sha256':
+            if not args:
+                raise EPLRuntimeError('sha256(text) requires a string argument.', line)
+            import hashlib as _hl
+            return _hl.sha256(str(args[0]).encode('utf-8')).hexdigest()
+
+        if name == 'md5':
+            if not args:
+                raise EPLRuntimeError('md5(text) requires a string argument.', line)
+            import hashlib as _hl
+            return _hl.md5(str(args[0]).encode('utf-8')).hexdigest()
+
         # ── HTTP ──
         if name == 'http_get':
             if len(args) < 1:
@@ -5557,7 +5573,7 @@ def call_stdlib(name, args, line):
         #  WebServer (Flask-powered production web server)
         # ══════════════════════════════════════════════════
         if name.startswith('web_'):
-            return _call_web(name, args, line)
+            return _call_web(name, args, line, interpreter=interpreter)
 
         # ══════════════════════════════════════════════════
         #  Auth & JWT (Phase 3)
@@ -5683,7 +5699,7 @@ def _ensure_flask():
     return flask
 
 
-def _call_web(name, args, line):
+def _call_web(name, args, line, interpreter=None):
     """Dispatch web_* stdlib functions."""
     from epl.interpreter import EPLDict
 
@@ -5724,7 +5740,8 @@ def _call_web(name, args, line):
 
         handler = args[2] if len(args) > 2 else None
 
-        if handler is None or not callable(handler):
+        is_epl_func = hasattr(handler, '__class__') and handler.__class__.__name__ in ('FunctionDef', 'EPLLambda', 'AsyncFunctionDef')
+        if handler is None or not (callable(handler) or is_epl_func):
             raise EPLRuntimeError(
                 f'{name}(app_id, path, handler) requires a callable handler function.', line
             )
@@ -5735,13 +5752,21 @@ def _call_web(name, args, line):
 
         # Register with Flask
         flask = _ensure_flask()
-        if handler is not None and callable(handler):
+
+        # Capture interpreter reference for EPL function callbacks
+        _interp = interpreter
+        _global_env = getattr(interpreter, 'global_env', None) if interpreter else None
+
+        if handler is not None and (callable(handler) or is_epl_func):
             # EPL callback — wrap it, passing URL params as list
-            def make_view(h, m):
+            def make_view(h, m, is_epl, interp_ref, env_ref):
                 def view_func(**kwargs):
                     try:
-                        if kwargs:
-                            result = h(*list(kwargs.values()))
+                        url_args = list(kwargs.values())
+                        if is_epl and interp_ref and env_ref:
+                            result = interp_ref._call_callable(h, url_args, env_ref, line)
+                        elif kwargs:
+                            result = h(*url_args)
                         else:
                             result = h()
                         if isinstance(result, EPLDict):
@@ -5759,7 +5784,7 @@ def _call_web(name, args, line):
                 view_func.__name__ = f'epl_view_{_new_id()}'
                 return view_func
 
-            app.add_url_rule(path, view_func=make_view(handler, methods), methods=methods)
+            app.add_url_rule(path, view_func=make_view(handler, methods, is_epl_func, _interp, _global_env), methods=methods)
         return path
 
     if name == 'web_start':
@@ -5782,13 +5807,21 @@ def _call_web(name, args, line):
 
             def make_cors_handler(cfg):
                 def add_cors(response):
-                    response.headers['Access-Control-Allow-Origin'] = cfg.get('origin', '*')
+                    origin = cfg.get('origin', '*')
+                    # When using credentials, cannot use wildcard origin — echo request origin
+                    if origin == '*':
+                        flask = _ensure_flask()
+                        req_origin = flask.request.headers.get('Origin', '*')
+                        response.headers['Access-Control-Allow-Origin'] = req_origin if req_origin else '*'
+                    else:
+                        response.headers['Access-Control-Allow-Origin'] = origin
                     response.headers['Access-Control-Allow-Methods'] = cfg.get(
                         'methods', 'GET,POST,PUT,DELETE,OPTIONS'
                     )
                     response.headers['Access-Control-Allow-Headers'] = cfg.get(
                         'headers', 'Content-Type,Authorization'
                     )
+                    response.headers['Access-Control-Allow-Credentials'] = 'true'
                     return response
 
                 return add_cors

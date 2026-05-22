@@ -10,6 +10,19 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [7.8.1] — 2026-05-23
+
+### Added
+- **TaskFlow Pro Max** — Completely overhauled the `taskflow_saas` example with a high-energy, unapologetic Neo-Brutalist UI architecture.
+  - Implemented solid box-shadow physics and mechanical hover/active states.
+  - Migrated from generic glassmorphism to strict geometric brutalism (0px border radius, sharp contrast, Acid Green accents).
+
+### Fixed
+- **Form Parsing Robustness** — Resolved parsing issues in EPL's web backend where empty optional form fields caused exceptions, by enforcing the safe `web_request_param()` pattern.
+- **Avatar Letter Fix** — Fixed standard library `uppercase` usage for avatar initialization in session cookies.
+
+---
+
 ## [7.6.0] — 2026-05-19
 
 ### Added

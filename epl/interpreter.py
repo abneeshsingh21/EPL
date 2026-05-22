@@ -967,6 +967,15 @@ class Interpreter:
         env.define_function(node.name, node)
 
     def _exec_function_call(self, node: ast.FunctionCall, env: Environment):
+        # Check for env-defined callable overrides FIRST.
+        # This allows route_env bridge functions (e.g. web_request_data,
+        # web_session_set) to shadow stdlib builtins.
+        if node.name in BUILTINS and env.has_variable(node.name):
+            val = env.get_variable(node.name)
+            if callable(val):
+                arg_values = [self._eval(arg, env) for arg in node.arguments]
+                return self._call_callable(val, arg_values, env, node.line)
+
         # Check for built-ins
         if node.name in BUILTINS:
             arg_values = [self._eval(arg, env) for arg in node.arguments]
@@ -1385,7 +1394,7 @@ class Interpreter:
         if name in STDLIB_FUNCTIONS:
             if self.safe_mode and name in _UNSAFE_BUILTINS:
                 raise EPLRuntimeError(f"'{name}' is not available in safe mode (--sandbox).", line)
-            return call_stdlib(name, args, line)
+            return call_stdlib(name, args, line, interpreter=self)
 
         raise EPLRuntimeError(f'Unknown built-in: {name}', line)
 

@@ -1,0 +1,1186 @@
+Note: ═══════════════════════════════════════════════════════════════════════════════════
+Note: TaskFlow SaaS — Premium Edition v2.0 (100% Pure EPL)
+Note: Full-Stack Task Management: Auth, DB, CRUD, Search, Filter, Profiles, API
+Note: 12 Enhancements: Animations, Themes, Due Dates, Flash Messages, Salted Auth
+Note: ═══════════════════════════════════════════════════════════════════════════════════
+
+Note: ─── SECTION 1: Database Setup ─────────────────────────────────────────────────
+Create db equal to real_db_connect("taskflow.db")
+real_db_execute(db, "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, email TEXT, password TEXT, salt TEXT DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
+real_db_execute(db, "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, title TEXT, description TEXT, priority TEXT DEFAULT 'medium', category TEXT DEFAULT 'General', done INTEGER DEFAULT 0, due_date TEXT DEFAULT '', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
+
+Note: ─── SECTION 2: Premium CSS ───────────────────────────────────────────────────
+Create premium_css equal to """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --bg-main: #0a0a0a;
+    --bg-surface: #141414;
+    --bg-card: #141414;
+    --bg-card-hover: #1c1c1c;
+    --bg-input: #000000;
+    --primary: #ccff00;
+    --primary-text: #000000;
+    --accent: #ff4500;
+    --accent-2: #00e5ff;
+    --success: #ccff00;
+    --warning: #ff4500;
+    --danger: #ff0044;
+    --text-main: #ffffff;
+    --text-secondary: #f0f0f0;
+    --text-muted: #888888;
+    --border: #ffffff;
+    --border-active: #ccff00;
+    --shadow: 4px 4px 0px var(--border);
+    --shadow-hover: 6px 6px 0px var(--border-active);
+    --radius: 0px;
+    --radius-sm: 0px;
+    --radius-xs: 0px;
+    --bw: 2px;
+    --transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
+}
+
+html[data-theme="light"] {
+    --bg-main: #e0e0d8;
+    --bg-surface: #f4f4f0;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f0f0f0;
+    --bg-input: #ffffff;
+    --text-main: #000000;
+    --text-secondary: #222222;
+    --text-muted: #555555;
+    --border: #000000;
+    --border-active: #000000;
+    --shadow: 4px 4px 0px var(--border);
+    --shadow-hover: 6px 6px 0px var(--border-active);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-main);
+    min-height: 100vh;
+    animation: pageIn 0.3s ease-out;
+}
+
+@keyframes pageIn {
+    from { opacity:0; transform:translateY(12px); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes fadeSlideDown {
+    from { opacity:0; transform:translateY(-20px); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes countUp {
+    from { opacity:0; transform:translateY(12px); }
+    to { opacity:1; transform:translateY(0); }
+}
+@keyframes overduePulse {
+    0%, 100% { opacity:1; background: var(--danger); color: #fff; }
+    50% { opacity:0.8; background: transparent; color: var(--danger); }
+}
+
+/* Brutalist Panels (replacing glass) */
+.glass {
+    background: var(--bg-card);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+}
+
+.btn {
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding: 12px 24px; font-weight:700; font-size:0.9rem; text-transform: uppercase;
+    border-radius: var(--radius-sm); border: var(--bw) solid var(--border); cursor:pointer;
+    transition: var(--transition); text-decoration:none; font-family:inherit;
+    box-shadow: var(--shadow); color: var(--text-main); background: var(--bg-card);
+}
+.btn:active { transform:translate(2px, 2px); box-shadow: 2px 2px 0px var(--border-active); }
+.btn-primary {
+    background: var(--primary);
+    color: var(--primary-text);
+    border-color: var(--primary-text);
+    box-shadow: 4px 4px 0px var(--primary-text);
+}
+html[data-theme="dark"] .btn-primary {
+    border-color: var(--primary);
+    box-shadow: 4px 4px 0px var(--primary);
+}
+.btn-primary:hover {
+    transform:translate(-2px, -2px);
+    box-shadow: 6px 6px 0px var(--primary-text);
+}
+html[data-theme="dark"] .btn-primary:hover {
+    box-shadow: 6px 6px 0px var(--primary);
+}
+.btn-primary:active { transform:translate(2px, 2px); box-shadow: 2px 2px 0px var(--primary-text); }
+html[data-theme="dark"] .btn-primary:active { box-shadow: 2px 2px 0px var(--primary); }
+
+.btn-outline {
+    background: var(--bg-card);
+    border-color: var(--border);
+}
+.btn-outline:hover { background: var(--primary); color: var(--primary-text); border-color: var(--primary-text); }
+.btn-danger {
+    background: var(--danger);
+    color: #fff; border-color: var(--border);
+}
+.btn-danger:hover { transform:translate(-2px, -2px); box-shadow: 6px 6px 0px var(--border); }
+.btn-sm { padding:8px 16px; font-size:0.8rem; border-radius:var(--radius-xs); }
+.btn-success { background: var(--success); color: var(--primary-text); border-color: var(--border); }
+.btn-success:hover { transform:translate(-2px, -2px); box-shadow: 6px 6px 0px var(--border); }
+
+input, select, textarea {
+    width:100%; padding:14px 16px;
+    background: var(--bg-input);
+    border: var(--bw) solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-size:1rem; font-family:inherit;
+    transition: var(--transition);
+    margin-bottom:14px;
+    box-shadow: inset 2px 2px 0px rgba(0,0,0,0.1);
+}
+html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea {
+    box-shadow: none;
+}
+input:focus, select:focus, textarea:focus {
+    outline:none; border-color:var(--primary);
+    box-shadow: 4px 4px 0px var(--primary);
+    transform:translate(-2px, -2px);
+}
+input::placeholder, textarea::placeholder { color:var(--text-muted); }
+label { color:var(--text-main); font-size:0.9rem; margin-bottom:8px; display:block; font-weight:700; text-transform:uppercase; letter-spacing:1px; }
+
+/* ── Flash Messages ── */
+.flash-msg {
+    position:fixed; top:24px; left:50%; transform:translateX(-50%);
+    z-index:9999; padding:16px 24px;
+    background: var(--bg-card);
+    color: var(--text-main); border: var(--bw) solid var(--border);
+    box-shadow: 6px 6px 0px var(--border);
+    display:flex; align-items:center; gap:16px;
+    animation: fadeSlideDown 0.3s ease-out;
+    font-weight:700; font-size:1rem; text-transform: uppercase;
+    max-width:500px;
+}
+.flash-msg.flash-error {
+    background: var(--danger);
+    color: #fff;
+}
+.flash-msg.flash-success {
+    background: var(--success);
+    color: var(--primary-text);
+}
+.flash-close {
+    background:none; border:none; color:inherit; font-size:1.4rem; cursor:pointer;
+    opacity:0.7; padding:0 4px; font-weight:800;
+}
+.flash-close:hover { opacity:1; transform: scale(1.1); }
+
+/* ── Navigation ── */
+nav {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 40px;
+    background: var(--bg-surface);
+    border-bottom: var(--bw) solid var(--border);
+    position:sticky; top:0; z-index:100;
+}
+.nav-brand { font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; text-transform: uppercase; }
+.nav-brand span { color: var(--primary); text-shadow: 2px 2px 0px var(--border); }
+html[data-theme="light"] .nav-brand span { text-shadow: 2px 2px 0px var(--text-main); }
+
+.nav-right { display:flex; gap:16px; align-items:center; }
+.nav-avatar {
+    width:40px; height:40px; border-radius: 0;
+    background: var(--primary);
+    border: var(--bw) solid var(--border);
+    box-shadow: 3px 3px 0px var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--primary-text); font-weight:800; font-size:1rem;
+    text-decoration:none; transition: var(--transition);
+}
+.nav-avatar:hover { transform:translate(-2px, -2px); box-shadow: 5px 5px 0px var(--border); }
+.nav-avatar:active { transform:translate(1px, 1px); box-shadow: 2px 2px 0px var(--border); }
+
+.theme-toggle {
+    background: var(--bg-card); border: var(--bw) solid var(--border); color:var(--text-main);
+    width:40px; height:40px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.2rem; transition: var(--transition); box-shadow: 3px 3px 0px var(--border);
+}
+.theme-toggle:hover { background: var(--primary); color: var(--primary-text); transform:translate(-2px, -2px); box-shadow: 5px 5px 0px var(--border); }
+.theme-toggle:active { transform:translate(1px, 1px); box-shadow: 2px 2px 0px var(--border); }
+
+/* ── Auth Pages ── */
+.auth-wrapper { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
+.auth-box { width:100%; max-width:480px; padding:48px; text-align:center; }
+.auth-box h1 { font-size:3rem; font-weight:800; margin-bottom:8px; text-transform: uppercase; }
+.auth-box h1 span { color: var(--primary); text-shadow: 3px 3px 0px var(--border); }
+html[data-theme="light"] .auth-box h1 span { text-shadow: 3px 3px 0px var(--text-main); }
+.auth-box .subtitle { color:var(--text-main); margin-bottom:36px; font-size:1.1rem; font-weight: 600; text-transform: uppercase; }
+.auth-link { color:var(--text-main); text-decoration:none; font-weight:700; border-bottom: 2px solid var(--primary); }
+.auth-link:hover { background: var(--primary); color: var(--primary-text); }
+
+/* ── Container ── */
+.container { max-width:1100px; margin:0 auto; padding:40px 24px; }
+.header-row { display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:40px; flex-wrap:wrap; gap:20px; }
+.header-row h1 { font-size:2.8rem; font-weight:800; text-transform: uppercase; letter-spacing:-1px; }
+.header-row .subtitle { color:var(--text-main); margin-top:8px; font-size:1.1rem; font-weight: 600; }
+
+/* ── Stats Grid ── */
+.stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-bottom:36px; }
+.stat-card {
+    padding:32px 24px; display:flex; flex-direction:column;
+    animation: countUp 0.4s ease-out backwards;
+    transition: var(--transition);
+    background: var(--bg-card);
+    border: var(--bw) solid var(--border);
+    box-shadow: var(--shadow);
+}
+.stat-card:nth-child(1) { animation-delay:0.1s; }
+.stat-card:nth-child(2) { animation-delay:0.2s; }
+.stat-card:nth-child(3) { animation-delay:0.3s; }
+.stat-card:hover { transform:translate(-4px, -4px); box-shadow: var(--shadow-hover); border-color: var(--border-active); }
+.stat-val { font-size:3.5rem; font-weight:800; line-height:1; margin-bottom:12px; }
+.stat-label { color:var(--text-main); font-size:0.9rem; text-transform:uppercase; letter-spacing:1.5px; font-weight:700; }
+.c-blue { color:var(--accent-2); text-shadow: 2px 2px 0px var(--border); }
+html[data-theme="light"] .c-blue { text-shadow: none; }
+.c-green { color:var(--primary); text-shadow: 2px 2px 0px var(--border); }
+html[data-theme="light"] .c-green { color: var(--success); text-shadow: none; }
+.c-amber { color:var(--warning); text-shadow: 2px 2px 0px var(--border); }
+html[data-theme="light"] .c-amber { text-shadow: none; }
+
+/* ── Progress Bar ── */
+.progress-wrap { margin-bottom:40px; border: var(--bw) solid var(--border); padding: 16px; background: var(--bg-card); box-shadow: var(--shadow); }
+.progress-bar-bg {
+    width:100%; height:16px; border: var(--bw) solid var(--border);
+    background:var(--bg-main);
+    overflow:hidden;
+    position: relative;
+}
+.progress-bar-fill {
+    height:100%; 
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--primary);
+    border-right: var(--bw) solid var(--border);
+}
+.progress-text { font-size:0.9rem; font-weight:700; color:var(--text-main); margin-top:12px; display:flex; justify-content:space-between; text-transform: uppercase; }
+
+/* ── Search & Filter Bar ── */
+.toolbar { display:flex; gap:16px; margin-bottom:32px; flex-wrap:wrap; align-items:center; background: var(--bg-card); padding: 16px; border: var(--bw) solid var(--border); box-shadow: var(--shadow); }
+.search-box {
+    flex:1; min-width:250px; position:relative;
+}
+.search-box input { margin-bottom:0; padding-left:48px; box-shadow: none; }
+.search-icon { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-main); font-size:1.1rem; font-weight: 800; pointer-events:none; }
+.filter-pills { display:flex; gap:8px; flex-wrap:wrap; }
+.pill {
+    padding:8px 16px; font-size:0.85rem; font-weight:700;
+    background:var(--bg-main); color:var(--text-main);
+    border:var(--bw) solid var(--border); cursor:pointer;
+    text-decoration:none; transition: var(--transition);
+    text-transform:uppercase; letter-spacing:1px;
+}
+.pill:hover { background: var(--primary); color: var(--primary-text); transform:translate(-2px, -2px); box-shadow: 4px 4px 0px var(--border); }
+.pill:active { transform:translate(1px, 1px); box-shadow: 1px 1px 0px var(--border); }
+.pill.active { background:var(--text-main); color:var(--bg-main); border-color:var(--text-main); }
+.sort-btn {
+    padding:8px 16px; font-size:0.85rem; font-weight: 700;
+    background:var(--bg-main); color:var(--text-main);
+    border:var(--bw) solid var(--border); cursor:pointer;
+    text-decoration:none; transition: var(--transition); text-transform: uppercase;
+}
+.sort-btn:hover { background: var(--primary); color: var(--primary-text); transform:translate(-2px, -2px); box-shadow: 4px 4px 0px var(--border); }
+.sort-btn:active { transform:translate(1px, 1px); box-shadow: 1px 1px 0px var(--border); }
+.sort-btn.active { background:var(--text-main); color:var(--bg-main); }
+
+/* ── Task List ── */
+.task-list { display:flex; flex-direction:column; gap:16px; }
+.task-item {
+    display:flex; align-items:center; padding:24px;
+    border:var(--bw) solid var(--border); 
+    background:var(--bg-card); transition: var(--transition);
+    animation: countUp 0.3s ease-out backwards;
+    box-shadow: var(--shadow);
+}
+.task-item:hover { background:var(--bg-card-hover); transform:translate(-4px, -4px); box-shadow: var(--shadow-hover); border-color: var(--border-active); }
+.task-item.done { opacity:0.6; background: var(--bg-main); box-shadow: none; transform: none; }
+.task-item.done:hover { transform: translate(-2px, -2px); box-shadow: 2px 2px 0px var(--border); }
+.task-item.done .task-title { text-decoration:line-through; color:var(--text-muted); }
+
+.task-checkbox-form { margin-right:20px; display:flex; align-items:center; }
+.task-checkbox {
+    width:28px; height:28px; 
+    border:var(--bw) solid var(--border); background:var(--bg-main);
+    cursor:pointer; transition: var(--transition);
+    display:flex; align-items:center; justify-content:center;
+    color:transparent; font-size:1.2rem; font-weight: 800;
+    box-shadow: 2px 2px 0px var(--border);
+}
+.task-checkbox:hover { transform:translate(-2px, -2px); box-shadow: 4px 4px 0px var(--border); background: var(--primary); }
+.task-checkbox:active { transform:translate(1px, 1px); box-shadow: 0px 0px 0px var(--border); }
+.task-checkbox.checked { background:var(--text-main); border-color:var(--text-main); color:var(--bg-main); box-shadow: none; transform: translate(2px, 2px); }
+
+.task-content { flex:1; min-width:0; }
+.task-title { font-size:1.3rem; font-weight:800; margin-bottom:8px; text-transform: uppercase; }
+.task-desc { color:var(--text-main); font-size:0.95rem; margin-bottom:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight: 500; }
+.task-meta { display:flex; gap:8px; flex-wrap:wrap; }
+.badge {
+    padding:4px 12px;
+    font-size:0.75rem; font-weight:800;
+    letter-spacing:1px; text-transform:uppercase;
+    border: var(--bw) solid var(--border);
+    box-shadow: 2px 2px 0px var(--border);
+}
+.badge-high { background:var(--danger); color:#fff; }
+.badge-medium { background:var(--warning); color:#000; }
+.badge-low { background:var(--success); color:#000; }
+.badge-cat { background:var(--text-main); color:var(--bg-main); }
+.badge-due { background:var(--accent-2); color:#000; }
+.badge-overdue { background:var(--danger); color:#fff; animation:overduePulse 1s steps(2, end) infinite; }
+
+.task-actions { display:flex; gap:10px; margin-left:20px; }
+.task-actions form { display:inline; }
+
+.empty-state { text-align:center; padding:80px 24px; color:var(--text-main); border: var(--bw) solid var(--border); background: var(--bg-card); box-shadow: var(--shadow); }
+.empty-state .icon { font-size:64px; margin-bottom:24px; display: inline-block; }
+.empty-state h3 { margin-bottom:12px; font-size: 2rem; font-weight: 800; text-transform: uppercase; }
+.empty-state p { font-size: 1.1rem; font-weight: 600; }
+
+/* ── Profile Page ── */
+.profile-grid { display:grid; grid-template-columns:350px 1fr; gap:32px; }
+.profile-sidebar { text-align:center; padding:48px 32px; }
+.profile-avatar-lg {
+    width:100px; height:100px;
+    background:var(--primary); border: var(--bw) solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--primary-text); font-size:3rem; font-weight:900;
+    margin:0 auto 24px;
+    box-shadow: 6px 6px 0px var(--border);
+}
+.profile-name { font-size:2rem; font-weight:800; margin-bottom:8px; text-transform: uppercase; }
+.profile-email { color:var(--text-main); font-size:1rem; margin-bottom:24px; font-weight: 600; }
+.profile-stat { padding:16px 0; border-top:var(--bw) solid var(--border); }
+.profile-stat-val { font-size:2rem; font-weight:800; }
+.profile-stat-label { color:var(--text-main); font-size:0.85rem; text-transform:uppercase; letter-spacing:1.5px; font-weight: 700; }
+.profile-form { padding:48px; }
+
+/* ── Responsive ── */
+@media(max-width:768px) {
+    nav { padding:16px 20px; }
+    .container { padding:24px 16px; }
+    .stats-grid { grid-template-columns:1fr; }
+    .profile-grid { grid-template-columns:1fr; }
+    .toolbar { flex-direction:column; align-items:stretch; }
+    .header-row { flex-direction:column; align-items:flex-start; }
+    .task-item { flex-direction: column; align-items: flex-start; }
+    .task-actions { margin-left: 0; margin-top: 16px; width: 100%; justify-content: space-between; }
+    .task-checkbox-form { margin-bottom: 12px; }
+}
+</style>
+"""
+
+Note: ─── SECTION 3: Theme Toggle Script ──────────────────────────────────────────
+Create theme_script equal to """
+<script>
+(function(){
+    var s=localStorage.getItem('tf-theme');
+    if(s)document.documentElement.setAttribute('data-theme',s);
+})();
+function toggleTheme(){
+    var c=document.documentElement.getAttribute('data-theme');
+    var n=(c==='light')?'dark':'light';
+    document.documentElement.setAttribute('data-theme',n);
+    localStorage.setItem('tf-theme',n);
+    var i=document.getElementById('theme-icon');
+    if(i)i.textContent=(n==='light')?'\\u263D':'\\u2600';
+}
+</script>
+"""
+
+Note: ─── SECTION 4: WebApp ────────────────────────────────────────────────────────
+Create WebApp called TaskFlow
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: AUTH PAGES
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/" responds with
+    Create flash equal to web_session_get("flash", "")
+    web_session_set("flash", "")
+    Create flash_type equal to web_session_get("flash_type", "")
+    web_session_set("flash_type", "")
+
+    Create html equal to "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>TaskFlow | Sign In</title>" + premium_css + theme_script + "</head><body>"
+
+    If flash is not equal to ""
+        Create fc equal to "flash-msg"
+        If flash_type is equal to "error"
+            Set fc to "flash-msg flash-error"
+        End
+        If flash_type is equal to "success"
+            Set fc to "flash-msg flash-success"
+        End
+        Set html to html + "<div class='" + fc + "'><span>" + flash + "</span><button class='flash-close' onclick='this.parentElement.remove()'>x</button></div>"
+    End
+
+    Set html to html + "<div class='auth-wrapper'><div class='auth-box glass'>"
+    Set html to html + "<h1>Task<span>Flow</span></h1>"
+    Set html to html + "<p class='subtitle'>Sign in to your workspace</p>"
+    Set html to html + "<form action='/login' method='POST'>"
+    Set html to html + "<input type='text' name='username' placeholder='Username' required>"
+    Set html to html + "<input type='password' name='password' placeholder='Password' required>"
+    Set html to html + "<button type='submit' class='btn btn-primary' style='width:100%;padding:14px;margin-top:8px;font-size:0.95rem;'>Sign In</button>"
+    Set html to html + "</form>"
+    Set html to html + "<div style='margin-top:28px;color:var(--text-muted);font-size:0.9rem;'>"
+    Set html to html + "New here? <a href='/register' class='auth-link'>Create an account</a>"
+    Set html to html + "</div></div></div></body></html>"
+    Send text html
+End
+
+Route "/register" responds with
+    Create flash equal to web_session_get("flash", "")
+    web_session_set("flash", "")
+    Create flash_type equal to web_session_get("flash_type", "")
+    web_session_set("flash_type", "")
+
+    Create html equal to "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>TaskFlow | Register</title>" + premium_css + theme_script + "</head><body>"
+
+    If flash is not equal to ""
+        Create fc equal to "flash-msg"
+        If flash_type is equal to "error"
+            Set fc to "flash-msg flash-error"
+        End
+        Set html to html + "<div class='" + fc + "'><span>" + flash + "</span><button class='flash-close' onclick='this.parentElement.remove()'>x</button></div>"
+    End
+
+    Set html to html + "<div class='auth-wrapper'><div class='auth-box glass'>"
+    Set html to html + "<h1>Join Task<span>Flow</span></h1>"
+    Set html to html + "<p class='subtitle'>Start organizing your life today</p>"
+    Set html to html + "<form action='/do-register' method='POST'>"
+    Set html to html + "<input type='text' name='username' placeholder='Choose a username' required>"
+    Set html to html + "<input type='email' name='email' placeholder='Email address' required>"
+    Set html to html + "<input type='password' name='password' placeholder='Create a password' required>"
+    Set html to html + "<button type='submit' class='btn btn-primary' style='width:100%;padding:14px;margin-top:8px;font-size:0.95rem;'>Create Account</button>"
+    Set html to html + "</form>"
+    Set html to html + "<div style='margin-top:28px;color:var(--text-muted);font-size:0.9rem;'>"
+    Set html to html + "Already have an account? <a href='/' class='auth-link'>Sign in</a>"
+    Set html to html + "</div></div></div></body></html>"
+    Send text html
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: DASHBOARD — Search, Filter, Sort, Progress, Due Dates, Edit, Flash
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/dashboard" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create username equal to web_session_get("username", "User")
+    Create avatar_letter equal to web_session_get("avatar_letter", "U")
+
+    Note: Flash messages
+    Create flash equal to web_session_get("flash", "")
+    web_session_set("flash", "")
+    Create flash_type equal to web_session_get("flash_type", "")
+    web_session_set("flash_type", "")
+
+    Note: Read filter/search/sort params
+    Create filter_priority equal to web_request_param("priority", "all")
+    Create filter_status equal to web_request_param("status", "all")
+    Create search_q equal to web_request_param("q", "")
+    Create sort_by equal to web_request_param("sort", "newest")
+
+    Note: Validate filter values (whitelist)
+    Create valid_pri equal to 0
+    If filter_priority is equal to "high"
+        Set valid_pri to 1
+    End
+    If filter_priority is equal to "medium"
+        Set valid_pri to 1
+    End
+    If filter_priority is equal to "low"
+        Set valid_pri to 1
+    End
+    If valid_pri is equal to 0
+        Set filter_priority to "all"
+    End
+
+    Create valid_status equal to 0
+    If filter_status is equal to "active"
+        Set valid_status to 1
+    End
+    If filter_status is equal to "done"
+        Set valid_status to 1
+    End
+    If valid_status is equal to 0
+        Set filter_status to "all"
+    End
+
+    Note: Build dynamic SQL
+    Create sql equal to "SELECT * FROM tasks WHERE user_id = ?"
+    If filter_priority is not equal to "all"
+        Set sql to sql + " AND priority = '" + filter_priority + "'"
+    End
+    If filter_status is equal to "active"
+        Set sql to sql + " AND done = 0"
+    End
+    If filter_status is equal to "done"
+        Set sql to sql + " AND done = 1"
+    End
+    If search_q is not equal to ""
+        Create safe_q equal to regex_replace(search_q, "'", "")
+        Set sql to sql + " AND (title LIKE '%" + safe_q + "%' OR description LIKE '%" + safe_q + "%')"
+    End
+
+    Note: Sort order
+    Create order_clause equal to " ORDER BY done ASC, id DESC"
+    If sort_by is equal to "oldest"
+        Set order_clause to " ORDER BY done ASC, id ASC"
+    End
+    If sort_by is equal to "priority"
+        Set order_clause to " ORDER BY done ASC, CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END, id DESC"
+    End
+    If sort_by is equal to "due"
+        Set order_clause to " ORDER BY done ASC, CASE WHEN due_date = '' THEN 1 ELSE 0 END, due_date ASC, id DESC"
+    End
+    If sort_by is equal to "category"
+        Set order_clause to " ORDER BY done ASC, category ASC, id DESC"
+    End
+    Set sql to sql + order_clause
+
+    Create tasks equal to real_db_query(db, sql, [uid])
+
+    Note: Stats (always from full set, not filtered)
+    Create total_row equal to real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE user_id = ?", [uid])
+    Create done_row equal to real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND done = 1", [uid])
+    Create high_row equal to real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND priority = 'high' AND done = 0", [uid])
+    Create total equal to total_row.count
+    Create completed equal to done_row.count
+    Create high_pri equal to high_row.count
+
+    Note: Progress %
+    Create pct equal to 0
+    If total is greater than 0
+        Set pct to completed * 100 / total
+    End
+
+    Note: Build HTML
+    Create html equal to "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Dashboard | TaskFlow</title>" + premium_css + theme_script + "</head><body>"
+
+    Note: Flash banner
+    If flash is not equal to ""
+        Create fc equal to "flash-msg"
+        If flash_type is equal to "error"
+            Set fc to "flash-msg flash-error"
+        End
+        If flash_type is equal to "success"
+            Set fc to "flash-msg flash-success"
+        End
+        Set html to html + "<div class='" + fc + "'><span>" + flash + "</span><button class='flash-close' onclick='this.parentElement.remove()'>x</button></div>"
+    End
+
+    Note: Navbar
+    Set html to html + "<nav>"
+    Set html to html + "<div class='nav-brand'>Task<span>Flow</span></div>"
+    Set html to html + "<div class='nav-right'>"
+    Set html to html + "<button class='theme-toggle' onclick='toggleTheme()'><span id='theme-icon'>☀</span></button>"
+    Set html to html + "<a href='/profile' class='nav-avatar' title='Profile'>" + avatar_letter + "</a>"
+    Set html to html + "<a href='/do-logout' class='btn btn-outline btn-sm'>Logout</a>"
+    Set html to html + "</div></nav>"
+
+    Note: Main Container
+    Set html to html + "<div class='container'>"
+
+    Note: Header
+    Set html to html + "<div class='header-row'>"
+    Set html to html + "<div><h1>Your Workspace</h1><p class='subtitle'>Welcome back, " + username + "! Here is what is happening.</p></div>"
+    Set html to html + "<a href='/new-task' class='btn btn-primary'>+ New Task</a>"
+    Set html to html + "</div>"
+
+    Note: Stats
+    Set html to html + "<div class='stats-grid'>"
+    Set html to html + "<div class='stat-card glass'><span class='stat-val c-blue'>" + format("{}", total) + "</span><span class='stat-label'>Total Tasks</span></div>"
+    Set html to html + "<div class='stat-card glass'><span class='stat-val c-green'>" + format("{}", completed) + "</span><span class='stat-label'>Completed</span></div>"
+    Set html to html + "<div class='stat-card glass'><span class='stat-val c-amber'>" + format("{}", high_pri) + "</span><span class='stat-label'>High Priority</span></div>"
+    Set html to html + "</div>"
+
+    Note: Progress Bar
+    Set html to html + "<div class='progress-wrap'>"
+    Set html to html + "<div class='progress-bar-bg'><div class='progress-bar-fill' style='width:" + format("{:.0f}", pct) + "%;background-position:" + format("{:.0f}", 100 - pct) + "% 0;'></div></div>"
+    Set html to html + "<div class='progress-text'><span>" + format("{:.0f}", pct) + "% complete</span><span>" + format("{}", completed) + " of " + format("{}", total) + " tasks</span></div>"
+    Set html to html + "</div>"
+
+    Note: Toolbar — Search, Filter, Sort
+    Set html to html + "<form method='GET' action='/dashboard'>"
+    Set html to html + "<div class='toolbar'>"
+
+    Note: Search
+    Set html to html + "<div class='search-box'><span class='search-icon'>&#128269;</span>"
+    Set html to html + "<input type='search' name='q' placeholder='Search tasks...' value='" + search_q + "' style='margin-bottom:0;'>"
+    Set html to html + "</div>"
+
+    Note: Priority filter pills
+    Set html to html + "<div class='filter-pills'>"
+    Create pill_all equal to "pill"
+    Create pill_high equal to "pill"
+    Create pill_med equal to "pill"
+    Create pill_low equal to "pill"
+    If filter_priority is equal to "all"
+        Set pill_all to "pill active"
+    End
+    If filter_priority is equal to "high"
+        Set pill_high to "pill active"
+    End
+    If filter_priority is equal to "medium"
+        Set pill_med to "pill active"
+    End
+    If filter_priority is equal to "low"
+        Set pill_low to "pill active"
+    End
+    Set html to html + "<button type='submit' name='priority' value='all' class='" + pill_all + "'>All</button>"
+    Set html to html + "<button type='submit' name='priority' value='high' class='" + pill_high + "'>High</button>"
+    Set html to html + "<button type='submit' name='priority' value='medium' class='" + pill_med + "'>Med</button>"
+    Set html to html + "<button type='submit' name='priority' value='low' class='" + pill_low + "'>Low</button>"
+    Set html to html + "</div>"
+
+    Note: Status filter
+    Set html to html + "<div class='filter-pills'>"
+    Create s_all equal to "pill"
+    Create s_active equal to "pill"
+    Create s_done equal to "pill"
+    If filter_status is equal to "all"
+        Set s_all to "pill active"
+    End
+    If filter_status is equal to "active"
+        Set s_active to "pill active"
+    End
+    If filter_status is equal to "done"
+        Set s_done to "pill active"
+    End
+    Set html to html + "<button type='submit' name='status' value='all' class='" + s_all + "'>All</button>"
+    Set html to html + "<button type='submit' name='status' value='active' class='" + s_active + "'>Active</button>"
+    Set html to html + "<button type='submit' name='status' value='done' class='" + s_done + "'>Done</button>"
+    Set html to html + "</div>"
+
+    Note: Sort buttons
+    Set html to html + "<div class='filter-pills'>"
+    Create srt_new equal to "sort-btn"
+    Create srt_old equal to "sort-btn"
+    Create srt_pri equal to "sort-btn"
+    Create srt_due equal to "sort-btn"
+    If sort_by is equal to "newest"
+        Set srt_new to "sort-btn active"
+    End
+    If sort_by is equal to "oldest"
+        Set srt_old to "sort-btn active"
+    End
+    If sort_by is equal to "priority"
+        Set srt_pri to "sort-btn active"
+    End
+    If sort_by is equal to "due"
+        Set srt_due to "sort-btn active"
+    End
+    Set html to html + "<button type='submit' name='sort' value='newest' class='" + srt_new + "'>Newest</button>"
+    Set html to html + "<button type='submit' name='sort' value='oldest' class='" + srt_old + "'>Oldest</button>"
+    Set html to html + "<button type='submit' name='sort' value='priority' class='" + srt_pri + "'>Priority</button>"
+    Set html to html + "<button type='submit' name='sort' value='due' class='" + srt_due + "'>Due Date</button>"
+    Set html to html + "</div>"
+
+    Set html to html + "</div></form>"
+
+    Note: Task List
+    Set html to html + "<div class='task-list'>"
+
+    If length(tasks) is equal to 0
+        Set html to html + "<div class='empty-state glass'>"
+        Set html to html + "<div class='icon'>&#10024;</div>"
+        Set html to html + "<h3>No tasks found</h3>"
+        Set html to html + "<p>Try adjusting your filters or create a new task.</p>"
+        Set html to html + "</div>"
+    End
+
+    Create today_str equal to today()
+    Create idx equal to 0
+
+    For each t in tasks
+        Create is_done equal to ""
+        Create check_icon equal to "&#9675;"
+        Create check_class equal to ""
+        If t.done is equal to 1
+            Set is_done to "done"
+            Set check_icon to "&#10003;"
+            Set check_class to "checked"
+        End
+
+        Create badge_class equal to "badge-medium"
+        If t.priority is equal to "high"
+            Set badge_class to "badge-high"
+        End
+        If t.priority is equal to "low"
+            Set badge_class to "badge-low"
+        End
+
+        Set html to html + "<div class='task-item " + is_done + "' style='animation-delay:" + format("{:.1f}", idx * 0.05) + "s;'>"
+
+        Note: Checkbox
+        Set html to html + "<form class='task-checkbox-form' method='POST' action='/do-toggle'>"
+        Set html to html + "<input type='hidden' name='task_id' value='" + format("{}", t.id) + "'>"
+        Set html to html + "<button type='submit' class='task-checkbox " + check_class + "'>" + check_icon + "</button>"
+        Set html to html + "</form>"
+
+        Note: Content
+        Set html to html + "<div class='task-content'>"
+        Set html to html + "<div class='task-title'>" + t.title + "</div>"
+        If t.description is not equal to ""
+            Set html to html + "<div class='task-desc'>" + t.description + "</div>"
+        End
+        Set html to html + "<div class='task-meta'>"
+        Set html to html + "<span class='badge " + badge_class + "'>" + t.priority + "</span>"
+        Set html to html + "<span class='badge badge-cat'>" + t.category + "</span>"
+
+        Note: Due date badge
+        If t.due_date is not equal to ""
+            If t.due_date is not equal to Nothing
+                Create due_badge equal to "badge-due"
+                If t.done is not equal to 1
+                    If t.due_date is less than today_str
+                        Set due_badge to "badge-overdue"
+                    End
+                End
+                Set html to html + "<span class='badge " + due_badge + "'>" + t.due_date + "</span>"
+            End
+        End
+
+        Set html to html + "</div></div>"
+
+        Note: Action buttons
+        Set html to html + "<div class='task-actions'>"
+        Set html to html + "<a href='/edit-task?id=" + format("{}", t.id) + "' class='btn btn-outline btn-sm'>Edit</a>"
+        Set html to html + "<form method='POST' action='/do-delete'>"
+        Set html to html + "<input type='hidden' name='task_id' value='" + format("{}", t.id) + "'>"
+        Set html to html + "<button type='submit' class='btn btn-danger btn-sm'>Del</button>"
+        Set html to html + "</form></div>"
+
+        Set html to html + "</div>"
+        Set idx to idx + 1
+    End
+
+    Set html to html + "</div></div></body></html>"
+    Send text html
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: NEW TASK PAGE — with due date & category datalist
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/new-task" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create avatar_letter equal to web_session_get("avatar_letter", "U")
+
+    Create html equal to "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>New Task | TaskFlow</title>" + premium_css + theme_script + "</head><body>"
+
+    Note: Navbar
+    Set html to html + "<nav><div class='nav-brand'>Task<span>Flow</span></div><div class='nav-right'>"
+    Set html to html + "<button class='theme-toggle' onclick='toggleTheme()'><span id='theme-icon'>☀</span></button>"
+    Set html to html + "<a href='/dashboard' class='btn btn-outline btn-sm'>Back</a>"
+    Set html to html + "</div></nav>"
+
+    Set html to html + "<div class='auth-wrapper' style='align-items:flex-start;padding-top:50px;'>"
+    Set html to html + "<div class='auth-box glass' style='max-width:520px;text-align:left;'>"
+    Set html to html + "<h1 style='text-align:center;'>Create <span>Task</span></h1>"
+    Set html to html + "<p class='subtitle' style='text-align:center;'>What needs to be done?</p>"
+    Set html to html + "<form action='/do-create-task' method='POST' style='margin-top:24px;'>"
+
+    Set html to html + "<label>Title</label>"
+    Set html to html + "<input type='text' name='title' placeholder='Task title' required>"
+
+    Set html to html + "<label>Description</label>"
+    Set html to html + "<textarea name='description' placeholder='Optional details...' rows='3'></textarea>"
+
+    Set html to html + "<div style='display:flex;gap:14px;'>"
+    Set html to html + "<div style='flex:1;'><label>Priority</label>"
+    Set html to html + "<select name='priority'><option value='low'>Low</option><option value='medium' selected>Medium</option><option value='high'>High</option></select></div>"
+
+    Set html to html + "<div style='flex:1;'><label>Category</label>"
+    Set html to html + "<input type='text' name='category' list='categories' placeholder='Select or type' value='General'>"
+    Set html to html + "<datalist id='categories'>"
+    Set html to html + "<option value='Work'><option value='Personal'><option value='Home'><option value='Health'><option value='Finance'><option value='Learning'><option value='General'>"
+    Set html to html + "</datalist></div></div>"
+
+    Set html to html + "<label>Due Date</label>"
+    Set html to html + "<input type='date' name='due_date'>"
+
+    Set html to html + "<button type='submit' class='btn btn-primary' style='width:100%;padding:14px;margin-top:12px;font-size:0.95rem;'>Create Task</button>"
+    Set html to html + "</form></div></div></body></html>"
+    Send text html
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: EDIT TASK PAGE — Pre-filled form
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/edit-task" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create task_id equal to web_request_param("id", "")
+    If task_id is equal to ""
+        Redirect to "/dashboard"
+    End
+    Create task equal to real_db_query_one(db, "SELECT * FROM tasks WHERE id = ? AND user_id = ?", [task_id, uid])
+    If task is equal to Nothing
+        Redirect to "/dashboard"
+    End
+
+    Create html equal to "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Edit Task | TaskFlow</title>" + premium_css + theme_script + "</head><body>"
+
+    Set html to html + "<nav><div class='nav-brand'>Task<span>Flow</span></div><div class='nav-right'>"
+    Set html to html + "<button class='theme-toggle' onclick='toggleTheme()'><span id='theme-icon'>☀</span></button>"
+    Set html to html + "<a href='/dashboard' class='btn btn-outline btn-sm'>Back</a>"
+    Set html to html + "</div></nav>"
+
+    Set html to html + "<div class='auth-wrapper' style='align-items:flex-start;padding-top:50px;'>"
+    Set html to html + "<div class='auth-box glass' style='max-width:520px;text-align:left;'>"
+    Set html to html + "<h1 style='text-align:center;'>Edit <span>Task</span></h1>"
+    Set html to html + "<form action='/do-edit-task' method='POST' style='margin-top:24px;'>"
+    Set html to html + "<input type='hidden' name='task_id' value='" + format("{}", task.id) + "'>"
+
+    Set html to html + "<label>Title</label>"
+    Set html to html + "<input type='text' name='title' value='" + task.title + "' required>"
+
+    Set html to html + "<label>Description</label>"
+    Create desc_val equal to ""
+    If task.description is not equal to Nothing
+        Set desc_val to task.description
+    End
+    Set html to html + "<textarea name='description' rows='3'>" + desc_val + "</textarea>"
+
+    Set html to html + "<div style='display:flex;gap:14px;'>"
+    Set html to html + "<div style='flex:1;'><label>Priority</label>"
+    Set html to html + "<select name='priority'>"
+
+    Create sel_low equal to ""
+    Create sel_med equal to ""
+    Create sel_high equal to ""
+    If task.priority is equal to "low"
+        Set sel_low to " selected"
+    End
+    If task.priority is equal to "medium"
+        Set sel_med to " selected"
+    End
+    If task.priority is equal to "high"
+        Set sel_high to " selected"
+    End
+    Set html to html + "<option value='low'" + sel_low + ">Low</option>"
+    Set html to html + "<option value='medium'" + sel_med + ">Medium</option>"
+    Set html to html + "<option value='high'" + sel_high + ">High</option>"
+    Set html to html + "</select></div>"
+
+    Set html to html + "<div style='flex:1;'><label>Category</label>"
+    Set html to html + "<input type='text' name='category' list='categories' value='" + task.category + "'>"
+    Set html to html + "<datalist id='categories'>"
+    Set html to html + "<option value='Work'><option value='Personal'><option value='Home'><option value='Health'><option value='Finance'><option value='Learning'><option value='General'>"
+    Set html to html + "</datalist></div></div>"
+
+    Set html to html + "<label>Due Date</label>"
+    Create due_val equal to ""
+    If task.due_date is not equal to Nothing
+        Set due_val to task.due_date
+    End
+    Set html to html + "<input type='date' name='due_date' value='" + due_val + "'>"
+
+    Set html to html + "<button type='submit' class='btn btn-primary' style='width:100%;padding:14px;margin-top:12px;font-size:0.95rem;'>Save Changes</button>"
+    Set html to html + "</form></div></div></body></html>"
+    Send text html
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: PROFILE PAGE
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/profile" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create username equal to web_session_get("username", "User")
+    Create avatar_letter equal to web_session_get("avatar_letter", "U")
+
+    Create flash equal to web_session_get("flash", "")
+    web_session_set("flash", "")
+    Create flash_type equal to web_session_get("flash_type", "")
+    web_session_set("flash_type", "")
+
+    Note: Get user info
+    Create user equal to real_db_query_one(db, "SELECT * FROM users WHERE id = ?", [uid])
+
+    Note: Get stats
+    Create total_row equal to real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE user_id = ?", [uid])
+    Create done_row equal to real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND done = 1", [uid])
+    Create total equal to total_row.count
+    Create completed equal to done_row.count
+
+    Create html equal to "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Profile | TaskFlow</title>" + premium_css + theme_script + "</head><body>"
+
+    If flash is not equal to ""
+        Create fc equal to "flash-msg"
+        If flash_type is equal to "error"
+            Set fc to "flash-msg flash-error"
+        End
+        If flash_type is equal to "success"
+            Set fc to "flash-msg flash-success"
+        End
+        Set html to html + "<div class='" + fc + "'><span>" + flash + "</span><button class='flash-close' onclick='this.parentElement.remove()'>x</button></div>"
+    End
+
+    Note: Navbar
+    Set html to html + "<nav><div class='nav-brand'>Task<span>Flow</span></div><div class='nav-right'>"
+    Set html to html + "<button class='theme-toggle' onclick='toggleTheme()'><span id='theme-icon'>☀</span></button>"
+    Set html to html + "<a href='/dashboard' class='btn btn-outline btn-sm'>Dashboard</a>"
+    Set html to html + "</div></nav>"
+
+    Set html to html + "<div class='container'>"
+    Set html to html + "<div class='profile-grid'>"
+
+    Note: Sidebar
+    Set html to html + "<div class='profile-sidebar glass'>"
+    Set html to html + "<div class='profile-avatar-lg'>" + avatar_letter + "</div>"
+    Set html to html + "<div class='profile-name'>" + username + "</div>"
+    Set html to html + "<div class='profile-email'>" + user.email + "</div>"
+    Set html to html + "<div class='profile-stat'><div class='profile-stat-val'>" + format("{}", total) + "</div><div class='profile-stat-label'>Total Tasks</div></div>"
+    Set html to html + "<div class='profile-stat'><div class='profile-stat-val'>" + format("{}", completed) + "</div><div class='profile-stat-label'>Completed</div></div>"
+    Set html to html + "</div>"
+
+    Note: Settings form
+    Set html to html + "<div class='profile-form glass'>"
+    Set html to html + "<h2 style='margin-bottom:24px;font-weight:700;'>Account Settings</h2>"
+    Set html to html + "<form action='/do-update-profile' method='POST'>"
+    Set html to html + "<label>Username</label>"
+    Set html to html + "<input type='text' value='" + username + "' disabled style='opacity:0.5;cursor:not-allowed;'>"
+    Set html to html + "<label>Email Address</label>"
+    Set html to html + "<input type='email' name='email' value='" + user.email + "' required>"
+    Set html to html + "<hr style='border:none;border-top:1px solid var(--border);margin:20px 0;'>"
+    Set html to html + "<label>New Password (leave blank to keep current)</label>"
+    Set html to html + "<input type='password' name='new_password' placeholder='New password'>"
+    Set html to html + "<label>Confirm New Password</label>"
+    Set html to html + "<input type='password' name='confirm_password' placeholder='Confirm new password'>"
+    Set html to html + "<button type='submit' class='btn btn-primary' style='width:100%;padding:14px;margin-top:8px;'>Save Changes</button>"
+    Set html to html + "</form></div>"
+
+    Set html to html + "</div></div></body></html>"
+    Send text html
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: ACTION HANDLERS — Auth
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/do-register" responds with
+    Create data equal to web_request_data()
+    Create username equal to data.username
+    Create email equal to data.email
+
+    Note: Salted password hashing
+    Create salt equal to uuid()
+    Create password equal to sha256(salt + data.password)
+
+    Note: Check for existing user
+    Create existing equal to real_db_query_one(db, "SELECT id FROM users WHERE username = ?", [username])
+    If existing is not equal to Nothing
+        web_session_set("flash", "Username already taken. Please choose another.")
+        web_session_set("flash_type", "error")
+        Redirect to "/register"
+    End
+
+    real_db_insert(db, "users", Map with username = username and email = email and password = password and salt = salt)
+    web_session_set("flash", "Account created! Please sign in.")
+    web_session_set("flash_type", "success")
+    Redirect to "/"
+End
+
+Route "/login" responds with
+    Create data equal to web_request_data()
+    Create user equal to real_db_query_one(db, "SELECT * FROM users WHERE username = ?", [data.username])
+
+    If user is equal to Nothing
+        web_session_set("flash", "Invalid username or password.")
+        web_session_set("flash_type", "error")
+        Redirect to "/"
+    End
+
+    Note: Verify salted password
+    Create input_hash equal to sha256(user.salt + data.password)
+    If input_hash is not equal to user.password
+        web_session_set("flash", "Invalid username or password.")
+        web_session_set("flash_type", "error")
+        Redirect to "/"
+    End
+
+    Note: Set session
+    web_session_set("user_id", user.id)
+    web_session_set("username", user.username)
+
+    Note: Avatar letter (first char uppercase)
+    Create first_char equal to uppercase(string_slice(user.username, 0, 1))
+    web_session_set("avatar_letter", first_char)
+
+    Redirect to "/dashboard"
+End
+
+Route "/do-logout" responds with
+    web_session_clear()
+    Redirect to "/"
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: ACTION HANDLERS — Tasks
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/do-create-task" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create title equal to web_request_param("title", "")
+    Create description equal to web_request_param("description", "")
+    Create priority equal to web_request_param("priority", "medium")
+    Create category equal to web_request_param("category", "General")
+    Create due_date equal to web_request_param("due_date", "")
+
+    real_db_insert(db, "tasks", Map with user_id = uid and title = title and description = description and priority = priority and category = category and due_date = due_date)
+    web_session_set("flash", "Task created successfully!")
+    web_session_set("flash_type", "success")
+    Redirect to "/dashboard"
+End
+
+Route "/do-edit-task" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create task_id equal to web_request_param("task_id", "")
+    Create title equal to web_request_param("title", "")
+    Create description equal to web_request_param("description", "")
+    Create priority equal to web_request_param("priority", "medium")
+    Create category equal to web_request_param("category", "General")
+    Create due_date equal to web_request_param("due_date", "")
+
+    real_db_execute(db, "UPDATE tasks SET title = ?, description = ?, priority = ?, category = ?, due_date = ? WHERE id = ? AND user_id = ?", [title, description, priority, category, due_date, task_id, uid])
+    web_session_set("flash", "Task updated!")
+    web_session_set("flash_type", "success")
+    Redirect to "/dashboard"
+End
+
+Route "/do-toggle" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create data equal to web_request_data()
+    Create task equal to real_db_query_one(db, "SELECT done FROM tasks WHERE id = ? AND user_id = ?", [data.task_id, uid])
+    If task is not equal to Nothing
+        Create new_done equal to 1
+        If task.done is equal to 1
+            Set new_done to 0
+        End
+        real_db_execute(db, "UPDATE tasks SET done = ? WHERE id = ? AND user_id = ?", [new_done, data.task_id, uid])
+    End
+    Redirect to "/dashboard"
+End
+
+Route "/do-delete" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create data equal to web_request_data()
+    real_db_execute(db, "DELETE FROM tasks WHERE id = ? AND user_id = ?", [data.task_id, uid])
+    web_session_set("flash", "Task deleted.")
+    web_session_set("flash_type", "success")
+    Redirect to "/dashboard"
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: ACTION HANDLER — Profile Update
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/do-update-profile" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Redirect to "/"
+    End
+    Create data equal to web_request_data()
+
+    Note: Update email
+    real_db_execute(db, "UPDATE users SET email = ? WHERE id = ?", [data.email, uid])
+
+    Note: Update password if provided
+    If data.new_password is not equal to ""
+        If data.new_password is equal to data.confirm_password
+            Create new_salt equal to uuid()
+            Create new_hash equal to sha256(new_salt + data.new_password)
+            real_db_execute(db, "UPDATE users SET password = ?, salt = ? WHERE id = ?", [new_hash, new_salt, uid])
+            web_session_set("flash", "Profile and password updated!")
+            web_session_set("flash_type", "success")
+        Else
+            web_session_set("flash", "Passwords do not match!")
+            web_session_set("flash_type", "error")
+        End
+    Else
+        web_session_set("flash", "Profile updated!")
+        web_session_set("flash_type", "success")
+    End
+
+    Redirect to "/profile"
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: JSON API ENDPOINTS — For future mobile app integration
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Route "/api/tasks" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Send json Map with error = "Unauthorized" and status = 401
+    End
+    Create tasks equal to real_db_query(db, "SELECT * FROM tasks WHERE user_id = ? ORDER BY done ASC, id DESC", [uid])
+    Send json Map with status = "ok" and tasks = tasks
+End
+
+Route "/api/profile" responds with
+    Create uid equal to web_session_get("user_id", Nothing)
+    If uid is equal to Nothing
+        Send json Map with error = "Unauthorized" and status = 401
+    End
+    Create user equal to real_db_query_one(db, "SELECT id, username, email, created_at FROM users WHERE id = ?", [uid])
+    Create total_row equal to real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE user_id = ?", [uid])
+    Create done_row equal to real_db_query_one(db, "SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND done = 1", [uid])
+    Send json Map with status = "ok" and user = user and total_tasks = total_row.count and completed_tasks = done_row.count
+End
+
+Note: ═══════════════════════════════════════════════════════════════════════════════
+Note: START SERVER
+Note: ═══════════════════════════════════════════════════════════════════════════════
+
+Print "╔══════════════════════════════════════════════════════════════════════╗"
+Print "║   TaskFlow SaaS Premium v2.0 — 100% Pure EPL                      ║"
+Print "║   Open  http://localhost:3000  in your browser                     ║"
+Print "║                                                                    ║"
+Print "║   Features:                                                        ║"
+Print "║     Dark/Light Theme  |  Search & Filter  |  Due Dates            ║"
+Print "║     Salted Auth       |  Flash Messages   |  JSON API             ║"
+Print "║     Edit Tasks        |  User Profiles    |  Progress Bar         ║"
+Print "║     Category Picker   |  Sort Options     |  Animations           ║"
+Print "╚══════════════════════════════════════════════════════════════════════╝"
+
+Start TaskFlow on port 3000

@@ -279,12 +279,18 @@ def session_create():
 def _build_route_env(
     interpreter, method, path, form_data=None, params=None, headers=None, session_id=None
 ):
-    """Create a child interpreter environment populated with request context bindings."""
+    """Create a child interpreter environment populated with request context bindings.
+
+    This injects EPLWebApp-compatible session and request functions so that
+    EPL route bodies can call web_request_data(), web_session_get/set/clear()
+    without needing Flask request context.
+    """
     if interpreter is None:
         return None
 
     route_env = interpreter.global_env.create_child('web:route')
-    request_data = interpreter._wrap_python_result(form_data or {})
+    _form_data = form_data or {}
+    request_data = interpreter._wrap_python_result(_form_data)
     request_params = interpreter._wrap_python_result(params or {})
 
     header_map = {}
@@ -302,7 +308,7 @@ def _build_route_env(
         {
             'method': method,
             'path': path,
-            'data': form_data or {},
+            'data': _form_data,
             'params': params or {},
             'headers': header_map,
             'session_id': session_id,
@@ -319,6 +325,58 @@ def _build_route_env(
     route_env.define_variable('request_method', method)
     route_env.define_variable('request_path', path)
     route_env.define_variable('session_id', session_id)
+
+    # ── EPLWebApp Session Bridge ──
+    # Override stdlib web_* functions with EPLWebApp-compatible versions
+    # that use the built-in session system instead of Flask's.
+    _sid = session_id
+
+    def _bridge_request_data(*args):
+        """Return form data dict — no Flask context needed."""
+        return _form_data
+
+    def _bridge_session_get(*args):
+        """Get session value using EPLWebApp's session backend."""
+        key = str(args[0]) if args else ''
+        default = args[1] if len(args) > 1 else None
+        return session_get(_sid, key, default)
+
+    def _bridge_session_set(*args):
+        """Set session value using EPLWebApp's session backend."""
+        if len(args) >= 2:
+            session_set(_sid, str(args[0]), args[1])
+        return None
+
+    def _bridge_session_clear(*args):
+        """Clear all session data."""
+        from epl.web import get_session_backend
+        get_session_backend().delete(_sid)
+        return None
+
+    def _bridge_request_method(*args):
+        return method
+
+    def _bridge_request_path(*args):
+        return path
+
+    def _bridge_request_param(*args):
+        param_name = str(args[0]) if args else ''
+        default = str(args[1]) if len(args) > 1 else ''
+        val = _form_data.get(param_name)
+        if val is None:
+            val = (params or {}).get(param_name)
+        return val if val is not None else default
+
+    # Register bridge functions — interpreter will find these in route_env
+    # before falling back to global_env's stdlib versions.
+    route_env.define_variable('web_request_data', _bridge_request_data)
+    route_env.define_variable('web_session_get', _bridge_session_get)
+    route_env.define_variable('web_session_set', _bridge_session_set)
+    route_env.define_variable('web_session_clear', _bridge_session_clear)
+    route_env.define_variable('web_request_method', _bridge_request_method)
+    route_env.define_variable('web_request_path', _bridge_request_path)
+    route_env.define_variable('web_request_param', _bridge_request_param)
+
     return route_env
 
 
@@ -1608,13 +1666,21 @@ class EPLHandler(BaseHTTPRequestHandler):
     MAX_BODY_SIZE = 10 * 1024 * 1024  # 10MB max request body
 
     def _get_session_id(self):
-        """Extract or create session ID from cookies."""
+        """Extract or create session ID from cookies.
+
+        If no session cookie exists, auto-creates a new session so that
+        route bodies can always rely on having a valid session_id.
+        """
         cookies = self.headers.get('Cookie', '')
         for part in cookies.split(';'):
             part = part.strip()
             if part.startswith('epl_session='):
-                return part.split('=', 1)[1]
-        return None
+                sid = part.split('=', 1)[1]
+                if sid:
+                    return sid
+        # Auto-create a new session
+        new_sid = session_create()
+        return new_sid
 
     def _apply_cors(self):
         """Add CORS headers if enabled."""
@@ -1949,7 +2015,14 @@ class EPLHandler(BaseHTTPRequestHandler):
                 self._send_html(html)
         elif response_type == 'json':
             data = self._build_json(body, form_data=form_data, params=params)
-            self._send_json(data)
+            # Support actual HTTP redirects from json routes
+            if isinstance(data, dict) and 'redirect' in data and len(data) == 1:
+                self._send_redirect(data['redirect'])
+            elif isinstance(data, str):
+                # Send text output from routes that use 'Send text'
+                self._send_html(data)
+            else:
+                self._send_json(data)
         elif response_type == 'action':
             # Execute action statements, then check for redirect
             result = self._execute_action(body, form_data=form_data)
@@ -2154,6 +2227,8 @@ class EPLHandler(BaseHTTPRequestHandler):
                         )
                     if signal.response_type == 'redirect':
                         return {'redirect': self.interpreter._eval(signal.payload, route_env)}
+                    if signal.response_type == 'text':
+                        return str(self.interpreter._eval(signal.payload, route_env))
                     result = self.interpreter._eval(signal.payload, route_env)
                     return self._normalize_json_value(result)
             except Exception as e:
@@ -2239,6 +2314,10 @@ class EPLHandler(BaseHTTPRequestHandler):
         """HTTP 303 redirect (See Other) - always redirects to GET."""
         self.send_response(303)
         self.send_header('Location', location)
+        # Persist session cookie on redirects so login flows work
+        session_id = self._get_session_id()
+        if session_id:
+            self._set_session_cookie(session_id)
         self._apply_cors()
         self.end_headers()
 
