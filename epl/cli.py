@@ -114,6 +114,12 @@ HELP = f"""\
   epl build <file.epl>             Compile to native executable (.exe)
   epl wasm <file.epl>              Compile to WebAssembly (.wasm)
   epl test [dir|file]              Run EPL test suite
+                                   --filter=PATTERN  Run only matching tests
+                                   --fail-fast / -x  Stop on first failure
+                                   --timeout=SECS    Per-test time limit
+                                   --coverage        Show code coverage report
+                                   --junit-xml=FILE  Write JUnit XML report
+                                   --quiet / -q      Minimal output (progress dots)
   epl repl                         Start interactive REPL
   epl use [--frozen] [package]     Install project deps or a package
   epl install [--frozen] [package] Alias for 'epl use'
@@ -1657,10 +1663,43 @@ def _run_tests(args, flags):
 
     from epl.test_framework import EPLTestRunner
 
-    targets = list(args)
+    # Separate test-specific flags from file/directory targets
+    # The global CLI parser only captures known flags; test-specific ones end up in args
+    all_flags = set(flags)
+    targets = []
+    for a in args:
+        if a.startswith('--') or a.startswith('-'):
+            all_flags.add(a)
+        else:
+            targets.append(a)
     if not targets:
         targets = ['tests'] if os.path.isdir('tests') else ['.']
 
+    # Parse flags
+    filter_pattern = None
+    junit_xml = None
+    timeout = None
+    fail_fast = '--fail-fast' in all_flags or '-x' in all_flags
+    coverage_enabled = '--coverage' in all_flags
+    quiet = '--quiet' in all_flags or '-q' in all_flags
+    no_color = '--no-color' in all_flags
+
+    for f in all_flags:
+        if f.startswith('--filter='):
+            filter_pattern = f.split('=', 1)[1]
+        elif f.startswith('-k='):
+            filter_pattern = f.split('=', 1)[1]
+        elif f.startswith('--junit-xml='):
+            junit_xml = f.split('=', 1)[1]
+        elif f.startswith('--timeout='):
+            val = f.split('=', 1)[1]
+            try:
+                timeout = float(val)
+            except ValueError:
+                print(f'{_red("Error:")} --timeout must be a number, got "{val}"')
+                return 1
+
+    # Discover test files
     discovered = []
     seen = set()
 
@@ -1688,17 +1727,42 @@ def _run_tests(args, flags):
 
     if not discovered:
         print(f'{_red("Error:")} No EPL test files found.')
+        print(f'{_dim("Hint:")} Place test files named test_*.epl or *_test.epl in a tests/ directory.')
         return 1
 
+    # Pre-scan to count tests for the collection header
+    test_count = 0
+    for test_file in discovered:
+        try:
+            with open(test_file, 'r', encoding='utf-8') as f:
+                source = f.read()
+            # Count test_ functions (rough regex scan)
+            import re
+            test_count += len(re.findall(r'(?m)^Function\s+(test_\w+|Test_\w+)', source))
+            # Count inline Test blocks
+            test_count += len(re.findall(r'(?m)^\s*Test\s+["\']', source))
+        except Exception:
+            pass
+
     runner = EPLTestRunner(
-        verbose='--quiet' not in flags,
-        color='--no-color' not in flags,
+        verbose=not quiet,
+        color=not no_color,
+        fail_fast=fail_fast,
+        timeout=timeout,
+        filter_pattern=filter_pattern,
+        junit_xml=junit_xml,
+        coverage_enabled=coverage_enabled,
     )
 
+    runner.print_collection_header(len(discovered), test_count)
+
     for test_file in discovered:
+        if runner._stop_requested:
+            break
         runner.run_file(test_file)
 
     return 0 if runner.report() else 1
+
 
 
 def _run_repl(flags):
