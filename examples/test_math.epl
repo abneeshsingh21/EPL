@@ -1,0 +1,62 @@
+Note: Example EPL test file -- demonstrates the test framework
+Note: Run with: epl test examples/test_math.epl
+
+Function test_addition
+    Create result equal to 2 + 3
+    expect_equal(result, 5, "2 + 3 should equal 5")
+End
+
+Function test_subtraction
+    Create result equal to 10 - 4
+    expect_equal(result, 6)
+End
+
+Function test_multiplication
+    Create product equal to 7 * 8
+    expect_equal(product, 56)
+End
+
+Function test_division
+    Create quotient equal to 20 / 4
+    expect_equal(quotient, 5)
+End
+
+Function test_negative_numbers
+    Create result equal to -5 + 3
+    expect_equal(result, -2)
+End
+
+Function test_float_arithmetic
+    Create result equal to 0.1 + 0.2
+    expect_near(result, 0.3, 0.001, "Floating point addition")
+End
+
+Function test_greater_than
+    expect_greater(10, 5)
+    expect_greater(100, 99)
+End
+
+Function test_less_than
+    expect_less(3, 7)
+    expect_less(-1, 0)
+End
+
+Function test_boolean_true
+    expect_true(1 is equal to 1)
+    expect_true(10 is greater than 5)
+End
+
+Function test_boolean_false
+    expect_false(1 is equal to 2)
+    expect_false(5 is greater than 10)
+End
+
+Function test_modulo
+    Create remainder equal to 17 % 5
+    expect_equal(remainder, 2, "17 mod 5 should be 2")
+End
+
+Function test_large_numbers
+    Create big equal to 1000000 * 1000000
+    expect_equal(big, 1000000000000)
+End

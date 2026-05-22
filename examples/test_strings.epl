@@ -1,0 +1,48 @@
+Note: Example EPL test file -- demonstrates string testing
+Note: Run with: epl test examples/test_strings.epl
+
+Function test_string_concatenation
+    Create greeting equal to "Hello" + " " + "World"
+    expect_equal(greeting, "Hello World")
+End
+
+Function test_string_length
+    Create word equal to "EPL"
+    expect_equal(length(word), 3)
+End
+
+Function test_string_contains
+    Create sentence equal to "EPL is awesome"
+    expect_contains(sentence, "awesome")
+    expect_not_contains(sentence, "terrible")
+End
+
+Function test_string_repeat
+    Create repeated equal to "ab" * 3
+    expect_equal(repeated, "ababab")
+End
+
+Function test_empty_string
+    Create blank equal to ""
+    expect_equal(length(blank), 0)
+End
+
+Function test_string_type
+    Create username equal to "Alice"
+    expect_type(username, "str")
+End
+
+Function test_not_null
+    Create item equal to "something"
+    expect_not_null(item)
+End
+
+Function test_string_comparison
+    expect_true("abc" is equal to "abc")
+    expect_false("abc" is equal to "xyz")
+End
+
+Test "inline string concatenation"
+    Create msg equal to "Hello" + " " + "World"
+    expect_equal(msg, "Hello World")
+End Test

@@ -118,7 +118,7 @@ class EPLCoverageTracker:
         for filepath, info in sorted(self._files.items()):
             pct = self.get_file_coverage(filepath)
             name = os.path.basename(filepath)
-            bar = '█' * int(pct / 5) + '░' * (20 - int(pct / 5))
+            bar = '#' * int(pct / 5) + '.' * (20 - int(pct / 5))
             print(f'  {name:30s}  {bar}  {pct:5.1f}%')
         total = self.get_total_coverage()
         print(f'{"─" * 50}')
@@ -371,18 +371,39 @@ class Mock:
 # ═══════════════════════════════════════════════════════════
 
 
+class FailFastException(Exception):
+    """Raised to stop test execution after the first failure."""
+    pass
+
+
 class EPLTestRunner:
     """Runs EPL test files and collects results."""
 
-    def __init__(self, verbose=True, color=True, tags=None, junit_xml=None):
+    def __init__(self, verbose=True, color=True, tags=None, junit_xml=None,
+                 fail_fast=False, timeout=None, filter_pattern=None,
+                 coverage_enabled=False):
         self.verbose = verbose
         self.color = color and sys.stdout.isatty()
         self.filter_tags = tags or []
         self.junit_xml_path = junit_xml
+        self.fail_fast = fail_fast
+        self.timeout = timeout  # seconds per test, None = no limit
+        self.filter_pattern = filter_pattern  # fnmatch pattern for test names
         self.assertions = TestAssertions()
         self.suites: List[TestSuiteResult] = []
         self.coverage = EPLCoverageTracker()
-        self.coverage.enabled = True
+        self.coverage.enabled = coverage_enabled
+        self._stop_requested = False
+        self._total_collected = 0
+        self._files_collected = 0
+        # Detect if stdout can handle Unicode (Windows cmd.exe often can't)
+        self._unicode = True
+        try:
+            encoding = getattr(sys.stdout, 'encoding', '') or ''
+            if encoding.lower().replace('-', '') not in ('utf8', 'utf16', 'utf32', 'utf16le', 'utf16be'):
+                self._unicode = False
+        except Exception:
+            self._unicode = False
 
     # ─── Colors ─────────────────────────────────────
 
@@ -404,10 +425,43 @@ class EPLTestRunner:
     def _bold(self, text):
         return f'\033[1m{text}\033[0m' if self.color else text
 
+    def _sym(self, unicode_char, ascii_fallback):
+        """Return a Unicode symbol or an ASCII fallback depending on terminal support."""
+        return unicode_char if self._unicode else ascii_fallback
+
     # ─── Public API ─────────────────────────────────
+
+    def _matches_filter(self, test_name: str) -> bool:
+        """Check if a test name matches the filter pattern."""
+        if not self.filter_pattern:
+            return True
+        from fnmatch import fnmatch
+        pattern = self.filter_pattern
+        # Support simple substring match (no wildcards) and glob patterns
+        if '*' not in pattern and '?' not in pattern:
+            return pattern.lower() in test_name.lower()
+        return fnmatch(test_name.lower(), pattern.lower())
+
+    def print_collection_header(self, file_count: int, test_count: int):
+        """Print the collection summary before running tests."""
+        self._files_collected = file_count
+        self._total_collected = test_count
+        if self.verbose:
+            print(f'\n{self._bold("EPL Test Runner")} {self._gray("v2.0")}')
+            print(f'{self._cyan("Collected")} {self._bold(str(test_count))} tests from {self._bold(str(file_count))} files')
+            if self.filter_pattern:
+                print(f'{self._gray("Filter:")} {self.filter_pattern}')
+            if self.fail_fast:
+                print(f'{self._gray("Mode:")} fail-fast (stop on first failure)')
+            if self.timeout:
+                print(f'{self._gray("Timeout:")} {self.timeout}s per test')
+            print(f'{self._sym(chr(9472), "-") * 60}')
 
     def run_file(self, filepath: str) -> TestSuiteResult:
         """Run tests from a single EPL file."""
+        if self._stop_requested:
+            return TestSuiteResult(name=os.path.basename(filepath))
+
         suite = TestSuiteResult(name=os.path.basename(filepath))
         start = time.time()
 
@@ -421,7 +475,10 @@ class EPLTestRunner:
 
         if self.coverage.enabled:
             self.coverage.register_file(filepath, source)
-        self._run_tests_from_source(source, suite, filepath)
+        try:
+            self._run_tests_from_source(source, suite, filepath)
+        except FailFastException:
+            pass
         suite.duration = time.time() - start
         self.suites.append(suite)
         return suite
@@ -430,7 +487,10 @@ class EPLTestRunner:
         """Run tests from EPL source string."""
         suite = TestSuiteResult(name=name)
         start = time.time()
-        self._run_tests_from_source(source, suite, name)
+        try:
+            self._run_tests_from_source(source, suite, name)
+        except FailFastException:
+            pass
         suite.duration = time.time() - start
         self.suites.append(suite)
         return suite
@@ -444,6 +504,8 @@ class EPLTestRunner:
         if not files:
             files = sorted(glob.glob(os.path.join(dir_path, '*test*.epl')))
         for f in files:
+            if self._stop_requested:
+                break
             suite = self.run_file(f)
             results.append(suite)
         return results
@@ -457,16 +519,47 @@ class EPLTestRunner:
         skipped = sum(s.skipped for s in self.suites)
         duration = sum(s.duration for s in self.suites)
 
-        print(f'\n{"=" * 60}')
-        print(self._bold(f'Test Results: {passed}/{total} passed'))
+        # In quiet mode, end the progress dots line
+        if not self.verbose and total > 0:
+            print()  # newline after dots
+
+        # Failure summary — re-list all failures with details
+        all_failures = []
+        for suite in self.suites:
+            for test in suite.tests:
+                if test.status in ('failed', 'error'):
+                    all_failures.append((suite.name, test))
+
+        if all_failures:
+            sep = self._sym(chr(9472), '-') * 60
+            print(f'\n{self._red(sep)}')
+            print(self._bold(self._red('  FAILURES')))
+            print(f'{self._red(sep)}')
+            for suite_name, test in all_failures:
+                label = 'FAIL' if test.status == 'failed' else 'ERROR'
+                print(f'  {self._red(label)} {suite_name}::{test.name}')
+                if test.error_message:
+                    print(f'       {self._red(test.error_message)}')
+            print(f'{self._red(sep)}')
+
+        # Summary line
+        eq_sep = self._sym(chr(9552), '=') * 60
+        check = self._sym(chr(10003), 'PASS:')
+        cross = self._sym(chr(10007), 'FAIL:')
+        print(f'\n{eq_sep}')
+        if failed == 0 and errors == 0:
+            status_line = self._green(self._bold(f'  {check} ALL {total} TESTS PASSED'))
+        else:
+            status_line = self._red(self._bold(f'  {cross} {failed + errors} TESTS FAILED'))
+        print(status_line)
         print(
-            f'  {self._green(f"✓ {passed} passed")}  '
-            f'{self._red(f"✗ {failed} failed") if failed else ""}'
-            f'{"  " + self._red(f"! {errors} errors") if errors else ""}'
-            f'{"  " + self._yellow(f"⊘ {skipped} skipped") if skipped else ""}'
+            f'  {self._green(f"{passed} passed")}'
+            f'{"  " + self._red(f"{failed} failed") if failed else ""}'
+            f'{"  " + self._red(f"{errors} errors") if errors else ""}'
+            f'{"  " + self._yellow(f"{skipped} skipped") if skipped else ""}'
+            f'  {self._gray(f"in {duration:.3f}s")}'
         )
-        print(f'  Duration: {duration:.3f}s')
-        print(f'{"=" * 60}')
+        print(eq_sep)
 
         # Write JUnit XML if requested
         if self.junit_xml_path:
@@ -485,9 +578,18 @@ class EPLTestRunner:
         # Set up interpreter with test builtins
         interp = self._create_test_interpreter()
 
+        # Strip inline Test blocks before parsing (they are handled separately via regex)
+        # This prevents parser errors from inline `Test "name" ... End Test` blocks
+        parse_source = re.sub(
+            r'(?m)^\s*Test\s+["\'].*?["\'].*?End\s+Test\.?\s*$',
+            '',
+            source,
+            flags=re.DOTALL,
+        )
+
         # First, run the entire file to define functions/classes
         try:
-            tokens = Lexer(source).tokenize()
+            tokens = Lexer(parse_source).tokenize()
             program = Parser(tokens).parse()
             interp.execute(program)
         except Exception as e:
@@ -510,15 +612,24 @@ class EPLTestRunner:
         # Also detect inline test blocks via pattern matching
         inline_tests = self._find_inline_tests(source)
 
+        # Apply filter pattern
+        if self.filter_pattern:
+            test_funcs = [f for f in test_funcs if self._matches_filter(f)]
+            inline_tests = [(n, s) for n, s in inline_tests if self._matches_filter(n)]
+
         if self.verbose and (test_funcs or inline_tests):
             print(f'\n{self._bold(suite.name)}')
 
         # Run test functions
         for func_name in sorted(test_funcs):
+            if self._stop_requested:
+                raise FailFastException()
             self._run_single_test(interp, func_name, suite, setup_func, teardown_func)
 
         # Run inline tests
         for test_name, test_source in inline_tests:
+            if self._stop_requested:
+                raise FailFastException()
             self._run_inline_test(test_name, test_source, suite, interp)
 
     def _find_inline_tests(self, source: str) -> List[Tuple[str, str]]:
@@ -542,6 +653,31 @@ class EPLTestRunner:
                 tests.append((test_name, '\n'.join(test_lines)))
             i += 1
         return tests
+
+    def _run_with_timeout(self, func, timeout_seconds):
+        """Run a function with a timeout. Returns (result_or_none, timed_out)."""
+        import threading
+        result = [None]
+        exception = [None]
+        completed = threading.Event()
+
+        def _target():
+            try:
+                func()
+            except Exception as e:
+                exception[0] = e
+            finally:
+                completed.set()
+
+        thread = threading.Thread(target=_target, daemon=True)
+        thread.start()
+        completed.wait(timeout=timeout_seconds)
+
+        if not completed.is_set():
+            return None, True  # timed out
+        if exception[0]:
+            raise exception[0]
+        return result[0], False
 
     def _run_single_test(
         self,
@@ -573,7 +709,7 @@ class EPLTestRunner:
             else:
                 test_interp.global_env.define_variable(k, value, var_type)
 
-        try:
+        def _execute_test():
             # Run setup
             if setup_func:
                 call_node = ast.FunctionCall(setup_func, [], line=0)
@@ -583,8 +719,19 @@ class EPLTestRunner:
             call_node = ast.FunctionCall(func_name, [], line=0)
             test_interp._exec_function_call(call_node, test_interp.global_env)
 
-            result.status = 'passed'
-            result.assertions = self.assertions.count
+        try:
+            if self.timeout:
+                _, timed_out = self._run_with_timeout(_execute_test, self.timeout)
+                if timed_out:
+                    result.status = 'error'
+                    result.error_message = f'Test timed out after {self.timeout}s'
+                else:
+                    result.status = 'passed'
+                    result.assertions = self.assertions.count
+            else:
+                _execute_test()
+                result.status = 'passed'
+                result.assertions = self.assertions.count
 
         except AssertionError as e:
             result.status = 'failed'
@@ -614,6 +761,10 @@ class EPLTestRunner:
             result.duration = time.time() - start
             suite.tests.append(result)
             self._print_result(result)
+
+            # Check fail-fast
+            if self.fail_fast and result.status in ('failed', 'error'):
+                self._stop_requested = True
 
     def _run_inline_test(
         self, test_name: str, test_source: str, suite: TestSuiteResult, base_interp: Interpreter
@@ -680,23 +831,36 @@ class EPLTestRunner:
     # ─── Output ─────────────────────────────────────
 
     def _print_result(self, result: TestResult):
-        if not self.verbose:
-            return
-        if result.status == 'passed':
-            symbol = self._green('  ✓')
-            suffix = self._gray(f' ({result.assertions} assertions, {result.duration:.3f}s)')
-            print(f'{symbol} {result.name}{suffix}')
-        elif result.status == 'failed':
-            symbol = self._red('  ✗')
-            print(f'{symbol} {result.name}')
-            print(f'    {self._red(result.error_message)}')
-        elif result.status == 'error':
-            symbol = self._red('  !')
-            print(f'{symbol} {result.name}')
-            print(f'    {self._red(result.error_message)}')
-        elif result.status == 'skipped':
-            symbol = self._yellow('  ⊘')
-            print(f'{symbol} {result.name} (skipped)')
+        if self.verbose:
+            if result.status == 'passed':
+                sym = self._sym(chr(10003), '+')
+                symbol = self._green(f'  {sym}')
+                suffix = self._gray(f' ({result.assertions} assertions, {result.duration:.3f}s)')
+                print(f'{symbol} {result.name}{suffix}')
+            elif result.status == 'failed':
+                sym = self._sym(chr(10007), 'x')
+                symbol = self._red(f'  {sym}')
+                print(f'{symbol} {result.name}')
+                print(f'    {self._red(result.error_message)}')
+            elif result.status == 'error':
+                symbol = self._red('  !')
+                print(f'{symbol} {result.name}')
+                print(f'    {self._red(result.error_message)}')
+            elif result.status == 'skipped':
+                sym = self._sym(chr(8856), '-')
+                symbol = self._yellow(f'  {sym}')
+                print(f'{symbol} {result.name} (skipped)')
+        else:
+            # Quiet mode: print progress dots
+            if result.status == 'passed':
+                sys.stdout.write(self._green('.'))
+            elif result.status == 'failed':
+                sys.stdout.write(self._red('F'))
+            elif result.status == 'error':
+                sys.stdout.write(self._red('E'))
+            elif result.status == 'skipped':
+                sys.stdout.write(self._yellow('s'))
+            sys.stdout.flush()
 
     # ─── JUnit XML ──────────────────────────────────
 
