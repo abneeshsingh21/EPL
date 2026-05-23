@@ -49,3 +49,34 @@ End
 Function tool_news takes topic
     Return tool_web_search(topic + " latest breaking news")
 End
+
+Function tool_generate_image takes prompt
+    Create prompt_encoded equal to url_encode(prompt)
+    Create url equal to "https://image.pollinations.ai/prompt/" + prompt_encoded + "?width=1920&height=1080&nologo=true"
+    Return url
+End
+
+Function tool_create_role takes guild_id, token, role_name, color_hex, permissions
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/roles"
+    Create body equal to json_stringify(Map with name = role_name and permissions = permissions)
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_post(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Role '" + role_name + "' created successfully."
+    Else
+        Return "Failed to create role. Error: " + response.body
+    End
+End
+
+Function tool_create_channel takes guild_id, token, channel_name, type
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/channels"
+    Create type_int equal to int(type)
+    Create body equal to json_stringify(Map with name = channel_name and type = type_int)
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_post(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Channel '" + channel_name + "' created successfully."
+    Else
+        Return "Failed to create channel. Error: " + response.body
+    End
+End

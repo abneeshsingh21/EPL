@@ -30,7 +30,8 @@ Function gateway_handle_message takes ws_map, d
             End
         End
 
-        Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url)
+        Create guild_id equal to d["guild_id"]
+        Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url, guild_id, ws_map["token"])
         
         Create embed equal to Map with description = reply and color = 3447003
         Create embeds_arr equal to []

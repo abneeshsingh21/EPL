@@ -2,6 +2,7 @@ Import "memory.epl"
 Import "tools.epl"
 Import "agent.epl"
 Import "gateway.epl"
+Import "github.epl"
 
 Say "╔══════════════════════════════════════════════╗"
 Say "║      EPLAI Discord Agent v1.0                ║"
@@ -36,5 +37,8 @@ Say ""
 Say "[Bot] Connecting to Discord Gateway using EPL native WebSocket..."
 Say "[Bot] Using EPL's net_ws_connect — no Python bridge."
 Say ""
+
+Say "[System] Spawning GitHub Webhook listener on port 8080..."
+thread_run(run_github_server, [8080])
 
 gateway_run(db, discord_token, groq_api_key)

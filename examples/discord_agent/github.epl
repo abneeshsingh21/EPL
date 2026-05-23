@@ -1,0 +1,47 @@
+Note: EPL GitHub Webhook Server
+
+Create WebApp called github_hook
+
+Route "/webhook" responds with
+    Create payload equal to request.data
+    If payload is not equal to Nothing then
+        Create sender equal to payload.get("sender")
+        Create repo equal to payload.get("repository")
+        
+        Create sender_name equal to "Someone"
+        If sender is not equal to Nothing then
+            Set sender_name to sender.get("login")
+        End
+        
+        Create repo_name equal to "a repository"
+        If repo is not equal to Nothing then
+            Set repo_name to repo.get("full_name")
+        End
+        
+        Say "[GitHub] Received webhook from " + sender_name + " for repo " + repo_name
+        
+        Create message equal to "🚀 **GitHub Update Detected!**\nUser `" + sender_name + "` pushed a new update to repository `" + repo_name + "`.\nCheck it out and stay updated!"
+        
+        Create db equal to db_open("agent_memory.db")
+        Create rows equal to db_query(db, "SELECT channel_id FROM active_channels ORDER BY timestamp DESC LIMIT 1")
+        If length(rows) > 0 then
+            Create channel_id equal to rows[0]["channel_id"]
+            Create embed equal to Map with description = message and color = 1752220
+            Create embeds_arr equal to []
+            embeds_arr.add(embed)
+            Create body equal to json_stringify(Map with embeds = embeds_arr)
+            Create token equal to env_get("DISCORD_TOKEN")
+            db_execute(db, "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, token])
+            Say "[GitHub] Queued broadcast to Discord."
+        End
+        
+        Send json Map with status = "ok"
+    Else
+        Send json Map with status = "error"
+    End
+End
+
+Function run_github_server takes port
+    Display "GitHub Webhook Server listening on port " + port
+    Start github_hook on port port
+End
