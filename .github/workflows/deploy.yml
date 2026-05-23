@@ -1,0 +1,47 @@
+name: Deploy Discord Bot to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set up Azure CLI Extension
+        run: |
+          az extension add --name containerapp --upgrade
+
+      - name: Log in to Azure Container Registry
+        run: |
+          az acr login --name eplbotacr2026
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t eplbotacr2026.azurecr.io/epl-discord-bot:latest .
+          docker push eplbotacr2026.azurecr.io/epl-discord-bot:latest
+
+      - name: Deploy to Azure Container Apps
+        run: |
+          ACR_PASSWORD=$(az acr credential show --name eplbotacr2026 --query "passwords[0].value" -o tsv)
+          
+          az containerapp up \
+            --name epl-discord-bot \
+            --resource-group EPL-Container-RG \
+            --environment epl-discord-bot-env \
+            --location centralindia \
+            --image eplbotacr2026.azurecr.io/epl-discord-bot:latest \
+            --registry-server eplbotacr2026.azurecr.io \
+            --registry-username eplbotacr2026 \
+            --registry-password $ACR_PASSWORD \
+            --env-vars DISCORD_TOKEN="${{ secrets.DISCORD_TOKEN }}" GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" AZURE_API_KEY="${{ secrets.AZURE_API_KEY }}"

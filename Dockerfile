@@ -32,6 +32,6 @@ COPY examples/ /examples/
 # Expose web server port
 EXPOSE 3000
 
-# Default: show help
+# Default: run the Discord Community Manager Bot
 ENTRYPOINT ["epl"]
-CMD ["--help"]
+CMD ["/examples/discord_agent/main.epl"]
