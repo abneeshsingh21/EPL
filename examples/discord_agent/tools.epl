@@ -80,3 +80,38 @@ Function tool_create_channel takes guild_id, token, channel_name, type
         Return "Failed to create channel. Error: " + response.body
     End
 End
+
+Function tool_scan_server takes guild_id, token
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/channels"
+    Create headers equal to dict_from_lists(["Authorization"], ["Bot " + token])
+    Create response equal to http_get(url, headers)
+    If response.status >= 200 and response.status < 300 then
+        Create channels equal to json_parse(response.body)
+        Create names equal to []
+        For Each ch in channels
+            Create type_str equal to "text"
+            If ch["type"] is equal to 4 then
+                Set type_str to "category"
+            End
+            names.add(ch["name"] + " (" + type_str + ") ID: " + ch["id"])
+        End
+        Return "CHANNELS: " + names.join(", ")
+    Else
+        Return "Failed to scan server. Error: " + response.body
+    End
+End
+
+Function tool_broadcast takes channel_id, token, text
+    Create url equal to "https://discord.com/api/v10/channels/" + channel_id + "/messages"
+    Create embed equal to Map with description = text and color = 15158332
+    Create embeds_arr equal to []
+    embeds_arr.add(embed)
+    Create body equal to json_stringify(Map with embeds = embeds_arr)
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_post(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Broadcast successfully sent to channel " + channel_id
+    Else
+        Return "Broadcast failed. Error: " + response.body
+    End
+End

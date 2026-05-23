@@ -3,7 +3,10 @@ Create GROQ_MODEL equal to "llama-3.3-70b-versatile"
 Create AZURE_URL equal to "https://eplang-openai-sea-e884e.openai.azure.com/openai/deployments/gpt-5-4-mini/chat/completions?api-version=2024-02-15-preview"
 Create AZURE_MODEL equal to "gpt-5.4-mini"
 
-Create SYSTEM_PROMPT equal to "You are EPLAI, a Senior Assistant Developer and Senior Assistant Designer. You are calm, highly capable, and expertly manage the EPL Discord Server. CORE KNOWLEDGE: EPL is a modern, English-syntax programming language founded by Abneesh Singh. SERVER LAYOUT: Guide users appropriately. CODE SIMULATOR: Analyze EPL code, point out errors, or simulate the output. You have long-term memory. You can use tools: SEARCH:<query>, WEATHER:<loc>, CALCULATE:<expr>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, CREATE_ROLE:<name>|<hex_color>|<permissions_int>, CREATE_CHANNEL:<name>|<type 0=text 4=category>. Output tool commands alone on one line. CRITICAL BEHAVIOR: Keep answers concise, natural, and conversational. Do not use verbose boilerplate. Handle every situation expertly and smartly."
+Create SYSTEM_PROMPT equal to "You are EPLAI, a Senior Assistant Developer, Designer, and fully autonomous Founder-level Manager of the EPL Discord Server. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "HISTORY: EPL (English Programming Language) is a highly modern, English-syntax language created by Abneesh Singh to revolutionize programming accessibility. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "DISCORD MGMT: You must manage the server autonomously. If a user asks a trivial, useless, or toxic question, YOU MUST OUTPUT EXACTLY 'IGNORE' to drop the message. Do not respond to simple greetings. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOOLS: SEARCH:<query>, WEATHER:<loc>, CALCULATE:<expr>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, CREATE_ROLE:<name>|<hex>, CREATE_CHANNEL:<name>|<type 0=text 4=cat>, SCAN_SERVER:trigger, BROADCAST:<channel_id>|<msg>. Output tool commands alone on one line."
 
 Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
     Create body equal to json_stringify(Map with model = model_to_use and messages = messages and temperature = 0.7 and max_tokens = 1024)
@@ -149,6 +152,10 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             messages.add(Map with role = "system" and content = "Image generated successfully. The URL is: " + img_url + " (Include this URL directly in your next message).")
 
         Otherwise If llm_reply.starts_with("CREATE_ROLE:") then
+            If username is not equal to "abneesh.dev" then
+                messages.add(Map with role = "system" and content = "ERROR: Unauthorized. Only abneesh.dev can execute admin commands.")
+                Continue
+            End
             Create role_data equal to llm_reply.replace("CREATE_ROLE:", "").trim()
             Create parts equal to role_data.split("|")
             If length(parts) >= 2 then
@@ -165,6 +172,10 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             End
 
         Otherwise If llm_reply.starts_with("CREATE_CHANNEL:") then
+            If username is not equal to "abneesh.dev" then
+                messages.add(Map with role = "system" and content = "ERROR: Unauthorized. Only abneesh.dev can execute admin commands.")
+                Continue
+            End
             Create channel_data equal to llm_reply.replace("CREATE_CHANNEL:", "").trim()
             Create parts equal to channel_data.split("|")
             If length(parts) >= 2 then
@@ -176,6 +187,27 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
                 messages.add(Map with role = "system" and content = result)
             End
 
+        Otherwise If llm_reply.starts_with("SCAN_SERVER:") then
+            Say "[Agent] Scanning server infrastructure..."
+            Create result equal to tool_scan_server(guild_id, token)
+            messages.add(Map with role = "assistant" and content = llm_reply)
+            messages.add(Map with role = "system" and content = "Server layout: " + result)
+
+        Otherwise If llm_reply.starts_with("BROADCAST:") then
+            If username is not equal to "abneesh.dev" then
+                messages.add(Map with role = "system" and content = "ERROR: Unauthorized. Only abneesh.dev can execute admin commands.")
+                Continue
+            End
+            Create b_data equal to llm_reply.replace("BROADCAST:", "").trim()
+            Create parts equal to b_data.split("|")
+            If length(parts) >= 2 then
+                Create target_id equal to parts[0].trim()
+                Create text equal to parts[1].trim()
+                Say "[Agent] Broadcasting to " + target_id
+                Create result equal to tool_broadcast(target_id, token, text)
+                messages.add(Map with role = "assistant" and content = llm_reply)
+                messages.add(Map with role = "system" and content = result)
+            End
         Otherwise
             memory_save_message(db, user_id, username, "user", user_message)
             memory_save_message(db, user_id, username, "assistant", llm_reply)

@@ -33,13 +33,17 @@ Function gateway_handle_message takes ws_map, d
         Create guild_id equal to d["guild_id"]
         Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url, guild_id, ws_map["token"])
         
-        Create embed equal to Map with description = reply and color = 3447003
-        Create embeds_arr equal to []
-        embeds_arr.add(embed)
-        Create body equal to json_stringify(Map with embeds = embeds_arr)
-        
-        db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
-        Say "[Agent] Queued reply."
+        If reply is not equal to "IGNORE" then
+            Create embed equal to Map with description = reply and color = 3447003
+            Create embeds_arr equal to []
+            embeds_arr.add(embed)
+            Create body equal to json_stringify(Map with embeds = embeds_arr)
+            
+            db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
+            Say "[Agent] Queued reply."
+        Else
+            Say "[Agent] Message ignored by LLM filter."
+        End
     End
 End
 
@@ -159,14 +163,14 @@ End
 
 Function gateway_autonomous_loop takes ws_map
     While True
-        real_sleep(3600)
+        real_sleep(86400)
         Say "[Autonomous] Running proactive background loop..."
         Create rows equal to db_query(ws_map["db"], "SELECT channel_id FROM active_channels ORDER BY timestamp DESC LIMIT 1")
         If length(rows) > 0 then
             Create channel_id equal to rows[0]["channel_id"]
             Create messages equal to []
             messages.add(Map with role = "system" and content = SYSTEM_PROMPT)
-            messages.add(Map with role = "user" and content = "Generate a short, proactive, interesting thought, fun fact, or question to randomly drop into the chat to start a conversation. Do NOT use any tools.")
+            messages.add(Map with role = "user" and content = "Generate our official Daily Update for the community. Share a highly valuable tech insight, language tip, or major update. Be professional, smart, and engaging. Do not use tools.")
             Create reply equal to agent_call_api(ws_map["groq_api_key"], messages, GROQ_MODEL, GROQ_URL)
             
             Create embed equal to Map with description = reply and color = 15158332
