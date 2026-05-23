@@ -1,0 +1,63 @@
+Note: ══════════════════════════════════════════════════════════
+Note:  main.epl — EPLAI Discord Bot Entry Point
+Note:
+Note:  100% written in EPL — no Python bridge, no external libs
+Note:  Uses: EPL WebSocket (gateway), EPL HTTP (Groq + Discord REST),
+Note:        EPL SQLite (memory), EPL Threading (heartbeat loop)
+Note:
+Note:  Free AI: Groq LLaMA 3 70B (300+ tokens/sec, no cost)
+Note:  Free Search: DuckDuckGo Instant API (no key required)
+Note:
+Note:  To run:
+Note:    Set-Item Env:DISCORD_TOKEN "your_discord_token"
+Note:    Set-Item Env:GROQ_API_KEY  "your_groq_api_key"
+Note:    epl main.epl
+Note: ══════════════════════════════════════════════════════════
+
+Import "memory.epl"
+Import "tools.epl"
+Import "agent.epl"
+Import "gateway.epl"
+
+Note: ── Startup Banner ──
+Say "╔══════════════════════════════════════════════╗"
+Say "║      EPLAI Discord Agent v1.0                ║"
+Say "║  Built 100% in EPL — English Prog. Language  ║"
+Say "║  LLM: Groq LLaMA 3 70B (Free, 300+ tok/s)   ║"
+Say "║  Memory: SQLite  |  Search: DuckDuckGo Free  ║"
+Say "╚══════════════════════════════════════════════╝"
+Say ""
+
+Note: ── Environment Variable Checks ──
+Create discord_token equal to env_get("DISCORD_TOKEN")
+Create groq_api_key equal to env_get("GROQ_API_KEY")
+
+If discord_token is equal to Nothing then
+    Say "❌ ERROR: DISCORD_TOKEN environment variable is not set."
+    Say "   Run: Set-Item Env:DISCORD_TOKEN 'your_bot_token'"
+    exit_code(1)
+End
+
+If groq_api_key is equal to Nothing then
+    Say "❌ ERROR: GROQ_API_KEY environment variable is not set."
+    Say "   Get a free key at: https://console.groq.com"
+    Say "   Run: Set-Item Env:GROQ_API_KEY 'your_groq_api_key'"
+    exit_code(1)
+End
+
+Say "✅ DISCORD_TOKEN loaded."
+Say "✅ GROQ_API_KEY loaded."
+
+Note: ── Initialize Persistent Memory ──
+Say "[Memory] Opening database: agent_memory.db"
+Create db equal to real_db_open("agent_memory.db")
+memory_setup(db)
+Say "[Memory] ✅ Database ready."
+Say ""
+
+Note: ── Launch Gateway Connection ──
+Say "[Bot] Connecting to Discord Gateway using EPL native WebSocket..."
+Say "[Bot] Using EPL's net_ws_connect — no Python bridge."
+Say ""
+
+gateway_run(discord_token, db, groq_api_key)

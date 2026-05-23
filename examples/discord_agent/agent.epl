@@ -1,0 +1,116 @@
+Note: ══════════════════════════════════════════════════════════
+Note:  agent.epl — Agentic LLM Brain (Groq/LLaMA 3 — FREE)
+Note:  Uses EPL's native http and json stdlib — zero Python
+Note: ══════════════════════════════════════════════════════════
+
+Create GROQ_URL equal to "https://api.groq.com/openai/v1/chat/completions"
+Create GROQ_MODEL equal to "llama3-70b-8192"
+
+Create SYSTEM_PROMPT equal to "You are an intelligent, self-learning Discord AI agent named EPLAI. You were built using the EPL (English Programming Language) — a revolutionary language that writes code in plain English.
+
+You have long-term memory of each user's conversation history and known facts about them. You can use special commands to trigger tools:
+  SEARCH:<query>       — Search the web for information
+  REMEMBER:<fact>      — Save an important fact about this user to memory
+  LEARN:<topic>|<info> — Save new general knowledge you've learned
+
+When using a command, output ONLY the command on a single line. After tool results are returned, you will be called again to produce the final user-facing response.
+
+You are curious, helpful, and get smarter with every conversation. Never refuse to help. Be conversational, precise, and powerful."
+
+Function agent_call_groq takes api_key, messages
+    Create body equal to json_encode(Map with
+        model = GROQ_MODEL and
+        messages = messages and
+        temperature = 0.7 and
+        max_tokens = 1024)
+
+    Create headers equal to Map with
+        "Authorization" = "Bearer " + api_key and
+        "Content-Type" = "application/json"
+
+    Create response equal to http_post(GROQ_URL, body, headers)
+
+    If response.status is not equal to 200 then
+        Say "Groq API Error " + response.status + ": " + response.body
+        Return "I'm having trouble connecting to my brain right now. Please try again."
+    End
+
+    Create data equal to json_decode(response.body)
+    Return data.choices[0].message.content
+End
+
+Function agent_process takes db, user_id, username, user_message, api_key
+    Note: Load user's conversation history from memory
+    Create history equal to memory_get_history(db, user_id)
+    Create facts equal to memory_get_facts(db, user_id)
+
+    Note: Build system prompt enriched with user context
+    Create system_content equal to SYSTEM_PROMPT
+    If length(facts) > 0 then
+        Set system_content to system_content + "\n\nKnown facts about " + username + ": " + string_join(facts, ", ")
+    End
+
+    Note: Build the full context window for the LLM
+    Create messages equal to [Map with role = "system" and content = system_content]
+
+    Note: Append historical messages
+    For Each msg in history
+        list_append(messages, msg)
+    End
+
+    Note: Append the current user message
+    list_append(messages, Map with role = "user" and content = user_message)
+
+    Note: ── Agentic Reasoning Loop (up to 4 steps) ──
+    Create final_reply equal to ""
+    Create step equal to 0
+    Create running equal to True
+
+    While running and step < 4
+        Create llm_reply equal to agent_call_groq(api_key, messages)
+        Set step to step + 1
+
+        Note: Check if the LLM wants to use a tool
+        If string_starts_with(llm_reply, "SEARCH:") then
+            Create query equal to string_trim(string_replace(llm_reply, "SEARCH:", ""))
+            Say "[Agent] Using SEARCH tool: " + query
+            Create search_result equal to tool_web_search(query)
+            list_append(messages, Map with role = "assistant" and content = llm_reply)
+            list_append(messages, Map with role = "tool" and content = "Search result for '" + query + "': " + search_result)
+
+        Otherwise If string_starts_with(llm_reply, "REMEMBER:") then
+            Create fact equal to string_trim(string_replace(llm_reply, "REMEMBER:", ""))
+            Say "[Agent] Saving fact to memory: " + fact
+            memory_save_fact(db, user_id, fact)
+            list_append(messages, Map with role = "assistant" and content = llm_reply)
+            list_append(messages, Map with role = "tool" and content = "Fact saved to memory: " + fact)
+
+        Otherwise If string_starts_with(llm_reply, "LEARN:") then
+            Create learn_data equal to string_trim(string_replace(llm_reply, "LEARN:", ""))
+            Create parts equal to string_split(learn_data, "|")
+            If length(parts) >= 2 then
+                Create topic equal to string_trim(parts[0])
+                Create knowledge equal to string_trim(parts[1])
+                Say "[Agent] Learning new knowledge: " + topic
+                memory_save_knowledge(db, topic, knowledge)
+                list_append(messages, Map with role = "assistant" and content = llm_reply)
+                list_append(messages, Map with role = "tool" and content = "Knowledge saved: " + topic)
+            End
+
+        Otherwise
+            Note: Final answer — no more tools needed
+            Set final_reply to llm_reply
+            Set running to False
+        End
+    End
+
+    If final_reply is equal to "" then
+        Set final_reply to "I got a bit confused thinking about that. Could you rephrase?"
+    End
+
+    Note: Persist this exchange to memory
+    memory_save_message(db, user_id, username, "user", user_message)
+    memory_save_message(db, user_id, username, "assistant", final_reply)
+
+    Return final_reply
+End

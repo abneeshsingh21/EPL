@@ -1,0 +1,232 @@
+Note: ══════════════════════════════════════════════════════════
+Note:  gateway.epl — Discord Gateway WebSocket Client
+Note:  Implements the full Discord Gateway protocol natively in EPL
+Note:  Opcodes: DISPATCH(0), HEARTBEAT(1), IDENTIFY(2), HELLO(10),
+Note:           HEARTBEAT_ACK(11), RECONNECT(7), INVALID_SESSION(9)
+Note: ══════════════════════════════════════════════════════════
+
+Note: Discord Gateway URL
+Create DISCORD_GATEWAY_URL equal to "wss://gateway.discord.gg/?v=10&encoding=json"
+
+Note: Opcodes
+Create OP_DISPATCH equal to 0
+Create OP_HEARTBEAT equal to 1
+Create OP_IDENTIFY equal to 2
+Create OP_RESUME equal to 6
+Create OP_RECONNECT equal to 7
+Create OP_INVALID_SESSION equal to 9
+Create OP_HELLO equal to 10
+Create OP_HEARTBEAT_ACK equal to 11
+
+Note: Global state
+Create _session_id equal to Nothing
+Create _sequence equal to Nothing
+Create _heartbeat_interval equal to 41250
+Create _last_ack equal to True
+Create _ws_id equal to Nothing
+
+Function gateway_connect takes Nothing
+    Say "[Gateway] Connecting to Discord WebSocket Gateway..."
+    Create ws equal to net_ws_connect(DISCORD_GATEWAY_URL)
+    Set _ws_id to ws
+    Say "[Gateway] WebSocket connection established."
+    Return ws
+End
+
+Function gateway_send takes ws, op, data
+    Create payload equal to Map with op = op and d = data
+    If _sequence is not equal to Nothing then
+        Create msg equal to Map with op = op and d = data and s = _sequence
+        Set payload to msg
+    End
+    Create json_payload equal to json_encode(payload)
+    net_ws_send(ws, json_payload)
+End
+
+Function gateway_send_heartbeat takes ws
+    Say "[Gateway] Sending heartbeat... (seq=" + string(_sequence) + ")"
+    gateway_send(ws, OP_HEARTBEAT, _sequence)
+End
+
+Function gateway_identify takes ws, token
+    Say "[Gateway] Sending IDENTIFY..."
+    Create identify_data equal to Map with
+        token = token and
+        intents = 33281 and
+        properties = Map with
+            os = "windows" and
+            browser = "EPL-DiscordBot" and
+            device = "EPL-DiscordBot"
+    gateway_send(ws, OP_IDENTIFY, identify_data)
+End
+
+Function gateway_heartbeat_loop takes ws
+    Note: This runs in a separate thread, sending heartbeats on schedule
+    While True
+        thread_sleep(_heartbeat_interval / 1000)
+        If _last_ack is equal to False then
+            Say "[Gateway] No heartbeat ACK received — connection may be zombie."
+        End
+        Set _last_ack to False
+        gateway_send_heartbeat(ws)
+    End
+End
+
+Function gateway_parse_message takes raw_msg
+    Create payload equal to json_decode(raw_msg)
+    Return payload
+End
+
+Function gateway_handle_hello takes ws, payload, token
+    Note: Discord sends HELLO with heartbeat_interval
+    Create d equal to payload.d
+    If d is not equal to Nothing then
+        If d.heartbeat_interval is not equal to Nothing then
+            Set _heartbeat_interval to d.heartbeat_interval
+        End
+    End
+    Say "[Gateway] HELLO received. Heartbeat interval: " + string(_heartbeat_interval) + "ms"
+
+    Note: Start heartbeat loop in a background thread
+    thread_run(gateway_heartbeat_loop, ws)
+
+    Note: Send initial heartbeat then identify
+    gateway_send_heartbeat(ws)
+    gateway_identify(ws, token)
+End
+
+Function gateway_handle_dispatch takes payload, db, api_key
+    Note: Update sequence number
+    If payload.s is not equal to Nothing then
+        Set _sequence to payload.s
+    End
+
+    Create event_type equal to payload.t
+
+    Note: Handle READY event — bot is logged in
+    If event_type is equal to "READY" then
+        Create d equal to payload.d
+        Set _session_id to d.session_id
+        Create bot_user equal to d.user
+        Say "[Gateway] ✅ Bot logged in as: " + bot_user.username + "#" + bot_user.discriminator
+        Return Nothing
+    End
+
+    Note: Handle MESSAGE_CREATE — someone sent a message
+    If event_type is equal to "MESSAGE_CREATE" then
+        Create d equal to payload.d
+        Create author equal to d.author
+        Create bot_flag equal to author.bot
+
+        Note: Ignore messages from bots (including ourselves)
+        If bot_flag is equal to True then
+            Return Nothing
+        End
+
+        Create user_id equal to author.id
+        Create username equal to author.username
+        Create content equal to d.content
+        Create channel_id equal to d.channel_id
+
+        Note: Skip empty messages
+        If content is equal to "" then
+            Return Nothing
+        End
+        If content is equal to Nothing then
+            Return Nothing
+        End
+
+        Say "[Bot] Message from " + username + ": " + content
+
+        Note: Check if bot was @mentioned OR message starts with ! prefix
+        Create should_reply equal to False
+        If string_starts_with(content, "!") then
+            Set should_reply to True
+            Set content to string_trim(string_slice(content, 1, length(content)))
+        End
+
+        Note: Handle commands
+        If string_starts_with(content, "!stats") then
+            Create total equal to memory_get_user_stats(db, user_id)
+            Create stats_reply equal to "📊 **Your Stats**\nTotal messages: " + string(total)
+            gateway_send_message(channel_id, stats_reply)
+            Return Nothing
+        End
+
+        If string_starts_with(content, "!forget") then
+            Say "[Bot] User requested memory clear for: " + user_id
+            gateway_send_message(channel_id, "🧹 Memory cleared! Starting fresh conversation.")
+            Return Nothing
+        End
+
+        If string_starts_with(content, "!help") then
+            Create help_text equal to "🤖 **EPLAI Commands**\n`!<message>` — Chat with the AI\n`!stats` — View your conversation stats\n`!forget` — Clear your conversation memory\n`!help` — Show this help\n\nPowered by **EPL** + **Groq LLaMA 3 70B** 🚀"
+            gateway_send_message(channel_id, help_text)
+            Return Nothing
+        End
+
+        If should_reply then
+            Note: Process through the agentic LLM
+            Create reply equal to agent_process(db, user_id, username, content, api_key)
+            gateway_send_message(channel_id, reply)
+        End
+        Return Nothing
+    End
+End
+
+Function gateway_send_message takes channel_id, content
+    Create api_url equal to "https://discord.com/api/v10/channels/" + channel_id + "/messages"
+    Create discord_token equal to env_get("DISCORD_TOKEN")
+    Create body equal to json_encode(Map with content = content)
+    Create headers equal to Map with
+        "Authorization" = "Bot " + discord_token and
+        "Content-Type" = "application/json"
+    Create resp equal to http_post(api_url, body, headers)
+    If resp.status is not equal to 200 then
+        Say "[Gateway] Failed to send message: " + resp.body
+    End
+End
+
+Function gateway_run takes token, db, api_key
+    Create ws equal to gateway_connect()
+
+    Say "[Gateway] Starting event loop..."
+    While True
+        Create raw equal to net_ws_receive(ws)
+        If raw is equal to Nothing then
+            Say "[Gateway] Connection lost. Attempting reconnect..."
+            Set ws to gateway_connect()
+            gateway_identify(ws, token)
+            Continue
+        End
+
+        Create payload equal to gateway_parse_message(raw)
+        Create op equal to payload.op
+
+        If op is equal to OP_HELLO then
+            gateway_handle_hello(ws, payload, token)
+
+        Otherwise If op is equal to OP_HEARTBEAT_ACK then
+            Set _last_ack to True
+            Say "[Gateway] Heartbeat ACK ✓"
+
+        Otherwise If op is equal to OP_DISPATCH then
+            gateway_handle_dispatch(payload, db, api_key)
+
+        Otherwise If op is equal to OP_RECONNECT then
+            Say "[Gateway] Discord requested reconnect..."
+            net_ws_close(ws)
+            Set ws to gateway_connect()
+            gateway_identify(ws, token)
+
+        Otherwise If op is equal to OP_INVALID_SESSION then
+            Say "[Gateway] Invalid session — re-identifying in 5 seconds..."
+            thread_sleep(5)
+            gateway_identify(ws, token)
+
+        Otherwise If op is equal to OP_HEARTBEAT then
+            Note: Discord requesting an immediate heartbeat
+            gateway_send_heartbeat(ws)
+        End
+    End
+End
