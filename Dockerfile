@@ -20,6 +20,8 @@ RUN pip install --no-cache-dir -e . 2>/dev/null || \
     pip install --no-cache-dir . 2>/dev/null || \
     echo "Installing from source"
 
+RUN pip install --no-cache-dir websocket-client requests
+
 # Verify installation
 RUN python -c "import epl; print(f'EPL {epl.__version__} installed')"
 
