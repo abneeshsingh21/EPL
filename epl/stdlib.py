@@ -2524,6 +2524,27 @@ def call_stdlib(name, args, line, interpreter=None):
         if name == 'sign':
             return _sign(args[0]) if args else 0
 
+        # ── System ──
+        if name == 'print_error':
+            if not args:
+                raise EPLRuntimeError('print_error(msg) requires a message.', line)
+            return _print_error(args[0])
+        if name == 'read_input':
+            prompt = str(args[0]) if args else ''
+            return _read_input(prompt)
+        if name == 'exit_code':
+            if not args:
+                raise EPLRuntimeError('exit_code(code) requires an exit code.', line)
+            return _exit_code(args[0])
+        if name == 'args':
+            return _get_args()
+        if name == 'timer_start':
+            timer_name = str(args[0]) if args else 'default'
+            return _timer_start(timer_name)
+        if name == 'timer_stop':
+            timer_name = str(args[0]) if args else 'default'
+            return _timer_stop(timer_name)
+
         # ── String/Encoding ──
         if name == 'format':
             if not args:
