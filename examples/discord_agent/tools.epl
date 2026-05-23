@@ -1,59 +1,51 @@
-Note: ══════════════════════════════════════════════════════════
-Note:  tools.epl — Agentic Tool Registry
-Note:  All tools the AI can call to augment its intelligence
-Note: ══════════════════════════════════════════════════════════
-
-Note: Tool 1: Web Search using DuckDuckGo Instant Answer API (Free, no key needed)
 Function tool_web_search takes query
-    Create encoded_query equal to string_replace(query, " ", "+")
-    Create url equal to "https://api.duckduckgo.com/?q=" + encoded_query + "&format=json&no_redirect=1&no_html=1"
-
+    Create url equal to "https://api.duckduckgo.com/?q=" + url_encode(query) + "&format=json"
     Create response equal to http_get(url)
+
     If response.status is not equal to 200 then
-        Return "Search unavailable right now."
+        Return "Search failed: " + response.body
     End
 
-    Create data equal to json_decode(response.body)
+    Create data equal to response.body
+    Create result equal to data["AbstractText"]
 
-    Note: Try to get the abstract (main summary)
-    Create result equal to ""
-    If data.AbstractText is not equal to Nothing and data.AbstractText is not equal to "" then
-        Set result to data.AbstractText
-    Otherwise If data.Answer is not equal to Nothing and data.Answer is not equal to "" then
-        Set result to data.Answer
-    Otherwise If data.Definition is not equal to Nothing and data.Definition is not equal to "" then
-        Set result to data.Definition
-    Otherwise
-        Note: Fall back to related topics
-        If length(data.RelatedTopics) > 0 then
-            Create first_topic equal to data.RelatedTopics[0]
-            If first_topic.Text is not equal to Nothing then
-                Set result to first_topic.Text
+    If result is equal to "" then
+        Create related equal to data["RelatedTopics"]
+        If length(related) > 0 then
+            Create first_topic equal to related[0]
+            If first_topic["Text"] is not equal to Nothing then
+                Set result to first_topic["Text"]
             End
         End
     End
 
     If result is equal to "" then
-        Return "No direct information found for: " + query + ". The query may be too specific or too recent."
+        Return "No useful information found for: " + query
     End
+
     Return result
 End
 
-Note: Tool 2: Math Calculator
+Function tool_weather takes location
+    Create url equal to "https://wttr.in/" + url_encode(location) + "?format=j1"
+    Create response equal to http_get(url)
+    If response.status is not equal to 200 then
+        Return "Could not fetch weather for " + location
+    End
+    Create data equal to response.body
+    Create current equal to data["current_condition"][0]
+    Return "Weather in " + location + ": " + current["temp_C"] + "C, " + current["weatherDesc"][0]["value"] + "."
+End
+
 Function tool_calculate takes expression
-    Note: Use EPL's built-in eval for safe math
-    Create result equal to eval_math(expression)
-    Return "Result of " + expression + " = " + string(result)
+    Create url equal to "http://api.mathjs.org/v4/?expr=" + url_encode(expression)
+    Create response equal to http_get(url)
+    If response.status is not equal to 200 then
+        Return "Calculation failed: " + response.body
+    End
+    Return "Result of " + expression + " = " + response.body
 End
 
-Note: Tool 3: Time and Date
-Function tool_get_time takes Nothing
-    Create now equal to datetime_now()
-    Return "Current UTC time: " + now
-End
-
-Note: Tool 4: Generate a Code Snippet
-Function tool_generate_code takes request
-    Note: This just returns a formatted response — the LLM already handles code generation
-    Return "Code generation is handled directly by the AI. Request: " + request
+Function tool_news takes topic
+    Return tool_web_search(topic + " latest breaking news")
 End

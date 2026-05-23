@@ -1,99 +1,61 @@
-Note: ══════════════════════════════════════════════════════════
-Note:  memory.epl — Persistent Memory for the Discord AI Agent
-Note:  Uses EPL's native real_db (SQLite) for long-term memory
-Note: ══════════════════════════════════════════════════════════
-
 Function memory_setup takes db
-    Note: Messages table — stores full conversation history per user
-    real_db_execute(db, "CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )")
-
-    Note: Facts table — stores things the bot learned about each user
-    real_db_execute(db, "CREATE TABLE IF NOT EXISTS user_facts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        fact TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )")
-
-    Note: Bot knowledge table — stores general world knowledge the bot accumulates
-    real_db_execute(db, "CREATE TABLE IF NOT EXISTS bot_knowledge (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        topic TEXT NOT NULL,
-        knowledge TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )")
+    db_execute(db, "PRAGMA journal_mode=WAL;")
+    db_execute(db, "PRAGMA synchronous=NORMAL;")
+    db_execute(db, "CREATE TABLE IF NOT EXISTS outbound_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id TEXT NOT NULL, payload TEXT NOT NULL, token TEXT NOT NULL)")
+    db_execute(db, "CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, username TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    db_execute(db, "CREATE TABLE IF NOT EXISTS facts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, fact TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    db_execute(db, "CREATE TABLE IF NOT EXISTS knowledge (id INTEGER PRIMARY KEY AUTOINCREMENT, topic TEXT UNIQUE NOT NULL, content TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    db_execute(db, "CREATE TABLE IF NOT EXISTS active_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id TEXT UNIQUE NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+    db_execute(db, "CREATE TABLE IF NOT EXISTS user_profiles (user_id TEXT UNIQUE NOT NULL, profile TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
 End
 
 Function memory_save_message takes db, user_id, username, role, content
-    real_db_execute(db, "INSERT INTO messages (user_id, username, role, content) VALUES (?, ?, ?, ?)",
-        [user_id, username, role, content])
+    db_execute(db, "INSERT INTO messages (user_id, username, role, content) VALUES (?, ?, ?, ?)", [user_id, username, role, content])
 End
 
 Function memory_get_history takes db, user_id
-    Note: Get last 12 messages for context window (6 turns)
-    Create rows equal to real_db_query(db,
-        "SELECT role, content FROM messages WHERE user_id = ? ORDER BY id DESC LIMIT 12",
-        [user_id])
-
-    Note: Reverse so oldest is first (LLM expects chronological order)
+    Create rows equal to db_query(db, "SELECT role, content FROM messages WHERE user_id = ? ORDER BY timestamp DESC LIMIT 20", [user_id])
     Create history equal to []
-    Create i equal to length(rows) - 1
-    While i >= 0
-        Create row equal to rows[i]
-        Create msg equal to Map with role = row.role and content = row.content
-        list_append(history, msg)
-        Set i to i - 1
+    For Each row in rows
+        history.add(Map with role = row["role"] and content = row["content"])
     End
+    history.reverse()
     Return history
 End
 
 Function memory_save_fact takes db, user_id, fact
-    Note: Avoid duplicate facts
-    Create existing equal to real_db_query_one(db,
-        "SELECT id FROM user_facts WHERE user_id = ? AND fact = ?",
-        [user_id, fact])
-    If existing is equal to Nothing then
-        real_db_execute(db, "INSERT INTO user_facts (user_id, fact) VALUES (?, ?)", [user_id, fact])
-    End
+    db_execute(db, "INSERT INTO facts (user_id, fact) VALUES (?, ?)", [user_id, fact])
 End
 
 Function memory_get_facts takes db, user_id
-    Create rows equal to real_db_query(db,
-        "SELECT fact FROM user_facts WHERE user_id = ? ORDER BY id DESC LIMIT 5",
-        [user_id])
+    Create rows equal to db_query(db, "SELECT fact FROM facts WHERE user_id = ? ORDER BY timestamp ASC", [user_id])
     Create facts equal to []
     For Each row in rows
-        list_append(facts, row.fact)
+        facts.add(row["fact"])
     End
     Return facts
 End
 
-Function memory_save_knowledge takes db, topic, knowledge
-    real_db_execute(db, "INSERT INTO bot_knowledge (topic, knowledge) VALUES (?, ?)", [topic, knowledge])
+Function memory_save_knowledge takes db, topic, content
+    db_execute(db, "INSERT INTO knowledge (topic, content) VALUES (?, ?) ON CONFLICT(topic) DO UPDATE SET content=excluded.content", [topic, content])
 End
 
 Function memory_get_knowledge takes db, topic
-    Create row equal to real_db_query_one(db,
-        "SELECT knowledge FROM bot_knowledge WHERE topic LIKE ? ORDER BY id DESC LIMIT 1",
-        ["%" + topic + "%"])
-    If row is equal to Nothing then
-        Return Nothing
+    Create rows equal to db_query(db, "SELECT content FROM knowledge WHERE topic = ?", [topic])
+    If length(rows) > 0 then
+        Return rows[0]["content"]
     End
-    Return row.knowledge
+    Return Nothing
 End
 
-Function memory_get_user_stats takes db, user_id
-    Create count_row equal to real_db_query_one(db,
-        "SELECT COUNT(*) as total FROM messages WHERE user_id = ?", [user_id])
-    If count_row is equal to Nothing then
-        Return 0
+Function memory_get_profile takes db, user_id
+    Create rows equal to db_query(db, "SELECT profile FROM user_profiles WHERE user_id = ?", [user_id])
+    If length(rows) > 0 then
+        Return rows[0]["profile"]
     End
-    Return count_row.total
+    Return ""
+End
+
+Function memory_save_profile takes db, user_id, profile
+    db_execute(db, "INSERT INTO user_profiles (user_id, profile) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET profile=excluded.profile", [user_id, profile])
 End

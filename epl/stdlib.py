@@ -1077,7 +1077,7 @@ def _http_request(method, url, body=None, headers=None, timeout=30):
             # Try to auto-parse JSON
             parsed_body = resp_body
             ct = resp_headers.get('Content-Type', '')
-            if 'json' in ct.lower():
+            if 'json' in ct.lower() or resp_body.strip().startswith('{') or resp_body.strip().startswith('['):
                 try:
                     parsed_body = _json.loads(resp_body)
                     parsed_body = _to_epl(parsed_body)
@@ -2617,82 +2617,25 @@ def call_stdlib(name, args, line, interpreter=None):
         # ── Threading ──
         if name == 'thread_run':
             if not args:
-                raise EPLRuntimeError('thread_run(function, ...args) requires a function.', line)
-            return _thread_run(args[0], *args[1:])
-        if name == 'thread_sleep':
-            if not args:
-                raise EPLRuntimeError('thread_sleep(seconds) requires seconds.', line)
-            return _thread_sleep(args[0])
-        if name == 'atomic_counter':
-            nm = str(args[0]) if args else 'default'
-            inc = args[1] if len(args) > 1 else None
-            return _atomic_counter(nm, inc)
-
-        # ── Network ──
-        if name == 'socket_connect':
-            if len(args) < 2:
-                raise EPLRuntimeError(
-                    'socket_connect(host, port[, timeout]) requires host and port.', line
-                )
-            timeout = float(args[2]) if len(args) > 2 else 10
-            return _socket_connect(args[0], args[1], timeout)
-        if name == 'socket_send':
-            if len(args) < 2:
-                raise EPLRuntimeError('socket_send(id, data) requires id and data.', line)
-            return _socket_send(args[0], args[1])
-        if name == 'socket_receive':
-            if not args:
-                raise EPLRuntimeError('socket_receive(id[, size]) requires a socket ID.', line)
-            size = int(args[1]) if len(args) > 1 else 4096
-            return _socket_receive(args[0], size)
-        if name == 'socket_close':
-            if not args:
-                raise EPLRuntimeError('socket_close(id) requires a socket ID.', line)
-            return _socket_close(args[0])
-        if name == 'dns_lookup':
-            if not args:
-                raise EPLRuntimeError('dns_lookup(hostname) requires a hostname.', line)
-            return _dns_lookup(args[0])
-        if name == 'is_port_open':
-            if len(args) < 2:
-                raise EPLRuntimeError('is_port_open(host, port) requires host and port.', line)
-            timeout = float(args[2]) if len(args) > 2 else 3
-            return _is_port_open(args[0], args[1], timeout)
-
-        # ── System ──
-        if name == 'print_error':
-            if not args:
-                raise EPLRuntimeError('print_error(msg) requires a message.', line)
-            return _print_error(args[0])
-        if name == 'read_input':
-            prompt = str(args[0]) if args else ''
-            return _read_input(prompt)
-        if name == 'exit_code':
-            if not args:
-                raise EPLRuntimeError('exit_code(code) requires a code.', line)
-            return _exit_code(args[0])
-        if name == 'args':
-            return _get_args()
-        if name == 'timer_start':
-            nm = str(args[0]) if args else 'default'
-            return _timer_start(nm)
-        if name == 'timer_stop':
-            nm = str(args[0]) if args else 'default'
-            return _timer_stop(nm)
-
-        # ── Concurrency (epl.concurrency) ──
-        if name == 'mutex_create':
-            _conc = _require_module('epl.concurrency', feature_name='Concurrency')
-            return _conc.create_mutex()
-        if name == 'mutex_lock':
-            if not args:
-                raise EPLRuntimeError('mutex_lock(mutex[, timeout]) requires a mutex.', line)
-            timeout = float(args[1]) if len(args) > 1 else -1
-            return args[0].acquire(timeout)
-        if name == 'mutex_unlock':
-            if not args:
-                raise EPLRuntimeError('mutex_unlock(mutex) requires a mutex.', line)
-            args[0].release()
+                raise EPLRuntimeError('thread_run(func, [args]) requires a function.', line)
+            import threading
+            func = args[0]
+            
+            def _wrap(*a):
+                if interpreter:
+                    try:
+                        if hasattr(func, '__class__') and func.__class__.__name__ == 'FunctionDef':
+                            interpreter._call_callable(func, list(a), getattr(interpreter, 'global_env', None), 0)
+                        else:
+                            func(*a)
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
+                        print(f"[EPL thread] Error: {e}")
+                        
+            t = threading.Thread(target=_wrap, args=args[1] if len(args)>1 else ())
+            t.daemon = True
+            t.start()
             return None
         if name == 'rwlock_create':
             _conc = _require_module('epl.concurrency', feature_name='Concurrency')
@@ -3949,7 +3892,18 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(f'Unknown thread pool: {pid}', line)
             fn = args[1]
             fn_args = tuple(args[2:])
-            future = _real_thread_pools[pid].submit(fn, *fn_args)
+            
+            is_epl_func = hasattr(fn, '__class__') and fn.__class__.__name__ in ('FunctionDef', 'EPLLambda', 'AsyncFunctionDef')
+            if is_epl_func:
+                _interp = interpreter
+                _env = getattr(_interp, 'global_env', None) if _interp else None
+                def wrapper(*wargs):
+                    return _interp._call_callable(fn, list(wargs), _env, line)
+                future = _real_thread_pools[pid].submit(wrapper, *fn_args)
+            elif callable(fn):
+                future = _real_thread_pools[pid].submit(fn, *fn_args)
+            else:
+                raise EPLRuntimeError('real_thread_pool_submit() requires a callable.', line)
             fid = f'fut_{_new_id()}'
             _db_connections[fid] = future  # reuse for storage
             return fid
