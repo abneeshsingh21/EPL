@@ -10,9 +10,14 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
-## [7.8.1] — 2026-05-23
+## [7.8.2] — 2026-05-24
 
 ### Added
+- **Enterprise Discord Agent** — Added a 100% EPL native AI Community Manager for Discord (`examples/discord_agent/`) with advanced spam defense, server-aware routing, and terminal-free background execution scripts.
+
+---
+
+## [7.8.1] — 2026-05-23
 - **TaskFlow Pro Max** — Completely overhauled the `taskflow_saas` example with a high-energy, unapologetic Neo-Brutalist UI architecture.
   - Implemented solid box-shadow physics and mechanical hover/active states.
   - Migrated from generic glassmorphism to strict geometric brutalism (0px border radius, sharp contrast, Acid Green accents).
