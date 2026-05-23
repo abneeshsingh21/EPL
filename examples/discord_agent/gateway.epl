@@ -1,232 +1,192 @@
-Note: ══════════════════════════════════════════════════════════
-Note:  gateway.epl — Discord Gateway WebSocket Client
-Note:  Implements the full Discord Gateway protocol natively in EPL
-Note:  Opcodes: DISPATCH(0), HEARTBEAT(1), IDENTIFY(2), HELLO(10),
-Note:           HEARTBEAT_ACK(11), RECONNECT(7), INVALID_SESSION(9)
-Note: ══════════════════════════════════════════════════════════
+Create WS_URL equal to "https://gateway.discord.gg/?v=10&encoding=json"
+Create WS_URL equal to "wss://gateway.discord.gg/?v=10&encoding=json"
 
-Note: Discord Gateway URL
-Create DISCORD_GATEWAY_URL equal to "wss://gateway.discord.gg/?v=10&encoding=json"
+Function gateway_handle_message takes ws_map, d
+    Create author equal to d["author"]
+    Create bot_id equal to ws_map["bot_id"]
+    
+    If author["id"] is not equal to bot_id then
+        Create content equal to d["content"]
+        
+        If content.contains("discord.gg/") or content.contains("@everyone") or content.contains("@here") then
+            Say "[Moderation] Spam detected! Dropping message from " + author["username"]
+            Return Nothing
+        End
 
-Note: Opcodes
-Create OP_DISPATCH equal to 0
-Create OP_HEARTBEAT equal to 1
-Create OP_IDENTIFY equal to 2
-Create OP_RESUME equal to 6
-Create OP_RECONNECT equal to 7
-Create OP_INVALID_SESSION equal to 9
-Create OP_HELLO equal to 10
-Create OP_HEARTBEAT_ACK equal to 11
+        Create username equal to author["username"]
+        Create user_id equal to author["id"]
+        Create channel_id equal to d["channel_id"]
 
-Note: Global state
-Create _session_id equal to Nothing
-Create _sequence equal to Nothing
-Create _heartbeat_interval equal to 41250
-Create _last_ack equal to True
-Create _ws_id equal to Nothing
+        Say "[Message] " + username + ": " + content
+        Say "[Agent] Processing command in thread..."
+        
+        db_execute(ws_map["db"], "INSERT INTO active_channels (channel_id) VALUES (?) ON CONFLICT(channel_id) DO UPDATE SET timestamp=CURRENT_TIMESTAMP", [channel_id])
 
-Function gateway_connect takes Nothing
-    Say "[Gateway] Connecting to Discord WebSocket Gateway..."
-    Create ws equal to net_ws_connect(DISCORD_GATEWAY_URL)
-    Set _ws_id to ws
-    Say "[Gateway] WebSocket connection established."
-    Return ws
-End
+        Create image_url equal to ""
+        Create attachments equal to d["attachments"]
+        If attachments is not equal to Nothing then
+            If length(attachments) > 0 then
+                Set image_url to attachments[0]["url"]
+            End
+        End
 
-Function gateway_send takes ws, op, data
-    Create payload equal to Map with op = op and d = data
-    If _sequence is not equal to Nothing then
-        Create msg equal to Map with op = op and d = data and s = _sequence
-        Set payload to msg
+        Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url)
+        
+        Create embed equal to Map with description = reply and color = 3447003
+        Create embeds_arr equal to []
+        embeds_arr.add(embed)
+        Create body equal to json_stringify(Map with embeds = embeds_arr)
+        
+        db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
+        Say "[Agent] Queued reply."
     End
-    Create json_payload equal to json_encode(payload)
-    net_ws_send(ws, json_payload)
 End
 
-Function gateway_send_heartbeat takes ws
-    Say "[Gateway] Sending heartbeat... (seq=" + string(_sequence) + ")"
-    gateway_send(ws, OP_HEARTBEAT, _sequence)
+Function gateway_outbound_worker takes ws_map
+    Say "[OutboundWorker] Rate limit worker started (1.5s interval)"
+    While True
+        Create rows equal to db_query(ws_map["db"], "SELECT id, channel_id, payload, token FROM outbound_queue ORDER BY id ASC LIMIT 1")
+        If length(rows) > 0 then
+            Create row equal to rows[0]
+            Create post_url equal to "https://discord.com/api/v10/channels/" + row["channel_id"] + "/messages"
+            Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + row["token"], "application/json"])
+            
+            http_post(post_url, row["payload"], headers)
+            db_execute(ws_map["db"], "DELETE FROM outbound_queue WHERE id = ?", [row["id"]])
+            Say "[OutboundWorker] Sent message " + row["id"]
+            
+            real_sleep(1.5)
+        Else
+            real_sleep(0.5)
+        End
+    End
+End
+# gateway.epl
+
+Create GLOBAL_SEQ equal to 0
+
+Function gateway_send takes ws, op, d
+    Create payload equal to Map with op = op and d = d
+    Create json_str equal to json_stringify(payload)
+    net_ws_send(ws, json_str)
 End
 
 Function gateway_identify takes ws, token
-    Say "[Gateway] Sending IDENTIFY..."
-    Create identify_data equal to Map with
-        token = token and
-        intents = 33281 and
-        properties = Map with
-            os = "windows" and
-            browser = "EPL-DiscordBot" and
-            device = "EPL-DiscordBot"
-    gateway_send(ws, OP_IDENTIFY, identify_data)
+    Say "[Gateway] Sending IDENTIFY payload..."
+    Create props equal to Map with os = "windows" and browser = "epl_bot" and device = "epl_bot"
+    Create d equal to Map with token = token and intents = 37376 and properties = props
+    gateway_send(ws, 2, d)
 End
 
-Function gateway_heartbeat_loop takes ws
-    Note: This runs in a separate thread, sending heartbeats on schedule
+Function gateway_heartbeat_worker takes ws, interval
+    Create sleep_sec equal to interval / 1000
     While True
-        thread_sleep(_heartbeat_interval / 1000)
-        If _last_ack is equal to False then
-            Say "[Gateway] No heartbeat ACK received — connection may be zombie."
+        sleep(sleep_sec)
+        Create seq equal to GLOBAL_SEQ
+        If seq is equal to 0 then
+            Set seq to Nothing
         End
-        Set _last_ack to False
-        gateway_send_heartbeat(ws)
+        gateway_send(ws, 1, seq)
+        Say "[Gateway] ❤️ Sent Heartbeat (seq: " + seq + ")."
     End
 End
 
-Function gateway_parse_message takes raw_msg
-    Create payload equal to json_decode(raw_msg)
-    Return payload
-End
+Function gateway_heartbeat_loop takes ws_map
+    Create sequence equal to 0
+    Create session_id equal to ""
 
-Function gateway_handle_hello takes ws, payload, token
-    Note: Discord sends HELLO with heartbeat_interval
-    Create d equal to payload.d
-    If d is not equal to Nothing then
-        If d.heartbeat_interval is not equal to Nothing then
-            Set _heartbeat_interval to d.heartbeat_interval
-        End
-    End
-    Say "[Gateway] HELLO received. Heartbeat interval: " + string(_heartbeat_interval) + "ms"
+    Create pool equal to real_thread_pool_create(2)
 
-    Note: Start heartbeat loop in a background thread
-    thread_run(gateway_heartbeat_loop, ws)
-
-    Note: Send initial heartbeat then identify
-    gateway_send_heartbeat(ws)
-    gateway_identify(ws, token)
-End
-
-Function gateway_handle_dispatch takes payload, db, api_key
-    Note: Update sequence number
-    If payload.s is not equal to Nothing then
-        Set _sequence to payload.s
-    End
-
-    Create event_type equal to payload.t
-
-    Note: Handle READY event — bot is logged in
-    If event_type is equal to "READY" then
-        Create d equal to payload.d
-        Set _session_id to d.session_id
-        Create bot_user equal to d.user
-        Say "[Gateway] ✅ Bot logged in as: " + bot_user.username + "#" + bot_user.discriminator
-        Return Nothing
-    End
-
-    Note: Handle MESSAGE_CREATE — someone sent a message
-    If event_type is equal to "MESSAGE_CREATE" then
-        Create d equal to payload.d
-        Create author equal to d.author
-        Create bot_flag equal to author.bot
-
-        Note: Ignore messages from bots (including ourselves)
-        If bot_flag is equal to True then
-            Return Nothing
-        End
-
-        Create user_id equal to author.id
-        Create username equal to author.username
-        Create content equal to d.content
-        Create channel_id equal to d.channel_id
-
-        Note: Skip empty messages
-        If content is equal to "" then
-            Return Nothing
-        End
-        If content is equal to Nothing then
-            Return Nothing
-        End
-
-        Say "[Bot] Message from " + username + ": " + content
-
-        Note: Check if bot was @mentioned OR message starts with ! prefix
-        Create should_reply equal to False
-        If string_starts_with(content, "!") then
-            Set should_reply to True
-            Set content to string_trim(string_slice(content, 1, length(content)))
-        End
-
-        Note: Handle commands
-        If string_starts_with(content, "!stats") then
-            Create total equal to memory_get_user_stats(db, user_id)
-            Create stats_reply equal to "📊 **Your Stats**\nTotal messages: " + string(total)
-            gateway_send_message(channel_id, stats_reply)
-            Return Nothing
-        End
-
-        If string_starts_with(content, "!forget") then
-            Say "[Bot] User requested memory clear for: " + user_id
-            gateway_send_message(channel_id, "🧹 Memory cleared! Starting fresh conversation.")
-            Return Nothing
-        End
-
-        If string_starts_with(content, "!help") then
-            Create help_text equal to "🤖 **EPLAI Commands**\n`!<message>` — Chat with the AI\n`!stats` — View your conversation stats\n`!forget` — Clear your conversation memory\n`!help` — Show this help\n\nPowered by **EPL** + **Groq LLaMA 3 70B** 🚀"
-            gateway_send_message(channel_id, help_text)
-            Return Nothing
-        End
-
-        If should_reply then
-            Note: Process through the agentic LLM
-            Create reply equal to agent_process(db, user_id, username, content, api_key)
-            gateway_send_message(channel_id, reply)
-        End
-        Return Nothing
-    End
-End
-
-Function gateway_send_message takes channel_id, content
-    Create api_url equal to "https://discord.com/api/v10/channels/" + channel_id + "/messages"
-    Create discord_token equal to env_get("DISCORD_TOKEN")
-    Create body equal to json_encode(Map with content = content)
-    Create headers equal to Map with
-        "Authorization" = "Bot " + discord_token and
-        "Content-Type" = "application/json"
-    Create resp equal to http_post(api_url, body, headers)
-    If resp.status is not equal to 200 then
-        Say "[Gateway] Failed to send message: " + resp.body
-    End
-End
-
-Function gateway_run takes token, db, api_key
-    Create ws equal to gateway_connect()
-
-    Say "[Gateway] Starting event loop..."
     While True
-        Create raw equal to net_ws_receive(ws)
-        If raw is equal to Nothing then
-            Say "[Gateway] Connection lost. Attempting reconnect..."
-            Set ws to gateway_connect()
-            gateway_identify(ws, token)
+        Create msg equal to net_ws_receive(ws_map["ws"])
+        If msg is equal to Nothing then
             Continue
         End
+        If msg is equal to "" then
+            Continue
+        End
+        
+        Create payload equal to json_parse(msg)
+        Create op equal to payload["op"]
+        
+        If payload["s"] is not equal to Nothing then
+            Set GLOBAL_SEQ to payload["s"]
+        End
 
-        Create payload equal to gateway_parse_message(raw)
-        Create op equal to payload.op
+        If op is equal to 10 then
+            Create d equal to payload["d"]
+            Create interval equal to d["heartbeat_interval"]
+            Say "[Gateway] Received HELLO. Heartbeat interval: " + interval + "ms"
+            
+            Set ws_map to ws_map.merge(Map with interval = interval)
+            
+            real_thread_pool_submit(pool, gateway_heartbeat_worker, ws_map["ws"], interval)
+            
+            gateway_identify(ws_map["ws"], ws_map["token"])
+        End
 
-        If op is equal to OP_HELLO then
-            gateway_handle_hello(ws, payload, token)
-
-        Otherwise If op is equal to OP_HEARTBEAT_ACK then
-            Set _last_ack to True
-            Say "[Gateway] Heartbeat ACK ✓"
-
-        Otherwise If op is equal to OP_DISPATCH then
-            gateway_handle_dispatch(payload, db, api_key)
-
-        Otherwise If op is equal to OP_RECONNECT then
-            Say "[Gateway] Discord requested reconnect..."
-            net_ws_close(ws)
-            Set ws to gateway_connect()
-            gateway_identify(ws, token)
-
-        Otherwise If op is equal to OP_INVALID_SESSION then
-            Say "[Gateway] Invalid session — re-identifying in 5 seconds..."
-            thread_sleep(5)
-            gateway_identify(ws, token)
-
-        Otherwise If op is equal to OP_HEARTBEAT then
-            Note: Discord requesting an immediate heartbeat
-            gateway_send_heartbeat(ws)
+        If op is equal to 0 then
+            Create t equal to payload["t"]
+            Create d equal to payload["d"]
+            
+            If t is equal to "READY" then
+                Create user equal to d["user"]
+                Say "[Gateway] ✅ Bot logged in as: " + user["username"] + "#" + user["discriminator"]
+                Set ws_map to ws_map.merge(Map with bot_id = user["id"])
+            End
+            
+            If t is equal to "MESSAGE_CREATE" then
+                thread_run(gateway_handle_message, [ws_map, d])
+            End
         End
     End
+End
+
+Function gateway_heartbeat_sender takes ws_map
+    While True
+        Create interval equal to ws_map["interval"]
+        If interval is not equal to 0 then
+            gateway_send(ws_map["ws"], 1, Nothing)
+            Say "[Gateway] Sent Heartbeat"
+            Create sec equal to interval / 1000
+            real_sleep(sec)
+        Else
+            real_sleep(1)
+        End
+    End
+End
+
+Function gateway_autonomous_loop takes ws_map
+    While True
+        real_sleep(3600)
+        Say "[Autonomous] Running proactive background loop..."
+        Create rows equal to db_query(ws_map["db"], "SELECT channel_id FROM active_channels ORDER BY timestamp DESC LIMIT 1")
+        If length(rows) > 0 then
+            Create channel_id equal to rows[0]["channel_id"]
+            Create messages equal to []
+            messages.add(Map with role = "system" and content = SYSTEM_PROMPT)
+            messages.add(Map with role = "user" and content = "Generate a short, proactive, interesting thought, fun fact, or question to randomly drop into the chat to start a conversation. Do NOT use any tools.")
+            Create reply equal to agent_call_api(ws_map["groq_api_key"], messages, GROQ_MODEL, GROQ_URL)
+            
+            Create embed equal to Map with description = reply and color = 15158332
+            Create embeds_arr equal to []
+            embeds_arr.add(embed)
+            Create body equal to json_stringify(Map with embeds = embeds_arr)
+            db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
+            Say "[Autonomous] Dropped proactive message in queue."
+        End
+    End
+End
+
+Function gateway_run takes db, token, groq_api_key
+    Say "[Bot] Connecting to Discord Gateway using EPL native WebSocket..."
+    Create ws equal to net_ws_connect(WS_URL)
+    Say "[Gateway] Connected to Discord WebSocket!"
+    
+    Create ws_map equal to Map with ws = ws and token = token and groq_api_key = groq_api_key and db = db and interval = 0 and bot_id = ""
+    
+    thread_run(gateway_heartbeat_sender, [ws_map])
+    thread_run(gateway_autonomous_loop, [ws_map])
+    thread_run(gateway_outbound_worker, [ws_map])
+    gateway_heartbeat_loop(ws_map)
 End
