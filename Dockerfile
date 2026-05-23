@@ -29,9 +29,7 @@ WORKDIR /code
 # Copy example files for quick testing
 COPY examples/ /examples/
 
-# Expose web server port
-EXPOSE 3000
-
+# EXPOSE 3000 (Removed to prevent Azure from configuring web server ingress)
 # Default: run the Discord Community Manager Bot
 ENTRYPOINT ["epl"]
 CMD ["/examples/discord_agent/main.epl"]
