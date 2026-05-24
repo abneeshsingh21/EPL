@@ -120,6 +120,10 @@ HELP = f"""\
                                    --coverage        Show code coverage report
                                    --junit-xml=FILE  Write JUnit XML report
                                    --quiet / -q      Minimal output (progress dots)
+  epl watch <file|dir>               Watch files and re-run on changes
+                                   --test            Re-run tests instead of program
+                                   --clear           Clear screen before each re-run
+                                   --debounce=MS     Set debounce interval (default: 300)
   epl repl                         Start interactive REPL
   epl use [--frozen] [package]     Install project deps or a package
   epl install [--frozen] [package] Alias for 'epl use'
@@ -389,6 +393,7 @@ def cli_main(argv=None):
         'compile': lambda: _build(rest, flags, 'compile'),
         'wasm': lambda: _wasm(rest),
         'test': lambda: _run_tests(rest, flags),
+        'watch': lambda: _watch(rest, flags),
         'repl': lambda: _run_repl(flags),
         'install': lambda: _pkg_install(rest),
         'use': lambda: _pkg_install(rest),  # Alias: "epl use" = "epl install"
@@ -1656,6 +1661,46 @@ def _build(args, flags, command='build'):
     except Exception as exc:
         print(f'{_red("Error:")} {exc}', file=sys.stderr)
         return 1
+
+
+def _watch(args, flags):
+    """Watch files and re-run on changes."""
+    from epl.watcher import run_watch
+
+    # Separate watch-specific flags from targets
+    all_flags = set(flags)
+    targets = []
+    for a in args:
+        if a.startswith('--') or a.startswith('-'):
+            all_flags.add(a)
+        else:
+            targets.append(a)
+
+    if not targets:
+        # Default: watch current directory
+        targets = ['.']
+
+    target = targets[0]
+    test_mode = '--test' in all_flags
+    clear = '--clear' in all_flags
+
+    # Parse --debounce=N
+    debounce_ms = 300
+    for f in all_flags:
+        if f.startswith('--debounce='):
+            try:
+                debounce_ms = int(f.split('=', 1)[1])
+            except ValueError:
+                print(f'{_red("Error:")} --debounce must be a number')
+                return 1
+
+    return run_watch(
+        target,
+        flags=all_flags,
+        test_mode=test_mode,
+        clear=clear,
+        debounce_ms=debounce_ms,
+    )
 
 
 def _run_tests(args, flags):
