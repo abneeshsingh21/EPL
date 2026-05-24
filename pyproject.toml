@@ -145,3 +145,11 @@ quote-style = "single"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.mypy]
+exclude = [
+    "epl/official_packages",
+    "benchmarks",
+]
+implicit_optional = true
+ignore_missing_imports = true

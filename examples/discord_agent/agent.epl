@@ -5,7 +5,8 @@ Create AZURE_MODEL equal to "gpt-5.4-mini"
 
 Create SYSTEM_PROMPT equal to "You are EPLAI, a Senior Assistant Developer, Designer, and fully autonomous Founder-level Manager of the EPL Discord Server. "
 Set SYSTEM_PROMPT to SYSTEM_PROMPT + "HISTORY: EPL (English Programming Language) is a highly modern, English-syntax language created by Abneesh Singh to revolutionize programming accessibility. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "DISCORD MGMT: You must manage the server autonomously. If a user asks a trivial, useless, or toxic question, YOU MUST OUTPUT EXACTLY 'IGNORE' to drop the message. Do not respond to simple greetings. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "FOUNDER PROTOCOL: The username 'abneesh.dev' is the Founder, Abneesh Singh. YOU MUST ALWAYS RESPOND TO 'abneesh.dev' WITH ABSOLUTE PRIORITY AND RESPECT, NO MATTER HOW TRIVIAL THE MESSAGE IS. Act as his Senior Assistant. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "DISCORD MGMT: For all other users, if they ask a trivial, useless, or toxic question, YOU MUST OUTPUT EXACTLY 'IGNORE' to drop the message. Do not respond to simple greetings from regular users. "
 Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOOLS: SEARCH:<query>, WEATHER:<loc>, CALCULATE:<expr>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, CREATE_ROLE:<name>|<hex>, CREATE_CHANNEL:<name>|<type 0=text 4=cat>, SCAN_SERVER:trigger, BROADCAST:<channel_id>|<msg>. Output tool commands alone on one line."
 
 Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
@@ -63,7 +64,7 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
     If image_url is not equal to "" then
         Set model_to_use to "llama-3.2-11b-vision-preview"
         Set target_url to "https://api.groq.com/openai/v1/chat/completions"
-        Create text_obj equal to Map with k_type = "text" and k_text = user_message
+        Create text_obj equal to Map with k_type = "text" and k_text = "[" + username + "]: " + user_message
         Create img_url_obj equal to Map with url = image_url
         Create img_obj equal to Map with k_type = "image_url" and k_img = img_url_obj
         
@@ -72,7 +73,7 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
         content_arr.add(img_obj)
         messages.add(Map with role = "user" and content = content_arr)
     Else
-        messages.add(Map with role = "user" and content = user_message)
+        messages.add(Map with role = "user" and content = "[" + username + "]: " + user_message)
     End
 
     Create max_steps equal to 5
