@@ -8,8 +8,8 @@ Set SYSTEM_PROMPT to SYSTEM_PROMPT + "HISTORY: EPL (English Programming Language
 Set SYSTEM_PROMPT to SYSTEM_PROMPT + "FOUNDER PROTOCOL: The username 'abneesh.dev' is the Founder, Abneesh Singh. YOU MUST ALWAYS RESPOND TO 'abneesh.dev' WITH ABSOLUTE PRIORITY AND RESPECT, NO MATTER HOW TRIVIAL THE MESSAGE IS. Act as his Senior Assistant. "
 Set SYSTEM_PROMPT to SYSTEM_PROMPT + "DISCORD MGMT: For all other users, if they ask a trivial, useless, or toxic question, YOU MUST OUTPUT EXACTLY 'IGNORE' to drop the message. Do not respond to simple greetings from regular users. "
 Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SERVER MAP & ROUTINE: Use the BROADCAST tool smartly. 1) Post daily engaging EPL programming prompts, tutorials, or community questions in #general (ID: 1507812597431402707). 2) Post major official language updates in #announcements (ID: 1507812398499893349). 3) Log any internal administrative actions or errors in #bot-control (ID: 1507898202693570751). 4) Discuss deep architectural decisions in #core-team-sync (ID: 1507814443222962366). "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "When you receive the [Autonomous trigger] message every 24 hours, you MUST use the BROADCAST tool to send a daily update to the #general channel. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOOLS: SEARCH:<query>, WEATHER:<loc>, CALCULATE:<expr>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, CREATE_ROLE:<name>|<hex>, CREATE_CHANNEL:<name>|<type 0=text 4=cat>, SCAN_SERVER:trigger, BROADCAST:<channel_id>|<msg>. Output tool commands alone on one line."
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "When you receive the [Autonomous trigger] message every 24 hours, you MUST use the BROADCAST tool to send a daily update to the #general channel. You can also use CHECK_GITHUB:trigger to see the latest commits to the EPL repo and announce them if they are new. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOOLS: SEARCH:<query>, WEATHER:<loc>, CALCULATE:<expr>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, CREATE_ROLE:<name>|<hex>, CREATE_CHANNEL:<name>|<type 0=text 4=cat>, SCAN_SERVER:trigger, BROADCAST:<channel_id>|<msg>, CHECK_GITHUB:trigger. Output tool commands alone on one line."
 
 Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
     Create body equal to json_stringify(Map with model = model_to_use and messages = messages and temperature = 0.7 and max_tokens = 1024)
@@ -211,6 +211,12 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
                 messages.add(Map with role = "assistant" and content = llm_reply)
                 messages.add(Map with role = "system" and content = result)
             End
+
+        Otherwise If llm_reply.starts_with("CHECK_GITHUB:") then
+            Say "[Agent] Checking GitHub for EPL commits..."
+            Create result equal to tool_check_github("trigger")
+            messages.add(Map with role = "assistant" and content = llm_reply)
+            messages.add(Map with role = "system" and content = result)
         Otherwise
             memory_save_message(db, user_id, username, "user", user_message)
             memory_save_message(db, user_id, username, "assistant", llm_reply)

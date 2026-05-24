@@ -115,3 +115,20 @@ Function tool_broadcast takes channel_id, token, msg_text
         Return "Broadcast failed. Error: " + response.body
     End
 End
+
+Function tool_check_github takes trigger
+    Create url equal to "https://api.github.com/repos/abneeshsingh21/EPL/commits?per_page=3"
+    Create headers equal to dict_from_lists(["User-Agent", "Accept"], ["EPL-Discord-Bot", "application/vnd.github.v3+json"])
+    Create response equal to http_get(url, headers)
+    If response.status >= 200 and response.status < 300 then
+        Create commits equal to response.body
+        Create results equal to []
+        For Each c in commits
+            Create commit equal to c["commit"]
+            results.add(commit["message"] + " by " + commit["author"]["name"])
+        End
+        Return "Latest EPL Commits: " + results.join(" | ")
+    Else
+        Return "Failed to check GitHub. Error: " + response.body
+    End
+End
