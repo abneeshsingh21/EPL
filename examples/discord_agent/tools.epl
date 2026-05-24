@@ -86,7 +86,7 @@ Function tool_scan_server takes guild_id, token
     Create headers equal to dict_from_lists(["Authorization"], ["Bot " + token])
     Create response equal to http_get(url, headers)
     If response.status >= 200 and response.status < 300 then
-        Create channels equal to json_parse(response.body)
+        Create channels equal to response.body
         Create names equal to []
         For Each ch in channels
             Create type_str equal to "text"
