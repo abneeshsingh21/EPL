@@ -203,9 +203,9 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             Create parts equal to b_data.split("|")
             If length(parts) >= 2 then
                 Create target_id equal to parts[0].trim()
-                Create text equal to parts[1].trim()
+                Create msg_text equal to parts[1].trim()
                 Say "[Agent] Broadcasting to " + target_id
-                Create result equal to tool_broadcast(target_id, token, text)
+                Create result equal to tool_broadcast(target_id, token, msg_text)
                 messages.add(Map with role = "assistant" and content = llm_reply)
                 messages.add(Map with role = "system" and content = result)
             End

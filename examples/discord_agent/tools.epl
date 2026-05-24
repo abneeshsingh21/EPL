@@ -101,9 +101,9 @@ Function tool_scan_server takes guild_id, token
     End
 End
 
-Function tool_broadcast takes channel_id, token, text
+Function tool_broadcast takes channel_id, token, msg_text
     Create url equal to "https://discord.com/api/v10/channels/" + channel_id + "/messages"
-    Create embed equal to Map with description = text and color = 15158332
+    Create embed equal to Map with description = msg_text and color = 15158332
     Create embeds_arr equal to []
     embeds_arr.add(embed)
     Create body equal to json_stringify(Map with embeds = embeds_arr)
