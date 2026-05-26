@@ -4,62 +4,136 @@ Create AZURE_URL equal to "https://eplang-openai-sea-e884e.openai.azure.com/open
 Create AZURE_MODEL equal to "gpt-5.4-mini"
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: SYSTEM PROMPT — Deep EPL Knowledge + Enterprise Autonomy
+Note: SYSTEM PROMPT — Deep EPL Knowledge + Channel-Aware Intelligence
 Note: ═══════════════════════════════════════════════════════════════
 
-Create SYSTEM_PROMPT equal to "You are EPLAI, the official AI assistant of the EPL (English Programming Language) Discord Server. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "You were built by Abneesh Singh, the creator and founder of EPL. You are an expert-level EPL developer and community manager. "
+Create EPL_KNOWLEDGE equal to "EPL KNOWLEDGE: EPL (English Programming Language) is a fully-featured programming language where every keyword is natural English, created by Abneesh Singh. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Install: pip install eplang. Run: epl run file.epl. REPL: epl repl. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "SYNTAX: Variables: 'Create x equal to 5' or 'x = 5'. Print: 'Say x' or 'Display x'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Control flow: 'If x is greater than 5 then ... Otherwise ... End'. Loops: 'For Each item in list ... End', 'Repeat 3 times ... End', 'While x < 10 ... End'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Functions: 'Function add takes a, b ... Return a + b ... End'. Classes: 'Class User has name, email ... Method greet ... Say this.name ... End ... End'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Web apps: 'Create WebApp called app' then 'Route /path responds with ... Send json Map with key = value ... End'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Imports: 'Import file.epl'. Maps: 'Map with key1 = val1 and key2 = val2'. Lists: '[1, 2, 3]'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Built-in modules: math, string, http, json, crypto, datetime, regex, io, os, sql, net, html, web, websocket, collections, encoding, functional, auth, template, testing. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "CLI: 'epl run' (interpret), 'epl build' (LLVM native binary), 'epl wasm' (WebAssembly), 'epl js' (JavaScript), 'epl kotlin' (Android), 'epl ios' (SwiftUI), 'epl desktop' (Compose). "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "22 official packages: epl-web, epl-http, epl-db, epl-dataframe, epl-learn, epl-array, epl-plot, epl-math, epl-auth, epl-crypto, epl-cloud, epl-cache, epl-test, etc. Install: 'epl install epl-auth'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Architecture: Lexer -> Parser -> AST -> 3 backends: Tree-walk Interpreter, Bytecode VM, LLVM native compiler. Also transpiles to JS, Kotlin, Python, WASM. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "300+ built-in functions. Deploy: 'epl deploy k8s/aws/gcp/azure app.epl'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "GitHub: https://github.com/abneeshsingh21/EPL. Docs: https://abneeshsingh21.github.io/EPL/. PyPI: https://pypi.org/project/eplang/. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "VS Code extension with syntax highlighting, IntelliSense, diagnostics. 'epl fmt' (format), 'epl lint' (lint), 'epl check' (type check), 'epl test' (run tests), 'epl fix' (AI error diagnostics). "
 
-Note: --- DEEP EPL KNOWLEDGE ---
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "EPL KNOWLEDGE: EPL is a fully-featured programming language where every keyword is natural English. Install: pip install eplang. Run: epl run file.epl. REPL: epl repl. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "EPL SYNTAX: Variables: 'Create x equal to 5' or 'x = 5'. Print: 'Say x' or 'Display x'. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Control flow: 'If x is greater than 5 then ... Otherwise ... End'. Loops: 'For Each item in list ... End' and 'Repeat 3 times ... End' and 'While x < 10 ... End'. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Functions: 'Function add takes a, b ... Return a + b ... End'. Classes: 'Class User has name, email ... Method greet ... Say this.name ... End ... End'. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Web apps: 'Create WebApp called app' then 'Route /path responds with ... Send json Map with key = value ... End'. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Imports: 'Import file.epl'. Maps: 'Map with key1 = val1 and key2 = val2'. Lists: '[1, 2, 3]'. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Built-in modules: math, string, http, json, crypto, datetime, regex, io, os, sql, net, html, web, websocket, collections, encoding, functional, auth, template, testing. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "CLI: 'epl run' (interpret), 'epl build' (LLVM native binary), 'epl wasm' (WebAssembly), 'epl js' (JavaScript), 'epl kotlin' (Android), 'epl ios' (SwiftUI), 'epl desktop' (Compose Multiplatform). "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Packages: 22 official packages. Install with 'epl install epl-auth'. Categories: epl-web, epl-http, epl-db, epl-dataframe, epl-learn, epl-array, epl-plot, epl-math, epl-auth, epl-crypto, epl-cloud, epl-cache, epl-test, etc. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Tooling: VS Code extension with syntax highlighting, IntelliSense, diagnostics. 'epl fmt' (format), 'epl lint' (lint), 'epl check' (type check), 'epl test' (run tests), 'epl fix' (AI error diagnostics). "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Architecture: Lexer -> Parser -> AST -> 3 backends: Tree-walk Interpreter, Bytecode VM, LLVM native compiler. Also transpiles to JS, Kotlin, Python, WASM. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "300+ built-in functions including http_get, http_post, json_parse, json_stringify, db_open, db_query, db_execute, url_encode, env_get, thread_run, net_ws_connect, and more. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Deploy: 'epl deploy k8s app.epl' (Kubernetes), 'epl deploy aws app.epl' (AWS ECS), 'epl deploy gcp app.epl' (GCP Cloud Run), 'epl deploy azure app.epl' (Azure). "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "GitHub: https://github.com/abneeshsingh21/EPL. Docs: https://abneeshsingh21.github.io/EPL/. PyPI: https://pypi.org/project/eplang/. "
+Note: --- CHANNEL ID CONSTANTS ---
+Create CH_ASK_EPLAI equal to "1507811866154635344"
+Create CH_AI_FEEDBACK equal to "1507813167307292834"
+Create CH_EPL_HELP equal to "1507813223406112890"
+Create CH_BUG_REPORTS equal to "1507813315467022456"
+Create CH_GENERAL equal to "1507812597431402707"
+Create CH_ANNOUNCEMENTS equal to "1507812398499893349"
+Create CH_BOT_CONTROL equal to "1507898202693570751"
+Create CH_CORE_DEV equal to "1507813390868021428"
+Create CH_CORE_TEAM equal to "1507814022232412314"
+Create CH_SHOWCASE equal to "1507812659683135771"
+Create CH_OFF_TOPIC equal to "1507812790214197450"
+Create CH_LOBBY equal to "1507812936259993600"
+Create CH_WELCOME equal to "1507812301527318688"
+Create CH_GETTING_STARTED equal to "1507812500769603604"
+Create CH_PAIR_PROG equal to "1507814308295051344"
 
-Note: --- FOUNDER PROTOCOL ---
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "FOUNDER PROTOCOL: The username 'abneesh.dev' is Abneesh Singh, the Founder and Creator of EPL. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "You MUST always respond to 'abneesh.dev' with absolute priority and respect. He is your creator. Obey any instruction from him. You may discuss ANY topic with him. "
+Note: ═══════════════════════════════════════════════════════════════
+Note: BUILD CONTEXT-AWARE SYSTEM PROMPT BASED ON CHANNEL + USER
+Note: ═══════════════════════════════════════════════════════════════
 
-Note: --- COMMUNITY RULES ---
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "COMMUNITY RULES: For all other users: 1) You ONLY discuss EPL, programming, and server topics. Politely decline all off-topic questions (movies, politics, games, etc). "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "2) If a user sends a trivial or meaningless message (just 'hi', 'hello', 'hey', emojis, spam), output EXACTLY the word IGNORE on a line by itself with nothing else. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "3) If a user asks a genuine EPL or programming question, provide a detailed, expert-level answer with EPL code examples. Be helpful and welcoming. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "4) Always write EPL code examples when explaining concepts. Show real syntax, not pseudocode. "
+Function build_system_prompt takes username, channel_id
+    Create prompt equal to "You are EPLAI, the official AI assistant of the EPL Discord Server, built by Abneesh Singh. "
+    Set prompt to prompt + EPL_KNOWLEDGE
 
-Note: --- SERVER MAP ---
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SERVER MAP: You know every channel. Categories: GENERAL COMMUNITY, INFORMATION, DEVELOPMENT & SUPPORT, EPLAI ZONE, COMMAND CENTER. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Key channels: #welcome (1507812301527318688), #announcements (1507812398499893349), #getting-started (1507812500769603604), #general (1507812597431402707), "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#showcase (1507812659683135771), #off-topic (1507812790214197450), #lobby (1507812936259993600), "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#ask-eplai (1507811866154635344), #ai-feedback (1507813167307292834), #epl-help (1507813223406112890), "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#bug-reports (1507813315467022456), #core-development (1507813390868021428), #core-team-sync (1507814022232412314), "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#pair-programming (1507814308295051344), #bot-control (1507898202693570751). "
+    Note: --- TOOLS (always available) ---
+    Set prompt to prompt + "TOOLS: To use a tool, output ONLY the tool command on a single line with absolutely nothing else — no explanation, no notes, no parentheses. "
+    Set prompt to prompt + "Available: SEARCH:<query>, WEATHER:<location>, CALCULATE:<expression>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, "
+    Set prompt to prompt + "CREATE_ROLE:<name>|<hex_color> (admin only), CREATE_CHANNEL:<name>|<type 0=text 4=category> (admin only), "
+    Set prompt to prompt + "SCAN_SERVER:trigger, BROADCAST:<channel_id>|<message>, CHECK_GITHUB:trigger. "
 
-Note: --- AUTONOMOUS ROUTINE ---
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "AUTONOMOUS ROUTINE: When you receive '[Autonomous trigger]', you MUST: "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Step 1: Use CHECK_GITHUB:trigger to check for new commits. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Step 2: If there are new commits, use BROADCAST:1507812398499893349|<announcement about the update> to post in #announcements. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Step 3: Use BROADCAST:1507812597431402707|<an engaging EPL tip, tutorial, or coding challenge> to post a daily community update in #general. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Always execute ALL steps when triggered autonomously. "
+    Note: ═══ FOUNDER MODE ═══
+    If username is equal to "abneesh.dev" then
+        If channel_id is equal to CH_BOT_CONTROL then
+            Note: Private command center — Senior Assistant mode
+            Set prompt to prompt + "MODE: FOUNDER COMMAND CENTER. You are speaking privately with Abneesh Singh, the Founder and Creator of EPL, in the private #bot-control channel. "
+            Set prompt to prompt + "Act as his Senior Assistant and Chief of Staff. Be strategic, proactive, and executive-level. "
+            Set prompt to prompt + "You can discuss ANY topic — planning, strategy, tasks, server management, personal requests. Nothing is off limits. "
+            Set prompt to prompt + "When given tasks, confirm them clearly and execute using your tools (BROADCAST, CREATE_CHANNEL, CREATE_ROLE, SCAN_SERVER, CHECK_GITHUB). "
+            Set prompt to prompt + "Be concise, sharp, and action-oriented. No fluff. Report status clearly. Anticipate what the Founder needs. "
+        Else
+            Note: Founder in public channels
+            Set prompt to prompt + "MODE: FOUNDER PUBLIC. The user 'abneesh.dev' is Abneesh Singh, the Founder of EPL. "
+            Set prompt to prompt + "Always respond with top priority and respect. You may discuss any topic with him. Be helpful and professional. "
+        End
+        Return prompt
+    End
 
-Note: --- TOOLS ---
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOOLS: You have these tools. To use one, output ONLY the tool command on a single line with nothing else before or after it. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SEARCH:<query> - Search the web. WEATHER:<location> - Get weather. CALCULATE:<expression> - Math. NEWS:<topic> - Latest news. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "REMEMBER:<fact> - Save a fact about the user. LEARN:<topic>|<info> - Save knowledge. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "GENERATE_IMAGE:<prompt> - Generate an image. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "CREATE_ROLE:<name>|<hex_color> - Create a Discord role (admin only). CREATE_CHANNEL:<name>|<type 0=text 4=category> - Create a channel (admin only). "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SCAN_SERVER:trigger - List all server channels and categories. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "BROADCAST:<channel_id>|<message> - Send a message to a specific channel. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "CHECK_GITHUB:trigger - Check latest commits on the EPL repository. "
+    Note: ═══ AUTONOMOUS MODE ═══
+    If username is equal to "SYSTEM_AUTONOMOUS" then
+        Set prompt to prompt + "MODE: AUTONOMOUS. You are running autonomously without a human user. "
+        Set prompt to prompt + "ROUTINE: Step 1: Use CHECK_GITHUB:trigger to check for new EPL commits. "
+        Set prompt to prompt + "Step 2: If new commits exist, use BROADCAST:1507812398499893349|<announcement> to post in #announcements. "
+        Set prompt to prompt + "Step 3: Use BROADCAST:1507812597431402707|<engaging EPL tip or challenge> to post in #general. "
+        Set prompt to prompt + "Execute ALL steps. Output tool commands one per line. "
+        Return prompt
+    End
+
+    Note: ═══ COMMUNITY MEMBER MODES (channel-specific) ═══
+
+    If channel_id is equal to CH_ASK_EPLAI or channel_id is equal to CH_EPL_HELP then
+        Note: Help channels — be maximally helpful
+        Set prompt to prompt + "MODE: EPL HELP CHANNEL. A community member is asking for help. "
+        Set prompt to prompt + "You MUST answer every legitimate EPL or programming question with detailed, expert-level responses and real EPL code examples. "
+        Set prompt to prompt + "Be friendly, welcoming, patient, and thorough. These users are here to learn EPL. Help them succeed. "
+        Set prompt to prompt + "If the question is about another language, relate it back to how EPL handles it. "
+        Set prompt to prompt + "Only output IGNORE (nothing else) if the message is pure spam, profanity, or completely meaningless gibberish. "
+        Return prompt
+    End
+
+    If channel_id is equal to CH_BUG_REPORTS then
+        Set prompt to prompt + "MODE: BUG REPORTS. A community member is reporting a bug. "
+        Set prompt to prompt + "Help them by asking for reproduction steps, error messages, and EPL version. Be professional and systematic. "
+        Set prompt to prompt + "If it is a known issue, explain the workaround. If it is new, acknowledge it and suggest they open a GitHub issue. "
+        Return prompt
+    End
+
+    If channel_id is equal to CH_GENERAL or channel_id is equal to CH_LOBBY then
+        Set prompt to prompt + "MODE: GENERAL COMMUNITY. You are in a public community channel. "
+        Set prompt to prompt + "Be friendly, engaging, and conversational. Answer EPL and programming questions enthusiastically with code examples. "
+        Set prompt to prompt + "If someone says just 'hi' or 'hello' with nothing else, output IGNORE (nothing else). "
+        Set prompt to prompt + "If someone asks an off-topic question unrelated to programming, politely redirect them: 'I focus on EPL and programming topics! Got any EPL questions?'. "
+        Set prompt to prompt + "If someone asks 'what is EPL' or similar, give them an enthusiastic, detailed answer about the language. "
+        Return prompt
+    End
+
+    If channel_id is equal to CH_SHOWCASE then
+        Set prompt to prompt + "MODE: SHOWCASE. Community members are sharing their EPL projects. "
+        Set prompt to prompt + "Be encouraging and give constructive, positive feedback. Highlight what they did well and suggest improvements. "
+        Return prompt
+    End
+
+    If channel_id is equal to CH_AI_FEEDBACK then
+        Set prompt to prompt + "MODE: AI FEEDBACK. Users are giving feedback about you (EPLAI). "
+        Set prompt to prompt + "Listen carefully, acknowledge their feedback, and be grateful. If they report issues, explain and suggest improvements. "
+        Return prompt
+    End
+
+    If channel_id is equal to CH_OFF_TOPIC then
+        Set prompt to prompt + "MODE: OFF-TOPIC. This channel allows casual discussion. "
+        Set prompt to prompt + "Be friendly and casual but still maintain your identity as the EPL bot. You can chat about general tech topics. "
+        Set prompt to prompt + "If a message is just 'hi' or meaningless, output IGNORE (nothing else). "
+        Return prompt
+    End
+
+    Note: Default fallback for any other channel
+    Set prompt to prompt + "MODE: DEFAULT. You are in a public EPL Discord channel. "
+    Set prompt to prompt + "Answer EPL and programming questions helpfully with code examples. "
+    Set prompt to prompt + "If a message is just 'hi', 'hello', or meaningless spam, output IGNORE (nothing else, no explanation, no parentheses). "
+    Set prompt to prompt + "For off-topic questions, politely say you focus on EPL and programming. "
+    Return prompt
+End
 
 Note: ═══════════════════════════════════════════════════════════════
 Note: API CALL FUNCTION
@@ -92,15 +166,18 @@ Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: MAIN AGENT PROCESS — Handles all messages
+Note: MAIN AGENT PROCESS — Channel-Aware + User-Aware
 Note: ═══════════════════════════════════════════════════════════════
 
-Function agent_process takes db, user_id, username, user_message, api_key, image_url, guild_id, token
+Function agent_process takes db, user_id, username, user_message, api_key, image_url, guild_id, token, channel_id
     Create history equal to memory_get_history(db, user_id)
     Create facts equal to memory_get_facts(db, user_id)
 
+    Note: Build channel-aware and user-aware system prompt
+    Create system_prompt equal to build_system_prompt(username, channel_id)
+
     Create messages equal to []
-    messages.add(Map with role = "system" and content = SYSTEM_PROMPT)
+    messages.add(Map with role = "system" and content = system_prompt)
 
     If length(facts) > 0 then
         Create fact_str equal to facts.join(", ")
@@ -162,10 +239,18 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
         
         Set step to step + 1
 
-        Note: Trim whitespace and check for IGNORE
+        Note: Trim whitespace
         Set llm_reply to llm_reply.trim()
 
+        Note: Robust IGNORE detection — check if reply contains IGNORE anywhere
         If llm_reply is equal to "IGNORE" then
+            Return "IGNORE"
+        End
+        If llm_reply.starts_with("IGNORE") then
+            Return "IGNORE"
+        End
+        If llm_reply.contains("IGNORE") and length(llm_reply) < 500 then
+            Note: LLM outputted IGNORE with extra explanation, still treat as IGNORE
             Return "IGNORE"
         End
 
@@ -225,7 +310,7 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
 
         Otherwise If llm_reply.starts_with("CREATE_ROLE:") then
             If username is not equal to "abneesh.dev" then
-                messages.add(Map with role = "system" and content = "ERROR: Only abneesh.dev can execute admin commands.")
+                messages.add(Map with role = "system" and content = "ERROR: Only the Founder can execute admin commands.")
                 Continue
             End
             Create role_data equal to llm_reply.replace("CREATE_ROLE:", "").trim()
@@ -245,7 +330,7 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
 
         Otherwise If llm_reply.starts_with("CREATE_CHANNEL:") then
             If username is not equal to "abneesh.dev" then
-                messages.add(Map with role = "system" and content = "ERROR: Only abneesh.dev can execute admin commands.")
+                messages.add(Map with role = "system" and content = "ERROR: Only the Founder can execute admin commands.")
                 Continue
             End
             Create channel_data equal to llm_reply.replace("CREATE_CHANNEL:", "").trim()
@@ -266,7 +351,6 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             messages.add(Map with role = "system" and content = "Server layout: " + result)
 
         Otherwise If llm_reply.starts_with("BROADCAST:") then
-            Note: Allow BROADCAST for founder AND autonomous triggers
             If username is not equal to "abneesh.dev" and is_autonomous is not equal to True then
                 messages.add(Map with role = "system" and content = "ERROR: Only the Founder or autonomous system can broadcast.")
                 Continue

@@ -9,7 +9,7 @@ Function gateway_handle_message takes ws_map, d
         Create content equal to d["content"]
         
         If content.contains("discord.gg/") or content.contains("@everyone") or content.contains("@here") then
-            Say "[Moderation] Spam detected! Dropping message from " + author["username"]
+            Say "[Moderation] Spam detected from " + author["username"]
             Return Nothing
         End
 
@@ -17,7 +17,7 @@ Function gateway_handle_message takes ws_map, d
         Create user_id equal to author["id"]
         Create channel_id equal to d["channel_id"]
 
-        Say "[Message] " + username + ": " + content
+        Say "[Message] #" + channel_id + " " + username + ": " + content
         Say "[Agent] Processing..."
         
         db_execute(ws_map["db"], "INSERT INTO active_channels (channel_id) VALUES (?) ON CONFLICT(channel_id) DO UPDATE SET timestamp=CURRENT_TIMESTAMP", [channel_id])
@@ -31,11 +31,21 @@ Function gateway_handle_message takes ws_map, d
         End
 
         Create guild_id equal to d["guild_id"]
-        Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url, guild_id, ws_map["token"])
         
-        Note: Robust IGNORE check — trim and compare
+        Note: Pass channel_id to agent_process for channel-aware behavior
+        Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url, guild_id, ws_map["token"], channel_id)
+        
+        Note: Robust IGNORE check — trim and check for IGNORE anywhere
         Create trimmed_reply equal to reply.trim()
-        If trimmed_reply is not equal to "IGNORE" then
+        Create should_ignore equal to False
+        If trimmed_reply is equal to "IGNORE" then
+            Set should_ignore to True
+        End
+        If trimmed_reply.starts_with("IGNORE") then
+            Set should_ignore to True
+        End
+
+        If should_ignore is not equal to True then
             Create embed equal to Map with description = reply and color = 3447003
             Create embeds_arr equal to []
             embeds_arr.add(embed)
@@ -163,34 +173,21 @@ Function gateway_heartbeat_sender takes ws_map
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: AUTONOMOUS LOOP — Runs every 24h with REAL intelligence
+Note: AUTONOMOUS LOOP — Runs every 24h with full agent intelligence
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_autonomous_loop takes ws_map
-    Note: Wait 60 seconds after boot before first autonomous action
     real_sleep(60)
     Say "[Autonomous] Autonomous loop initialized. Running every 24 hours."
 
     While True
         Say "[Autonomous] ═══ Running autonomous cycle ═══"
         
-        Note: Use agent_process with special SYSTEM_AUTONOMOUS username
-        Note: This unlocks BROADCAST permissions for the autonomous system
         Create guild_id equal to ""
-        Create rows equal to db_query(ws_map["db"], "SELECT channel_id FROM active_channels ORDER BY timestamp DESC LIMIT 1")
-        If length(rows) > 0 then
-            Note: We need guild_id but can fallback
-            Set guild_id to ""
-        End
 
-        Note: Step 1: Check GitHub for new commits and announce
-        Say "[Autonomous] Step 1: Checking GitHub for updates..."
-        Create github_messages equal to []
-        github_messages.add(Map with role = "system" and content = SYSTEM_PROMPT)
-        github_messages.add(Map with role = "user" and content = "[SYSTEM_AUTONOMOUS]: [Autonomous trigger] Check the EPL GitHub repository for new commits. If there are updates, announce them to #announcements using the BROADCAST tool. Then post an engaging daily EPL programming tip or coding challenge to #general using the BROADCAST tool. Execute ALL steps.")
-        
-        Create github_reply equal to agent_process(ws_map["db"], "SYSTEM", "SYSTEM_AUTONOMOUS", "[Autonomous trigger] Check the EPL GitHub repository for new commits. If there are updates, announce them to #announcements using the BROADCAST tool. Then post an engaging daily EPL programming tip or coding challenge to #general using the BROADCAST tool. Execute ALL steps.", ws_map["groq_api_key"], "", guild_id, ws_map["token"])
-        Say "[Autonomous] Agent response: " + github_reply
+        Say "[Autonomous] Triggering agent with SYSTEM_AUTONOMOUS..."
+        Create reply equal to agent_process(ws_map["db"], "SYSTEM", "SYSTEM_AUTONOMOUS", "[Autonomous trigger] Check the EPL GitHub repository for new commits. If there are updates, announce them to #announcements using BROADCAST. Then post an engaging daily EPL programming tip or coding challenge to #general using BROADCAST. Execute ALL steps.", ws_map["groq_api_key"], "", guild_id, ws_map["token"], "autonomous")
+        Say "[Autonomous] Agent response: " + reply
         
         Say "[Autonomous] ═══ Cycle complete. Sleeping 24h. ═══"
         real_sleep(86400)
