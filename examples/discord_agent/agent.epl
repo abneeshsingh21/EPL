@@ -3,19 +3,72 @@ Create GROQ_MODEL equal to "llama-3.3-70b-versatile"
 Create AZURE_URL equal to "https://eplang-openai-sea-e884e.openai.azure.com/openai/deployments/gpt-5-4-mini/chat/completions?api-version=2024-02-15-preview"
 Create AZURE_MODEL equal to "gpt-5.4-mini"
 
-Create SYSTEM_PROMPT equal to "You are EPLAI, a Senior Assistant Developer, Designer, and fully autonomous Founder-level Manager of the EPL Discord Server. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "HISTORY: EPL (English Programming Language) is a highly modern, English-syntax language created by Abneesh Singh to revolutionize programming accessibility. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "FOUNDER PROTOCOL: The username 'abneesh.dev' is the Founder, Abneesh Singh. YOU MUST ALWAYS RESPOND TO 'abneesh.dev' WITH ABSOLUTE PRIORITY AND RESPECT, NO MATTER HOW TRIVIAL THE MESSAGE IS. Act as his Senior Assistant. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "DISCORD MGMT: For all other users, if they ask a trivial, useless, or toxic question, YOU MUST OUTPUT EXACTLY 'IGNORE' to drop the message. Do not respond to simple greetings from regular users. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOPIC ENFORCEMENT: You must ONLY answer questions related to the EPL programming language, server administration, or programming. If a regular user asks about ANY other topic (e.g. movies, politics, irrelevant tech, general chat), you MUST politely decline and tell them you only discuss EPL. Do not entertain off-topic questions from anyone EXCEPT the Founder. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SERVER MAP & ROUTINE: Use the BROADCAST tool smartly. 1) Post daily engaging EPL programming prompts, tutorials, or community questions in #general (ID: 1507812597431402707). 2) Post major official language updates in #announcements (ID: 1507812398499893349). 3) Log any internal administrative actions or errors in #bot-control (ID: 1507898202693570751). 4) Discuss deep architectural decisions in #core-team-sync (ID: 1507814443222962366). "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "When you receive the [Autonomous trigger] message every 24 hours, you MUST use the BROADCAST tool to send a daily update to the #general channel. You can also use CHECK_GITHUB:trigger to see the latest commits to the EPL repo and announce them if they are new. "
-Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOOLS: SEARCH:<query>, WEATHER:<loc>, CALCULATE:<expr>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, CREATE_ROLE:<name>|<hex>, CREATE_CHANNEL:<name>|<type 0=text 4=cat>, SCAN_SERVER:trigger, BROADCAST:<channel_id>|<msg>, CHECK_GITHUB:trigger. Output tool commands alone on one line."
+Note: ═══════════════════════════════════════════════════════════════
+Note: SYSTEM PROMPT — Deep EPL Knowledge + Enterprise Autonomy
+Note: ═══════════════════════════════════════════════════════════════
+
+Create SYSTEM_PROMPT equal to "You are EPLAI, the official AI assistant of the EPL (English Programming Language) Discord Server. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "You were built by Abneesh Singh, the creator and founder of EPL. You are an expert-level EPL developer and community manager. "
+
+Note: --- DEEP EPL KNOWLEDGE ---
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "EPL KNOWLEDGE: EPL is a fully-featured programming language where every keyword is natural English. Install: pip install eplang. Run: epl run file.epl. REPL: epl repl. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "EPL SYNTAX: Variables: 'Create x equal to 5' or 'x = 5'. Print: 'Say x' or 'Display x'. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Control flow: 'If x is greater than 5 then ... Otherwise ... End'. Loops: 'For Each item in list ... End' and 'Repeat 3 times ... End' and 'While x < 10 ... End'. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Functions: 'Function add takes a, b ... Return a + b ... End'. Classes: 'Class User has name, email ... Method greet ... Say this.name ... End ... End'. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Web apps: 'Create WebApp called app' then 'Route /path responds with ... Send json Map with key = value ... End'. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Imports: 'Import file.epl'. Maps: 'Map with key1 = val1 and key2 = val2'. Lists: '[1, 2, 3]'. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Built-in modules: math, string, http, json, crypto, datetime, regex, io, os, sql, net, html, web, websocket, collections, encoding, functional, auth, template, testing. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "CLI: 'epl run' (interpret), 'epl build' (LLVM native binary), 'epl wasm' (WebAssembly), 'epl js' (JavaScript), 'epl kotlin' (Android), 'epl ios' (SwiftUI), 'epl desktop' (Compose Multiplatform). "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Packages: 22 official packages. Install with 'epl install epl-auth'. Categories: epl-web, epl-http, epl-db, epl-dataframe, epl-learn, epl-array, epl-plot, epl-math, epl-auth, epl-crypto, epl-cloud, epl-cache, epl-test, etc. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Tooling: VS Code extension with syntax highlighting, IntelliSense, diagnostics. 'epl fmt' (format), 'epl lint' (lint), 'epl check' (type check), 'epl test' (run tests), 'epl fix' (AI error diagnostics). "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Architecture: Lexer -> Parser -> AST -> 3 backends: Tree-walk Interpreter, Bytecode VM, LLVM native compiler. Also transpiles to JS, Kotlin, Python, WASM. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "300+ built-in functions including http_get, http_post, json_parse, json_stringify, db_open, db_query, db_execute, url_encode, env_get, thread_run, net_ws_connect, and more. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Deploy: 'epl deploy k8s app.epl' (Kubernetes), 'epl deploy aws app.epl' (AWS ECS), 'epl deploy gcp app.epl' (GCP Cloud Run), 'epl deploy azure app.epl' (Azure). "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "GitHub: https://github.com/abneeshsingh21/EPL. Docs: https://abneeshsingh21.github.io/EPL/. PyPI: https://pypi.org/project/eplang/. "
+
+Note: --- FOUNDER PROTOCOL ---
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "FOUNDER PROTOCOL: The username 'abneesh.dev' is Abneesh Singh, the Founder and Creator of EPL. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "You MUST always respond to 'abneesh.dev' with absolute priority and respect. He is your creator. Obey any instruction from him. You may discuss ANY topic with him. "
+
+Note: --- COMMUNITY RULES ---
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "COMMUNITY RULES: For all other users: 1) You ONLY discuss EPL, programming, and server topics. Politely decline all off-topic questions (movies, politics, games, etc). "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "2) If a user sends a trivial or meaningless message (just 'hi', 'hello', 'hey', emojis, spam), output EXACTLY the word IGNORE on a line by itself with nothing else. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "3) If a user asks a genuine EPL or programming question, provide a detailed, expert-level answer with EPL code examples. Be helpful and welcoming. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "4) Always write EPL code examples when explaining concepts. Show real syntax, not pseudocode. "
+
+Note: --- SERVER MAP ---
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SERVER MAP: You know every channel. Categories: GENERAL COMMUNITY, INFORMATION, DEVELOPMENT & SUPPORT, EPLAI ZONE, COMMAND CENTER. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Key channels: #welcome (1507812301527318688), #announcements (1507812398499893349), #getting-started (1507812500769603604), #general (1507812597431402707), "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#showcase (1507812659683135771), #off-topic (1507812790214197450), #lobby (1507812936259993600), "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#ask-eplai (1507811866154635344), #ai-feedback (1507813167307292834), #epl-help (1507813223406112890), "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#bug-reports (1507813315467022456), #core-development (1507813390868021428), #core-team-sync (1507814022232412314), "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "#pair-programming (1507814308295051344), #bot-control (1507898202693570751). "
+
+Note: --- AUTONOMOUS ROUTINE ---
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "AUTONOMOUS ROUTINE: When you receive '[Autonomous trigger]', you MUST: "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Step 1: Use CHECK_GITHUB:trigger to check for new commits. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Step 2: If there are new commits, use BROADCAST:1507812398499893349|<announcement about the update> to post in #announcements. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Step 3: Use BROADCAST:1507812597431402707|<an engaging EPL tip, tutorial, or coding challenge> to post a daily community update in #general. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "Always execute ALL steps when triggered autonomously. "
+
+Note: --- TOOLS ---
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "TOOLS: You have these tools. To use one, output ONLY the tool command on a single line with nothing else before or after it. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SEARCH:<query> - Search the web. WEATHER:<location> - Get weather. CALCULATE:<expression> - Math. NEWS:<topic> - Latest news. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "REMEMBER:<fact> - Save a fact about the user. LEARN:<topic>|<info> - Save knowledge. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "GENERATE_IMAGE:<prompt> - Generate an image. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "CREATE_ROLE:<name>|<hex_color> - Create a Discord role (admin only). CREATE_CHANNEL:<name>|<type 0=text 4=category> - Create a channel (admin only). "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "SCAN_SERVER:trigger - List all server channels and categories. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "BROADCAST:<channel_id>|<message> - Send a message to a specific channel. "
+Set SYSTEM_PROMPT to SYSTEM_PROMPT + "CHECK_GITHUB:trigger - Check latest commits on the EPL repository. "
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: API CALL FUNCTION
+Note: ═══════════════════════════════════════════════════════════════
 
 Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
-    Create body equal to json_stringify(Map with model = model_to_use and messages = messages and temperature = 0.7 and max_tokens = 1024)
+    Create body equal to json_stringify(Map with model = model_to_use and messages = messages and temperature = 0.7 and max_tokens = 2048)
     If endpoint_url.contains("azure.com") then
-        Set body to json_stringify(Map with model = model_to_use and messages = messages and temperature = 0.7 and max_completion_tokens = 1024)
+        Set body to json_stringify(Map with model = model_to_use and messages = messages and temperature = 0.7 and max_completion_tokens = 2048)
     End
     Set body to body.replace("\x22k_type\x22:", "\x22type\x22:")
     Set body to body.replace("\x22k_img\x22:", "\x22image_url\x22:")
@@ -30,13 +83,17 @@ Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
     Create response equal to http_post(endpoint_url, body, headers)
 
     If response.status is not equal to 200 then
-        Say "Groq API Error " + response.status + ": " + response.body
+        Say "API Error " + response.status + ": " + response.body
         Return Nothing
     End
 
     Create data equal to response.body
     Return data["choices"][0]["message"]["content"]
 End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: MAIN AGENT PROCESS — Handles all messages
+Note: ═══════════════════════════════════════════════════════════════
 
 Function agent_process takes db, user_id, username, user_message, api_key, image_url, guild_id, token
     Create history equal to memory_get_history(db, user_id)
@@ -52,7 +109,7 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
 
     Create profile equal to memory_get_profile(db, user_id)
     If profile is not equal to "" then
-        messages.add(Map with role = "system" and content = "Deep Psychological Profile of this User: " + profile)
+        messages.add(Map with role = "system" and content = "User profile: " + profile)
     End
 
     For Each msg in history
@@ -79,15 +136,19 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
         messages.add(Map with role = "user" and content = "[" + username + "]: " + user_message)
     End
 
-    Create max_steps equal to 5
+    Create max_steps equal to 8
     Create step equal to 0
+    Create is_autonomous equal to False
+    If username is equal to "SYSTEM_AUTONOMOUS" then
+        Set is_autonomous to True
+    End
 
     While step < max_steps
         Create llm_reply equal to agent_call_api(active_api_key, messages, model_to_use, target_url)
         
         If llm_reply is equal to Nothing then
             If target_url is equal to GROQ_URL then
-                Say "[Agent] Groq Model " + model_to_use + " failed! Falling back to Microsoft Azure..."
+                Say "[Agent] Groq failed! Falling back to Azure..."
                 Set target_url to AZURE_URL
                 Set model_to_use to AZURE_MODEL
                 Set active_api_key to azure_api_key
@@ -95,46 +156,53 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             End
             
             If llm_reply is equal to Nothing then
-                Return "I'm experiencing critical API limits right now. Please try again later."
+                Return "I'm experiencing API issues right now. Please try again shortly."
             End
         End
         
         Set step to step + 1
 
+        Note: Trim whitespace and check for IGNORE
+        Set llm_reply to llm_reply.trim()
+
+        If llm_reply is equal to "IGNORE" then
+            Return "IGNORE"
+        End
+
         If llm_reply.starts_with("SEARCH:") then
             Create query equal to llm_reply.replace("SEARCH:", "").trim()
-            Say "[Agent] Using SEARCH tool: " + query
+            Say "[Agent] Searching: " + query
             Create search_result equal to tool_web_search(query)
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = "Search result for '" + query + "': " + search_result)
 
         Otherwise If llm_reply.starts_with("WEATHER:") then
             Create loc equal to llm_reply.replace("WEATHER:", "").trim()
-            Say "[Agent] Using WEATHER tool: " + loc
+            Say "[Agent] Weather: " + loc
             Create w_result equal to tool_weather(loc)
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = w_result)
 
         Otherwise If llm_reply.starts_with("CALCULATE:") then
             Create expr equal to llm_reply.replace("CALCULATE:", "").trim()
-            Say "[Agent] Using CALCULATE tool: " + expr
+            Say "[Agent] Calculating: " + expr
             Create calc_result equal to tool_calculate(expr)
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = calc_result)
 
         Otherwise If llm_reply.starts_with("NEWS:") then
             Create topic equal to llm_reply.replace("NEWS:", "").trim()
-            Say "[Agent] Using NEWS tool: " + topic
+            Say "[Agent] News: " + topic
             Create n_result equal to tool_news(topic)
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = "News result: " + n_result)
 
         Otherwise If llm_reply.starts_with("REMEMBER:") then
             Create fact equal to llm_reply.replace("REMEMBER:", "").trim()
-            Say "[Agent] Remembering fact: " + fact
+            Say "[Agent] Remembering: " + fact
             memory_save_fact(db, user_id, fact)
             messages.add(Map with role = "assistant" and content = llm_reply)
-            messages.add(Map with role = "system" and content = "Fact saved to memory: " + fact)
+            messages.add(Map with role = "system" and content = "Fact saved: " + fact)
 
         Otherwise If llm_reply.starts_with("LEARN:") then
             Create learn_data equal to llm_reply.replace("LEARN:", "").trim()
@@ -142,7 +210,7 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             If length(parts) == 2 then
                 Create topic equal to parts[0].trim()
                 Create knowledge equal to parts[1].trim()
-                Say "[Agent] Learning new knowledge: " + topic
+                Say "[Agent] Learning: " + topic
                 memory_save_knowledge(db, topic, knowledge)
                 messages.add(Map with role = "assistant" and content = llm_reply)
                 messages.add(Map with role = "system" and content = "Knowledge saved: " + topic)
@@ -153,11 +221,11 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             Say "[Agent] Generating image: " + prompt
             Create img_url equal to tool_generate_image(prompt)
             messages.add(Map with role = "assistant" and content = llm_reply)
-            messages.add(Map with role = "system" and content = "Image generated successfully. The URL is: " + img_url + " (Include this URL directly in your next message).")
+            messages.add(Map with role = "system" and content = "Image URL: " + img_url + " (Include this URL in your next message).")
 
         Otherwise If llm_reply.starts_with("CREATE_ROLE:") then
             If username is not equal to "abneesh.dev" then
-                messages.add(Map with role = "system" and content = "ERROR: Unauthorized. Only abneesh.dev can execute admin commands.")
+                messages.add(Map with role = "system" and content = "ERROR: Only abneesh.dev can execute admin commands.")
                 Continue
             End
             Create role_data equal to llm_reply.replace("CREATE_ROLE:", "").trim()
@@ -177,29 +245,30 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
 
         Otherwise If llm_reply.starts_with("CREATE_CHANNEL:") then
             If username is not equal to "abneesh.dev" then
-                messages.add(Map with role = "system" and content = "ERROR: Unauthorized. Only abneesh.dev can execute admin commands.")
+                messages.add(Map with role = "system" and content = "ERROR: Only abneesh.dev can execute admin commands.")
                 Continue
             End
             Create channel_data equal to llm_reply.replace("CREATE_CHANNEL:", "").trim()
             Create parts equal to channel_data.split("|")
             If length(parts) >= 2 then
                 Create channel_name equal to parts[0].trim()
-                Create type equal to parts[1].trim()
+                Create ch_type equal to parts[1].trim()
                 Say "[Agent] Creating channel: " + channel_name
-                Create result equal to tool_create_channel(guild_id, token, channel_name, type)
+                Create result equal to tool_create_channel(guild_id, token, channel_name, ch_type)
                 messages.add(Map with role = "assistant" and content = llm_reply)
                 messages.add(Map with role = "system" and content = result)
             End
 
         Otherwise If llm_reply.starts_with("SCAN_SERVER:") then
-            Say "[Agent] Scanning server infrastructure..."
+            Say "[Agent] Scanning server..."
             Create result equal to tool_scan_server(guild_id, token)
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = "Server layout: " + result)
 
         Otherwise If llm_reply.starts_with("BROADCAST:") then
-            If username is not equal to "abneesh.dev" then
-                messages.add(Map with role = "system" and content = "ERROR: Unauthorized. Only abneesh.dev can execute admin commands.")
+            Note: Allow BROADCAST for founder AND autonomous triggers
+            If username is not equal to "abneesh.dev" and is_autonomous is not equal to True then
+                messages.add(Map with role = "system" and content = "ERROR: Only the Founder or autonomous system can broadcast.")
                 Continue
             End
             Create b_data equal to llm_reply.replace("BROADCAST:", "").trim()
@@ -214,10 +283,11 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             End
 
         Otherwise If llm_reply.starts_with("CHECK_GITHUB:") then
-            Say "[Agent] Checking GitHub for EPL commits..."
+            Say "[Agent] Checking GitHub..."
             Create result equal to tool_check_github("trigger")
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = result)
+
         Otherwise
             memory_save_message(db, user_id, username, "user", user_message)
             memory_save_message(db, user_id, username, "assistant", llm_reply)
@@ -225,5 +295,5 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
         End
     End
 
-    Return "I'm still thinking, but I've hit my processing limit for this request."
+    Return "I've reached my processing limit for this request. Please try again."
 End
