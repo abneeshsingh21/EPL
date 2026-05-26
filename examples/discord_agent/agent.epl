@@ -4,25 +4,8 @@ Create AZURE_URL equal to "https://eplang-openai-sea-e884e.openai.azure.com/open
 Create AZURE_MODEL equal to "gpt-5.4-mini"
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: SYSTEM PROMPT — Deep EPL Knowledge + Channel-Aware Intelligence
+Note: CHANNEL ID CONSTANTS
 Note: ═══════════════════════════════════════════════════════════════
-
-Create EPL_KNOWLEDGE equal to "EPL KNOWLEDGE: EPL (English Programming Language) is a fully-featured programming language where every keyword is natural English, created by Abneesh Singh. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Install: pip install eplang. Run: epl run file.epl. REPL: epl repl. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "SYNTAX: Variables: 'Create x equal to 5' or 'x = 5'. Print: 'Say x' or 'Display x'. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Control flow: 'If x is greater than 5 then ... Otherwise ... End'. Loops: 'For Each item in list ... End', 'Repeat 3 times ... End', 'While x < 10 ... End'. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Functions: 'Function add takes a, b ... Return a + b ... End'. Classes: 'Class User has name, email ... Method greet ... Say this.name ... End ... End'. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Web apps: 'Create WebApp called app' then 'Route /path responds with ... Send json Map with key = value ... End'. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Imports: 'Import file.epl'. Maps: 'Map with key1 = val1 and key2 = val2'. Lists: '[1, 2, 3]'. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Built-in modules: math, string, http, json, crypto, datetime, regex, io, os, sql, net, html, web, websocket, collections, encoding, functional, auth, template, testing. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "CLI: 'epl run' (interpret), 'epl build' (LLVM native binary), 'epl wasm' (WebAssembly), 'epl js' (JavaScript), 'epl kotlin' (Android), 'epl ios' (SwiftUI), 'epl desktop' (Compose). "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "22 official packages: epl-web, epl-http, epl-db, epl-dataframe, epl-learn, epl-array, epl-plot, epl-math, epl-auth, epl-crypto, epl-cloud, epl-cache, epl-test, etc. Install: 'epl install epl-auth'. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Architecture: Lexer -> Parser -> AST -> 3 backends: Tree-walk Interpreter, Bytecode VM, LLVM native compiler. Also transpiles to JS, Kotlin, Python, WASM. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "300+ built-in functions. Deploy: 'epl deploy k8s/aws/gcp/azure app.epl'. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "GitHub: https://github.com/abneeshsingh21/EPL. Docs: https://abneeshsingh21.github.io/EPL/. PyPI: https://pypi.org/project/eplang/. "
-Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "VS Code extension with syntax highlighting, IntelliSense, diagnostics. 'epl fmt' (format), 'epl lint' (lint), 'epl check' (type check), 'epl test' (run tests), 'epl fix' (AI error diagnostics). "
-
-Note: --- CHANNEL ID CONSTANTS ---
 Create CH_ASK_EPLAI equal to "1507811866154635344"
 Create CH_AI_FEEDBACK equal to "1507813167307292834"
 Create CH_EPL_HELP equal to "1507813223406112890"
@@ -40,98 +23,133 @@ Create CH_GETTING_STARTED equal to "1507812500769603604"
 Create CH_PAIR_PROG equal to "1507814308295051344"
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: BUILD CONTEXT-AWARE SYSTEM PROMPT BASED ON CHANNEL + USER
+Note: EPL KNOWLEDGE BASE — Accurate, real syntax with working examples
+Note: ═══════════════════════════════════════════════════════════════
+
+Create EPL_KNOWLEDGE equal to "EPL (English Programming Language) is created by Abneesh Singh. Install: pip install eplang. Run: epl run file.epl. REPL: epl repl. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "CRITICAL SYNTAX RULES — You MUST follow these exactly when writing EPL code: "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "1. Strings MUST be in double quotes: " + "\x22" + "Hello" + "\x22" + ". NEVER write bare text without quotes. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "2. Variables: Create name equal to " + "\x22" + "Abneesh" + "\x22" + " (correct). NEVER write 'Create a variable called'. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "3. Print: Say " + "\x22" + "Hello World" + "\x22" + " or Display " + "\x22" + "Hello" + "\x22" + ". "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "4. If blocks: If x > 5 then ... Otherwise ... End. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "5. Loops: For Each item in list ... End. Repeat 3 times ... End. While x < 10 ... End. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "6. Functions: Function add takes a, b ... Return a + b ... End. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "7. Classes: Class User has name, email ... Method greet ... End ... End. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "8. Web: Create WebApp called app ... Route /path responds with ... End. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "9. Maps: Map with key1 = val1 and key2 = val2. Lists: [1, 2, 3]. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "10. String concat uses +: Say " + "\x22" + "Hello " + "\x22" + " + name. "
+
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "CORRECT CODE EXAMPLES (copy these patterns exactly): "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Example 1 - Hello World: ```epl\nCreate greeting equal to " + "\x22" + "Hello, World!" + "\x22" + "\nSay greeting\n``` "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Example 2 - Variables & Math: ```epl\nCreate age equal to 25\nCreate name equal to " + "\x22" + "Abneesh" + "\x22" + "\nSay " + "\x22" + "Name: " + "\x22" + " + name\nSay " + "\x22" + "Age: " + "\x22" + " + age\n``` "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Example 3 - Function: ```epl\nFunction greet takes person\n    Say " + "\x22" + "Hello, " + "\x22" + " + person + " + "\x22" + "!" + "\x22" + "\nEnd\ngreet(" + "\x22" + "Abneesh" + "\x22" + ")\n``` "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Example 4 - If/Else: ```epl\nCreate score equal to 85\nIf score >= 90 then\n    Say " + "\x22" + "Grade: A" + "\x22" + "\nOtherwise If score >= 80 then\n    Say " + "\x22" + "Grade: B" + "\x22" + "\nOtherwise\n    Say " + "\x22" + "Grade: C" + "\x22" + "\nEnd\n``` "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Example 5 - Loop: ```epl\nCreate fruits equal to [" + "\x22" + "apple" + "\x22" + ", " + "\x22" + "banana" + "\x22" + ", " + "\x22" + "cherry" + "\x22" + "]\nFor Each fruit in fruits\n    Say fruit\nEnd\n``` "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Example 6 - Class: ```epl\nClass User has name, email\n    Method greet\n        Say " + "\x22" + "Hi, I am " + "\x22" + " + this.name\n    End\nEnd\nCreate u equal to new User with name = " + "\x22" + "Abneesh" + "\x22" + " and email = " + "\x22" + "a@epl.dev" + "\x22" + "\nu.greet()\n``` "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Example 7 - WebApp: ```epl\nCreate WebApp called api\nRoute /hello responds with\n    Send json Map with message = " + "\x22" + "Hello from EPL!" + "\x22" + "\nEnd\nStart api on port 3000\n``` "
+
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "Built-in modules: math, string, http, json, crypto, datetime, regex, io, os, sql, net, websocket, collections, encoding, functional, auth, template, testing. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "CLI: epl run (interpret), epl build (LLVM binary), epl wasm, epl js, epl kotlin, epl ios, epl desktop. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "22 packages: epl-web, epl-http, epl-db, epl-dataframe, epl-learn, epl-array, epl-plot, epl-math, epl-auth, epl-crypto, epl-cloud, epl-cache, epl-test, etc. "
+Set EPL_KNOWLEDGE to EPL_KNOWLEDGE + "GitHub: https://github.com/abneeshsingh21/EPL. Docs: https://abneeshsingh21.github.io/EPL/. PyPI: https://pypi.org/project/eplang/. "
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: FAQ AUTO-REPLY — Instant responses, no LLM needed
+Note: ═══════════════════════════════════════════════════════════════
+
+Function faq_check takes message
+    Create msg equal to message.lower().trim()
+
+    If msg.contains("how to install") or msg.contains("how do i install") or msg is equal to "install epl" then
+        Return "**Installing EPL is easy!** 🚀\n```bash\npip install eplang\n```\nThen run your first program:\n```bash\nepl run hello.epl\n```\nOr try the interactive REPL: `epl repl`"
+    End
+
+    If msg is equal to "what is epl" or msg is equal to "what is epl?" or msg.contains("what is epl") then
+        Return "**EPL (English Programming Language)** is a fully-featured programming language where every keyword is natural English! 🌟\n\n```epl\nCreate message equal to " + "\x22" + "Hello, World!" + "\x22" + "\nSay message\n```\n\n📦 Install: `pip install eplang`\n📚 Docs: https://abneeshsingh21.github.io/EPL/\n⭐ GitHub: https://github.com/abneeshsingh21/EPL"
+    End
+
+    If msg.contains("what ide") or msg.contains("which editor") or msg.contains("vscode extension") then
+        Return "**EPL has a VS Code extension!** 🎨\nSearch for `EPL` in the VS Code marketplace. It provides:\n• Syntax highlighting\n• IntelliSense\n• Error diagnostics\n• Code formatting (`epl fmt`)"
+    End
+
+    If msg.contains("how to run") or msg.contains("how do i run") then
+        Return "**Running EPL code:**\n```bash\nepl run myfile.epl\n```\nOr use the interactive REPL:\n```bash\nepl repl\n```"
+    End
+
+    If msg.contains("epl vs python") or msg.contains("why epl") or msg.contains("why not python") then
+        Return "**EPL vs Python:**\n• EPL uses **natural English** keywords (`Create`, `Say`, `For Each`)\n• EPL compiles to **native binaries** via LLVM (faster than Python)\n• EPL transpiles to **JS, Kotlin, WASM, Swift**\n• EPL has built-in **web framework** (`Create WebApp`)\n• Python has a larger ecosystem, EPL is newer but growing! 🚀"
+    End
+
+    Return ""
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: BUILD CONTEXT-AWARE SYSTEM PROMPT
 Note: ═══════════════════════════════════════════════════════════════
 
 Function build_system_prompt takes username, channel_id
-    Create prompt equal to "You are EPLAI, the official AI assistant of the EPL Discord Server, built by Abneesh Singh. "
+    Create prompt equal to "You are EPLAI, the official AI assistant of the EPL Discord Server. "
     Set prompt to prompt + EPL_KNOWLEDGE
 
-    Note: --- TOOLS (always available) ---
-    Set prompt to prompt + "TOOLS: To use a tool, output ONLY the tool command on a single line with absolutely nothing else — no explanation, no notes, no parentheses. "
-    Set prompt to prompt + "Available: SEARCH:<query>, WEATHER:<location>, CALCULATE:<expression>, NEWS:<topic>, REMEMBER:<fact>, LEARN:<topic>|<info>, GENERATE_IMAGE:<prompt>, "
-    Set prompt to prompt + "CREATE_ROLE:<name>|<hex_color> (admin only), CREATE_CHANNEL:<name>|<type 0=text 4=category> (admin only), "
-    Set prompt to prompt + "SCAN_SERVER:trigger, BROADCAST:<channel_id>|<message>, CHECK_GITHUB:trigger. "
+    Note: --- RESPONSE RULES ---
+    Set prompt to prompt + "RESPONSE RULES (CRITICAL): "
+    Set prompt to prompt + "1. Be CONCISE. Match your response length to the question length. Short question = short answer (2-4 lines). Complex question = detailed answer. "
+    Set prompt to prompt + "2. ALWAYS use Discord markdown code blocks with ```epl for EPL code. NEVER write code as plain text. "
+    Set prompt to prompt + "3. Give ONE clear example per concept, not multiple alternatives. "
+    Set prompt to prompt + "4. Strings in EPL MUST always be in double quotes. NEVER write bare unquoted text. "
+    Set prompt to prompt + "5. NEVER write 'Create a variable called'. The correct syntax is 'Create name equal to value'. "
+    Set prompt to prompt + "6. NEVER explain what IGNORE means or mention it in your response. If you want to ignore, just output IGNORE alone. "
+
+    Note: --- TOOLS ---
+    Set prompt to prompt + "TOOLS (output ONLY the command, nothing else): "
+    Set prompt to prompt + "SEARCH:<query> | WEATHER:<location> | CALCULATE:<expr> | NEWS:<topic> | REMEMBER:<fact> | LEARN:<topic>|<info> | GENERATE_IMAGE:<prompt> | "
+    Set prompt to prompt + "CREATE_ROLE:<name>|<hex_color> (founder only) | CREATE_CHANNEL:<name>|<type> (founder only) | "
+    Set prompt to prompt + "SCAN_SERVER:trigger | BROADCAST:<channel_id>|<message> | CHECK_GITHUB:trigger "
 
     Note: ═══ FOUNDER MODE ═══
     If username is equal to "abneesh.dev" then
         If channel_id is equal to CH_BOT_CONTROL then
-            Note: Private command center — Senior Assistant mode
-            Set prompt to prompt + "MODE: FOUNDER COMMAND CENTER. You are speaking privately with Abneesh Singh, the Founder and Creator of EPL, in the private #bot-control channel. "
-            Set prompt to prompt + "Act as his Senior Assistant and Chief of Staff. Be strategic, proactive, and executive-level. "
-            Set prompt to prompt + "You can discuss ANY topic — planning, strategy, tasks, server management, personal requests. Nothing is off limits. "
-            Set prompt to prompt + "When given tasks, confirm them clearly and execute using your tools (BROADCAST, CREATE_CHANNEL, CREATE_ROLE, SCAN_SERVER, CHECK_GITHUB). "
-            Set prompt to prompt + "Be concise, sharp, and action-oriented. No fluff. Report status clearly. Anticipate what the Founder needs. "
+            Set prompt to prompt + "MODE: FOUNDER COMMAND CENTER. Speaking with Abneesh Singh (Founder) in #bot-control. "
+            Set prompt to prompt + "Act as Senior Assistant. Be strategic, concise, action-oriented. Any topic is allowed. Execute tasks using tools. "
         Else
-            Note: Founder in public channels
-            Set prompt to prompt + "MODE: FOUNDER PUBLIC. The user 'abneesh.dev' is Abneesh Singh, the Founder of EPL. "
-            Set prompt to prompt + "Always respond with top priority and respect. You may discuss any topic with him. Be helpful and professional. "
+            Set prompt to prompt + "MODE: FOUNDER. User is Abneesh Singh, EPL Founder. Top priority. Any topic allowed. Be helpful, professional, concise. "
         End
         Return prompt
     End
 
     Note: ═══ AUTONOMOUS MODE ═══
     If username is equal to "SYSTEM_AUTONOMOUS" then
-        Set prompt to prompt + "MODE: AUTONOMOUS. You are running autonomously without a human user. "
-        Set prompt to prompt + "ROUTINE: Step 1: Use CHECK_GITHUB:trigger to check for new EPL commits. "
-        Set prompt to prompt + "Step 2: If new commits exist, use BROADCAST:1507812398499893349|<announcement> to post in #announcements. "
-        Set prompt to prompt + "Step 3: Use BROADCAST:1507812597431402707|<engaging EPL tip or challenge> to post in #general. "
-        Set prompt to prompt + "Execute ALL steps. Output tool commands one per line. "
+        Set prompt to prompt + "MODE: AUTONOMOUS. Execute routine: CHECK_GITHUB:trigger, then BROADCAST results to #announcements (1507812398499893349), then BROADCAST a daily EPL tip to #general (1507812597431402707). "
         Return prompt
     End
 
-    Note: ═══ COMMUNITY MEMBER MODES (channel-specific) ═══
-
+    Note: ═══ COMMUNITY MEMBER MODES ═══
     If channel_id is equal to CH_ASK_EPLAI or channel_id is equal to CH_EPL_HELP then
-        Note: Help channels — be maximally helpful
-        Set prompt to prompt + "MODE: EPL HELP CHANNEL. A community member is asking for help. "
-        Set prompt to prompt + "You MUST answer every legitimate EPL or programming question with detailed, expert-level responses and real EPL code examples. "
-        Set prompt to prompt + "Be friendly, welcoming, patient, and thorough. These users are here to learn EPL. Help them succeed. "
-        Set prompt to prompt + "If the question is about another language, relate it back to how EPL handles it. "
-        Set prompt to prompt + "Only output IGNORE (nothing else) if the message is pure spam, profanity, or completely meaningless gibberish. "
+        Set prompt to prompt + "MODE: HELP. Answer ALL EPL and programming questions helpfully with correct code examples. Be friendly and patient. Only IGNORE pure spam/gibberish. "
         Return prompt
     End
 
     If channel_id is equal to CH_BUG_REPORTS then
-        Set prompt to prompt + "MODE: BUG REPORTS. A community member is reporting a bug. "
-        Set prompt to prompt + "Help them by asking for reproduction steps, error messages, and EPL version. Be professional and systematic. "
-        Set prompt to prompt + "If it is a known issue, explain the workaround. If it is new, acknowledge it and suggest they open a GitHub issue. "
+        Set prompt to prompt + "MODE: BUG REPORTS. Help users report bugs. Ask for: EPL version, OS, error message, reproduction steps. Be systematic. "
         Return prompt
     End
 
     If channel_id is equal to CH_GENERAL or channel_id is equal to CH_LOBBY then
-        Set prompt to prompt + "MODE: GENERAL COMMUNITY. You are in a public community channel. "
-        Set prompt to prompt + "Be friendly, engaging, and conversational. Answer EPL and programming questions enthusiastically with code examples. "
-        Set prompt to prompt + "If someone says just 'hi' or 'hello' with nothing else, output IGNORE (nothing else). "
-        Set prompt to prompt + "If someone asks an off-topic question unrelated to programming, politely redirect them: 'I focus on EPL and programming topics! Got any EPL questions?'. "
-        Set prompt to prompt + "If someone asks 'what is EPL' or similar, give them an enthusiastic, detailed answer about the language. "
+        Set prompt to prompt + "MODE: COMMUNITY. Be friendly and engaging. Answer EPL questions with code. Only IGNORE if message is just 'hi'/'hello' with nothing else. Redirect off-topic politely. "
         Return prompt
     End
 
     If channel_id is equal to CH_SHOWCASE then
-        Set prompt to prompt + "MODE: SHOWCASE. Community members are sharing their EPL projects. "
-        Set prompt to prompt + "Be encouraging and give constructive, positive feedback. Highlight what they did well and suggest improvements. "
-        Return prompt
-    End
-
-    If channel_id is equal to CH_AI_FEEDBACK then
-        Set prompt to prompt + "MODE: AI FEEDBACK. Users are giving feedback about you (EPLAI). "
-        Set prompt to prompt + "Listen carefully, acknowledge their feedback, and be grateful. If they report issues, explain and suggest improvements. "
+        Set prompt to prompt + "MODE: SHOWCASE. Give positive, constructive feedback on user projects. Be encouraging. "
         Return prompt
     End
 
     If channel_id is equal to CH_OFF_TOPIC then
-        Set prompt to prompt + "MODE: OFF-TOPIC. This channel allows casual discussion. "
-        Set prompt to prompt + "Be friendly and casual but still maintain your identity as the EPL bot. You can chat about general tech topics. "
-        Set prompt to prompt + "If a message is just 'hi' or meaningless, output IGNORE (nothing else). "
+        Set prompt to prompt + "MODE: CASUAL. Friendly casual chat about tech. Only IGNORE pure spam. "
         Return prompt
     End
 
-    Note: Default fallback for any other channel
-    Set prompt to prompt + "MODE: DEFAULT. You are in a public EPL Discord channel. "
-    Set prompt to prompt + "Answer EPL and programming questions helpfully with code examples. "
-    Set prompt to prompt + "If a message is just 'hi', 'hello', or meaningless spam, output IGNORE (nothing else, no explanation, no parentheses). "
-    Set prompt to prompt + "For off-topic questions, politely say you focus on EPL and programming. "
+    Set prompt to prompt + "MODE: DEFAULT. Answer EPL questions helpfully. Only IGNORE pure spam. Redirect off-topic politely. "
     Return prompt
 End
 
@@ -149,13 +167,11 @@ Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
     Set body to body.replace("\x22k_text\x22:", "\x22text\x22:")
     
     Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bearer " + api_key, "application/json"])
-    
     If endpoint_url.contains("azure.com") then
         Set headers to dict_from_lists(["api-key", "Content-Type"], [api_key, "application/json"])
     End
     
     Create response equal to http_post(endpoint_url, body, headers)
-
     If response.status is not equal to 200 then
         Say "API Error " + response.status + ": " + response.body
         Return Nothing
@@ -166,14 +182,20 @@ Function agent_call_api takes api_key, messages, model_to_use, endpoint_url
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: MAIN AGENT PROCESS — Channel-Aware + User-Aware
+Note: MAIN AGENT PROCESS
 Note: ═══════════════════════════════════════════════════════════════
 
 Function agent_process takes db, user_id, username, user_message, api_key, image_url, guild_id, token, channel_id
+    Note: Check FAQ first (instant, no LLM)
+    Create faq_answer equal to faq_check(user_message)
+    If faq_answer is not equal to "" then
+        memory_save_message(db, user_id, username, "user", user_message)
+        memory_save_message(db, user_id, username, "assistant", faq_answer)
+        Return faq_answer
+    End
+
     Create history equal to memory_get_history(db, user_id)
     Create facts equal to memory_get_facts(db, user_id)
-
-    Note: Build channel-aware and user-aware system prompt
     Create system_prompt equal to build_system_prompt(username, channel_id)
 
     Create messages equal to []
@@ -204,7 +226,6 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
         Create text_obj equal to Map with k_type = "text" and k_text = "[" + username + "]: " + user_message
         Create img_url_obj equal to Map with url = image_url
         Create img_obj equal to Map with k_type = "image_url" and k_img = img_url_obj
-        
         Create content_arr equal to []
         content_arr.add(text_obj)
         content_arr.add(img_obj)
@@ -225,32 +246,25 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
         
         If llm_reply is equal to Nothing then
             If target_url is equal to GROQ_URL then
-                Say "[Agent] Groq failed! Falling back to Azure..."
+                Say "[Agent] Groq failed, falling back to Azure..."
                 Set target_url to AZURE_URL
                 Set model_to_use to AZURE_MODEL
                 Set active_api_key to azure_api_key
                 Set llm_reply to agent_call_api(active_api_key, messages, model_to_use, target_url)
             End
-            
             If llm_reply is equal to Nothing then
-                Return "I'm experiencing API issues right now. Please try again shortly."
+                Return "I'm experiencing API issues. Please try again shortly."
             End
         End
         
         Set step to step + 1
-
-        Note: Trim whitespace
         Set llm_reply to llm_reply.trim()
 
-        Note: Robust IGNORE detection — check if reply contains IGNORE anywhere
-        If llm_reply is equal to "IGNORE" then
-            Return "IGNORE"
-        End
-        If llm_reply.starts_with("IGNORE") then
+        Note: Robust IGNORE detection
+        If llm_reply is equal to "IGNORE" or llm_reply.starts_with("IGNORE") then
             Return "IGNORE"
         End
         If llm_reply.contains("IGNORE") and length(llm_reply) < 500 then
-            Note: LLM outputted IGNORE with extra explanation, still treat as IGNORE
             Return "IGNORE"
         End
 
@@ -259,115 +273,92 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
             Say "[Agent] Searching: " + query
             Create search_result equal to tool_web_search(query)
             messages.add(Map with role = "assistant" and content = llm_reply)
-            messages.add(Map with role = "system" and content = "Search result for '" + query + "': " + search_result)
+            messages.add(Map with role = "system" and content = "Search result: " + search_result)
 
         Otherwise If llm_reply.starts_with("WEATHER:") then
             Create loc equal to llm_reply.replace("WEATHER:", "").trim()
-            Say "[Agent] Weather: " + loc
             Create w_result equal to tool_weather(loc)
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = w_result)
 
         Otherwise If llm_reply.starts_with("CALCULATE:") then
             Create expr equal to llm_reply.replace("CALCULATE:", "").trim()
-            Say "[Agent] Calculating: " + expr
             Create calc_result equal to tool_calculate(expr)
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = calc_result)
 
         Otherwise If llm_reply.starts_with("NEWS:") then
             Create topic equal to llm_reply.replace("NEWS:", "").trim()
-            Say "[Agent] News: " + topic
             Create n_result equal to tool_news(topic)
             messages.add(Map with role = "assistant" and content = llm_reply)
-            messages.add(Map with role = "system" and content = "News result: " + n_result)
+            messages.add(Map with role = "system" and content = "News: " + n_result)
 
         Otherwise If llm_reply.starts_with("REMEMBER:") then
             Create fact equal to llm_reply.replace("REMEMBER:", "").trim()
-            Say "[Agent] Remembering: " + fact
             memory_save_fact(db, user_id, fact)
             messages.add(Map with role = "assistant" and content = llm_reply)
-            messages.add(Map with role = "system" and content = "Fact saved: " + fact)
+            messages.add(Map with role = "system" and content = "Fact saved.")
 
         Otherwise If llm_reply.starts_with("LEARN:") then
             Create learn_data equal to llm_reply.replace("LEARN:", "").trim()
             Create parts equal to learn_data.split("|")
             If length(parts) == 2 then
-                Create topic equal to parts[0].trim()
-                Create knowledge equal to parts[1].trim()
-                Say "[Agent] Learning: " + topic
-                memory_save_knowledge(db, topic, knowledge)
+                memory_save_knowledge(db, parts[0].trim(), parts[1].trim())
                 messages.add(Map with role = "assistant" and content = llm_reply)
-                messages.add(Map with role = "system" and content = "Knowledge saved: " + topic)
+                messages.add(Map with role = "system" and content = "Knowledge saved.")
             End
 
         Otherwise If llm_reply.starts_with("GENERATE_IMAGE:") then
             Create prompt equal to llm_reply.replace("GENERATE_IMAGE:", "").trim()
-            Say "[Agent] Generating image: " + prompt
             Create img_url equal to tool_generate_image(prompt)
             messages.add(Map with role = "assistant" and content = llm_reply)
-            messages.add(Map with role = "system" and content = "Image URL: " + img_url + " (Include this URL in your next message).")
+            messages.add(Map with role = "system" and content = "Image URL: " + img_url + " (include this in your response)")
 
         Otherwise If llm_reply.starts_with("CREATE_ROLE:") then
             If username is not equal to "abneesh.dev" then
-                messages.add(Map with role = "system" and content = "ERROR: Only the Founder can execute admin commands.")
+                messages.add(Map with role = "system" and content = "ERROR: Founder-only command.")
                 Continue
             End
             Create role_data equal to llm_reply.replace("CREATE_ROLE:", "").trim()
             Create parts equal to role_data.split("|")
             If length(parts) >= 2 then
-                Create role_name equal to parts[0].trim()
-                Create color_hex equal to parts[1].trim()
-                Create permissions equal to "0"
-                If length(parts) == 3 then
-                    Set permissions to parts[2].trim()
-                End
-                Say "[Agent] Creating role: " + role_name
-                Create result equal to tool_create_role(guild_id, token, role_name, color_hex, permissions)
+                Create result equal to tool_create_role(guild_id, token, parts[0].trim(), parts[1].trim(), "0")
                 messages.add(Map with role = "assistant" and content = llm_reply)
                 messages.add(Map with role = "system" and content = result)
             End
 
         Otherwise If llm_reply.starts_with("CREATE_CHANNEL:") then
             If username is not equal to "abneesh.dev" then
-                messages.add(Map with role = "system" and content = "ERROR: Only the Founder can execute admin commands.")
+                messages.add(Map with role = "system" and content = "ERROR: Founder-only command.")
                 Continue
             End
-            Create channel_data equal to llm_reply.replace("CREATE_CHANNEL:", "").trim()
-            Create parts equal to channel_data.split("|")
+            Create ch_data equal to llm_reply.replace("CREATE_CHANNEL:", "").trim()
+            Create parts equal to ch_data.split("|")
             If length(parts) >= 2 then
-                Create channel_name equal to parts[0].trim()
-                Create ch_type equal to parts[1].trim()
-                Say "[Agent] Creating channel: " + channel_name
-                Create result equal to tool_create_channel(guild_id, token, channel_name, ch_type)
+                Create result equal to tool_create_channel(guild_id, token, parts[0].trim(), parts[1].trim())
                 messages.add(Map with role = "assistant" and content = llm_reply)
                 messages.add(Map with role = "system" and content = result)
             End
 
         Otherwise If llm_reply.starts_with("SCAN_SERVER:") then
-            Say "[Agent] Scanning server..."
             Create result equal to tool_scan_server(guild_id, token)
             messages.add(Map with role = "assistant" and content = llm_reply)
-            messages.add(Map with role = "system" and content = "Server layout: " + result)
+            messages.add(Map with role = "system" and content = "Server: " + result)
 
         Otherwise If llm_reply.starts_with("BROADCAST:") then
             If username is not equal to "abneesh.dev" and is_autonomous is not equal to True then
-                messages.add(Map with role = "system" and content = "ERROR: Only the Founder or autonomous system can broadcast.")
+                messages.add(Map with role = "system" and content = "ERROR: Founder/autonomous only.")
                 Continue
             End
             Create b_data equal to llm_reply.replace("BROADCAST:", "").trim()
             Create parts equal to b_data.split("|")
             If length(parts) >= 2 then
-                Create target_id equal to parts[0].trim()
-                Create msg_text equal to parts[1].trim()
-                Say "[Agent] Broadcasting to " + target_id
-                Create result equal to tool_broadcast(target_id, token, msg_text)
+                Create result equal to tool_broadcast(parts[0].trim(), token, parts[1].trim())
                 messages.add(Map with role = "assistant" and content = llm_reply)
                 messages.add(Map with role = "system" and content = result)
             End
 
         Otherwise If llm_reply.starts_with("CHECK_GITHUB:") then
-            Say "[Agent] Checking GitHub..."
             Create result equal to tool_check_github("trigger")
             messages.add(Map with role = "assistant" and content = llm_reply)
             messages.add(Map with role = "system" and content = result)
@@ -379,5 +370,5 @@ Function agent_process takes db, user_id, username, user_message, api_key, image
         End
     End
 
-    Return "I've reached my processing limit for this request. Please try again."
+    Return "Processing limit reached. Please try again."
 End

@@ -2,68 +2,130 @@ Create WS_URL equal to "https://gateway.discord.gg/?v=10&encoding=json"
 Create WS_URL equal to "wss://gateway.discord.gg/?v=10&encoding=json"
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: AUTO-MODERATION — Runs before LLM, catches spam instantly
+Note: ANTI-RAID — Detect mass joins
+Note: ═══════════════════════════════════════════════════════════════
+
+Create RECENT_JOINS equal to []
+Create RAID_THRESHOLD equal to 10
+Create RAID_WINDOW equal to 60
+
+Function check_raid takes ws_map, username
+    Create now equal to time_now()
+    RECENT_JOINS.add(now)
+    
+    Note: Remove joins older than RAID_WINDOW seconds
+    Create filtered equal to []
+    For Each join_time in RECENT_JOINS
+        If now - join_time < RAID_WINDOW then
+            filtered.add(join_time)
+        End
+    End
+    Set RECENT_JOINS to filtered
+    
+    If length(RECENT_JOINS) >= RAID_THRESHOLD then
+        Say "[RAID] ⚠️ RAID DETECTED! " + length(RECENT_JOINS) + " joins in 60 seconds!"
+        Note: Alert founder in #bot-control
+        Create alert_msg equal to "🚨 **RAID ALERT!** 🚨\n\n**" + length(RECENT_JOINS) + " users joined in under 60 seconds!**\n\nRecommend: Enable verification level or lock invites.\nLast join: **" + username + "**"
+        Create embed equal to Map with description = alert_msg and color = 15158332
+        Create embeds_arr equal to []
+        embeds_arr.add(embed)
+        Create body equal to json_stringify(Map with embeds = embeds_arr)
+        db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", ["1507898202693570751", body, ws_map["token"]])
+        Return True
+    End
+    Return False
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: AUTO-MODERATION
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_auto_moderate takes ws_map, d, content, username, user_id, channel_id
+    If username is equal to "abneesh.dev" then
+        Return False
+    End
+
     Create is_spam equal to False
     Create reason equal to ""
 
-    Note: Check for invite links (non-founder)
-    If username is not equal to "abneesh.dev" then
-        If content.contains("discord.gg/") or content.contains("discordapp.com/invite") then
-            Set is_spam to True
-            Set reason to "Unauthorized invite link"
-        End
-        If content.contains("@everyone") or content.contains("@here") then
-            Set is_spam to True
-            Set reason to "Unauthorized mass mention"
-        End
-        Note: Excessive caps detection (more than 70% caps in messages over 10 chars)
-        If length(content) > 10 then
-            Create upper_count equal to 0
-            Create total_count equal to length(content)
-            Create i equal to 0
-            While i < total_count
-                Create ch equal to content[i]
-                If ch >= "A" and ch <= "Z" then
-                    Set upper_count to upper_count + 1
-                End
-                Set i to i + 1
-            End
-            If upper_count > total_count * 0.7 then
-                Set is_spam to True
-                Set reason to "Excessive caps (shouting)"
-            End
-        End
+    If content.contains("discord.gg/") or content.contains("discordapp.com/invite") then
+        Set is_spam to True
+        Set reason to "Unauthorized invite link"
+    End
+    If content.contains("@everyone") or content.contains("@here") then
+        Set is_spam to True
+        Set reason to "Unauthorized mass mention"
     End
 
     If is_spam is equal to True then
         Say "[AutoMod] SPAM from " + username + ": " + reason
-        
-        Note: Delete the message
         Create message_id equal to d["id"]
         tool_delete_message(channel_id, message_id, ws_map["token"])
-        
-        Note: Log the moderation action
         memory_log_moderation(ws_map["db"], user_id, username, "auto_delete", reason)
         
-        Note: Send a warning in the channel
-        Create warn_msg equal to "⚠️ **Auto-Moderation:** A message from **" + username + "** was removed. Reason: " + reason
+        Create warn_msg equal to "⚠️ Message from **" + username + "** removed: " + reason
         Create embed equal to Map with description = warn_msg and color = 15105570
         Create embeds_arr equal to []
         embeds_arr.add(embed)
         Create body equal to json_stringify(Map with embeds = embeds_arr)
         db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
-        
         Return True
     End
-
     Return False
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: AUTO-WELCOME — Triggered on GUILD_MEMBER_ADD
+Note: XP / LEVELING SYSTEM
+Note: ═══════════════════════════════════════════════════════════════
+
+Function award_xp takes db, user_id, username, channel_id, token
+    Note: Award 5-15 XP per message (not spam channels)
+    Create xp_gain equal to 10
+    
+    Create rows equal to db_query(db, "SELECT xp, level FROM xp_levels WHERE user_id = ?", [user_id])
+    Create current_xp equal to 0
+    Create current_level equal to 0
+    If length(rows) > 0 then
+        Set current_xp to rows[0]["xp"]
+        Set current_level to rows[0]["level"]
+    End
+    
+    Create new_xp equal to current_xp + xp_gain
+    
+    Note: Level thresholds: L1=100, L2=300, L3=600, L4=1000, L5=2000, L6=5000
+    Create new_level equal to 0
+    If new_xp >= 5000 then
+        Set new_level to 6
+    Otherwise If new_xp >= 2000 then
+        Set new_level to 5
+    Otherwise If new_xp >= 1000 then
+        Set new_level to 4
+    Otherwise If new_xp >= 600 then
+        Set new_level to 3
+    Otherwise If new_xp >= 300 then
+        Set new_level to 2
+    Otherwise If new_xp >= 100 then
+        Set new_level to 1
+    End
+    
+    db_execute(db, "INSERT INTO xp_levels (user_id, username, xp, level) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET xp=?, level=?, username=?", [user_id, username, new_xp, new_level, new_xp, new_level, username])
+    
+    Note: Level up announcement
+    If new_level > current_level and new_level > 0 then
+        Create level_names equal to ["Newcomer", "Beginner", "Intermediate", "Advanced", "Expert", "EPL Master", "EPL Legend"]
+        Create level_name equal to level_names[new_level]
+        Create level_msg equal to "🎉 **Level Up!** <@" + user_id + "> reached **Level " + new_level + " — " + level_name + "**! (" + new_xp + " XP)"
+        Create embed equal to Map with description = level_msg and color = 16766720
+        Create embeds_arr equal to []
+        embeds_arr.add(embed)
+        Create body equal to json_stringify(Map with embeds = embeds_arr)
+        db_execute(db, "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, token])
+        Say "[XP] " + username + " leveled up to " + new_level + "!"
+    End
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: AUTO-WELCOME
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_handle_member_join takes ws_map, d
@@ -72,67 +134,129 @@ Function gateway_handle_member_join takes ws_map, d
     Create user_id equal to user["id"]
     Create guild_id equal to d["guild_id"]
 
-    Say "[Welcome] 🎉 New member joined: " + username + " (" + user_id + ")"
-    
-    Note: Log the join event
+    Say "[Welcome] 🎉 New member: " + username
     memory_log_member_event(ws_map["db"], user_id, username, "join")
     
-    Note: Send welcome message to #welcome channel
-    Create welcome_channel equal to "1507812301527318688"
-    Create result equal to tool_send_welcome(welcome_channel, ws_map["token"], username, user_id)
-    Say "[Welcome] " + result
+    Note: Check for raid
+    check_raid(ws_map, username)
     
-    Note: Auto-assign "Community Member" role if role ID is configured
+    Note: Send welcome
+    Create welcome_channel equal to "1507812301527318688"
+    tool_send_welcome(welcome_channel, ws_map["token"], username, user_id)
+    
+    Note: Auto-role
     Create auto_role_id equal to env_get("AUTO_ROLE_ID")
     If auto_role_id is not equal to "" then
-        Create role_result equal to tool_assign_role(guild_id, ws_map["token"], user_id, auto_role_id)
-        Say "[Welcome] Role assignment: " + role_result
+        tool_assign_role(guild_id, ws_map["token"], user_id, auto_role_id)
     End
 
-    Note: Check for member milestones
+    Note: Initialize XP
+    db_execute(ws_map["db"], "INSERT INTO xp_levels (user_id, username, xp, level) VALUES (?, ?, 0, 0) ON CONFLICT(user_id) DO NOTHING", [user_id, username])
+
+    Note: Milestone check
     Create member_count equal to tool_get_server_member_count(guild_id, ws_map["token"])
     If member_count is not equal to 0 then
-        Create count_str equal to "" + member_count
-        Note: Check milestones: 10, 25, 50, 100, 250, 500, 1000
         Create is_milestone equal to False
-        If member_count is equal to 10 or member_count is equal to 25 or member_count is equal to 50 then
+        If member_count is equal to 10 or member_count is equal to 25 or member_count is equal to 50 or member_count is equal to 100 or member_count is equal to 250 or member_count is equal to 500 or member_count is equal to 1000 then
             Set is_milestone to True
         End
-        If member_count is equal to 100 or member_count is equal to 250 or member_count is equal to 500 then
-            Set is_milestone to True
-        End
-        If member_count is equal to 1000 or member_count is equal to 2500 or member_count is equal to 5000 then
-            Set is_milestone to True
-        End
-        
         If is_milestone is equal to True then
-            Create milestone_msg equal to "🎊 **MILESTONE REACHED!** 🎊\n\nThe EPL Community has reached **" + count_str + " members**! 🚀\n\nThank you all for being part of this incredible journey. Let's keep building the future of programming together! ❤️"
-            Create general_channel equal to "1507812597431402707"
-            Create m_embed equal to Map with description = milestone_msg and color = 16766720
-            Create m_embeds equal to []
-            m_embeds.add(m_embed)
-            Create m_body equal to json_stringify(Map with embeds = m_embeds)
-            db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [general_channel, m_body, ws_map["token"]])
-            Say "[Milestone] 🎊 " + count_str + " members reached!"
+            Create m_msg equal to "🎊 **MILESTONE!** The EPL Community has reached **" + member_count + " members**! 🚀"
+            Create embed equal to Map with description = m_msg and color = 16766720
+            Create embeds_arr equal to []
+            embeds_arr.add(embed)
+            Create body equal to json_stringify(Map with embeds = embeds_arr)
+            db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", ["1507812597431402707", body, ws_map["token"]])
         End
     End
 End
-
-Note: ═══════════════════════════════════════════════════════════════
-Note: AUTO-LEAVE — Triggered on GUILD_MEMBER_REMOVE
-Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_handle_member_leave takes ws_map, d
     Create user equal to d["user"]
-    Create username equal to user["username"]
-    Create user_id equal to user["id"]
-    
-    Say "[Leave] 👋 Member left: " + username + " (" + user_id + ")"
-    memory_log_member_event(ws_map["db"], user_id, username, "leave")
+    Say "[Leave] 👋 " + user["username"] + " left."
+    memory_log_member_event(ws_map["db"], user["id"], user["username"], "leave")
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: MESSAGE HANDLER — Auto-mod first, then LLM
+Note: TICKET SYSTEM — !ticket command
+Note: ═══════════════════════════════════════════════════════════════
+
+Function handle_ticket_command takes ws_map, d, username, user_id, channel_id, content
+    If content.starts_with("!ticket") then
+        Create reason equal to content.replace("!ticket", "").trim()
+        If reason is equal to "" then
+            Set reason to "No reason provided"
+        End
+        
+        Say "[Ticket] Creating ticket for " + username
+        
+        Note: Log ticket
+        db_execute(ws_map["db"], "INSERT INTO tickets (user_id, username, reason, status) VALUES (?, ?, ?, ?)", [user_id, username, reason, "open"])
+        
+        Note: Get ticket ID
+        Create rows equal to db_query(ws_map["db"], "SELECT id FROM tickets WHERE user_id = ? ORDER BY id DESC LIMIT 1", [user_id])
+        Create ticket_id equal to "?"
+        If length(rows) > 0 then
+            Set ticket_id to "" + rows[0]["id"]
+        End
+        
+        Create ticket_msg equal to "🎫 **Ticket #" + ticket_id + " Created**\n\n**User:** " + username + "\n**Reason:** " + reason + "\n\nA team member will assist you soon. In the meantime, please describe your issue in detail here."
+        Create embed equal to Map with description = ticket_msg and color = 3447003
+        Create embeds_arr equal to []
+        embeds_arr.add(embed)
+        Create body equal to json_stringify(Map with embeds = embeds_arr)
+        db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
+        
+        Note: Notify bot-control
+        Create notify_msg equal to "📋 **New Ticket #" + ticket_id + "** from **" + username + "**: " + reason
+        Create n_embed equal to Map with description = notify_msg and color = 15105570
+        Create n_embeds equal to []
+        n_embeds.add(n_embed)
+        Create n_body equal to json_stringify(Map with embeds = n_embeds)
+        db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", ["1507898202693570751", n_body, ws_map["token"]])
+        
+        Return True
+    End
+    
+    If content.starts_with("!leaderboard") or content.starts_with("!xp") or content.starts_with("!rank") then
+        Say "[XP] Leaderboard requested by " + username
+        Create rows equal to db_query(ws_map["db"], "SELECT username, xp, level FROM xp_levels ORDER BY xp DESC LIMIT 10")
+        Create board equal to "🏆 **EPL Community Leaderboard**\n\n"
+        Create rank equal to 1
+        Create level_names equal to ["Newcomer", "Beginner", "Intermediate", "Advanced", "Expert", "EPL Master", "EPL Legend"]
+        For Each row in rows
+            Create medal equal to ""
+            If rank is equal to 1 then
+                Set medal to "🥇"
+            Otherwise If rank is equal to 2 then
+                Set medal to "🥈"
+            Otherwise If rank is equal to 3 then
+                Set medal to "🥉"
+            Otherwise
+                Set medal to "" + rank + "."
+            End
+            Create lname equal to level_names[row["level"]]
+            Set board to board + medal + " **" + row["username"] + "** — Level " + row["level"] + " (" + lname + ") — " + row["xp"] + " XP\n"
+            Set rank to rank + 1
+        End
+        
+        If length(rows) is equal to 0 then
+            Set board to board + "No data yet. Start chatting to earn XP!"
+        End
+        
+        Create embed equal to Map with description = board and color = 16766720
+        Create embeds_arr equal to []
+        embeds_arr.add(embed)
+        Create body equal to json_stringify(Map with embeds = embeds_arr)
+        db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
+        Return True
+    End
+
+    Return False
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: MESSAGE HANDLER
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_handle_message takes ws_map, d
@@ -145,14 +269,22 @@ Function gateway_handle_message takes ws_map, d
         Create user_id equal to author["id"]
         Create channel_id equal to d["channel_id"]
 
-        Note: Run auto-moderation FIRST (before LLM)
+        Note: Auto-mod first
         Create was_moderated equal to gateway_auto_moderate(ws_map, d, content, username, user_id, channel_id)
         If was_moderated is equal to True then
             Return Nothing
         End
 
+        Note: Award XP for every message
+        award_xp(ws_map["db"], user_id, username, channel_id, ws_map["token"])
+
+        Note: Check for commands (!ticket, !leaderboard, !xp, !rank)
+        Create was_command equal to handle_ticket_command(ws_map, d, username, user_id, channel_id, content)
+        If was_command is equal to True then
+            Return Nothing
+        End
+
         Say "[Message] #" + channel_id + " " + username + ": " + content
-        Say "[Agent] Processing..."
         
         db_execute(ws_map["db"], "INSERT INTO active_channels (channel_id) VALUES (?) ON CONFLICT(channel_id) DO UPDATE SET timestamp=CURRENT_TIMESTAMP", [channel_id])
 
@@ -165,20 +297,15 @@ Function gateway_handle_message takes ws_map, d
         End
 
         Create guild_id equal to d["guild_id"]
-        
-        Note: Pass channel_id to agent_process for channel-aware behavior
         Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url, guild_id, ws_map["token"], channel_id)
         
-        Note: Robust IGNORE check
-        Create trimmed_reply equal to reply.trim()
+        Note: IGNORE check
+        Create trimmed equal to reply.trim()
         Create should_ignore equal to False
-        If trimmed_reply is equal to "IGNORE" then
+        If trimmed is equal to "IGNORE" or trimmed.starts_with("IGNORE") then
             Set should_ignore to True
         End
-        If trimmed_reply.starts_with("IGNORE") then
-            Set should_ignore to True
-        End
-        If trimmed_reply.contains("IGNORE") and length(trimmed_reply) < 500 then
+        If trimmed.contains("IGNORE") and length(trimmed) < 500 then
             Set should_ignore to True
         End
 
@@ -187,32 +314,28 @@ Function gateway_handle_message takes ws_map, d
             Create embeds_arr equal to []
             embeds_arr.add(embed)
             Create body equal to json_stringify(Map with embeds = embeds_arr)
-            
             db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
             Say "[Agent] Queued reply."
         Else
-            Say "[Agent] Message ignored (trivial/off-topic)."
+            Say "[Agent] Ignored."
         End
     End
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: OUTBOUND WORKER — Rate-limited message sender
+Note: OUTBOUND WORKER
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_outbound_worker takes ws_map
-    Say "[OutboundWorker] Rate limit worker started (1.5s interval)"
+    Say "[OutboundWorker] Started."
     While True
         Create rows equal to db_query(ws_map["db"], "SELECT id, channel_id, payload, token FROM outbound_queue ORDER BY id ASC LIMIT 1")
         If length(rows) > 0 then
             Create row equal to rows[0]
             Create post_url equal to "https://discord.com/api/v10/channels/" + row["channel_id"] + "/messages"
             Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + row["token"], "application/json"])
-            
             http_post(post_url, row["payload"], headers)
             db_execute(ws_map["db"], "DELETE FROM outbound_queue WHERE id = ?", [row["id"]])
-            Say "[OutboundWorker] Sent message " + row["id"]
-            
             real_sleep(1.5)
         Else
             real_sleep(0.5)
@@ -221,22 +344,21 @@ Function gateway_outbound_worker takes ws_map
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: GATEWAY CORE — WebSocket, Heartbeat, Event Dispatch
+Note: GATEWAY CORE
 Note: ═══════════════════════════════════════════════════════════════
 
 Create GLOBAL_SEQ equal to 0
 
 Function gateway_send takes ws, op, d
     Create payload equal to Map with op = op and d = d
-    Create json_str equal to json_stringify(payload)
-    net_ws_send(ws, json_str)
+    net_ws_send(ws, json_stringify(payload))
 End
 
 Function gateway_identify takes ws, token
-    Say "[Gateway] Sending IDENTIFY payload..."
+    Say "[Gateway] Identifying..."
     Create props equal to Map with os = "windows" and browser = "epl_bot" and device = "epl_bot"
-    Note: Intents: GUILD_MEMBERS(2) + GUILD_MESSAGES(512) + DIRECT_MESSAGES(4096) + MESSAGE_CONTENT(32768) = 37378
-    Create d equal to Map with token = token and intents = 37378 and properties = props
+    Note: Intents: GUILD_MEMBERS(2) + GUILD_MESSAGES(512) + DIRECT_MESSAGES(4096) + MESSAGE_CONTENT(32768) + GUILD_MESSAGE_REACTIONS(1024) = 38402
+    Create d equal to Map with token = token and intents = 38402 and properties = props
     gateway_send(ws, 2, d)
 End
 
@@ -249,22 +371,15 @@ Function gateway_heartbeat_worker takes ws, interval
             Set seq to Nothing
         End
         gateway_send(ws, 1, seq)
-        Say "[Gateway] ❤️ Sent Heartbeat (seq: " + seq + ")."
     End
 End
 
 Function gateway_heartbeat_loop takes ws_map
-    Create sequence equal to 0
-    Create session_id equal to ""
-
     Create pool equal to real_thread_pool_create(2)
 
     While True
         Create msg equal to net_ws_receive(ws_map["ws"])
-        If msg is equal to Nothing then
-            Continue
-        End
-        If msg is equal to "" then
+        If msg is equal to Nothing or msg is equal to "" then
             Continue
         End
         
@@ -278,12 +393,9 @@ Function gateway_heartbeat_loop takes ws_map
         If op is equal to 10 then
             Create d equal to payload["d"]
             Create interval equal to d["heartbeat_interval"]
-            Say "[Gateway] Received HELLO. Heartbeat interval: " + interval + "ms"
-            
+            Say "[Gateway] HELLO. Heartbeat: " + interval + "ms"
             Set ws_map to ws_map.merge(Map with interval = interval)
-            
             real_thread_pool_submit(pool, gateway_heartbeat_worker, ws_map["ws"], interval)
-            
             gateway_identify(ws_map["ws"], ws_map["token"])
         End
 
@@ -293,20 +405,16 @@ Function gateway_heartbeat_loop takes ws_map
             
             If t is equal to "READY" then
                 Create user equal to d["user"]
-                Say "[Gateway] ✅ Bot logged in as: " + user["username"] + "#" + user["discriminator"]
+                Say "[Gateway] ✅ Logged in as: " + user["username"]
                 Set ws_map to ws_map.merge(Map with bot_id = user["id"])
             End
             
             If t is equal to "MESSAGE_CREATE" then
                 thread_run(gateway_handle_message, [ws_map, d])
             End
-            
-            Note: ═══ NEW: Handle member join ═══
             If t is equal to "GUILD_MEMBER_ADD" then
                 thread_run(gateway_handle_member_join, [ws_map, d])
             End
-            
-            Note: ═══ NEW: Handle member leave ═══
             If t is equal to "GUILD_MEMBER_REMOVE" then
                 thread_run(gateway_handle_member_leave, [ws_map, d])
             End
@@ -319,7 +427,6 @@ Function gateway_heartbeat_sender takes ws_map
         Create interval equal to ws_map["interval"]
         If interval is not equal to 0 then
             gateway_send(ws_map["ws"], 1, Nothing)
-            Say "[Gateway] Sent Heartbeat"
             Create sec equal to interval / 1000
             real_sleep(sec)
         Else
@@ -329,35 +436,29 @@ Function gateway_heartbeat_sender takes ws_map
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: AUTONOMOUS LOOP — Daily community engagement + GitHub monitoring
+Note: AUTONOMOUS LOOP
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_autonomous_loop takes ws_map
     real_sleep(60)
-    Say "[Autonomous] Autonomous loop initialized. Running every 24 hours."
+    Say "[Autonomous] Loop started (24h cycle)."
 
     While True
-        Say "[Autonomous] ═══ Running autonomous cycle ═══"
-        
-        Create guild_id equal to ""
-
-        Say "[Autonomous] Triggering autonomous agent..."
-        Create reply equal to agent_process(ws_map["db"], "SYSTEM", "SYSTEM_AUTONOMOUS", "[Autonomous trigger] Check the EPL GitHub repository for new commits. If there are updates, announce them to #announcements using BROADCAST. Then post an engaging daily EPL programming tip or coding challenge to #general using BROADCAST. Execute ALL steps.", ws_map["groq_api_key"], "", guild_id, ws_map["token"], "autonomous")
-        Say "[Autonomous] Agent response: " + reply
-        
-        Say "[Autonomous] ═══ Cycle complete. Sleeping 24h. ═══"
+        Say "[Autonomous] ═══ Running cycle ═══"
+        Create reply equal to agent_process(ws_map["db"], "SYSTEM", "SYSTEM_AUTONOMOUS", "[Autonomous trigger] Check GitHub for new EPL commits. Announce updates to #announcements via BROADCAST. Post an EPL tip to #general via BROADCAST. Execute ALL steps.", ws_map["groq_api_key"], "", "", ws_map["token"], "autonomous")
+        Say "[Autonomous] Done: " + reply
         real_sleep(86400)
     End
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: MAIN ENTRY — Start all systems
+Note: MAIN ENTRY
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_run takes db, token, groq_api_key
-    Say "[Bot] Connecting to Discord Gateway using EPL native WebSocket..."
+    Say "[Bot] Connecting to Discord Gateway..."
     Create ws equal to net_ws_connect(WS_URL)
-    Say "[Gateway] Connected to Discord WebSocket!"
+    Say "[Gateway] Connected!"
     
     Create ws_map equal to Map with ws = ws and token = token and groq_api_key = groq_api_key and db = db and interval = 0 and bot_id = ""
     
