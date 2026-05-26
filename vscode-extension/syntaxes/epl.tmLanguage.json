@@ -130,7 +130,6 @@
           "match": "\\b(Try|Catch|Finally|Throw|Assert)\\b"
         },
         {
-        {
           "name": "keyword.control.async.epl",
           "match": "\\b(Async|Await|Spawn|Parallel|Wait|Seconds)\\b"
         },
