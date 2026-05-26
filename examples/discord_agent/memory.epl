@@ -7,6 +7,15 @@ Function memory_setup takes db
     db_execute(db, "CREATE TABLE IF NOT EXISTS knowledge (id INTEGER PRIMARY KEY AUTOINCREMENT, topic TEXT UNIQUE NOT NULL, content TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
     db_execute(db, "CREATE TABLE IF NOT EXISTS active_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id TEXT UNIQUE NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
     db_execute(db, "CREATE TABLE IF NOT EXISTS user_profiles (user_id TEXT UNIQUE NOT NULL, profile TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+
+    Note: ═══ NEW: Member tracking table ═══
+    db_execute(db, "CREATE TABLE IF NOT EXISTS member_events (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, username TEXT NOT NULL, event_type TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+
+    Note: ═══ NEW: Moderation log table ═══
+    db_execute(db, "CREATE TABLE IF NOT EXISTS moderation_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, username TEXT NOT NULL, action TEXT NOT NULL, reason TEXT NOT NULL, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)")
+
+    Note: ═══ NEW: Server stats table ═══
+    db_execute(db, "CREATE TABLE IF NOT EXISTS server_stats (key TEXT UNIQUE NOT NULL, value TEXT NOT NULL, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)")
 End
 
 Function memory_save_message takes db, user_id, username, role, content
@@ -58,4 +67,38 @@ End
 
 Function memory_save_profile takes db, user_id, profile
     db_execute(db, "INSERT INTO user_profiles (user_id, profile) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET profile=excluded.profile", [user_id, profile])
+End
+
+Note: ═══ NEW: Member event tracking ═══
+
+Function memory_log_member_event takes db, user_id, username, event_type
+    db_execute(db, "INSERT INTO member_events (user_id, username, event_type) VALUES (?, ?, ?)", [user_id, username, event_type])
+End
+
+Function memory_get_member_count takes db
+    Create rows equal to db_query(db, "SELECT COUNT(DISTINCT user_id) as cnt FROM member_events WHERE event_type = 'join'")
+    If length(rows) > 0 then
+        Return rows[0]["cnt"]
+    End
+    Return 0
+End
+
+Note: ═══ NEW: Moderation logging ═══
+
+Function memory_log_moderation takes db, user_id, username, action, reason
+    db_execute(db, "INSERT INTO moderation_log (user_id, username, action, reason) VALUES (?, ?, ?, ?)", [user_id, username, action, reason])
+End
+
+Note: ═══ NEW: Server stats ═══
+
+Function memory_set_stat takes db, key, value
+    db_execute(db, "INSERT INTO server_stats (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP", [key, value])
+End
+
+Function memory_get_stat takes db, key
+    Create rows equal to db_query(db, "SELECT value FROM server_stats WHERE key = ?", [key])
+    If length(rows) > 0 then
+        Return rows[0]["value"]
+    End
+    Return ""
 End

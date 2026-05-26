@@ -1,21 +1,155 @@
 Create WS_URL equal to "https://gateway.discord.gg/?v=10&encoding=json"
 Create WS_URL equal to "wss://gateway.discord.gg/?v=10&encoding=json"
 
+Note: ═══════════════════════════════════════════════════════════════
+Note: AUTO-MODERATION — Runs before LLM, catches spam instantly
+Note: ═══════════════════════════════════════════════════════════════
+
+Function gateway_auto_moderate takes ws_map, d, content, username, user_id, channel_id
+    Create is_spam equal to False
+    Create reason equal to ""
+
+    Note: Check for invite links (non-founder)
+    If username is not equal to "abneesh.dev" then
+        If content.contains("discord.gg/") or content.contains("discordapp.com/invite") then
+            Set is_spam to True
+            Set reason to "Unauthorized invite link"
+        End
+        If content.contains("@everyone") or content.contains("@here") then
+            Set is_spam to True
+            Set reason to "Unauthorized mass mention"
+        End
+        Note: Excessive caps detection (more than 70% caps in messages over 10 chars)
+        If length(content) > 10 then
+            Create upper_count equal to 0
+            Create total_count equal to length(content)
+            Create i equal to 0
+            While i < total_count
+                Create ch equal to content[i]
+                If ch >= "A" and ch <= "Z" then
+                    Set upper_count to upper_count + 1
+                End
+                Set i to i + 1
+            End
+            If upper_count > total_count * 0.7 then
+                Set is_spam to True
+                Set reason to "Excessive caps (shouting)"
+            End
+        End
+    End
+
+    If is_spam is equal to True then
+        Say "[AutoMod] SPAM from " + username + ": " + reason
+        
+        Note: Delete the message
+        Create message_id equal to d["id"]
+        tool_delete_message(channel_id, message_id, ws_map["token"])
+        
+        Note: Log the moderation action
+        memory_log_moderation(ws_map["db"], user_id, username, "auto_delete", reason)
+        
+        Note: Send a warning in the channel
+        Create warn_msg equal to "⚠️ **Auto-Moderation:** A message from **" + username + "** was removed. Reason: " + reason
+        Create embed equal to Map with description = warn_msg and color = 15105570
+        Create embeds_arr equal to []
+        embeds_arr.add(embed)
+        Create body equal to json_stringify(Map with embeds = embeds_arr)
+        db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [channel_id, body, ws_map["token"]])
+        
+        Return True
+    End
+
+    Return False
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: AUTO-WELCOME — Triggered on GUILD_MEMBER_ADD
+Note: ═══════════════════════════════════════════════════════════════
+
+Function gateway_handle_member_join takes ws_map, d
+    Create user equal to d["user"]
+    Create username equal to user["username"]
+    Create user_id equal to user["id"]
+    Create guild_id equal to d["guild_id"]
+
+    Say "[Welcome] 🎉 New member joined: " + username + " (" + user_id + ")"
+    
+    Note: Log the join event
+    memory_log_member_event(ws_map["db"], user_id, username, "join")
+    
+    Note: Send welcome message to #welcome channel
+    Create welcome_channel equal to "1507812301527318688"
+    Create result equal to tool_send_welcome(welcome_channel, ws_map["token"], username, user_id)
+    Say "[Welcome] " + result
+    
+    Note: Auto-assign "Community Member" role if role ID is configured
+    Create auto_role_id equal to env_get("AUTO_ROLE_ID")
+    If auto_role_id is not equal to "" then
+        Create role_result equal to tool_assign_role(guild_id, ws_map["token"], user_id, auto_role_id)
+        Say "[Welcome] Role assignment: " + role_result
+    End
+
+    Note: Check for member milestones
+    Create member_count equal to tool_get_server_member_count(guild_id, ws_map["token"])
+    If member_count is not equal to 0 then
+        Create count_str equal to "" + member_count
+        Note: Check milestones: 10, 25, 50, 100, 250, 500, 1000
+        Create is_milestone equal to False
+        If member_count is equal to 10 or member_count is equal to 25 or member_count is equal to 50 then
+            Set is_milestone to True
+        End
+        If member_count is equal to 100 or member_count is equal to 250 or member_count is equal to 500 then
+            Set is_milestone to True
+        End
+        If member_count is equal to 1000 or member_count is equal to 2500 or member_count is equal to 5000 then
+            Set is_milestone to True
+        End
+        
+        If is_milestone is equal to True then
+            Create milestone_msg equal to "🎊 **MILESTONE REACHED!** 🎊\n\nThe EPL Community has reached **" + count_str + " members**! 🚀\n\nThank you all for being part of this incredible journey. Let's keep building the future of programming together! ❤️"
+            Create general_channel equal to "1507812597431402707"
+            Create m_embed equal to Map with description = milestone_msg and color = 16766720
+            Create m_embeds equal to []
+            m_embeds.add(m_embed)
+            Create m_body equal to json_stringify(Map with embeds = m_embeds)
+            db_execute(ws_map["db"], "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [general_channel, m_body, ws_map["token"]])
+            Say "[Milestone] 🎊 " + count_str + " members reached!"
+        End
+    End
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: AUTO-LEAVE — Triggered on GUILD_MEMBER_REMOVE
+Note: ═══════════════════════════════════════════════════════════════
+
+Function gateway_handle_member_leave takes ws_map, d
+    Create user equal to d["user"]
+    Create username equal to user["username"]
+    Create user_id equal to user["id"]
+    
+    Say "[Leave] 👋 Member left: " + username + " (" + user_id + ")"
+    memory_log_member_event(ws_map["db"], user_id, username, "leave")
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: MESSAGE HANDLER — Auto-mod first, then LLM
+Note: ═══════════════════════════════════════════════════════════════
+
 Function gateway_handle_message takes ws_map, d
     Create author equal to d["author"]
     Create bot_id equal to ws_map["bot_id"]
     
     If author["id"] is not equal to bot_id then
         Create content equal to d["content"]
-        
-        If content.contains("discord.gg/") or content.contains("@everyone") or content.contains("@here") then
-            Say "[Moderation] Spam detected from " + author["username"]
-            Return Nothing
-        End
-
         Create username equal to author["username"]
         Create user_id equal to author["id"]
         Create channel_id equal to d["channel_id"]
+
+        Note: Run auto-moderation FIRST (before LLM)
+        Create was_moderated equal to gateway_auto_moderate(ws_map, d, content, username, user_id, channel_id)
+        If was_moderated is equal to True then
+            Return Nothing
+        End
 
         Say "[Message] #" + channel_id + " " + username + ": " + content
         Say "[Agent] Processing..."
@@ -35,13 +169,16 @@ Function gateway_handle_message takes ws_map, d
         Note: Pass channel_id to agent_process for channel-aware behavior
         Create reply equal to agent_process(ws_map["db"], user_id, username, content, ws_map["groq_api_key"], image_url, guild_id, ws_map["token"], channel_id)
         
-        Note: Robust IGNORE check — trim and check for IGNORE anywhere
+        Note: Robust IGNORE check
         Create trimmed_reply equal to reply.trim()
         Create should_ignore equal to False
         If trimmed_reply is equal to "IGNORE" then
             Set should_ignore to True
         End
         If trimmed_reply.starts_with("IGNORE") then
+            Set should_ignore to True
+        End
+        If trimmed_reply.contains("IGNORE") and length(trimmed_reply) < 500 then
             Set should_ignore to True
         End
 
@@ -58,6 +195,10 @@ Function gateway_handle_message takes ws_map, d
         End
     End
 End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: OUTBOUND WORKER — Rate-limited message sender
+Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_outbound_worker takes ws_map
     Say "[OutboundWorker] Rate limit worker started (1.5s interval)"
@@ -79,6 +220,10 @@ Function gateway_outbound_worker takes ws_map
     End
 End
 
+Note: ═══════════════════════════════════════════════════════════════
+Note: GATEWAY CORE — WebSocket, Heartbeat, Event Dispatch
+Note: ═══════════════════════════════════════════════════════════════
+
 Create GLOBAL_SEQ equal to 0
 
 Function gateway_send takes ws, op, d
@@ -90,7 +235,8 @@ End
 Function gateway_identify takes ws, token
     Say "[Gateway] Sending IDENTIFY payload..."
     Create props equal to Map with os = "windows" and browser = "epl_bot" and device = "epl_bot"
-    Create d equal to Map with token = token and intents = 37376 and properties = props
+    Note: Intents: GUILD_MEMBERS(2) + GUILD_MESSAGES(512) + DIRECT_MESSAGES(4096) + MESSAGE_CONTENT(32768) = 37378
+    Create d equal to Map with token = token and intents = 37378 and properties = props
     gateway_send(ws, 2, d)
 End
 
@@ -154,6 +300,16 @@ Function gateway_heartbeat_loop takes ws_map
             If t is equal to "MESSAGE_CREATE" then
                 thread_run(gateway_handle_message, [ws_map, d])
             End
+            
+            Note: ═══ NEW: Handle member join ═══
+            If t is equal to "GUILD_MEMBER_ADD" then
+                thread_run(gateway_handle_member_join, [ws_map, d])
+            End
+            
+            Note: ═══ NEW: Handle member leave ═══
+            If t is equal to "GUILD_MEMBER_REMOVE" then
+                thread_run(gateway_handle_member_leave, [ws_map, d])
+            End
         End
     End
 End
@@ -173,7 +329,7 @@ Function gateway_heartbeat_sender takes ws_map
 End
 
 Note: ═══════════════════════════════════════════════════════════════
-Note: AUTONOMOUS LOOP — Runs every 24h with full agent intelligence
+Note: AUTONOMOUS LOOP — Daily community engagement + GitHub monitoring
 Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_autonomous_loop takes ws_map
@@ -185,7 +341,7 @@ Function gateway_autonomous_loop takes ws_map
         
         Create guild_id equal to ""
 
-        Say "[Autonomous] Triggering agent with SYSTEM_AUTONOMOUS..."
+        Say "[Autonomous] Triggering autonomous agent..."
         Create reply equal to agent_process(ws_map["db"], "SYSTEM", "SYSTEM_AUTONOMOUS", "[Autonomous trigger] Check the EPL GitHub repository for new commits. If there are updates, announce them to #announcements using BROADCAST. Then post an engaging daily EPL programming tip or coding challenge to #general using BROADCAST. Execute ALL steps.", ws_map["groq_api_key"], "", guild_id, ws_map["token"], "autonomous")
         Say "[Autonomous] Agent response: " + reply
         
@@ -193,6 +349,10 @@ Function gateway_autonomous_loop takes ws_map
         real_sleep(86400)
     End
 End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: MAIN ENTRY — Start all systems
+Note: ═══════════════════════════════════════════════════════════════
 
 Function gateway_run takes db, token, groq_api_key
     Say "[Bot] Connecting to Discord Gateway using EPL native WebSocket..."
