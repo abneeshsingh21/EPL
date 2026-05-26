@@ -180,6 +180,8 @@ HELP = f"""\
   epl ai <prompt>                  AI code assistant
   epl gen <description>            AI-generate EPL code
   epl explain <file.epl>           AI-explain what code does
+  epl doctor                       Check environment health
+                                   --json   Output as JSON for CI
 
 {_bold('Flags:')}
   --strict       Enable static type checking
@@ -463,6 +465,7 @@ def cli_main(argv=None):
         'resolve': lambda: _resolve(),
         'workspace': lambda: _workspace(rest),
         'ci': lambda: _ci(rest),
+        'doctor': lambda: _doctor(rest, flags),
         'sync-index': lambda: _sync_index(rest),
         'monitor': lambda: _monitor(rest),
         'login': lambda: _login(rest),
@@ -4342,6 +4345,19 @@ def _ci(args):
     from epl.ci_gen import ci_cli
 
     ci_cli(list(args))
+
+
+def _doctor(args, flags):
+    """Check environment health."""
+    from epl.doctor import run_doctor
+
+    all_flags = set(flags)
+    for a in args:
+        if a.startswith('--') or a.startswith('-'):
+            all_flags.add(a)
+
+    json_output = '--json' in all_flags
+    return run_doctor(json_output=json_output)
 
 
 def _sync_index(args):
