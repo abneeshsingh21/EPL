@@ -1,4 +1,4 @@
-// EPL VS Code Extension v2.0.0 — LSP Client + Run Commands
+// EPL VS Code Extension v2.1.0 — LSP Client + Run Commands
 // Connects VS Code to EPL's Language Server for diagnostics, completions, and hover.
 
 const vscode = require('vscode');
@@ -303,6 +303,18 @@ function activate(context) {
         runEplCommand('EPL Monitor', ['monitor', url]);
     });
 
+    const watchCommand = vscode.commands.registerCommand('epl.watch', () => {
+        const filePath = getActiveEPLFile();
+        if (!filePath) return;
+        log(`Watch: ${filePath}`);
+        runEplCommand('EPL Watch', ['watch', filePath, '--clear']);
+    });
+
+    const doctorCommand = vscode.commands.registerCommand('epl.doctor', () => {
+        log('Running epl doctor...');
+        runEplCommand('EPL Doctor', ['doctor']);
+    });
+
     context.subscriptions.push(
         runCommand,
         checkCommand,
@@ -317,7 +329,9 @@ function activate(context) {
         deployCommand,
         playgroundCommand,
         copilotCommand,
-        monitorCommand
+        monitorCommand,
+        watchCommand,
+        doctorCommand
     );
 
     // ── Status Bar ──────────────────────────────────────

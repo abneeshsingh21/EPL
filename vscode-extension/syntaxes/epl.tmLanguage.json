@@ -115,7 +115,7 @@
       "patterns": [
         {
           "name": "keyword.control.conditional.epl",
-          "match": "\\b(If|Then|Otherwise|Else)\\b"
+          "match": "\\b(If|Then|Otherwise|Else|Match|When|Default)\\b"
         },
         {
           "name": "keyword.control.loop.epl",
@@ -123,19 +123,16 @@
         },
         {
           "name": "keyword.control.flow.epl",
-          "match": "\\b(Return|Break|Continue|Exit|Yield|Yields)\\b"
+          "match": "\\b(Return|Break|Continue|Exit|Yield|Yields|Breakpoint)\\b"
         },
         {
           "name": "keyword.control.exception.epl",
           "match": "\\b(Try|Catch|Finally|Throw|Assert)\\b"
         },
         {
-          "name": "keyword.control.match.epl",
-          "match": "\\b(Match|When|Default)\\b"
-        },
         {
           "name": "keyword.control.async.epl",
-          "match": "\\b(Async|Await|Spawn|Parallel)\\b"
+          "match": "\\b(Async|Await|Spawn|Parallel|Wait|Seconds)\\b"
         },
         {
           "name": "keyword.control.end.epl",
@@ -147,19 +144,19 @@
       "patterns": [
         {
           "name": "keyword.other.declaration.epl",
-          "match": "\\b(Set|To|Create|Define|Constant|Remember|Variable|Named|Equal)\\b"
+          "match": "\\b(Set|To|Create|Define|Constant|Remember|Variable|Named|Equal|Declare|Let|Make)\\b"
         },
         {
           "name": "keyword.other.module.epl",
-          "match": "\\b(Import|Export|Module|Use|From)\\b"
+          "match": "\\b(Import|Export|Module|Use|From|Library)\\b"
         },
         {
           "name": "keyword.other.class.epl",
-          "match": "\\b(Class|Extends|Implements|Interface|Enum|Generic|Where)\\b"
+          "match": "\\b(Class|Extends|Implements|Interface|Enum|Generic|Where|Method|has)\\b"
         },
         {
           "name": "storage.type.function.epl",
-          "match": "\\b(Function|takes|returns|with|as|and|that|nothing)\\b"
+          "match": "\\b(Function|takes|returns|with|as|and|that|nothing|Lambda|given)\\b"
         }
       ]
     },

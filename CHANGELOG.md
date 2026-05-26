@@ -10,6 +10,38 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [8.0.0] — 2026-05-26
+
+### Added
+- **`epl watch`** — File watcher with auto-reload for development (PR #47 by @imkoushal)
+  - Watches `.epl` files for changes and auto-reruns the program
+  - Zero external dependencies (polling-based using `os.stat`)
+  - `--test` flag to re-run tests instead of the program
+  - `--clear` flag to clear screen before each re-run
+  - `--debounce=MS` to customize debounce interval (default: 300ms)
+  - 19 unit tests (all passing)
+- **`epl doctor`** — Environment health checker (PR #48 by @imkoushal)
+  - 11 diagnostic checks: Python version, EPL installation, Node.js/npm, Git, pip, platform, disk space, terminal encoding, project structure, dependencies
+  - Color-coded output with actionable fix hints
+  - `--json` flag for CI/automation integration
+  - 27 unit tests (all passing)
+- **Enterprise Discord AI Agent Enhancements** (`examples/discord_agent/`)
+  - FAQ auto-reply engine — instant responses without LLM for common questions
+  - XP / Leveling system — users earn XP per message, level up through 7 ranks (Newcomer → EPL Legend)
+  - Support ticket system — `!ticket` command with automated tracking and founder alerts
+  - Anti-raid protection — detects mass joins (10+ in 60s) and alerts `#bot-control`
+  - Auto-moderation — instant deletion of invite links, mass mentions, and spam
+  - Auto-welcome — rich embed welcome messages with EPL code examples for new members
+  - Server milestone celebrations — automated announcements at 10, 25, 50, 100, 250, 500, 1000 members
+  - Corrected EPL code knowledge — bot now generates syntactically correct EPL with proper string quoting
+  - Concise responses — short questions get short answers, no more walls of text
+
+### Changed
+- **VS Code Extension v2.1.0** — Added `epl.watch` and `epl.doctor` commands, enhanced TextMate grammar with missing keywords from lexer/parser (Generic, Where, Yields, Spawn, Parallel, Lambda, Breakpoint, Declare, Let), improved method call highlighting, and new `has` keyword support for class properties
+- Version bump to `8.0.0` for PyPI distribution
+
+---
+
 ## [7.8.2] — 2026-05-24
 
 ### Added
