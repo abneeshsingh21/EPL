@@ -58,7 +58,7 @@ Note: FAQ AUTO-REPLY — Instant responses, no LLM needed
 Note: ═══════════════════════════════════════════════════════════════
 
 Function faq_check takes message
-    Create msg equal to message.lower().trim()
+    Create msg equal to message.lowercase().trim()
 
     If msg.contains("how to install") or msg.contains("how do i install") or msg is equal to "install epl" then
         Return "**Installing EPL is easy!** 🚀\n```bash\npip install eplang\n```\nThen run your first program:\n```bash\nepl run hello.epl\n```\nOr try the interactive REPL: `epl repl`"
