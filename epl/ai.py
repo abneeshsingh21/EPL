@@ -41,42 +41,89 @@ GEMINI_MODELS = [
 ]
 
 _CONFIG_PATH = None  # Set lazily
+_CONFIG_LOADED = False  # Cache flag — avoid re-reading disk on every call
 
 
 def _get_config_path():
-    """Get path to the EPL AI config file."""
+    """Get path to the EPL AI config file.
+
+    Uses an XDG-aware per-user directory:
+      - Windows: %APPDATA%\\epl\\ai_config.json
+      - POSIX:   $XDG_CONFIG_HOME/epl/ai_config.json (default ~/.config/epl/...)
+
+    Legacy path (epl/.ai_config.json inside the package) is migrated on first
+    access so existing users do not lose their config.
+    """
     global _CONFIG_PATH
     if _CONFIG_PATH is None:
         import os
 
-        _CONFIG_PATH = os.path.join(os.path.dirname(__file__), '.ai_config.json')
+        if os.name == 'nt':
+            base = os.environ.get('APPDATA') or os.path.join(os.path.expanduser('~'), 'AppData', 'Roaming')
+        else:
+            base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
+        cfg_dir = os.path.join(base, 'epl')
+        try:
+            os.makedirs(cfg_dir, exist_ok=True)
+        except OSError:
+            pass
+        _CONFIG_PATH = os.path.join(cfg_dir, 'ai_config.json')
+
+        # One-shot migration from the legacy in-package location.
+        legacy = os.path.join(os.path.dirname(__file__), '.ai_config.json')
+        if os.path.exists(legacy) and not os.path.exists(_CONFIG_PATH):
+            try:
+                with open(legacy, 'r', encoding='utf-8') as src, open(_CONFIG_PATH, 'w', encoding='utf-8') as dst:
+                    dst.write(src.read())
+                _chmod_secret(_CONFIG_PATH)
+                os.remove(legacy)
+            except OSError:
+                pass
     return _CONFIG_PATH
 
 
-def _load_config():
-    """Load saved cloud config from disk."""
-    global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL
+def _chmod_secret(path):
+    """Best-effort: restrict config file to owner-only read/write."""
+    import os
+    if os.name != 'nt':
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+
+
+def _load_config(force=False):
+    """Load saved cloud config from disk.
+
+    Cached after first call (configure_cloud/clear_cloud invalidate the cache),
+    so we don't hit disk on every prompt.
+    """
+    global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL, _CONFIG_LOADED
+    if _CONFIG_LOADED and not force:
+        return
     path = _get_config_path()
     try:
-        with open(path, 'r') as f:
+        with open(path, 'r', encoding='utf-8') as f:
             cfg = json.load(f)
         CLOUD_PROVIDER = cfg.get('provider')
         CLOUD_API_KEY = cfg.get('api_key')
         CLOUD_MODEL = cfg.get('model')
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
         pass
+    _CONFIG_LOADED = True
 
 
 def _save_config():
-    """Save cloud config to disk."""
+    """Save cloud config to disk with owner-only permissions."""
     path = _get_config_path()
     cfg = {
         'provider': CLOUD_PROVIDER,
         'api_key': CLOUD_API_KEY,
         'model': CLOUD_MODEL,
     }
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(cfg, f, indent=2)
+    _chmod_secret(path)
 
 
 def configure_cloud(provider, api_key, model=None):
@@ -87,31 +134,45 @@ def configure_cloud(provider, api_key, model=None):
         api_key: API key string
         model: Optional model override
     """
-    global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL
+    global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL, _CONFIG_LOADED
     CLOUD_PROVIDER = provider
     CLOUD_API_KEY = api_key
     CLOUD_MODEL = model
+    _CONFIG_LOADED = True  # in-memory state is authoritative
     _save_config()
 
 
 def clear_cloud():
     """Remove cloud provider, revert to Ollama."""
-    global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL
+    global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL, _CONFIG_LOADED
     CLOUD_PROVIDER = None
     CLOUD_API_KEY = None
     CLOUD_MODEL = None
+    _CONFIG_LOADED = True
     import os
 
     path = _get_config_path()
     if os.path.exists(path):
-        os.remove(path)
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def _mask_key(key):
+    """Mask an API key for safe display. Always shows at most 4 chars of either end."""
+    if not key:
+        return ''
+    if len(key) <= 12:
+        return '*' * len(key)
+    return key[:4] + '...' + key[-4:]
 
 
 def get_cloud_status():
     """Return current cloud configuration status."""
     _load_config()
     if CLOUD_PROVIDER and CLOUD_API_KEY:
-        masked = CLOUD_API_KEY[:8] + '...' + CLOUD_API_KEY[-4:]
+        masked = _mask_key(CLOUD_API_KEY)
         model = CLOUD_MODEL or _get_cloud_default_model()
         return {'provider': CLOUD_PROVIDER, 'key_masked': masked, 'model': model, 'active': True}
     return {'provider': None, 'active': False}
@@ -164,7 +225,8 @@ def _gemini_request(messages, system=None, temperature=0.7, max_tokens=2048):
     - Body: {contents: [{parts: [{text: ...}]}], systemInstruction: ...}
     """
     model = CLOUD_MODEL or GEMINI_DEFAULT_MODEL
-    url = f'{GEMINI_BASE_URL}/models/{model}:generateContent?key={CLOUD_API_KEY}'
+    # Use header-based auth so the key never appears in URLs / proxy logs / shell history.
+    url = f'{GEMINI_BASE_URL}/models/{model}:generateContent'
 
     # Build contents array
     contents = []
@@ -195,7 +257,11 @@ def _gemini_request(messages, system=None, temperature=0.7, max_tokens=2048):
 
     try:
         body = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'})
+        headers = {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': CLOUD_API_KEY or '',
+        }
+        req = urllib.request.Request(url, data=body, headers=headers)
         with urllib.request.urlopen(req, timeout=30) as resp:
             result = json.loads(resp.read().decode('utf-8'))
             candidates = result.get('candidates', [])
