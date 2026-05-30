@@ -16,11 +16,29 @@ Provides:
 - ORM-style model definitions with real SQL persistence
 """
 
+import re as _re
 import sqlite3
 import threading
 import time
 from contextlib import contextmanager
 from typing import Optional
+
+# SQL identifier validation — defense-in-depth for table/column names.
+# Allows ASCII identifiers; user input flowing into table/column slots is
+# rejected unless it matches. Quoted-identifier wrappers in helpers below
+# use this before interpolation.
+_VALID_IDENTIFIER = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _quote_identifier(name: str) -> str:
+    if not isinstance(name, str) or not _VALID_IDENTIFIER.match(name):
+        raise ValueError(f'Invalid SQL identifier: {name!r}')
+    return f'"{name}"'
+
+
+def _quote_columns(columns) -> str:
+    return ', '.join(_quote_identifier(c) for c in columns)
+
 
 # ─── Dialect detection ────────────────────────────────────────
 
@@ -303,9 +321,10 @@ class Database:
 
     def insert(self, table: str, data: dict) -> int:
         """Insert row and return last row ID."""
-        columns = ', '.join(data.keys())
+        tbl = _quote_identifier(table)
+        columns = _quote_columns(data.keys())
         placeholders = ', '.join([self._param] * len(data))
-        sql = f'INSERT INTO {table} ({columns}) VALUES ({placeholders})'
+        sql = f'INSERT INTO {tbl} ({columns}) VALUES ({placeholders})'
         cursor = self._execute(sql, tuple(data.values()))
         self._commit()
         if self.dialect == 'sqlite':
@@ -325,9 +344,10 @@ class Database:
         """Insert multiple rows."""
         if not rows:
             return 0
-        columns = ', '.join(rows[0].keys())
+        tbl = _quote_identifier(table)
+        columns = _quote_columns(rows[0].keys())
         placeholders = ', '.join([self._param] * len(rows[0]))
-        sql = f'INSERT INTO {table} ({columns}) VALUES ({placeholders})'
+        sql = f'INSERT INTO {tbl} ({columns}) VALUES ({placeholders})'
         sql_adapted = self._adapt_sql(sql)
         if self.dialect == 'sqlite':
             cursor = self._conn.executemany(sql_adapted, [tuple(r.values()) for r in rows])
@@ -338,10 +358,12 @@ class Database:
         return cursor.rowcount
 
     def update(self, table: str, data: dict, where: str, params: tuple = ()) -> int:
-        """Update rows matching condition."""
-        set_clause = ', '.join(f'{k} = {self._param}' for k in data.keys())
+        """Update rows matching condition. `where` is a SQL fragment supplied
+        by the caller — keep it parameterized."""
+        tbl = _quote_identifier(table)
+        set_clause = ', '.join(f'{_quote_identifier(k)} = {self._param}' for k in data.keys())
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
-        sql = f'UPDATE {table} SET {set_clause} WHERE {where_adapted}'
+        sql = f'UPDATE {tbl} SET {set_clause} WHERE {where_adapted}'
         all_params = tuple(data.values()) + params
         cursor = self._execute(sql, all_params)
         self._commit()
@@ -349,20 +371,23 @@ class Database:
 
     def delete(self, table: str, where: str, params: tuple = ()) -> int:
         """Delete rows matching condition."""
+        tbl = _quote_identifier(table)
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
-        sql = f'DELETE FROM {table} WHERE {where_adapted}'
+        sql = f'DELETE FROM {tbl} WHERE {where_adapted}'
         cursor = self._execute(sql, params)
         self._commit()
         return cursor.rowcount
 
     def find_by_id(self, table: str, id_val) -> Optional[dict]:
         """Find row by primary key."""
-        return self.query_one(f'SELECT * FROM {table} WHERE id = {self._param}', (id_val,))
+        tbl = _quote_identifier(table)
+        return self.query_one(f'SELECT * FROM {tbl} WHERE id = {self._param}', (id_val,))
 
     def count(self, table: str, where: str = '1=1', params: tuple = ()) -> int:
         """Count rows matching condition."""
+        tbl = _quote_identifier(table)
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
-        return self.query_value(f'SELECT COUNT(*) FROM {table} WHERE {where_adapted}', params)
+        return self.query_value(f'SELECT COUNT(*) FROM {tbl} WHERE {where_adapted}', params)
 
     def exists(self, table: str, where: str, params: tuple = ()) -> bool:
         """Check if any rows match condition."""

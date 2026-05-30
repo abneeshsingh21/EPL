@@ -4606,6 +4606,12 @@ def call_stdlib(name, args, line, interpreter=None):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
+            for k in list(set_data.keys()) + list(where_data.keys()):
+                if not _IDENT_RE.match(k):
+                    raise EPLRuntimeError(f'Invalid column name: {k}', line)
             set_cols = ', '.join(f'"{k}" = ?' for k in set_data.keys())
             where_cols = ' AND '.join(f'"{k}" = ?' for k in where_data.keys())
             params = list(set_data.values()) + list(where_data.values())
@@ -4620,6 +4626,12 @@ def call_stdlib(name, args, line, interpreter=None):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
+            for k in where_data.keys():
+                if not _IDENT_RE.match(k):
+                    raise EPLRuntimeError(f'Invalid column name: {k}', line)
             where_cols = ' AND '.join(f'"{k}" = ?' for k in where_data.keys())
             params = list(where_data.values())
             conn.execute(f'DELETE FROM "{table}" WHERE {where_cols}', params)
@@ -4634,10 +4646,16 @@ def call_stdlib(name, args, line, interpreter=None):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
             sql = f'SELECT COUNT(*) FROM "{table}"'
             params = []
             if len(args) > 2 and args[2]:
                 where_data = _from_epl(args[2])
+                for k in where_data.keys():
+                    if not _IDENT_RE.match(k):
+                        raise EPLRuntimeError(f'Invalid column name: {k}', line)
                 where_cols = ' AND '.join(f'"{k}" = ?' for k in where_data.keys())
                 sql += f' WHERE {where_cols}'
                 params = list(where_data.values())
@@ -4650,6 +4668,9 @@ def call_stdlib(name, args, line, interpreter=None):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
             rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
             return [
                 _to_epl_dict(
@@ -4729,10 +4750,18 @@ def call_stdlib(name, args, line, interpreter=None):
         if name == 'exec_async':
             if not args:
                 raise EPLRuntimeError('exec_async(command) requires a command.', line)
-
-            cmd = str(args[0])
+            # Accept either a list of arguments [cmd, arg1, ...] or a single string
+            # (single-string form is parsed with shlex — NO shell, NO injection).
+            raw = _from_epl(args[0])
+            if isinstance(raw, (list, tuple)):
+                cmd_list = [str(x) for x in raw]
+            else:
+                import shlex as _shlex
+                cmd_list = _shlex.split(str(raw), posix=(_os.name != 'nt'))
+            if not cmd_list:
+                raise EPLRuntimeError('exec_async: empty command.', line)
             proc = _subprocess.Popen(
-                cmd, shell=True, stdout=_subprocess.PIPE, stderr=_subprocess.PIPE
+                cmd_list, shell=False, stdout=_subprocess.PIPE, stderr=_subprocess.PIPE
             )
             pid = f'proc_{_new_id()}'
             _async_processes[pid] = proc
