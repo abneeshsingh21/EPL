@@ -46,6 +46,8 @@ _UNSAFE_BUILTINS = frozenset(
     {
         'exec',
         'exec_output',
+        'exec_async',
+        'kill_process',
         'file_write',
         'file_delete',
         'file_append',
@@ -54,6 +56,7 @@ _UNSAFE_BUILTINS = frozenset(
         'chdir',
         'env_set',
         'env_get',
+        'env_delete',
         'download',
         'http_get',
         'http_post',
@@ -154,6 +157,23 @@ class EPLGenerator:
     cooperative suspend/resume at yield points.
     """
 
+    # Per-yield timeout. Override with env var EPL_GENERATOR_TIMEOUT (seconds, or
+    # "none"/"0" to disable the timeout entirely for long-running computations).
+    DEFAULT_YIELD_TIMEOUT = 30.0
+
+    @classmethod
+    def _resolve_yield_timeout(cls):
+        v = _os.environ.get('EPL_GENERATOR_TIMEOUT')
+        if v is None:
+            return cls.DEFAULT_YIELD_TIMEOUT
+        v = v.strip().lower()
+        if v in ('', '0', 'none', 'off', 'disable'):
+            return None
+        try:
+            return float(v)
+        except ValueError:
+            return cls.DEFAULT_YIELD_TIMEOUT
+
     _active_generators = []
     _gen_lock = _threading.Lock()
 
@@ -219,8 +239,19 @@ class EPLGenerator:
         else:
             self._resume.set()
 
-        self._value_ready.wait(timeout=30)
+        timeout = self._resolve_yield_timeout()
+        signaled = self._value_ready.wait(timeout=timeout)
         self._value_ready.clear()
+
+        if not signaled:
+            # Don't silently return a stale value. The generator body is wedged
+            # — surface that to the caller so they can investigate, raise the
+            # timeout, or set EPL_GENERATOR_TIMEOUT=none to disable.
+            raise EPLRuntimeError(
+                f"Generator '{self.name}' timed out after {timeout}s waiting for next value. "
+                f"Set EPL_GENERATOR_TIMEOUT=<seconds> (or 'none') to adjust.",
+                None,
+            )
 
         if self._error:
             raise self._error

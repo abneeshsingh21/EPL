@@ -152,14 +152,25 @@ STATUS_ICONS = {
 
 
 def _run_cmd(cmd):
-    """Run a command and return (success, stdout)."""
+    """Run a command (always a list of args) and return (success, stdout).
+
+    Never uses shell=True. On Windows we resolve the executable via shutil.which
+    so we can find .cmd/.bat shims (e.g. npm) without giving the shell a chance
+    to interpret arguments.
+    """
     try:
+        argv = list(cmd)
+        if os.name == 'nt' and argv:
+            import shutil as _shutil
+            resolved = _shutil.which(argv[0])
+            if resolved:
+                argv[0] = resolved
         result = subprocess.run(
-            cmd,
+            argv,
             capture_output=True,
             text=True,
             timeout=10,
-            shell=(os.name == 'nt'),
+            shell=False,
         )
         return result.returncode == 0, result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
