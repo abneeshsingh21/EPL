@@ -125,6 +125,7 @@ End""",
     ('abs function', 'Print abs(-5)\nPrint abs(5)'),
     ('string contains', 'Print contains("hello world", "world")\nPrint contains("hello", "xyz")'),
     ('string trim', 'Print trim("  hello  ")'),
+    ('string indexing', 'Create s equal to "abc"\nPrint s[0]\nPrint s[1]\nPrint s[2]'),
 ]
 
 KNOWN_DIVERGENCE_CASES = [
@@ -207,15 +208,6 @@ Print result""",
 ]
 
 KNOWN_BACKEND_GAP_CASES = [
-    pytest.param(
-        'string indexing',
-        'Create s equal to "abc"\nPrint s[0]\nPrint s[1]\nPrint s[2]',
-        id='string indexing',
-        marks=pytest.mark.xfail(
-            reason='VM string indexing support is still incomplete.',
-            strict=True,
-        ),
-    ),
     pytest.param(
         'try catch',
         """Try
