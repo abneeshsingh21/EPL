@@ -1687,8 +1687,12 @@ def _watch(args, flags):
     test_mode = '--test' in all_flags
     clear = '--clear' in all_flags
 
-    # Parse --debounce=N
+    KNOWN_WATCH_FLAGS = {'--test', '--clear', '--debug', '-h', '--help'}
+    KNOWN_WATCH_PREFIXES = ('--debounce=', '--timeout=')
+
+    # Parse --debounce=N and --timeout=N
     debounce_ms = 300
+    timeout = None
     for f in all_flags:
         if f.startswith('--debounce='):
             try:
@@ -1696,6 +1700,20 @@ def _watch(args, flags):
             except ValueError:
                 print(f'{_red("Error:")} --debounce must be a number')
                 return 1
+        elif f.startswith('--timeout='):
+            val = f.split('=', 1)[1].strip().lower()
+            if val in ('none', 'off', '0', 'disable'):
+                timeout = None
+            else:
+                try:
+                    timeout = float(val)
+                except ValueError:
+                    print(f'{_red("Error:")} --timeout must be a number or "none"')
+                    return 1
+        elif f.startswith('--') and f not in KNOWN_WATCH_FLAGS and not any(
+            f.startswith(p) for p in KNOWN_WATCH_PREFIXES
+        ):
+            print(f'{_yellow("Warning:")} unknown watch flag {f!r} ignored')
 
     return run_watch(
         target,
@@ -1703,6 +1721,7 @@ def _watch(args, flags):
         test_mode=test_mode,
         clear=clear,
         debounce_ms=debounce_ms,
+        timeout=timeout,
     )
 
 

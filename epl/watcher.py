@@ -105,19 +105,14 @@ class FileWatcher:
         last_trigger = 0
 
         while True:
-            try:
-                time.sleep(poll_interval)
-                changes = self.check_changes()
-
-                if changes:
-                    now = time.time()
-                    if now - last_trigger < self.debounce_s:
-                        continue
-                    last_trigger = now
-                    callback(changes)
-
-            except KeyboardInterrupt:
-                raise
+            time.sleep(poll_interval)
+            changes = self.check_changes()
+            if changes:
+                now = time.time()
+                if now - last_trigger < self.debounce_s:
+                    continue
+                last_trigger = now
+                callback(changes)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -162,7 +157,7 @@ def _format_time():
     return time.strftime('%H:%M:%S')
 
 
-def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300):
+def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300, timeout=None):
     """Run the watch loop for a file or directory.
 
     Args:
@@ -171,6 +166,9 @@ def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300)
         test_mode: If True, run 'epl test' instead of 'epl run'.
         clear: If True, clear screen before each re-run.
         debounce_ms: Debounce interval in milliseconds.
+        timeout: Per-run subprocess timeout in seconds, or None for no cap
+            (default: None — the previous hardcoded 60s killed long-running
+            programs that are common in watch workflows).
     """
     flags = flags or set()
     target = os.path.abspath(target)
@@ -202,7 +200,7 @@ def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300)
     print(f'  {"-" * 50}')
 
     # Initial run
-    _execute(target, flags, test_mode, clear)
+    _execute(target, flags, test_mode, clear, timeout)
 
     # Create watcher
     watcher = FileWatcher(watch_paths, extensions={'.epl'}, debounce_ms=debounce_ms)
@@ -224,7 +222,7 @@ def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300)
             print(f'    {_dim(f"... and {len(changed_files) - 5} more")}')
         print(f'  {"-" * 50}')
 
-        _execute(target, flags, test_mode, False)
+        _execute(target, flags, test_mode, False, timeout)
 
     try:
         watcher.watch(on_change)
@@ -233,8 +231,11 @@ def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300)
         return 0
 
 
-def _execute(target, flags, test_mode, clear):
-    """Execute the EPL file or test suite."""
+def _execute(target, flags, test_mode, clear, timeout=None):
+    """Execute the EPL file or test suite.
+
+    timeout=None means "no per-run timeout"; pass a number to cap a single run.
+    """
     if clear:
         _clear_screen()
 
@@ -250,7 +251,7 @@ def _execute(target, flags, test_mode, clear):
 
     # Pass through relevant flags
     for f in flags:
-        if f not in ('--clear', '--test') and not f.startswith('--debounce'):
+        if f not in ('--clear', '--test') and not f.startswith('--debounce') and not f.startswith('--timeout'):
             cmd.append(f)
 
     start = time.time()
@@ -259,7 +260,7 @@ def _execute(target, flags, test_mode, clear):
         result = subprocess.run(
             cmd,
             cwd=os.getcwd(),
-            timeout=60,  # 60s safety timeout
+            timeout=timeout,
         )
         duration = time.time() - start
         exit_code = result.returncode
@@ -270,8 +271,8 @@ def _execute(target, flags, test_mode, clear):
             print(f'\n  {_red(f"Exit code: {exit_code}")} {_dim(f"({duration:.2f}s)")}')
 
     except subprocess.TimeoutExpired:
-        print(f'\n  {_red("TIMEOUT")} {_dim("Process killed after 60s")}')
-    except Exception as e:
+        print(f'\n  {_red("TIMEOUT")} {_dim(f"Process killed after {timeout}s")}')
+    except OSError as e:
         print(f'\n  {_red("ERROR")} {e}')
 
     print(f'  {_dim("Waiting for changes...")}')

@@ -910,17 +910,11 @@ class BytecodeCompiler:
             self._emit(Op.STORE_GLOBAL, node.name)
 
     def _compile_index_assign(self, node):
+        """Compile `target[index] = value` — emit value, target, index, then INDEX_STORE."""
         self._compile_expr(node.value)
-        obj = node.object if hasattr(node, 'object') else node
-        name = getattr(obj, 'name', None) or getattr(node, 'name', None)
-        if name:
-            idx = self._resolve_local(name)
-            if idx is not None:
-                self._emit(Op.LOAD_VAR, idx)
-            else:
-                self._emit(Op.LOAD_GLOBAL, name)
-        if hasattr(node, 'index'):
-            self._compile_expr(node.index)
+        target = getattr(node, 'obj', None) or getattr(node, 'object', None) or node
+        self._compile_expr(target)
+        self._compile_expr(node.index)
         self._emit(Op.INDEX_STORE)
 
     def _compile_if(self, node):
@@ -1403,7 +1397,7 @@ class BytecodeCompiler:
             self._emit(Op.BUILD_DICT, len(node.pairs))
 
         elif isinstance(node, ast.IndexAccess):
-            self._compile_expr(node.object)
+            self._compile_expr(node.obj)
             self._compile_expr(node.index)
             self._emit(Op.INDEX)
 
@@ -1424,7 +1418,7 @@ class BytecodeCompiler:
             self._compile_lambda(node)
 
         elif isinstance(node, ast.SliceAccess):
-            self._compile_expr(node.object)
+            self._compile_expr(node.obj)
             self._compile_expr(node.start) if node.start else self._emit(
                 Op.LOAD_CONST, self._add_const(None)
             )
