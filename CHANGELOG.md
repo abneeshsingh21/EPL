@@ -10,6 +10,38 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.0.0] — 2026-05-30
+
+Enterprise hardening release. A focused security & robustness sweep across the interpreter, standard library, database layer, AI cloud integration, file watcher, and CLI. No new language features — every change makes existing surface area safer, more predictable, or easier to operate.
+
+### Security
+- **SQL injection — defense-in-depth across all database surfaces.** Stdlib `db_update`, `db_delete`, `db_count`, and `db_table_info` now reject table and column names that are not valid SQL identifiers (`^[A-Za-z_][A-Za-z0-9_]*$`) before any query is built. The same validation extends to `QueryBuilder` (`select`, `where_eq`, `where_like`, `where_in`, `where_gt`, `where_lt`, `where_between`, `where_null`, `where_not_null`, `order_by`, `group_by`, `join`, `left_join`) in `epl/database.py` and to `insert`, `insert_many`, `update`, `delete`, `find_by_id`, and `count` in `epl/database_real.py`. Numeric `LIMIT`/`OFFSET` values are coerced through `int()` so non-numeric strings fail loudly instead of being spliced into SQL. `ORDER BY` direction is restricted to `ASC`/`DESC`. Identifiers are now consistently double-quoted in emitted SQL.
+- **Command injection — `exec_async` no longer uses `shell=True`.** Accepts either a list of argv tokens or a single command string that is parsed with `shlex.split` (POSIX rules on Unix, Windows rules on NT). `kill_process` and `env_delete` have been added to the interpreter sandbox alongside the existing `exec`/`file_*`/`env_set` denylist so untrusted scripts cannot escape it.
+- **`epl doctor` no longer spawns subprocesses through the shell on Windows.** Commands run as explicit argv with `shell=False`; `shutil.which` resolves `.cmd`/`.bat` shims (npm, etc.) safely.
+- **AI cloud config moved out of the package directory.** API keys are now stored in a per-user XDG-aware location — `%APPDATA%\epl\ai_config.json` on Windows, `$XDG_CONFIG_HOME/epl/ai_config.json` (default `~/.config/epl/ai_config.json`) on POSIX — and chmod'd to `0600` on POSIX. Existing `epl/.ai_config.json` files are migrated automatically on first read. Gemini requests now send the API key via the `x-goog-api-key` header instead of as a URL query parameter, keeping it out of proxy logs and shell history.
+
+### Fixed
+- **Generators no longer return stale values on timeout.** `EPLGenerator` previously waited 30s for the next yielded value and silently returned the previous value if the body was wedged. It now raises `EPLRuntimeError` with the generator name, the timeout it hit, and guidance to set `EPL_GENERATOR_TIMEOUT`. The timeout is configurable via `EPL_GENERATOR_TIMEOUT=<seconds|none|off>` for long-running computations.
+- **`epl watch` no longer kills long-running programs at 60s.** The hard-coded subprocess cap is gone; runs are uncapped by default. Pass `--timeout=<seconds>` (or `--timeout=none`) to opt back into a cap. The watch dispatcher now also warns when an unknown `--flag` is passed instead of silently ignoring it.
+- **CLI error reporting is now consistent across `main.py`.** All command dispatchers route through `_cli_error_report` / `_cli_error_exit` helpers, which print a one-line summary by default and a full traceback when `EPL_DEBUG=1` is set or `--debug` is passed anywhere on the command line. ~25 ad-hoc `except Exception:` blocks were collapsed into this single path.
+
+### Changed
+- **AI config loading is now cached.** `_load_config()` no longer hits disk on every prompt; `configure_cloud()` / `clear_cloud()` invalidate the cache as expected.
+- **`requirements.txt` rewritten for clarity.** Required runtime dependencies (`gunicorn`, `flask`) are separated from optional extras (encryption, PostgreSQL, MySQL, LLVM, Redis, mobile, ML, dev tooling), each commented with its purpose. Pure-standard-library features are no longer listed as commented-out requirements.
+
+### Added
+- **`tests/test_security_hardening.py`** — covers stdlib SQL identifier validation, sandbox additions, shell-less `exec_async`, AI config path & permissions, and Gemini header auth.
+- **`tests/test_correctness_hardening.py`** — covers generator yield-timeout behavior and watcher `--timeout` plumbing.
+- **`tests/test_database_hardening.py`** (16 tests) — covers `QueryBuilder` and `database_real` identifier quoting, rejection of injection attempts in every column/table/order-by/limit slot, and the `IN ()` degenerate-case shortcut.
+
+### Migration notes
+- **AI config:** First run of `epl ai …` after upgrade migrates `epl/.ai_config.json` to the per-user location automatically. If you have keys checked into a fork, rotate them — file location change does not remediate prior exposure.
+- **`exec_async`:** Scripts that relied on shell features (pipes, redirects, `&&`) in `exec_async` need to either pass an argv list, switch to `exec`/`exec_output` (which retain their previous semantics), or explicitly invoke a shell (`exec_async(["bash", "-c", "..."])`).
+- **`epl watch`:** Workflows that depended on the implicit 60s kill should now pass `--timeout=60` explicitly.
+- **Generators:** Code that swallowed the previous silent-timeout behavior must now catch `EPLRuntimeError` or extend the timeout via `EPL_GENERATOR_TIMEOUT`.
+
+---
+
 ## [8.0.0] — 2026-05-26
 
 ### Added
