@@ -163,6 +163,10 @@
       "patterns": [
         {
           "name": "support.class.web.epl",
+          "match": "\\bRaw\\s+HTML\\b"
+        },
+        {
+          "name": "support.class.web.epl",
           "match": "\\b(WebApp|Route|Page|Start|Heading|SubHeading|Text|Link|Image|Button|Form|Send|Redirect|Store|Fetch|Delete|Script|Json|Port)\\b"
         }
       ]

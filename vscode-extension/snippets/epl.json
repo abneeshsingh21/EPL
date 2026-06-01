@@ -365,6 +365,13 @@
         ],
         "description": "HTML page route"
     },
+    "Raw HTML": {
+        "prefix": "rawhtml",
+        "body": [
+            "Raw HTML \"${1:<table><tr><td>cell</td></tr></table>}\""
+        ],
+        "description": "Emit arbitrary HTML inside a Page block (v9.3.0+)"
+    },
     "Health Check": {
         "prefix": "health",
         "body": [
