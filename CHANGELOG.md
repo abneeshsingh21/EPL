@@ -10,6 +10,23 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## VS Code Extension [2.2.0] — 2026-06-01
+
+Brings the VS Code extension up to v9.x parity with the language runtime. No breaking changes.
+
+### Added
+- **`EPL: Run Current File with Bytecode VM` command.** Executes the active file via `epl vm`, the bytecode VM that reached full interpreter parity in EPL v9.1.0. Surfaced alongside the existing `EPL: Run Current File` command in the command palette.
+- **`epl.watch.timeout` setting.** Plumbs the v9.0.0 `--timeout=<seconds|none>` flag into the `EPL: Watch Current File` command. Empty (default) preserves the new uncapped-by-default behaviour; set a number for a per-run cap, or `none` to be explicit.
+
+### Changed
+- **README updated for v9.x.** Feature matrix now shows the correct stdlib function count (725+ — was 90+), advertises the bytecode VM backend, and documents the previously-hidden `epl.serve.port`, `epl.serve.observability`, and new `epl.watch.timeout` settings.
+- **Stale internal version refs corrected.** Header comment dropped the hard-coded `v2.1.0` tag. PyPI update-checker code comment example bumped from `v7.6.0` → `v9.1.0` so future readers don't mistake it for a current claim.
+
+### Migration notes
+- No user action required. Existing keybindings, settings, and the LSP wire format are unchanged.
+
+---
+
 ## [9.1.0] — 2026-06-01
 
 VM parity release. The bytecode VM (`epl run --vm`) now matches the tree-walking interpreter on every documented divergence, and the source distribution ships the runtime assets the wheel already includes.

@@ -1,4 +1,4 @@
-// EPL VS Code Extension v2.1.0 — LSP Client + Run Commands
+// EPL VS Code Extension — LSP Client + Run Commands
 // Connects VS Code to EPL's Language Server for diagnostics, completions, and hover.
 
 const vscode = require('vscode');
@@ -128,7 +128,7 @@ function checkForEplUpdate(eplPath, logFn) {
             return;
         }
 
-        // Parse installed version from output like "EPL v7.6.0" or "7.6.0"
+        // Parse installed version from output like "EPL v9.1.0" or "9.1.0"
         const match = stdout.trim().match(/(\d+\.\d+\.\d+)/);
         if (!match) return;
         const installed = match[1];
@@ -205,6 +205,13 @@ function activate(context) {
         if (!filePath) return;
         log(`Run: ${filePath}`);
         runEplCommand('EPL', ['run', filePath]);
+    });
+
+    const runVMCommand = vscode.commands.registerCommand('epl.runVM', () => {
+        const filePath = getActiveEPLFile();
+        if (!filePath) return;
+        log(`Run (VM): ${filePath}`);
+        runEplCommand('EPL VM', ['vm', filePath]);
     });
 
     const checkCommand = vscode.commands.registerCommand('epl.check', () => {
@@ -306,8 +313,13 @@ function activate(context) {
     const watchCommand = vscode.commands.registerCommand('epl.watch', () => {
         const filePath = getActiveEPLFile();
         if (!filePath) return;
-        log(`Watch: ${filePath}`);
-        runEplCommand('EPL Watch', ['watch', filePath, '--clear']);
+        const timeout = config.get('watch.timeout', '');
+        const args = ['watch', filePath, '--clear'];
+        if (timeout !== undefined && timeout !== null && String(timeout).trim() !== '') {
+            args.push(`--timeout=${String(timeout).trim()}`);
+        }
+        log(`Watch: ${filePath}${timeout ? ` (timeout=${timeout})` : ''}`);
+        runEplCommand('EPL Watch', args);
     });
 
     const doctorCommand = vscode.commands.registerCommand('epl.doctor', () => {
@@ -317,6 +329,7 @@ function activate(context) {
 
     context.subscriptions.push(
         runCommand,
+        runVMCommand,
         checkCommand,
         formatCommand,
         runFile,

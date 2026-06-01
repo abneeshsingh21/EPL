@@ -2,7 +2,7 @@
   "name": "epl-lang",
   "displayName": "EPL — English Programming Language",
   "description": "Syntax highlighting, real-time diagnostics, auto-completions, hover docs and run/check commands for EPL (.epl files)",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "publisher": "epl-lang",
   "license": "Apache-2.0",
   "icon": "icon.png",
@@ -88,6 +88,11 @@
         "command": "epl.run",
         "title": "EPL: Run Current File",
         "icon": "$(play)"
+      },
+      {
+        "command": "epl.runVM",
+        "title": "EPL: Run Current File with Bytecode VM",
+        "icon": "$(rocket)"
       },
       {
         "command": "epl.check",
@@ -221,6 +226,11 @@
           "type": "boolean",
           "default": false,
           "description": "Auto-attach observability endpoints (/_health, /_ready, /_metrics) when serving"
+        },
+        "epl.watch.timeout": {
+          "type": "string",
+          "default": "",
+          "description": "Per-run timeout for `epl watch` (seconds, or 'none' to disable). Empty = use CLI default (uncapped since v9.0.0)."
         }
       }
     }
