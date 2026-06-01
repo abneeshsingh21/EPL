@@ -5,7 +5,7 @@
 **Full IDE support for the English Programming Language**
 
 [![Version](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
-[![EPL](https://img.shields.io/badge/EPL-v7.6.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
+[![EPL](https://img.shields.io/badge/EPL-v9.1.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
 
 </div>
 

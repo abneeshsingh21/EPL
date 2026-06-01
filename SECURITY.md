@@ -12,8 +12,8 @@
 
 | Version | Status | Support Level |
 |---------|--------|---------------|
-| `7.x` | ✅ Active | Full security support |
-| `< 7.0` | ❌ EOL | No support — upgrade immediately |
+| `9.x` | ✅ Active | Full security support |
+| `< 9.0` | ❌ EOL | No support — upgrade immediately |
 
 Only the current major release line receives active security patches.
 

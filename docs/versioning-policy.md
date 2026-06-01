@@ -28,8 +28,8 @@ EPL uses Semantic Versioning for the public platform surface.
 - `epl.toml` is the canonical manifest
 - `epl.json` support is legacy compatibility and may be removed only in a future major release after documented notice
 - `main.py` should not expose behavior that differs from `python -m epl` / `epl`
-- stable commands keep their documented names, primary flags, and basic exit-code behavior through `7.x`
-- beta commands may change within `7.x`, but changes must still be documented in release notes and help output
+- stable commands keep their documented names, primary flags, and basic exit-code behavior through `9.x`
+- beta commands may change within `9.x`, but changes must still be documented in release notes and help output
 - experimental commands may change or be removed faster, but should not silently change without documentation
 
 ## Command Stability Labels

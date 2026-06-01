@@ -1,6 +1,6 @@
 # EPL Language Reference
 
-Complete reference for the English Programming Language (EPL) v7.5.2.
+Complete reference for the English Programming Language (EPL) v9.1.0.
 
 ## Table of Contents
 

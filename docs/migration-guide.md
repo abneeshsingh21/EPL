@@ -1,6 +1,6 @@
 # EPL Migration Guide
 
-This guide covers the practical migration path from older EPL projects to the current v7 workflow.
+This guide covers the practical migration path from older EPL projects to the current v9 workflow.
 
 ## High-Impact Changes
 
