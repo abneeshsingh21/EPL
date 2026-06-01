@@ -235,5 +235,8 @@
   },
   "devDependencies": {
     "@vscode/vsce": "^2.32.0"
+  },
+  "overrides": {
+    "tmp": "^0.2.6"
   }
 }
