@@ -10,6 +10,27 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.1.0] — 2026-06-01
+
+VM parity release. The bytecode VM (`epl run --vm`) now matches the tree-walking interpreter on every documented divergence, and the source distribution ships the runtime assets the wheel already includes.
+
+### Fixed
+- **Recursive function calls now produce correct results in the VM.** The compiler pre-registers a function's own name before compiling its body, so a recursive call resolves to `Op.CALL` instead of falling through to `Op.CALL_BUILTIN`. `factorial(5)` now returns `120` (was `24`) and `fib(10)` returns `55` (was `6`).
+- **`JUMP_IF_FALSE` / `JUMP_IF_TRUE` always pop their condition.** Previously the truthy branch left the value on the stack, corrupting subsequent operations. This single bug was the root cause behind four documented divergences: `continue` inside loops, FizzBuzz chained `Otherwise If`, list-comprehension-style mutation, and (via stack corruption inside recursive frames) Fibonacci/factorial.
+- **`Try` / `Catch` now intercepts VM-level runtime errors.** `VMError` (e.g. division by zero, unknown class) routes through the active `try_stack` and lands the error message in the catch binding, matching interpreter semantics. Previously only Python-native exceptions were caught and any runtime error escaped the handler.
+- **Class construction now works end-to-end.** `Op.NEW_INSTANCE` unpacks the `(class_name, arg_count)` tuple emitted by the compiler, looks up the class by string name (was failing with `Unknown class: ('Dog', 0)`), and delegates to `_call_constructor` so constructor arguments are passed correctly.
+- **Class property defaults are now preserved in the VM.** `VarDeclaration` defaults inside a class body (e.g. `name = "Rex"`) are evaluated at compile time from the AST `Literal` value instead of being silently stored as `None`.
+- **`epl/models/Modelfile` is now included in the source distribution.** A `global-exclude Modelfile` rule in `MANIFEST.in` was overriding the package-data inclusion in `pyproject.toml`, so `pip install` from sdist was shipping an incomplete `epl.models` package. Top-level `main.py` is also now explicitly included.
+
+### Changed
+- **`tests/test_consistency.py` reorganised.** The five `KNOWN_DIVERGENCE_CASES` and two `KNOWN_BACKEND_GAP_CASES` previously documenting VM divergences have all been promoted to `PARITY_CASES`; both buckets are now empty/removed. The full parity suite — 52 cases — runs against both backends with no expected failures.
+- **`tests/test_release_packaging.py` no longer requires a top-level `bundle.py`.** The file was moved to `scripts/bundle.py` in an earlier refactor and `scripts/` is not shipped to end users; the test contract has been updated to reflect that.
+
+### Migration notes
+- No source changes required. Programs that previously produced incorrect output under `epl run --vm` (recursion, `continue`, `try`/`catch`, classes) will now match interpreter output. If you had workarounds in place that relied on the buggy VM behaviour, remove them.
+
+---
+
 ## [9.0.0] — 2026-05-30
 
 Enterprise hardening release. A focused security & robustness sweep across the interpreter, standard library, database layer, AI cloud integration, file watcher, and CLI. No new language features — every change makes existing surface area safer, more predictable, or easier to operate.
