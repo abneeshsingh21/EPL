@@ -264,7 +264,6 @@ class TestReleasePackaging(unittest.TestCase):
             )
             required_sdist_suffixes = {
                 'MANIFEST.in',
-                'bundle.py',
                 'main.py',
                 'epl/registry.json',
                 'epl/runtime.c',
