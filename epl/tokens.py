@@ -129,6 +129,8 @@ class TokenType(Enum):
     DELETE_KW = auto()
     REDIRECT = auto()
     AT = auto()
+    RAW = auto()  # v9.3.0 — escape hatch: `Raw HTML "<table>..."` emits literally.
+    HTML_KW = auto()  # Pairs with RAW; standalone HTML still allowed elsewhere.
 
     # --- v0.6: Power Features ---
     OP_POWER = auto()  # **
@@ -466,6 +468,8 @@ KEYWORDS = {
     'delete': TokenType.DELETE_KW,
     'redirect': TokenType.REDIRECT,
     'at': TokenType.AT,
+    'raw': TokenType.RAW,
+    'html': TokenType.HTML_KW,
     'say': TokenType.SAY,
     'ask': TokenType.ASK,
     'remember': TokenType.REMEMBER,

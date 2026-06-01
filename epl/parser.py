@@ -150,6 +150,10 @@ class Parser:
         TokenType.RESPONSIVE,
         TokenType.CLASSNAME,
         TokenType.APPLY,
+        # v9.3.0: Raw HTML escape hatch — these must remain usable as identifiers
+        # (`html = ""` is common in legacy code; `raw` is also a frequent var name).
+        TokenType.RAW,
+        TokenType.HTML_KW,
         # v6.1: 3D & Canvas keywords usable as identifiers
         TokenType.SCENE,
         TokenType.CAMERA_KW,
@@ -2344,6 +2348,18 @@ class Parser:
         """Parse a single HTML element inside a Page block."""
         self._skip_newlines()
         tok = self._current()
+
+        # v9.3.0 — Raw HTML escape hatch: `Raw HTML "<table>..."`.
+        # Emits the string literally without escaping. The author takes
+        # responsibility for safety; never wire user-controlled input here.
+        if tok.type == TokenType.RAW and self._peek().type == TokenType.HTML_KW:
+            self._advance()  # consume RAW
+            self._advance()  # consume HTML
+            content = self._expect(
+                TokenType.STRING, 'Expected HTML string after `Raw HTML`'
+            ).value
+            self._end_statement()
+            return ast.HtmlElement('raw_html', content, line=tok.line)
 
         if tok.type == TokenType.HEADING:
             self._advance()

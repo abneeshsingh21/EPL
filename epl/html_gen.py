@@ -343,6 +343,12 @@ def _render_element(elem, data_store=None, form_data=None):
     if tag == 'script':
         return ''  # scripts go in the <script> section
 
+    if tag == 'raw_html':
+        # Escape hatch (v9.3.0). Emits the source string verbatim — no escaping.
+        # The author is responsible for ensuring `content` is safe. Never pass
+        # user input here without first sanitising it (e.g. via bleach).
+        return content if isinstance(content, str) else str(content)
+
     return f'<div>{_esc(str(content))}</div>'
 
 
