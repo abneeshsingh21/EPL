@@ -14,16 +14,74 @@ from epl import ast_nodes as ast
 _CONFIG = {
     'footer': None,        # str | None.  None = omit footer entirely.
     'fonts': 'system',     # 'system' (default) | 'cdn'  (cdn = legacy Google Fonts)
+    'theme': 'auto',       # v9.3.0 Phase 4: 'light' | 'dark' | 'auto' (follows OS)
+}
+
+# v9.3.0 Phase 4 — palette tokens shipped as CSS variables. Apps reference
+# `var(--bg)`, `var(--fg)`, `var(--accent)` etc. and get the right value for
+# whichever theme is active. The "auto" theme emits both palettes wrapped in
+# `@media (prefers-color-scheme: ...)` so the browser picks.
+_THEME_PALETTES = {
+    'dark': {
+        '--bg': '#0f172a',
+        '--fg': '#f8fafc',
+        '--muted': '#94a3b8',
+        '--accent': '#38bdf8',
+        '--surface': '#1e293b',
+        '--border': 'rgba(255,255,255,0.08)',
+        '--danger': '#ef4444',
+    },
+    'light': {
+        '--bg': '#ffffff',
+        '--fg': '#0f172a',
+        '--muted': '#64748b',
+        '--accent': '#0284c7',
+        '--surface': '#f1f5f9',
+        '--border': 'rgba(0,0,0,0.08)',
+        '--danger': '#dc2626',
+    },
 }
 
 
-def configure_page(footer=None, fonts=None):
+def _emit_palette(name):
+    """Render a palette dict as a CSS variable block (no selector wrapper)."""
+    return '\n'.join(f'    {k}: {v};' for k, v in _THEME_PALETTES[name].items())
+
+
+def _theme_css(theme):
+    """Return the <style>-ready CSS for the requested theme.
+
+    - 'dark' / 'light' emit a single :root palette plus a `body` colour pair.
+    - 'auto' emits a default (light) palette and a `prefers-color-scheme: dark`
+      override, letting the OS pick.
+    """
+    if theme == 'dark':
+        body = f':root {{\n{_emit_palette("dark")}\n}}\nbody {{ background: var(--bg); color: var(--fg); }}'
+        return body
+    if theme == 'light':
+        body = f':root {{\n{_emit_palette("light")}\n}}\nbody {{ background: var(--bg); color: var(--fg); }}'
+        return body
+    # auto
+    return (
+        f':root {{\n{_emit_palette("light")}\n}}\n'
+        f'@media (prefers-color-scheme: dark) {{\n'
+        f'  :root {{\n{_emit_palette("dark")}\n  }}\n'
+        f'}}\n'
+        f'body {{ background: var(--bg); color: var(--fg); }}'
+    )
+
+
+def configure_page(footer=None, fonts=None, theme=None):
     """Configure page-level rendering options.
 
     Args:
         footer: Footer HTML text, or None to omit. Default None.
         fonts:  'system' uses native system font stack (no network);
                 'cdn' loads Inter from Google Fonts (pre-v9.2.0 behaviour).
+        theme:  'light', 'dark', or 'auto' (default — follows OS preference).
+                Sets the `color-scheme` meta + the built-in CSS variable palette
+                (`--bg`, `--fg`, `--muted`, `--accent`, `--surface`, `--border`,
+                `--danger`).
 
     Setting `footer` to the empty string also omits the footer.
     """
@@ -33,12 +91,17 @@ def configure_page(footer=None, fonts=None):
         if fonts not in ('system', 'cdn'):
             raise ValueError(f"fonts must be 'system' or 'cdn', got {fonts!r}")
         _CONFIG['fonts'] = fonts
+    if theme is not None:
+        if theme not in ('light', 'dark', 'auto'):
+            raise ValueError(f"theme must be 'light', 'dark', or 'auto', got {theme!r}")
+        _CONFIG['theme'] = theme
 
 
 def reset_config():
     """Reset page config to defaults. Primarily used by tests."""
     _CONFIG['footer'] = None
     _CONFIG['fonts'] = 'system'
+    _CONFIG['theme'] = 'auto'
 
 
 # Modern Premium CSS - Professional Component Design
@@ -124,16 +187,25 @@ def generate_html(
     # Footer — None/empty = omit. User-provided text is HTML-escaped.
     footer_html = f'<footer>{_esc(_CONFIG["footer"])}</footer>' if _CONFIG['footer'] else ''
 
+    # Theme (v9.3.0 Phase 4) — color-scheme meta drives native form controls
+    # and scrollbars; the palette CSS injects the CSS-variable colour tokens.
+    theme = _CONFIG['theme']
+    color_scheme_meta = {
+        'dark': '<meta name="color-scheme" content="dark">\n    <meta name="darkreader-lock">',
+        'light': '<meta name="color-scheme" content="light">',
+        'auto': '<meta name="color-scheme" content="light dark">',
+    }[theme]
+    theme_css = _theme_css(theme)
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="dark">
-    <meta name="darkreader-lock">
+    {color_scheme_meta}
     <title>{_esc(title)}</title>
     {font_link}
-    <style>{STYLES}</style>{extra_css}
+    <style>{theme_css}\n{STYLES}</style>{extra_css}
 </head>
 <body>
     <div class="container">

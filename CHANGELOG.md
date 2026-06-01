@@ -34,6 +34,19 @@ Multi-phase enterprise-grade enhancement program. All phases bundled into a sing
 **Tests**
 - 7 new tests in `tests/test_raw_html.py` covering verbatim emission, attribute preservation, coexistence with built-in elements, and the regression case (`html`/`raw` still usable as identifiers).
 
+### Phase 4 — Theme system (light / dark / auto)
+
+**Added**
+- `configure_page(theme=...)` accepts `'light'`, `'dark'`, or `'auto'` (default). The previous behaviour hardcoded `<meta name="color-scheme" content="dark">` + a Darkreader lock on every page, ignoring user OS preference and breaking light-mode embeds.
+- Built-in CSS variable palette injected into the rendered `<head>`: `--bg`, `--fg`, `--muted`, `--accent`, `--surface`, `--border`, `--danger`. Apps that reference these tokens (the parser/StyledElement layer already does) get a coherent palette per theme for free.
+- `'auto'` emits both palettes and switches via `@media (prefers-color-scheme: dark)` so the OS picks.
+
+**Changed**
+- Page `<head>` no longer hardcodes dark mode. Default is `'auto'` — apps that want the v9.2.0 always-dark behaviour call `configure_page(theme='dark')`.
+
+**Tests**
+- 7 new tests in `tests/test_theme.py` covering each theme value, palette completeness, the media-query branch in `auto`, invalid values, and reset semantics.
+
 ---
 
 ## [9.2.0] — 2026-06-01
