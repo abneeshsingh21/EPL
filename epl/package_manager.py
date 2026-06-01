@@ -1661,7 +1661,14 @@ def install_from_lockfile(path='.', include_bridge=False, strict=False):
         pip_spec = info.get('pip_spec') or import_name
         requirement = f'{distribution}=={version}' if version else pip_spec
         try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
+            requirement = _normalize_python_requirement(import_name, requirement)
+        except ValueError as e:
+            print(f'  Refusing to install {import_name} from lockfile: {e}')
+            success = False
+            continue
+        try:
+            # `--` separator: pip will not parse the requirement as a flag.
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--', requirement])
             resolved = _resolve_installed_python_package(import_name, pip_spec)
             expected_integrity = info.get('integrity', '')
             if expected_integrity and resolved and resolved.get('integrity') != expected_integrity:
@@ -1818,13 +1825,43 @@ def _validate_python_import_name(import_name):
 
 
 def _normalize_python_requirement(import_name, requirement=None):
-    """Normalize a pip requirement string for installation."""
+    """Normalize a pip requirement string for installation.
+
+    v9.3.0 Phase 6 — command-injection hardening. pip parses flags from positional
+    arguments, so a manifest entry like ``requests --extra-index-url https://evil``
+    would, before this check, cause pip to silently honour the attacker-supplied
+    flag. We now reject any requirement that starts with ``-`` or sneaks a flag
+    in via whitespace. Callers should additionally use ``--`` before the
+    requirement when invoking pip, as belt-and-braces.
+    """
     import_name = _validate_python_import_name(import_name)
     if requirement is None:
         return import_name
     requirement = str(requirement).strip()
     if not requirement or requirement == '*':
         return import_name
+    # Flag injection: a leading dash, or any whitespace-separated token starting
+    # with one. Real pip requirements never need these; reject hard.
+    if requirement.startswith('-') or any(
+        tok.startswith('-') for tok in requirement.split()
+    ):
+        raise ValueError(
+            f'Refusing to install Python requirement {requirement!r}: '
+            f'requirement strings must not contain flags. '
+            f'Pin a version with `package==1.2.3` or use a version specifier.'
+        )
+    # Also forbid embedded URLs/paths in the version field — pip happily installs
+    # `package @ https://evil/whl` but the EPL surface is "name + version", not
+    # "name + arbitrary install spec". Power users can call pip directly.
+    if '@' in requirement and not requirement.startswith(import_name + '['):
+        # Allow `pkg[extra]` (no @) but block `pkg @ url`.
+        for marker in (' @ ', '@http', '@git+', '@file:'):
+            if marker in requirement:
+                raise ValueError(
+                    f'Refusing to install Python requirement {requirement!r}: '
+                    f'URL/path install specs are not supported via manifest. '
+                    f'Use a registered PyPI version.'
+                )
     return requirement
 
 
@@ -1893,7 +1930,8 @@ def install_python_package(import_name, requirement=None, save=True, project_pat
     requirement = _normalize_python_requirement(import_name, requirement)
 
     try:
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
+        # `--` separator: belt-and-braces against pip parsing the requirement as a flag.
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--', requirement])
     except subprocess.CalledProcessError:
         print(f'  Failed to install Python package: {requirement}')
         return False
@@ -1962,9 +2000,14 @@ def install_python_dependencies(path='.'):
     print(f'  Installing {len(deps)} Python dependencies...')
     ok = True
     for import_name, requirement in deps.items():
-        requirement = _normalize_python_requirement(import_name, requirement)
         try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
+            requirement = _normalize_python_requirement(import_name, requirement)
+        except ValueError as e:
+            print(f'  Refusing to install {import_name}: {e}')
+            ok = False
+            continue
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--', requirement])
             print(f'  Installed Python dependency: {requirement}')
         except subprocess.CalledProcessError:
             print(f'  Failed to install Python dependency: {requirement}')
@@ -2006,6 +2049,27 @@ def _validate_npm_package_name(name):
     return name
 
 
+def _validate_npm_version_spec(version):
+    """Reject npm version specs that smuggle flags into the install argv.
+
+    v9.3.0 Phase 6 — command-injection hardening. ``npm install pkg@<spec>``
+    accepts the spec verbatim; a manifest entry like ``version = "* --before-script=evil"``
+    would, before this check, become a real npm flag. Power users who genuinely
+    need URL/git installs should call npm directly.
+    """
+    if version is None or version == '' or version == '*':
+        return version
+    if not isinstance(version, str):
+        raise ValueError(f'npm version must be a string, got {type(version).__name__}')
+    version = version.strip()
+    if version.startswith('-') or any(tok.startswith('-') for tok in version.split()):
+        raise ValueError(
+            f'Refusing to install npm version spec {version!r}: '
+            f'must not contain flags. Use a semver range like "^1.2.3".'
+        )
+    return version
+
+
 def install_js_package(name, version=None, save=True, project_path='.'):
     """Install an npm package and optionally save to epl.toml [js-dependencies].
 
@@ -2017,6 +2081,7 @@ def install_js_package(name, version=None, save=True, project_path='.'):
     """
     try:
         name = _validate_npm_package_name(name)
+        version = _validate_npm_version_spec(version)
     except ValueError as e:
         print(f'Error: {e}')
         return False
@@ -2029,8 +2094,9 @@ def install_js_package(name, version=None, save=True, project_path='.'):
 
     install_target = f'{name}@{version}' if version else name
     try:
+        # `--` separator: prevents npm from parsing the target as a flag.
         subprocess.check_call(
-            [npm_bin, 'install', install_target],
+            [npm_bin, 'install', '--', install_target],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -2101,10 +2167,18 @@ def install_js_dependencies(path='.'):
     print(f'  Installing {len(deps)} JavaScript dependencies...')
     ok = True
     for name, version in deps.items():
+        try:
+            name = _validate_npm_package_name(name)
+            version = _validate_npm_version_spec(version)
+        except ValueError as e:
+            print(f'  Refusing to install {name}: {e}')
+            ok = False
+            continue
         target = f'{name}@{version}' if version and version != '*' else name
         try:
+            # `--` separator: prevents npm from parsing the target as a flag.
             subprocess.check_call(
-                [npm_bin, 'install', target],
+                [npm_bin, 'install', '--', target],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )

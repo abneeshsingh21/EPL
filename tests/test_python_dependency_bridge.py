@@ -76,7 +76,7 @@ class TestPythonDependencyBridge(unittest.TestCase):
                 ok = install_python_package('yaml', 'pyyaml>=6', project_path=tmpdir)
 
             self.assertTrue(ok)
-            pip_call.assert_called_once_with([sys.executable, '-m', 'pip', 'install', 'pyyaml>=6'])
+            pip_call.assert_called_once_with([sys.executable, '-m', 'pip', 'install', '--', 'pyyaml>=6'])
             loaded = load_manifest(tmpdir)
             self.assertEqual(loaded['python-dependencies']['yaml'], 'pyyaml>=6')
 
@@ -124,9 +124,10 @@ class TestPythonDependencyBridge(unittest.TestCase):
             self.assertEqual(import_module.call_count, 2)
             pip_call.assert_called_once()
             self.assertEqual(
-                pip_call.call_args.args[0][:4], [sys.executable, '-m', 'pip', 'install']
+                pip_call.call_args.args[0][:5],
+                [sys.executable, '-m', 'pip', 'install', '--'],
             )
-            self.assertEqual(pip_call.call_args.args[0][4], 'pyyaml>=6')
+            self.assertEqual(pip_call.call_args.args[0][5], 'pyyaml>=6')
             wrapped = interp.global_env.get_variable('yaml')
             self.assertIsInstance(wrapped, PythonModule)
             self.assertIs(wrapped.module, fake_module)

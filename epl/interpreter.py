@@ -2236,10 +2236,20 @@ class Interpreter:
                 )
             else:
                 print(f'[EPL] Package "{pkg_name}" not found. Auto-installing (allowlisted)...')
+            # v9.3.0 Phase 6 — refuse flag-injection payloads coming from the
+            # manifest before pip ever sees them; `--` separator is belt-and-braces.
+            try:
+                from epl.package_manager import _normalize_python_requirement
+                install_target = _normalize_python_requirement(pkg_name, install_target)
+            except ValueError as exc:
+                raise EPLRuntimeError(
+                    f'Refusing to install Python library "{node.library}": {exc}',
+                    node.line,
+                )
             try:
                 verbose = _os.environ.get('EPL_VERBOSE')
                 _subprocess.check_call(
-                    [_sys.executable, '-m', 'pip', 'install', install_target],
+                    [_sys.executable, '-m', 'pip', 'install', '--', install_target],
                     stdout=None if verbose else _subprocess.DEVNULL,
                     stderr=None if verbose else _subprocess.DEVNULL,
                 )
