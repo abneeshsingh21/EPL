@@ -7,6 +7,40 @@ import re
 
 from epl import ast_nodes as ast
 
+# ─── Page-level config (v9.2.0) ────────────────────────────
+# Footer and font-loading were hardcoded before v9.2.0. Defaults now match
+# enterprise expectations: no branding footer, no third-party CDN.
+# Override via configure_page(footer=..., fonts=...) before generate_html().
+_CONFIG = {
+    'footer': None,        # str | None.  None = omit footer entirely.
+    'fonts': 'system',     # 'system' (default) | 'cdn'  (cdn = legacy Google Fonts)
+}
+
+
+def configure_page(footer=None, fonts=None):
+    """Configure page-level rendering options.
+
+    Args:
+        footer: Footer HTML text, or None to omit. Default None.
+        fonts:  'system' uses native system font stack (no network);
+                'cdn' loads Inter from Google Fonts (pre-v9.2.0 behaviour).
+
+    Setting `footer` to the empty string also omits the footer.
+    """
+    if footer is not None:
+        _CONFIG['footer'] = footer or None
+    if fonts is not None:
+        if fonts not in ('system', 'cdn'):
+            raise ValueError(f"fonts must be 'system' or 'cdn', got {fonts!r}")
+        _CONFIG['fonts'] = fonts
+
+
+def reset_config():
+    """Reset page config to defaults. Primarily used by tests."""
+    _CONFIG['footer'] = None
+    _CONFIG['fonts'] = 'system'
+
+
 # Modern Premium CSS - Professional Component Design
 STYLES = """
 /* Minimal Reset for EPL Web */
@@ -78,6 +112,18 @@ def generate_html(
     </script>
     """
 
+    # Font loading — system stack (default, no network) or Google Fonts CDN.
+    if _CONFIG['fonts'] == 'cdn':
+        font_link = (
+            '<link href="https://fonts.googleapis.com/css2?'
+            'family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
+        )
+    else:
+        font_link = ''
+
+    # Footer — None/empty = omit. User-provided text is HTML-escaped.
+    footer_html = f'<footer>{_esc(_CONFIG["footer"])}</footer>' if _CONFIG['footer'] else ''
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -86,14 +132,14 @@ def generate_html(
     <meta name="color-scheme" content="dark">
     <meta name="darkreader-lock">
     <title>{_esc(title)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    {font_link}
     <style>{STYLES}</style>{extra_css}
 </head>
 <body>
     <div class="container">
         {body_html}
     </div>
-    <footer>Powered by EPL v1.0</footer>
+    {footer_html}
     {native_animations_js}
     {f'<script>{scripts}</script>' if scripts else ''}
 </body>

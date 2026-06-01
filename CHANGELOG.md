@@ -10,6 +10,36 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.2.0] — 2026-06-01
+
+Phase 1 of the enterprise-grade enhancement program: privacy & secrets hygiene. No breaking changes — every behaviour shift is the safer default, with the old behaviour available behind an opt-in.
+
+### Added
+- **OS keyring storage for cloud AI API keys.** Keys configured via `configure_cloud(...)` now go into the OS keychain (Windows Credential Manager, macOS Keychain, Secret Service / KWallet on Linux) under service `epl-lang`, user `cloud_api_key`. The on-disk `ai_config.json` no longer contains plaintext secrets when a keyring backend is available. Requires the optional `keyring` package — install via `pip install eplang[secure]` or it ships with `eplang[all]`.
+- **Automatic migration of legacy plaintext API keys.** Pre-9.2.0 configs with `api_key` in `ai_config.json` are moved into the keyring on first read, and the field is scrubbed from the JSON file. No user action required.
+- **`html_gen.configure_page(footer=..., fonts=...)`.** Page-level rendering controls for the web framework.
+- **System-font default for web pages.** New pages render with the platform's native font stack — no third-party CDN fetch, faster first paint, works offline. The legacy Inter-from-Google-Fonts behaviour is one setting away: `configure_page(fonts='cdn')`.
+
+### Changed
+- **Hardcoded `Powered by EPL v1.0` footer is gone.** Pages now omit `<footer>` entirely by default. Apps wanting branding set it explicitly: `configure_page(footer='© 2026 ACME Corp')`. Footer text is HTML-escaped to prevent XSS via injected content.
+- **JSON-fallback path retained.** When no keyring backend is available (e.g. headless Linux CI without `libsecret`), `configure_cloud` falls back to writing the key into `ai_config.json` with `chmod 0600` — same as pre-9.2.0. Behaviour is logged in the saved file (no `api_key` field == keyring used).
+
+### Security
+- **Plaintext API keys no longer touch disk on systems with a working keyring backend.** Closes the gap flagged in the prior security audit where Gemini/Groq keys lived in cleartext JSON.
+- **Footer XSS hardening.** User-provided footer text is HTML-entity-escaped (previously the hardcoded string had no escape path because there was no user input — the new control plane needs it).
+
+### Tests
+- 14 new tests across `tests/test_ai_keyring.py` and `tests/test_html_gen_config.py` covering: keyring present, keyring absent, legacy migration, keyring read failure, `clear_cloud` wipe, footer XSS, font opt-in, invalid font value rejection. Full suite remains green: 1518 passed, 5 skipped.
+
+### Packaging
+- `pyproject.toml` declares `keyring>=24.0.0` as the new `[secure]` optional dep and includes it in `[all]`.
+
+### Migration notes
+- **No code change required for existing users.** Re-run any command that reads cloud config (`epl ai status`, etc.) and the migration happens transparently.
+- Apps that relied on the visible `Powered by EPL v1.0` footer must opt back in: `from epl import html_gen; html_gen.configure_page(footer='Powered by EPL v9.2')`.
+
+---
+
 ## VS Code Extension [2.2.0] — 2026-06-01
 
 Brings the VS Code extension up to v9.x parity with the language runtime. No breaking changes.

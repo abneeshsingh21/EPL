@@ -43,6 +43,33 @@ GEMINI_MODELS = [
 _CONFIG_PATH = None  # Set lazily
 _CONFIG_LOADED = False  # Cache flag — avoid re-reading disk on every call
 
+# Keyring service identifier — stable across versions; do not rename without a migration.
+_KEYRING_SERVICE = 'epl-lang'
+_KEYRING_USER = 'cloud_api_key'
+
+
+def _try_keyring():
+    """Return the `keyring` module if usable on this system, else None.
+
+    Keyring backends can fail to initialise on headless Linux without a
+    DBus/Secret Service, in CI containers, or on locked-down Windows. We
+    catch every failure path so callers can fall back to the JSON store.
+    """
+    try:
+        import keyring  # type: ignore
+    except ImportError:
+        return None
+    try:
+        # Probing the backend forces it to initialise; the fail-backend
+        # (no usable store) raises here, so we can detect it cleanly.
+        backend = keyring.get_keyring()
+        cls_name = type(backend).__name__
+        if 'fail' in cls_name.lower() or 'null' in cls_name.lower():
+            return None
+    except Exception:
+        return None
+    return keyring
+
 
 def _get_config_path():
     """Get path to the EPL AI config file.
@@ -93,34 +120,84 @@ def _chmod_secret(path):
 
 
 def _load_config(force=False):
-    """Load saved cloud config from disk.
+    """Load saved cloud config from disk + keyring.
 
     Cached after first call (configure_cloud/clear_cloud invalidate the cache),
     so we don't hit disk on every prompt.
+
+    Storage layout (since v9.2.0):
+      - Non-secret fields (provider, model) live in JSON on disk.
+      - The API key lives in the OS keyring under (epl-lang, cloud_api_key).
+      - Legacy plaintext `api_key` in JSON is auto-migrated to keyring on read
+        and the field is wiped from JSON. If no keyring is available, JSON
+        remains the fallback store.
     """
     global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL, _CONFIG_LOADED
     if _CONFIG_LOADED and not force:
         return
     path = _get_config_path()
+    cfg = {}
     try:
         with open(path, 'r', encoding='utf-8') as f:
             cfg = json.load(f)
         CLOUD_PROVIDER = cfg.get('provider')
-        CLOUD_API_KEY = cfg.get('api_key')
         CLOUD_MODEL = cfg.get('model')
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         pass
+
+    kr = _try_keyring()
+    legacy_key = cfg.get('api_key') if isinstance(cfg, dict) else None
+    if kr is not None:
+        try:
+            stored = kr.get_password(_KEYRING_SERVICE, _KEYRING_USER)
+        except Exception:
+            stored = None
+        if stored:
+            CLOUD_API_KEY = stored
+        elif legacy_key:
+            # Migrate plaintext → keyring, then scrub the JSON file.
+            try:
+                kr.set_password(_KEYRING_SERVICE, _KEYRING_USER, legacy_key)
+                CLOUD_API_KEY = legacy_key
+                cfg.pop('api_key', None)
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(cfg, f, indent=2)
+                _chmod_secret(path)
+            except Exception:
+                CLOUD_API_KEY = legacy_key
+        else:
+            CLOUD_API_KEY = None
+    else:
+        # No keyring → JSON is the only store.
+        CLOUD_API_KEY = legacy_key
+
     _CONFIG_LOADED = True
 
 
 def _save_config():
-    """Save cloud config to disk with owner-only permissions."""
+    """Save cloud config to disk (non-secret) and keyring (secret).
+
+    The on-disk JSON never contains the API key when a keyring is available.
+    If keyring is unavailable, the key falls back to JSON with 0600 perms —
+    not ideal, but documented and the only portable option on locked-down hosts.
+    """
     path = _get_config_path()
     cfg = {
         'provider': CLOUD_PROVIDER,
-        'api_key': CLOUD_API_KEY,
         'model': CLOUD_MODEL,
     }
+    kr = _try_keyring()
+    if kr is not None and CLOUD_API_KEY:
+        try:
+            kr.set_password(_KEYRING_SERVICE, _KEYRING_USER, CLOUD_API_KEY)
+        except Exception:
+            # Keyring write failed — fall back to JSON so the user does not
+            # lose their key. We log nothing here; configure_cloud is the
+            # right place for any UI feedback.
+            cfg['api_key'] = CLOUD_API_KEY
+    elif kr is None and CLOUD_API_KEY:
+        cfg['api_key'] = CLOUD_API_KEY
+
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(cfg, f, indent=2)
     _chmod_secret(path)
@@ -143,13 +220,21 @@ def configure_cloud(provider, api_key, model=None):
 
 
 def clear_cloud():
-    """Remove cloud provider, revert to Ollama."""
+    """Remove cloud provider, revert to Ollama. Wipes both JSON and keyring."""
     global CLOUD_PROVIDER, CLOUD_API_KEY, CLOUD_MODEL, _CONFIG_LOADED
     CLOUD_PROVIDER = None
     CLOUD_API_KEY = None
     CLOUD_MODEL = None
     _CONFIG_LOADED = True
     import os
+
+    kr = _try_keyring()
+    if kr is not None:
+        try:
+            kr.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
+        except Exception:
+            # Entry didn't exist or backend refused; safe to ignore.
+            pass
 
     path = _get_config_path()
     if os.path.exists(path):
