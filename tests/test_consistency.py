@@ -126,19 +126,8 @@ End""",
     ('string contains', 'Print contains("hello world", "world")\nPrint contains("hello", "xyz")'),
     ('string trim', 'Print trim("  hello  ")'),
     ('string indexing', 'Create s equal to "abc"\nPrint s[0]\nPrint s[1]\nPrint s[2]'),
-]
-
-KNOWN_DIVERGENCE_CASES = [
-    pytest.param(
-        'loop with continue',
-        'For each i in [1, 2, 3, 4, 5]\n  If i == 3\n    Continue\n  End\n  Print i\nEnd',
-        id='loop with continue',
-        marks=pytest.mark.xfail(
-            reason='VM stops iteration instead of skipping the continued element.',
-            strict=True,
-        ),
-    ),
-    pytest.param(
+    ('loop with continue', 'For each i in [1, 2, 3, 4, 5]\n  If i == 3\n    Continue\n  End\n  Print i\nEnd'),
+    (
         'recursive function',
         """Function factorial(n)
   If n <= 1
@@ -147,13 +136,8 @@ KNOWN_DIVERGENCE_CASES = [
   Return n * factorial(n - 1)
 End
 Print factorial(5)""",
-        id='recursive function',
-        marks=pytest.mark.xfail(
-            reason='VM recursive call handling still diverges from interpreter output.',
-            strict=True,
-        ),
     ),
-    pytest.param(
+    (
         'fibonacci',
         """Function fib(n)
   If n <= 1
@@ -165,13 +149,8 @@ Print fib(0)
 Print fib(1)
 Print fib(5)
 Print fib(10)""",
-        id='fibonacci',
-        marks=pytest.mark.xfail(
-            reason='Recursive Fibonacci output still diverges between interpreter and VM.',
-            strict=True,
-        ),
     ),
-    pytest.param(
+    (
         'fizzbuzz',
         """For each i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
   If i % 15 == 0 Then
@@ -184,13 +163,8 @@ Print fib(10)""",
     Print i
   End
 End""",
-        id='fizzbuzz',
-        marks=pytest.mark.xfail(
-            reason='VM control-flow parity still diverges on repeated Otherwise branches inside loops.',
-            strict=True,
-        ),
     ),
-    pytest.param(
+    (
         'list comprehension style',
         """result = []
 For each i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -199,29 +173,16 @@ For each i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
   End
 End
 Print result""",
-        id='list comprehension style',
-        marks=pytest.mark.xfail(
-            reason='VM loop mutation parity still diverges after the first successful append.',
-            strict=True,
-        ),
     ),
-]
-
-KNOWN_BACKEND_GAP_CASES = [
-    pytest.param(
+    (
         'try catch',
         """Try
   Create x equal to 10 / 0
 Catch error
   Print "caught error"
 End""",
-        id='try catch',
-        marks=pytest.mark.xfail(
-            reason='VM exception flow does not yet match interpreter try/catch behavior.',
-            strict=True,
-        ),
     ),
-    pytest.param(
+    (
         'simple class',
         """Class Dog
   name = "Rex"
@@ -234,13 +195,13 @@ End
 Create myDog equal to new Dog()
 Print myDog.name
 Print myDog.speak()""",
-        id='simple class',
-        marks=pytest.mark.xfail(
-            reason='VM class construction still fails for this interpreter-supported class definition shape.',
-            strict=True,
-        ),
     ),
 ]
+
+# All previously-documented VM divergences (continue, recursion, fizzbuzz,
+# list-mutation, fibonacci) now pass parity in PARITY_CASES — v9.1.0 fix.
+
+KNOWN_BACKEND_GAP_CASES: list = []
 
 
 @pytest.fixture
@@ -306,11 +267,6 @@ def _assert_runtime_parity(name: str, results: dict[str, tuple[str, object]]) ->
 
 @pytest.mark.parametrize(('name', 'source'), PARITY_CASES, ids=[name for name, _ in PARITY_CASES])
 def test_runtime_parity_cases(name: str, source: str, parity_runner) -> None:
-    _assert_runtime_parity(name, parity_runner(source))
-
-
-@pytest.mark.parametrize(('name', 'source'), KNOWN_DIVERGENCE_CASES)
-def test_runtime_parity_known_divergences(name: str, source: str, parity_runner) -> None:
     _assert_runtime_parity(name, parity_runner(source))
 
 

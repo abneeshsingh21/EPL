@@ -1078,6 +1078,11 @@ class BytecodeCompiler:
         self.instructions = []
         self.locals_stack.append({})
 
+        # Pre-register the function name so recursive calls inside the body
+        # resolve to Op.CALL rather than falling through to Op.CALL_BUILTIN.
+        # The real CompiledFunction replaces this placeholder below.
+        self.functions.setdefault(node.name, None)
+
         # Declare parameters as locals
         from epl.ast_nodes import RestParameter
 
@@ -1250,7 +1255,13 @@ class BytecodeCompiler:
                 methods[member.name] = mfunc
 
             elif isinstance(member, ast.VarDeclaration):
-                properties[member.name] = None
+                default = None
+                val = getattr(member, 'value', None)
+                if isinstance(val, ast.Literal):
+                    default = val.value
+                elif isinstance(val, (str, int, float, bool)) or val is None:
+                    default = val
+                properties[member.name] = default
 
         compiled = CompiledClass(
             name=node.name,
@@ -1985,8 +1996,13 @@ class VM:
                         else:
                             break
                 except VMError as e:
-                    e.with_call_stack(self._capture_call_stack())
-                    raise
+                    if self.try_stack:
+                        handler_ip = self.try_stack.pop()
+                        frame.ip = handler_ip
+                        stack.append(str(e))
+                    else:
+                        e.with_call_stack(self._capture_call_stack())
+                        raise
                 except Exception as e:
                     if self.try_stack:
                         handler_ip = self.try_stack.pop()
@@ -2137,15 +2153,14 @@ class VM:
     def _op_jump_if_false(self, inst):
         if not self.stack:
             raise VMError('Stack underflow on JUMP_IF_FALSE', inst.line)
-        val = self.stack[-1]
+        val = self.stack.pop()
         if not val:
-            self.stack.pop()
             self.call_stack[-1].ip = inst.arg
 
     def _op_jump_if_true(self, inst):
         if not self.stack:
             raise VMError('Stack underflow on JUMP_IF_TRUE', inst.line)
-        val = self.stack[-1]
+        val = self.stack.pop()
         if val:
             self.call_stack[-1].ip = inst.arg
 
@@ -2408,11 +2423,11 @@ class VM:
         self.stack.append(result)
 
     def _op_new_instance(self, inst):
-        cls_name = inst.arg
+        cls_name, arg_count = inst.arg
         cls = self.classes.get(cls_name)
         if not cls:
             raise VMError(f'Unknown class: {cls_name}', inst.line)
-        self.stack.append(VMInstance(cls))
+        self._call_constructor(cls, arg_count)
 
     # I/O
     def _op_print(self, inst):
