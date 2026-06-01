@@ -10,6 +10,21 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.3.0] — 2026-06-01
+
+Phase 2 of the enterprise-grade enhancement program: exception hygiene. Previously-silent `except Exception: pass` and `except Exception: return None` sites now route through a centralised debug helper, making them inspectable without changing production behaviour.
+
+### Added
+- **`epl/_debug_log.py` — `suppressed(where)` helper.** Records swallowed exceptions to stderr when `EPL_DEBUG=1` is set, silent otherwise. Set `EPL_DEBUG_TRACE=1` for full tracebacks. Zero dependencies on the rest of the package — safe to import from any module.
+
+### Changed
+- **34 previously-silent except blocks now instrumented** across `epl/stdlib.py` (15), `epl/web.py` (10), `epl/runtime_support.py` (4), `epl/cli.py` (3), `epl/interpreter.py` (2). Production behaviour is unchanged (still swallows by default); diagnostic visibility is one env var away.
+
+### Tests
+- 12 new tests in `tests/test_debug_log.py` covering env-var parsing, truthy/falsy values, silent-by-default behaviour, and the "called outside an except block" safety case. Suite remains green: 1530 passed.
+
+---
+
 ## [9.2.0] — 2026-06-01
 
 Phase 1 of the enterprise-grade enhancement program: privacy & secrets hygiene. No breaking changes — every behaviour shift is the safer default, with the old behaviour available behind an opt-in.

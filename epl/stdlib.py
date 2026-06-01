@@ -34,6 +34,7 @@ import urllib.request as _urllib_request
 import uuid as _uuid
 
 from epl.errors import RuntimeError as EPLRuntimeError
+from epl._debug_log import suppressed as _debug_suppressed
 
 _install_lock = _threading.Lock()
 _module_cache = {}
@@ -6567,6 +6568,7 @@ def _call_ws_server(name, args, line):
                     data = bytes(b ^ mask_key[i % 4] for i, b in enumerate(data))
                 return (opcode, data)
             except Exception:
+                _debug_suppressed('stdlib.py:6569')
                 return None
 
         def ws_send_frame(sock, data, opcode=1):
@@ -6620,6 +6622,7 @@ def _call_ws_server(name, args, line):
                     try:
                         handler(cid)
                     except Exception:
+                        _debug_suppressed('stdlib.py:6622')
                         pass
                 while server_data['running']:
                     result = ws_read_frame(client_sock)
@@ -6638,8 +6641,10 @@ def _call_ws_server(name, args, line):
                             try:
                                 handler(cid, msg)
                             except Exception:
+                                _debug_suppressed('stdlib.py:6640')
                                 pass
             except Exception:
+                _debug_suppressed('stdlib.py:6642')
                 pass
             finally:
                 handler = server_data['handlers'].get('on_disconnect')
@@ -6647,6 +6652,7 @@ def _call_ws_server(name, args, line):
                     try:
                         handler(cid)
                     except Exception:
+                        _debug_suppressed('stdlib.py:6649')
                         pass
                 for room_members in server_data['rooms'].values():
                     room_members.discard(cid)
@@ -6654,6 +6660,7 @@ def _call_ws_server(name, args, line):
                 try:
                     client_sock.close()
                 except Exception:
+                    _debug_suppressed('stdlib.py:6656')
                     pass
 
         def accept_loop(server_data):
@@ -6691,11 +6698,13 @@ def _call_ws_server(name, args, line):
             try:
                 srv['server'].close()
             except Exception:
+                _debug_suppressed('stdlib.py:6693')
                 pass
         for cid, client in list(srv['clients'].items()):
             try:
                 client['socket'].close()
             except Exception:
+                _debug_suppressed('stdlib.py:6698')
                 pass
         srv['clients'].clear()
         srv['rooms'].clear()
@@ -6750,6 +6759,7 @@ def _call_ws_server(name, args, line):
                 client['send'](msg)
                 count += 1
             except Exception:
+                _debug_suppressed('stdlib.py:6752')
                 pass
         return count
 
@@ -6812,6 +6822,7 @@ def _call_ws_server(name, args, line):
                     client['send'](msg)
                     count += 1
                 except Exception:
+                    _debug_suppressed('stdlib.py:6814')
                     pass
         return count
 
@@ -7560,6 +7571,7 @@ def _widget_belongs_to(widget, window):
                 return True
             w = w.master
     except Exception:
+        _debug_suppressed('stdlib.py:7562')
         pass
     return False
 
@@ -9845,11 +9857,13 @@ def _call_game(name, args, line):
             try:
                 pygame.mixer.stop()
             except Exception:
+                _debug_suppressed('stdlib.py:9847')
                 pass
             try:
                 pygame.display.quit()
                 pygame.display.init()
             except Exception:
+                _debug_suppressed('stdlib.py:9852')
                 pass
         return None
 
@@ -10021,6 +10035,7 @@ def _call_game(name, args, line):
                 pygame = _ensure_pygame()
                 pygame.mixer.stop()
             except Exception:
+                _debug_suppressed('stdlib.py:10023')
                 pass
             game.get('timers', {}).clear()
             # Clean up sprites belonging to this game
@@ -11194,6 +11209,7 @@ def _call_3d(name, args, line):
                 try:
                     on_update()
                 except Exception:
+                    _debug_suppressed('stdlib.py:11196')
                     pass
             # Render frame
             ctx = ctx_data['ctx']

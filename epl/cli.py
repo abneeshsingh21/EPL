@@ -47,6 +47,7 @@ if _EPL_ROOT not in sys.path:
     sys.path.insert(0, _EPL_ROOT)
 
 from epl import __version__
+from epl._debug_log import suppressed as _debug_suppressed
 
 # ─── ANSI Colors ──────────────────────────────────────────
 
@@ -262,6 +263,7 @@ def _load_project_manifest(path='.'):
     try:
         return load_manifest(path)
     except Exception:
+        _debug_suppressed('cli.py:264')
         return None
 
 
@@ -588,6 +590,7 @@ def _fix_file(args, flags):
             exp = explain(exc, source=source, ai=True)
             print(format_explanation(exp), file=sys.stderr)
         except Exception:
+            _debug_suppressed('cli.py:590')
             pass
         return 1
     except Exception as exc:
@@ -1809,6 +1812,7 @@ def _run_tests(args, flags):
             # Count inline Test blocks
             test_count += len(re.findall(r'(?m)^\s*Test\s+["\']', source))
         except Exception:
+            _debug_suppressed('cli.py:1811')
             pass
 
     runner = EPLTestRunner(

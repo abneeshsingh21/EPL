@@ -66,6 +66,7 @@ from epl.store_backends import (
     get_session_backend,
     get_store_backend,
 )
+from epl._debug_log import suppressed as _debug_suppressed
 
 
 # Legacy compatibility: _data_store still exists as a dict-like proxy
@@ -150,6 +151,7 @@ class ConnectionPool:
                 try:
                     c.close()
                 except Exception:
+                    _debug_suppressed('web.py:152')
                     pass
             self._all_conns.clear()
         self._local.conn = None
@@ -1413,6 +1415,7 @@ class WebSocketConnection:
         try:
             self._send_frame(WS_OPCODE_CLOSE, payload)
         except Exception:
+            _debug_suppressed('web.py:1415')
             pass
 
     def _send_frame(self, opcode, data):
@@ -1522,6 +1525,7 @@ class WebSocketRoom:
                 try:
                     conn.send(message)
                 except Exception:
+                    _debug_suppressed('web.py:1524')
                     pass
 
     @property
@@ -1626,6 +1630,7 @@ def _handle_websocket_upgrade(handler):
             try:
                 ws.socket.close()
             except Exception:
+                _debug_suppressed('web.py:1628')
                 pass
 
     t = threading.Thread(target=_ws_loop, daemon=True)
@@ -2451,6 +2456,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                             self.wfile.write(chunk)
                     return True
                 except Exception:
+                    _debug_suppressed('web.py:2453')
                     pass
         return False
 
@@ -2686,6 +2692,7 @@ class AsyncEPLServer:
                 if not handled:
                     break
         except Exception:
+            _debug_suppressed('web.py:2688')
             pass
         finally:
             self._active_connections -= 1
@@ -2693,6 +2700,7 @@ class AsyncEPLServer:
                 writer.close()
                 await writer.wait_closed()
             except Exception:
+                _debug_suppressed('web.py:2695')
                 pass
 
     async def _handle_one_request(self, reader, writer):
@@ -2792,6 +2800,7 @@ class AsyncEPLServer:
             try:
                 await self._write_error(writer, 500, 'Internal Server Error')
             except Exception:
+                _debug_suppressed('web.py:2794')
                 pass
             return False
 
@@ -2988,6 +2997,7 @@ class AsyncEPLServer:
                 else:
                     store_add(collection, val)
             except Exception:
+                _debug_suppressed('web.py:2990')
                 pass
 
     def _exec_delete_sync(self, stmt, form_data):
@@ -3259,6 +3269,7 @@ class HTTP2Server:
                 writer.close()
                 await writer.wait_closed()
             except Exception:
+                _debug_suppressed('web.py:3261')
                 pass
 
     async def _handle_h2_request(self, conn, writer, stream_id, headers, body):

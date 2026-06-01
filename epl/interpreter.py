@@ -87,6 +87,7 @@ class ExitSignal(Exception):
 # ─── Async Runtime ────────────────────────────────────────
 
 import asyncio as _asyncio
+from epl._debug_log import suppressed as _debug_suppressed
 
 # Lazy thread pool — created on first use to avoid wasting threads on import
 _thread_pool = None
@@ -2968,6 +2969,7 @@ class Interpreter:
             try:
                 caller_klass = env.get_variable(caller_class)
             except Exception:
+                _debug_suppressed('interpreter.py:2970')
                 pass
             if caller_class != klass.name and not self._is_subclass_of(caller_klass, klass):
                 raise EPLRuntimeError(
@@ -3247,6 +3249,7 @@ class Interpreter:
                         )
                     )
                 except Exception:
+                    _debug_suppressed('interpreter.py:3249')
                     pass
             return f'<{value.klass.name} instance>'
         if isinstance(value, EPLClass):
@@ -3850,6 +3853,7 @@ class Interpreter:
                 if isinstance(val, EPLGenerator):
                     return val
             except Exception:
+                _debug_suppressed('interpreter.py:3852')
                 pass
             current = getattr(current, 'parent', None)
         return None
