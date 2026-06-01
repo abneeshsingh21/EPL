@@ -125,6 +125,8 @@ HELP = f"""\
                                    --test            Re-run tests instead of program
                                    --clear           Clear screen before each re-run
                                    --debounce=MS     Set debounce interval (default: 300)
+                                   --timeout=SECS    Per-run timeout (default: none — long-running
+                                                     servers/bots are not killed; pass a number to cap)
   epl repl                         Start interactive REPL
   epl use [--frozen] [package]     Install project deps or a package
   epl install [--frozen] [package] Alias for 'epl use'

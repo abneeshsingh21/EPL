@@ -272,5 +272,114 @@ class TestRunWatchConfig(unittest.TestCase):
         self.assertEqual(result, 1)
 
 
+# ═══════════════════════════════════════════════════════════
+# Subprocess timeout — v9.3.0 Phase 7
+# Previously hardcoded 60s, which killed servers/bots/anything
+# that ran under `epl watch` for more than a minute.
+# ═══════════════════════════════════════════════════════════
+
+
+class TestWatcherTimeout(unittest.TestCase):
+    """Verify the per-run subprocess timeout is configurable and defaults to no cap."""
+
+    def test_execute_passes_timeout_to_subprocess(self):
+        """_execute(timeout=N) must pass N as subprocess.run(timeout=N)."""
+        from unittest import mock
+        from epl import watcher
+
+        with tempfile.NamedTemporaryFile(suffix='.epl', delete=False) as f:
+            target = f.name
+            f.write(b'Print "hi"\n')
+
+        try:
+            with mock.patch.object(watcher.subprocess, 'run') as fake_run:
+                fake_run.return_value = mock.Mock(returncode=0)
+                watcher._execute(target, set(), test_mode=False, clear=False, timeout=12.5)
+
+            self.assertEqual(fake_run.call_args.kwargs['timeout'], 12.5)
+        finally:
+            os.unlink(target)
+
+    def test_execute_defaults_to_no_timeout(self):
+        """Default timeout=None means subprocess.run is called with timeout=None."""
+        from unittest import mock
+        from epl import watcher
+
+        with tempfile.NamedTemporaryFile(suffix='.epl', delete=False) as f:
+            target = f.name
+            f.write(b'Print "hi"\n')
+
+        try:
+            with mock.patch.object(watcher.subprocess, 'run') as fake_run:
+                fake_run.return_value = mock.Mock(returncode=0)
+                # No timeout kwarg — uses the function's default.
+                watcher._execute(target, set(), test_mode=False, clear=False)
+
+            self.assertIsNone(fake_run.call_args.kwargs['timeout'])
+        finally:
+            os.unlink(target)
+
+    def test_timeout_expired_reports_and_does_not_raise(self):
+        """When the subprocess times out, the watcher reports it cleanly."""
+        from unittest import mock
+        from epl import watcher
+
+        with tempfile.NamedTemporaryFile(suffix='.epl', delete=False) as f:
+            target = f.name
+            f.write(b'Print "hi"\n')
+
+        try:
+            with mock.patch.object(watcher.subprocess, 'run') as fake_run:
+                fake_run.side_effect = watcher.subprocess.TimeoutExpired(cmd='x', timeout=5)
+                # Must not raise.
+                watcher._execute(target, set(), test_mode=False, clear=False, timeout=5)
+        finally:
+            os.unlink(target)
+
+
+class TestWatcherCliTimeoutParsing(unittest.TestCase):
+    """The `--timeout=` flag accepted by `epl watch` must parse to the right value."""
+
+    def _parse(self, flag_val):
+        """Drive the CLI helper and capture the timeout it would forward."""
+        from unittest import mock
+        from epl import cli
+
+        captured = {}
+
+        def fake_run_watch(target, **kwargs):
+            captured.update(kwargs)
+            return 0
+
+        with mock.patch('epl.watcher.run_watch', side_effect=fake_run_watch):
+            cli._watch(['.'], {f'--timeout={flag_val}'} if flag_val is not None else set())
+        return captured
+
+    def test_numeric_timeout_parsed_as_float(self):
+        result = self._parse('30')
+        self.assertEqual(result.get('timeout'), 30.0)
+
+    def test_decimal_timeout_parsed_as_float(self):
+        result = self._parse('2.5')
+        self.assertEqual(result.get('timeout'), 2.5)
+
+    def test_timeout_none_disables_cap(self):
+        for sentinel in ('none', 'off', '0', 'disable'):
+            with self.subTest(sentinel=sentinel):
+                result = self._parse(sentinel)
+                self.assertIsNone(result.get('timeout'))
+
+    def test_default_timeout_is_none(self):
+        """No --timeout flag → run_watch receives timeout=None (no cap)."""
+        result = self._parse(None)
+        self.assertIsNone(result.get('timeout'))
+
+    def test_invalid_timeout_returns_error_code(self):
+        """A non-numeric --timeout returns 1 instead of forwarding garbage."""
+        from epl import cli
+        rc = cli._watch(['.'], {'--timeout=banana'})
+        self.assertEqual(rc, 1)
+
+
 if __name__ == '__main__':
     unittest.main()

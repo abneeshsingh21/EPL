@@ -84,6 +84,20 @@ Multi-phase enterprise-grade enhancement program. All phases bundled into a sing
   - 2 end-to-end tests proving that a poisoned `epl.toml` is refused at the boundary and **the `subprocess` is never invoked**.
 - 3 existing tests updated to assert the new `--`-separated argv shape.
 
+### Phase 7 — `epl watch` no longer kills long-running programs
+
+**Bug fix.** The dev-mode watcher hard-capped every re-run at **60 seconds**, killing servers, bots, REPLs and any genuinely long-running EPL program the moment they crossed the minute mark. The cap is now removed by default and the watcher exposes a `--timeout=` flag for the rare case where a hard cap is wanted.
+
+**Changed**
+- `epl.watcher._execute(...)` `timeout` parameter now defaults to **`None`** (no cap). The previous 60-second default is gone.
+- `epl watch` accepts a new `--timeout=SECS` flag. Accepted values: a positive number (seconds), or one of `none`/`off`/`0`/`disable` to explicitly disable the cap.
+- Help text for `epl watch` now documents the flag.
+
+**Tests**
+- 8 new tests in `tests/test_watcher.py`:
+  - 3 `TestWatcherTimeout` cases verifying `_execute` forwards `timeout` to `subprocess.run` verbatim, defaults to `None`, and handles `TimeoutExpired` cleanly without raising.
+  - 5 `TestWatcherCliTimeoutParsing` cases verifying CLI flag parsing — integer, decimal, the four disable-sentinels, default (no flag), and the invalid-value error path.
+
 ---
 
 ## [9.2.0] — 2026-06-01
