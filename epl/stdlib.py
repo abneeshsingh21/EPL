@@ -947,6 +947,28 @@ _state_lock = _threading.Lock()  # Protects all module-level state dicts
 _real_db_instances = {}  # name -> database_real.Database
 _real_db_models = {}  # "db:model" -> database_real.Model
 _real_db_txns = {}  # txn_id -> connection (in transaction)
+
+# v9.3.0 Phase 5 — SQL injection hardening.
+# Single source of truth for "what is a safe SQL identifier?". The 7 prior
+# in-function copies of this regex made it easy for new endpoints to forget
+# validation; route everything through `_assert_sql_identifier` instead.
+_SQL_IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _assert_sql_identifier(name, kind='identifier'):
+    """Reject anything that isn't a bare SQL identifier (table or column name).
+
+    Raises RuntimeError on failure. Callers that need an EPLRuntimeError should
+    catch + re-raise with line context (the cross-cutting helper stays decoupled
+    from interpreter-specific error types).
+    """
+    if not isinstance(name, str) or not _SQL_IDENT_RE.match(name):
+        raise RuntimeError(
+            f'Invalid SQL {kind}: {name!r}. '
+            f'Identifiers must match [a-zA-Z_][a-zA-Z0-9_]*. '
+            f'Use parameter placeholders (?) for values.'
+        )
+    return name
 _net_tcp_connections = {}  # id -> networking.TCPConnection
 _net_tcp_servers = {}  # id -> networking.TCPServer
 _net_udp_sockets = {}  # id -> networking.UDPSocket
@@ -3371,14 +3393,30 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(f'No database connection: {db_name}', line)
             record = _from_epl(args[2]) if hasattr(args[2], 'data') else args[2]
             where_arg = _from_epl(args[3]) if hasattr(args[3], 'data') else args[3]
-            # If where is a dict, convert to SQL string + params
+            # v9.3.0 Phase 5 — validate every interpolated identifier. Previously
+            # a dict WHERE blindly trusted column names, so a key like
+            # `"id=1 OR 1=1 --"` would bypass the predicate entirely.
             if isinstance(where_arg, dict):
-                where_parts = [f'{k} = ?' for k in where_arg.keys()]
+                for k in where_arg.keys():
+                    try:
+                        _assert_sql_identifier(k, 'column')
+                    except RuntimeError as exc:
+                        raise EPLRuntimeError(str(exc), line) from exc
+                where_parts = [f'"{k}" = ?' for k in where_arg.keys()]
                 where_sql = ' AND '.join(where_parts)
                 where_params = tuple(where_arg.values())
             else:
+                # Raw string WHERE accepted for power users, but only with a
+                # params tuple supplied — bare string-only is the classic
+                # injection footgun and is now refused.
+                if len(args) <= 4:
+                    raise EPLRuntimeError(
+                        'real_db_update with a string WHERE requires a params tuple. '
+                        'Use placeholders (?) for every value, or pass a dict WHERE.',
+                        line,
+                    )
                 where_sql = str(where_arg)
-                where_params = tuple(args[4]) if len(args) > 4 else ()
+                where_params = tuple(args[4])
             return _real_db_instances[db_name].update(str(args[1]), record, where_sql, where_params)
         if name == 'real_db_delete':
             if len(args) < 3:
@@ -3388,12 +3426,23 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(f'No database connection: {db_name}', line)
             where_arg = _from_epl(args[2]) if hasattr(args[2], 'data') else args[2]
             if isinstance(where_arg, dict):
-                where_parts = [f'{k} = ?' for k in where_arg.keys()]
+                for k in where_arg.keys():
+                    try:
+                        _assert_sql_identifier(k, 'column')
+                    except RuntimeError as exc:
+                        raise EPLRuntimeError(str(exc), line) from exc
+                where_parts = [f'"{k}" = ?' for k in where_arg.keys()]
                 where_sql = ' AND '.join(where_parts)
                 where_params = tuple(where_arg.values())
             else:
+                if len(args) <= 3:
+                    raise EPLRuntimeError(
+                        'real_db_delete with a string WHERE requires a params tuple. '
+                        'Use placeholders (?) for every value, or pass a dict WHERE.',
+                        line,
+                    )
                 where_sql = str(where_arg)
-                where_params = tuple(args[3]) if len(args) > 3 else ()
+                where_params = tuple(args[3])
             return _real_db_instances[db_name].delete(str(args[1]), where_sql, where_params)
         if name == 'real_db_find_by_id':
             if len(args) < 3:

@@ -47,6 +47,23 @@ Multi-phase enterprise-grade enhancement program. All phases bundled into a sing
 **Tests**
 - 7 new tests in `tests/test_theme.py` covering each theme value, palette completeness, the media-query branch in `auto`, invalid values, and reset semantics.
 
+### Phase 5 — SQL injection hardening
+
+**Security fix.** `real_db_update` and `real_db_delete` previously interpolated dict-WHERE column names directly into SQL without validation, and accepted bare string WHERE clauses with no params. A caller passing `{"id = 1 OR 1=1 --": x}` as a WHERE map could rewrite or delete every row in a table. Both vectors are now closed.
+
+**Added**
+- Module-level `_SQL_IDENT_RE` and `_assert_sql_identifier(name, kind)` helper in `epl/stdlib.py` — a single source of truth replacing seven copy-pasted in-function regex compilations. New SQL-emitting endpoints now have one obvious thing to call.
+
+**Changed (breaking only for previously-exploitable code paths)**
+- `real_db_update(db, table, set_map, where_map)` — every key in `where_map` is now validated as a SQL identifier before interpolation.
+- `real_db_delete(db, table, where_map)` — same validation applied.
+- `real_db_update` / `real_db_delete` with a **string** WHERE clause now require an explicit `params` tuple. The string-only form (which executed user input verbatim) raises with a fix hint.
+
+**Tests**
+- 24 new tests in `tests/test_sql_injection.py`:
+  - 17 unit tests for `_assert_sql_identifier` covering valid identifiers, nine injection patterns (statement breakage, predicate injection, quote breaks, etc.), non-string inputs, and `kind` reporting.
+  - 7 integration tests through the public `call_stdlib('real_db_update'|'real_db_delete', ...)` dispatcher proving each historical exploit attempt now raises **and that no rows were mutated**, plus regression tests that the legitimate dict-WHERE and parameterised string-WHERE paths still work.
+
 ---
 
 ## [9.2.0] — 2026-06-01
