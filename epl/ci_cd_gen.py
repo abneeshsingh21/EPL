@@ -17,12 +17,12 @@ class CICDGenerator:
     """
 
     SUPPORTED_LANGUAGES = {
-        "python": {
-            "docker_image": "python:3.9",
-            "install_cmd": "pip install -r requirements.txt",
-            "test_cmd": "pytest tests/",
-            "lint_cmd": "flake8 . && black --check ."
-        },
+       "python": {
+    "docker_image": "python:3.9",
+    "install_cmd": "pip install -r requirements.txt",
+    "test_cmd": "pytest tests/ --junitxml=test-results/results.xml",  # ← Generates XML
+    "lint_cmd": "flake8 . && black --check ."
+},
         "node": {
             "docker_image": "node:16",
             "install_cmd": "npm install",
@@ -156,18 +156,18 @@ class CICDGenerator:
 
         jenkinsfile += """    }
 
-    post {{
-        always {{
+    post {
+        always {
             cleanWs()
-        }}
-        success {{
+        }
+        success {
             echo '✅ Pipeline completed successfully!'
-        }}
-        failure {{
+        }
+        failure {
             echo '❌ Pipeline failed!'
-        }}
-    }}
-}}
+        }
+    }
+}
 """
 
         self.ensure_output_dir()
