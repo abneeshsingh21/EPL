@@ -18,3 +18,4 @@ Automatically generate CI/CD pipeline configurations for multiple platforms incl
 
 ```bash
 pip install PyYAML
+```
