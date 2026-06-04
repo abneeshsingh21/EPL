@@ -1,0 +1,46 @@
+pipeline {
+    agent any
+
+    environment {
+        PROJECT_NAME = 'EPL'
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                sh '''
+                    pip install -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                    pytest tests/
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    echo 'Deploying application...'
+                '''
+            }
+        }
+
+    }
+
+    post {{
+        always {{
+            cleanWs()
+        }}
+        success {{
+            echo '✅ Pipeline completed successfully!'
+        }}
+        failure {{
+            echo '❌ Pipeline failed!'
+        }}
+    }}
+}}

@@ -1,0 +1,62 @@
+pipeline {
+    agent any
+
+    environment {
+        PROJECT_NAME = 'EPL-Custom'
+    }
+
+    stages {
+        stage('Lint') {
+            steps {
+                sh '''
+                    echo 'Running Lint'
+                '''
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh '''
+                    echo 'Running Build'
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                    echo 'Running Test'
+                '''
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                sh '''
+                    echo 'Running Security Scan'
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    echo 'Running Deploy'
+                '''
+            }
+        }
+
+    }
+
+    post {{
+        always {{
+            cleanWs()
+        }}
+        success {{
+            echo '✅ Pipeline completed successfully!'
+        }}
+        failure {{
+            echo '❌ Pipeline failed!'
+        }}
+    }}
+}}

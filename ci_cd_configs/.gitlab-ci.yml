@@ -1,0 +1,44 @@
+image: python:3.9
+stages:
+- lint
+- build
+- test
+- security-scan
+- deploy
+variables:
+  PROJECT_NAME: EPL-Custom
+cache:
+  paths:
+  - .cache/pip
+  - venv/
+  - node_modules/
+lint_job:
+  stage: lint
+  script:
+  - flake8 .
+  - black --check .
+build_job:
+  stage: build
+  script:
+  - pip install -r requirements.txt
+  artifacts:
+    paths:
+    - dist/
+    - build/
+    expire_in: 1 week
+test_job:
+  stage: test
+  script:
+  - pytest tests/ -v --cov
+  artifacts:
+    reports:
+      junit: test-results/*.xml
+security-scan_job:
+  stage: security-scan
+  script:
+  - bandit -r .
+  - safety check
+deploy_job:
+  stage: deploy
+  script:
+  - ./deploy.sh
