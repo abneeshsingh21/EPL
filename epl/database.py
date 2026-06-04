@@ -405,9 +405,7 @@ class QueryBuilder:
         if not columns:
             self._select_cols = ['*']
         else:
-            self._select_cols = [
-                '*' if c == '*' else _quote_identifier(c) for c in columns
-            ]
+            self._select_cols = ['*' if c == '*' else _quote_identifier(c) for c in columns]
         return self
 
     def where(self, condition: str, value: Any = None) -> 'QueryBuilder':
@@ -430,9 +428,7 @@ class QueryBuilder:
             self._where_clauses.append(('1 = 0', None))
             return self
         placeholders = ','.join(['?' for _ in values])
-        self._where_clauses.append(
-            (f'{_quote_identifier(column)} IN ({placeholders})', values)
-        )
+        self._where_clauses.append((f'{_quote_identifier(column)} IN ({placeholders})', values))
         return self
 
     def where_gt(self, column: str, value: Any) -> 'QueryBuilder':
@@ -444,9 +440,7 @@ class QueryBuilder:
         return self
 
     def where_between(self, column: str, low: Any, high: Any) -> 'QueryBuilder':
-        self._where_clauses.append(
-            (f'{_quote_identifier(column)} BETWEEN ? AND ?', (low, high))
-        )
+        self._where_clauses.append((f'{_quote_identifier(column)} BETWEEN ? AND ?', (low, high)))
         return self
 
     def where_null(self, column: str) -> 'QueryBuilder':

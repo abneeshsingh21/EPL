@@ -357,8 +357,8 @@ class Token:
 # Mapping of single-word keywords (case-insensitive) to token types
 KEYWORDS = {
     'create': TokenType.CREATE,
-    'make': TokenType.CREATE,       # v7.8: English synonym for Create
-    'let': TokenType.CREATE,        # v7.8: English synonym for Create
+    'make': TokenType.CREATE,  # v7.8: English synonym for Create
+    'let': TokenType.CREATE,  # v7.8: English synonym for Create
     'set': TokenType.SET,
     'to': TokenType.TO,
     'equal': TokenType.EQUAL,
@@ -373,14 +373,14 @@ KEYWORDS = {
     'boolean': TokenType.TYPE_BOOLEAN,
     'list': TokenType.TYPE_LIST,
     'print': TokenType.PRINT,
-    'output': TokenType.PRINT,      # v7.8: English synonym for Print
+    'output': TokenType.PRINT,  # v7.8: English synonym for Print
     'input': TokenType.INPUT,
     'display': TokenType.DISPLAY,
     'show': TokenType.SHOW,
     'if': TokenType.IF,
     'then': TokenType.THEN,
     'otherwise': TokenType.OTHERWISE,
-    'else': TokenType.OTHERWISE,    # v7.8: English synonym for Otherwise
+    'else': TokenType.OTHERWISE,  # v7.8: English synonym for Otherwise
     'end': TokenType.END,
     'repeat': TokenType.REPEAT,
     'times': TokenType.TIMES,
@@ -391,7 +391,7 @@ KEYWORDS = {
     'from': TokenType.FROM,
     'by': TokenType.BY,
     'define': TokenType.DEFINE,
-    'declare': TokenType.DEFINE,    # v7.8: English synonym for Define
+    'declare': TokenType.DEFINE,  # v7.8: English synonym for Define
     'function': TokenType.FUNCTION,
     'call': TokenType.CALL,
     'with': TokenType.WITH,

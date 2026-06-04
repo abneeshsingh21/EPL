@@ -20,7 +20,6 @@ from epl.package_manager import (
     _validate_npm_version_spec,
 )
 
-
 # ── _normalize_python_requirement (pip flag injection) ─────────────────────
 
 
@@ -37,23 +36,29 @@ class TestPipFlagInjection:
     def test_accepts_none(self):
         assert _normalize_python_requirement('requests', None) == 'requests'
 
-    @pytest.mark.parametrize('payload', [
-        '--extra-index-url https://evil.com/pypi',
-        '-r /tmp/evil.txt',
-        '--upgrade',
-        'requests --upgrade',
-        'requests -U',
-        '   --pre',
-    ])
+    @pytest.mark.parametrize(
+        'payload',
+        [
+            '--extra-index-url https://evil.com/pypi',
+            '-r /tmp/evil.txt',
+            '--upgrade',
+            'requests --upgrade',
+            'requests -U',
+            '   --pre',
+        ],
+    )
     def test_rejects_flag_injection(self, payload):
         with pytest.raises(ValueError, match='must not contain flags'):
             _normalize_python_requirement('requests', payload)
 
-    @pytest.mark.parametrize('payload', [
-        'requests @ https://evil.com/pkg.whl',
-        'requests @ git+https://evil.com/repo',
-        'requests @ file:///etc/passwd',
-    ])
+    @pytest.mark.parametrize(
+        'payload',
+        [
+            'requests @ https://evil.com/pkg.whl',
+            'requests @ git+https://evil.com/repo',
+            'requests @ file:///etc/passwd',
+        ],
+    )
     def test_rejects_url_install_specs(self, payload):
         with pytest.raises(ValueError, match='URL/path install specs'):
             _normalize_python_requirement('requests', payload)
@@ -78,13 +83,16 @@ class TestNpmFlagInjection:
     def test_accepts_empty(self):
         assert _validate_npm_version_spec('') == ''
 
-    @pytest.mark.parametrize('payload', [
-        '--before-script=evil.sh',
-        '-g',
-        '* --foo',
-        '1.0.0 --save-dev',
-        '   --production',
-    ])
+    @pytest.mark.parametrize(
+        'payload',
+        [
+            '--before-script=evil.sh',
+            '-g',
+            '* --foo',
+            '1.0.0 --save-dev',
+            '   --production',
+        ],
+    )
     def test_rejects_flag_injection(self, payload):
         with pytest.raises(ValueError, match='must not contain flags'):
             _validate_npm_version_spec(payload)
@@ -107,6 +115,7 @@ class TestEndToEndPipManifest:
 
     def test_poisoned_manifest_does_not_invoke_pip(self, tmp_path):
         import tempfile
+
         from epl import package_manager
 
         manifest_dir = tmp_path / 'proj'
@@ -129,8 +138,10 @@ class TestEndToEndNpmManifest:
         from epl import package_manager
 
         # install_js_package validates at the entrypoint; mock npm so test stays hermetic.
-        with mock.patch.object(package_manager.shutil, 'which', return_value='/usr/bin/npm'), \
-             mock.patch.object(package_manager.subprocess, 'check_call') as npm:
+        with (
+            mock.patch.object(package_manager.shutil, 'which', return_value='/usr/bin/npm'),
+            mock.patch.object(package_manager.subprocess, 'check_call') as npm,
+        ):
             ok = package_manager.install_js_package(
                 'axios', version='--before-script=evil', save=False
             )

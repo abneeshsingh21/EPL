@@ -526,6 +526,7 @@ def serve(app, host='0.0.0.0', port=8000):
     signal.signal(signal.SIGTERM, shutdown_handler)
 
     from epl import __version__ as _v
+
     print(f'  EPL Production Server v{_v}')
     print(f'  Listening on http://{host}:{port}')
     print('  Press Ctrl+C to stop\n')

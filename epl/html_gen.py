@@ -12,9 +12,9 @@ from epl import ast_nodes as ast
 # enterprise expectations: no branding footer, no third-party CDN.
 # Override via configure_page(footer=..., fonts=...) before generate_html().
 _CONFIG = {
-    'footer': None,        # str | None.  None = omit footer entirely.
-    'fonts': 'system',     # 'system' (default) | 'cdn'  (cdn = legacy Google Fonts)
-    'theme': 'auto',       # v9.3.0 Phase 4: 'light' | 'dark' | 'auto' (follows OS)
+    'footer': None,  # str | None.  None = omit footer entirely.
+    'fonts': 'system',  # 'system' (default) | 'cdn'  (cdn = legacy Google Fonts)
+    'theme': 'auto',  # v9.3.0 Phase 4: 'light' | 'dark' | 'auto' (follows OS)
 }
 
 # v9.3.0 Phase 4 — palette tokens shipped as CSS variables. Apps reference
@@ -337,9 +337,7 @@ def _render_element(elem, data_store=None, form_data=None):
             _render_element(c, store, form_data) for c in (elem.children or [])
         )
         # Only add a default Submit button if the form doesn't already have one
-        has_button = any(
-            getattr(c, 'tag', '') == 'button' for c in (elem.children or [])
-        )
+        has_button = any(getattr(c, 'tag', '') == 'button' for c in (elem.children or []))
         submit_btn = '' if has_button else '\n<button type="submit" class="btn">Submit</button>'
         return f'<form action="{_esc(action)}" method="POST">\n{children_html}{submit_btn}\n</form>'
 
@@ -376,24 +374,33 @@ def _render_element(elem, data_store=None, form_data=None):
         return '\n'.join(html_parts)
 
     if tag == 'noise_overlay':
-        return '<div class="noise-overlay native-noise"></div>' + \
-               '<svg style="display:none"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/></filter></svg>'
+        return (
+            '<div class="noise-overlay native-noise"></div>'
+            + '<svg style="display:none"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/></filter></svg>'
+        )
 
     if tag == 'bg_noise':
-        return '<div class="bg-noise native-noise-bg"></div>' + \
-               '<svg style="display:none"><filter id="bgNoise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter></svg>'
+        return (
+            '<div class="bg-noise native-noise-bg"></div>'
+            + '<svg style="display:none"><filter id="bgNoise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter></svg>'
+        )
 
     if tag == 'words_pull_up':
         asterisk = attrs.get('asterisk', '').lower() == 'true'
         words = str(content).split(' ')
         spans = []
         for i, w in enumerate(words):
-            if not w: continue
+            if not w:
+                continue
             delay = i * 0.1
-            spans.append(f'<span class="native-pull-up" style="transition-delay: {delay}s;">{_esc(w)}</span>')
+            spans.append(
+                f'<span class="native-pull-up" style="transition-delay: {delay}s;">{_esc(w)}</span>'
+            )
         if asterisk:
             delay = len(words) * 0.1
-            spans.append(f'<span class="native-pull-up hero-asterisk" style="transition-delay: {delay}s;">*</span>')
+            spans.append(
+                f'<span class="native-pull-up hero-asterisk" style="transition-delay: {delay}s;">*</span>'
+            )
         return f'<div class="native-words-wrapper">{"&nbsp;".join(spans)}</div>'
 
     if tag == 'words_pull_up_multi_style':
@@ -406,9 +413,12 @@ def _render_element(elem, data_store=None, form_data=None):
                 seg_style = getattr(child, 'attributes', {}).get('style', '')
                 words = seg_content.split(' ')
                 for w in words:
-                    if not w: continue
+                    if not w:
+                        continue
                     delay = word_index * 0.1
-                    spans.append(f'<span class="native-pull-up {seg_style}" style="transition-delay: {delay}s;">{_esc(w)}</span>')
+                    spans.append(
+                        f'<span class="native-pull-up {seg_style}" style="transition-delay: {delay}s;">{_esc(w)}</span>'
+                    )
                     word_index += 1
         return f'<div class="native-words-wrapper">{"&nbsp;".join(spans)}</div>'
 

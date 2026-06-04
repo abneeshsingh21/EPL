@@ -87,6 +87,7 @@ class ExitSignal(Exception):
 # ─── Async Runtime ────────────────────────────────────────
 
 import asyncio as _asyncio
+
 from epl._debug_log import suppressed as _debug_suppressed
 
 # Lazy thread pool — created on first use to avoid wasting threads on import
@@ -2240,6 +2241,7 @@ class Interpreter:
             # manifest before pip ever sees them; `--` separator is belt-and-braces.
             try:
                 from epl.package_manager import _normalize_python_requirement
+
                 install_target = _normalize_python_requirement(pkg_name, install_target)
             except ValueError as exc:
                 raise EPLRuntimeError(

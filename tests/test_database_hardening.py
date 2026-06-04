@@ -44,7 +44,7 @@ class TestQueryBuilderHardening(unittest.TestCase):
     def test_select_rejects_bad_column(self):
         qb = QueryBuilder(self.db, 'users')
         with self.assertRaises(ValueError):
-            qb.select('id', "name; DROP TABLE users")
+            qb.select('id', 'name; DROP TABLE users')
 
     def test_order_by_validates_direction(self):
         qb = QueryBuilder(self.db, 'users')

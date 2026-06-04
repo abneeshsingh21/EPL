@@ -1715,8 +1715,10 @@ def _watch(args, flags):
                 except ValueError:
                     print(f'{_red("Error:")} --timeout must be a number or "none"')
                     return 1
-        elif f.startswith('--') and f not in KNOWN_WATCH_FLAGS and not any(
-            f.startswith(p) for p in KNOWN_WATCH_PREFIXES
+        elif (
+            f.startswith('--')
+            and f not in KNOWN_WATCH_FLAGS
+            and not any(f.startswith(p) for p in KNOWN_WATCH_PREFIXES)
         ):
             print(f'{_yellow("Warning:")} unknown watch flag {f!r} ignored')
 
@@ -1799,7 +1801,9 @@ def _run_tests(args, flags):
 
     if not discovered:
         print(f'{_red("Error:")} No EPL test files found.')
-        print(f'{_dim("Hint:")} Place test files named test_*.epl or *_test.epl in a tests/ directory.')
+        print(
+            f'{_dim("Hint:")} Place test files named test_*.epl or *_test.epl in a tests/ directory.'
+        )
         return 1
 
     # Pre-scan to count tests for the collection header
@@ -1810,6 +1814,7 @@ def _run_tests(args, flags):
                 source = f.read()
             # Count test_ functions (rough regex scan)
             import re
+
             test_count += len(re.findall(r'(?m)^Function\s+(test_\w+|Test_\w+)', source))
             # Count inline Test blocks
             test_count += len(re.findall(r'(?m)^\s*Test\s+["\']', source))
@@ -1835,7 +1840,6 @@ def _run_tests(args, flags):
         runner.run_file(test_file)
 
     return 0 if runner.report() else 1
-
 
 
 def _run_repl(flags):

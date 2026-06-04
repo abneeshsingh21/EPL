@@ -59,6 +59,7 @@ if not _access_logger.handlers:
 
 
 # ─── Pluggable Store & Session Backends ──────────────────
+from epl._debug_log import suppressed as _debug_suppressed
 from epl.store_backends import (
     configure_backends as _configure_backends,
 )
@@ -66,7 +67,6 @@ from epl.store_backends import (
     get_session_backend,
     get_store_backend,
 )
-from epl._debug_log import suppressed as _debug_suppressed
 
 
 # Legacy compatibility: _data_store still exists as a dict-like proxy
@@ -352,6 +352,7 @@ def _build_route_env(
     def _bridge_session_clear(*args):
         """Clear all session data."""
         from epl.web import get_session_backend
+
         get_session_backend().delete(_sid)
         return None
 
@@ -2567,6 +2568,7 @@ def start_server(app, port=3000, interpreter=None, threaded=True, workers=32):
     total_routes = len(app.routes) + sum(len(v) for v in app.param_routes.values())
     print('\n  ╔══════════════════════════════════════╗')
     from epl import __version__ as _v
+
     print(f'  ║  EPL Web Server v{_v:<21}║')
     print(f'  ║  {app.name:<36} ║')
     print('  ╠══════════════════════════════════════╣')
@@ -2666,6 +2668,7 @@ class AsyncEPLServer:
         total_routes = len(self.app.routes) + sum(len(v) for v in self.app.param_routes.values())
         print('\n  ╔══════════════════════════════════════╗')
         from epl import __version__ as _v
+
         print(f'  ║  EPL Async Web Server v{_v:<15}║')
         print(f'  ║  {self.app.name:<36} ║')
         print('  ╠══════════════════════════════════════╣')

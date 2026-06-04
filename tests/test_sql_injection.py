@@ -17,7 +17,6 @@ from epl.errors import RuntimeError as EPLRuntimeError
 from epl.interpreter import EPLDict
 from epl.stdlib import _assert_sql_identifier, call_stdlib
 
-
 # ── _assert_sql_identifier (the cross-cutting helper) ─────────────────────
 
 
@@ -32,15 +31,15 @@ class TestAssertSqlIdentifier:
     @pytest.mark.parametrize(
         'bad',
         [
-            '1abc',                       # leading digit
-            'name; DROP TABLE users',     # statement injection
-            'id=1 OR 1=1 --',             # predicate injection
-            'col WITH spaces',            # whitespace
-            '',                           # empty
-            'col-name',                   # dash
-            'col*',                       # wildcard
-            'col"; --',                   # quote-break
-            'col`name',                   # backtick
+            '1abc',  # leading digit
+            'name; DROP TABLE users',  # statement injection
+            'id=1 OR 1=1 --',  # predicate injection
+            'col WITH spaces',  # whitespace
+            '',  # empty
+            'col-name',  # dash
+            'col*',  # wildcard
+            'col"; --',  # quote-break
+            'col`name',  # backtick
         ],
     )
     def test_rejects_injection_attempts(self, bad):

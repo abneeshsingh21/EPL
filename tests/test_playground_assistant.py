@@ -93,5 +93,9 @@ def test_docs_playground_matches_current_runtime_contract():
 def test_docs_landing_page_advertises_current_playground_version():
     html = Path('docs/index.html').read_text(encoding='utf-8')
 
-    assert 'EPL v7.7.0 IS LIVE!' in html or 'EPL v7.8.0 IS LIVE!' in html or 'EPL v7.5.2 IS LIVE!' in html
+    assert (
+        'EPL v7.7.0 IS LIVE!' in html
+        or 'EPL v7.8.0 IS LIVE!' in html
+        or 'EPL v7.5.2 IS LIVE!' in html
+    )
     assert 'EPL v7.4.4 IS LIVE!' not in html
