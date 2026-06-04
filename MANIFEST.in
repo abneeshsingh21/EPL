@@ -4,9 +4,16 @@ include LICENSE
 include CONTRIBUTING.md
 include CHANGELOG.md
 include pyproject.toml
+include llms.txt
+include llms-full.txt
+
+# Include top-level Python modules required at runtime
+include bundle.py
+include main.py
 
 # Include EPL source files
 recursive-include epl *.py *.epl *.json *.c *.md
+include epl/models/Modelfile
 
 # Include stdlib modules
 recursive-include epl/stdlib *.epl *.json
@@ -47,4 +54,3 @@ global-exclude *.dylib
 global-exclude *.whl
 global-exclude *.zip
 global-exclude *.tar.gz
-global-exclude Modelfile

@@ -1,0 +1,18 @@
+# Raw HTML escape hatch (v9.3.0)
+#
+# When EPL's built-in element vocabulary does not cover what you need
+# (e.g. <table>, <video>, <details>), use the `Raw HTML "..."` keyword
+# to emit a string of HTML verbatim. The author takes responsibility
+# for safety — never pass user input here unsanitised.
+
+Page "Raw HTML Demo"
+    Heading "Tables, video, and details (none of which EPL has keywords for)".
+
+    Raw HTML "<table border='1'><tr><th>Lang</th><th>Year</th></tr><tr><td>EPL</td><td>2024</td></tr></table>".
+
+    Raw HTML "<video controls width='320'><source src='/demo.mp4' type='video/mp4'></video>".
+
+    Raw HTML "<details><summary>Click to expand</summary><p>Hidden content here.</p></details>".
+
+    Text "Built-in EPL elements still work alongside Raw HTML blocks.".
+End

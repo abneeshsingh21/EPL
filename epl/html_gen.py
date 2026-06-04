@@ -7,526 +7,136 @@ import re
 
 from epl import ast_nodes as ast
 
+# ─── Page-level config (v9.2.0) ────────────────────────────
+# Footer and font-loading were hardcoded before v9.2.0. Defaults now match
+# enterprise expectations: no branding footer, no third-party CDN.
+# Override via configure_page(footer=..., fonts=...) before generate_html().
+_CONFIG = {
+    'footer': None,        # str | None.  None = omit footer entirely.
+    'fonts': 'system',     # 'system' (default) | 'cdn'  (cdn = legacy Google Fonts)
+    'theme': 'auto',       # v9.3.0 Phase 4: 'light' | 'dark' | 'auto' (follows OS)
+}
+
+# v9.3.0 Phase 4 — palette tokens shipped as CSS variables. Apps reference
+# `var(--bg)`, `var(--fg)`, `var(--accent)` etc. and get the right value for
+# whichever theme is active. The "auto" theme emits both palettes wrapped in
+# `@media (prefers-color-scheme: ...)` so the browser picks.
+_THEME_PALETTES = {
+    'dark': {
+        '--bg': '#0f172a',
+        '--fg': '#f8fafc',
+        '--muted': '#94a3b8',
+        '--accent': '#38bdf8',
+        '--surface': '#1e293b',
+        '--border': 'rgba(255,255,255,0.08)',
+        '--danger': '#ef4444',
+    },
+    'light': {
+        '--bg': '#ffffff',
+        '--fg': '#0f172a',
+        '--muted': '#64748b',
+        '--accent': '#0284c7',
+        '--surface': '#f1f5f9',
+        '--border': 'rgba(0,0,0,0.08)',
+        '--danger': '#dc2626',
+    },
+}
+
+
+def _emit_palette(name):
+    """Render a palette dict as a CSS variable block (no selector wrapper)."""
+    return '\n'.join(f'    {k}: {v};' for k, v in _THEME_PALETTES[name].items())
+
+
+def _theme_css(theme):
+    """Return the <style>-ready CSS for the requested theme.
+
+    - 'dark' / 'light' emit a single :root palette plus a `body` colour pair.
+    - 'auto' emits a default (light) palette and a `prefers-color-scheme: dark`
+      override, letting the OS pick.
+    """
+    if theme == 'dark':
+        body = f':root {{\n{_emit_palette("dark")}\n}}\nbody {{ background: var(--bg); color: var(--fg); }}'
+        return body
+    if theme == 'light':
+        body = f':root {{\n{_emit_palette("light")}\n}}\nbody {{ background: var(--bg); color: var(--fg); }}'
+        return body
+    # auto
+    return (
+        f':root {{\n{_emit_palette("light")}\n}}\n'
+        f'@media (prefers-color-scheme: dark) {{\n'
+        f'  :root {{\n{_emit_palette("dark")}\n  }}\n'
+        f'}}\n'
+        f'body {{ background: var(--bg); color: var(--fg); }}'
+    )
+
+
+def configure_page(footer=None, fonts=None, theme=None):
+    """Configure page-level rendering options.
+
+    Args:
+        footer: Footer HTML text, or None to omit. Default None.
+        fonts:  'system' uses native system font stack (no network);
+                'cdn' loads Inter from Google Fonts (pre-v9.2.0 behaviour).
+        theme:  'light', 'dark', or 'auto' (default — follows OS preference).
+                Sets the `color-scheme` meta + the built-in CSS variable palette
+                (`--bg`, `--fg`, `--muted`, `--accent`, `--surface`, `--border`,
+                `--danger`).
+
+    Setting `footer` to the empty string also omits the footer.
+    """
+    if footer is not None:
+        _CONFIG['footer'] = footer or None
+    if fonts is not None:
+        if fonts not in ('system', 'cdn'):
+            raise ValueError(f"fonts must be 'system' or 'cdn', got {fonts!r}")
+        _CONFIG['fonts'] = fonts
+    if theme is not None:
+        if theme not in ('light', 'dark', 'auto'):
+            raise ValueError(f"theme must be 'light', 'dark', or 'auto', got {theme!r}")
+        _CONFIG['theme'] = theme
+
+
+def reset_config():
+    """Reset page config to defaults. Primarily used by tests."""
+    _CONFIG['footer'] = None
+    _CONFIG['fonts'] = 'system'
+    _CONFIG['theme'] = 'auto'
+
+
 # Modern Premium CSS - Professional Component Design
 STYLES = """
-/* Bright Documentation Theme - Inspired by Modern Documentation Sites */
-:root {
-    /* Bright Color System */
-    --bg-primary: #ffffff;
-    --bg-secondary: #fafbfc;
-    --bg-tertiary: #f6f8fa;
-    --surface: #ffffff;
-    --surface-elevated: #ffffff;
-    --surface-glass: rgba(255, 255, 255, 0.9);
-    
-    /* Border System */
-    --border-primary: #e1e8ed;
-    --border-secondary: #d1dce5;
-    --border-accent: #bfc8d1;
-    
-    /* Text Hierarchy */
-    --text-primary: #1a202c;
-    --text-secondary: #2d3748;
-    --text-muted: #4a5568;
-    --text-disabled: #a0aec0;
-    
-    /* Vibrant Accent System */
-    --accent-primary: #e91e63;
-    --accent-secondary: #f06292;
-    --accent-tertiary: #f48fb1;
-    --accent-glow: rgba(233, 30, 99, 0.2);
-    
-    /* Status Colors */
-    --success: #4caf50;
-    --warning: #ff9800;
-    --error: #f44336;
-    --info: #2196f3;
-    
-    /* Spacing System */
-    --space-xs: 4px;
-    --space-sm: 8px;
-    --space-md: 16px;
-    --space-lg: 24px;
-    --space-xl: 32px;
-    --space-2xl: 48px;
-    --space-3xl: 64px;
-    --space-4xl: 96px;
-    
-    /* Radius System */
-    --radius-xs: 4px;
-    --radius-sm: 6px;
-    --radius-md: 8px;
-    --radius-lg: 12px;
-    --radius-xl: 16px;
-    --radius-2xl: 24px;
-    
-    /* Shadow System */
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
-    --shadow-glow: 0 0 32px var(--accent-glow);
-    
-    /* Animation System */
-    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
+/* Minimal Reset for EPL Web */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
 
-/* Bright Geometric Background with Colorful Accents */
-body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    line-height: 1.6;
-    min-height: 100vh;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
-    position: relative;
+/* Native Component Styles */
+.native-pull-up {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1);
 }
-
-/* Geometric Side Decorations */
-body::before {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: -200px;
-    width: 400px;
-    height: 100vh;
-    background: linear-gradient(135deg, #e91e63 0%, #f06292 50%, #2196f3 100%);
-    transform: skewX(-15deg);
-    z-index: -2;
+.native-pull-up.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
-
-body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    right: -200px;
-    width: 400px;
-    height: 100vh;
-    background: linear-gradient(135deg, #2196f3 0%, #64b5f6 50%, #e91e63 100%);
-    transform: skewX(15deg);
-    z-index: -2;
+.native-words-wrapper {
+    display: inline-block;
 }
-
-/* Modern Container System */
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: var(--space-2xl) var(--space-lg);
-    position: relative;
-    z-index: 1;
+.noise-overlay.native-noise {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.7; mix-blend-mode: overlay; pointer-events: none; background-color: transparent; filter: url('#noise'); z-index: 1;
 }
-
-/* Hero Section Styling */
-h1 {
-    font-size: clamp(2.5rem, 8vw, 4rem);
-    font-weight: 800;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-    color: var(--text-primary);
-    margin-bottom: var(--space-lg);
-    text-align: center;
-    position: relative;
-}
-
-/* Search Section Styling */
-.search-section {
-    background: white;
-    border-radius: 16px;
-    padding: var(--space-2xl);
-    box-shadow: 
-        0 4px 32px rgba(233, 30, 99, 0.08),
-        0 2px 16px rgba(0, 0, 0, 0.04);
-    margin: var(--space-2xl) 0;
-    border: 1px solid var(--border-primary);
-}
-
-.search-container {
-    display: flex;
-    gap: var(--space-md);
-    align-items: center;
-    margin: var(--space-lg) 0;
-}
-
-.search-input {
-    flex: 1;
-    padding: var(--space-md) var(--space-lg);
-    border: 2px solid var(--border-primary);
-    border-radius: 12px;
-    font-size: var(--text-base);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    transition: all var(--transition-normal);
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 4px rgba(233, 30, 99, 0.1);
-}
-
-.search-button {
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: white;
-    border: none;
-    padding: var(--space-md) var(--space-xl);
-    border-radius: 12px;
-    font-weight: 600;
-    font-size: var(--text-base);
-    cursor: pointer;
-    transition: all var(--transition-normal);
-    box-shadow: 0 4px 16px rgba(233, 30, 99, 0.3);
-}
-
-.search-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(233, 30, 99, 0.4);
-}
-/* Topic Cards Grid */
-.topics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-xl);
-    margin: var(--space-2xl) 0;
-}
-
-.topic-card {
-    background: white;
-    border-radius: 20px;
-    padding: var(--space-xl);
-    box-shadow: 
-        0 8px 32px rgba(233, 30, 99, 0.08),
-        0 4px 16px rgba(0, 0, 0, 0.04);
-    border: 1px solid var(--border-primary);
-    transition: all var(--transition-normal);
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-}
-
-.topic-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 
-        0 16px 48px rgba(233, 30, 99, 0.12),
-        0 8px 32px rgba(0, 0, 0, 0.08);
-    border-color: var(--accent-primary);
-}
-
-.topic-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: var(--space-lg);
-    box-shadow: 0 8px 24px rgba(233, 30, 99, 0.3);
-}
-
-.topic-title {
-    font-size: var(--text-xl);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: var(--space-sm);
-}
-
-.topic-description {
-    color: var(--text-muted);
-    line-height: 1.6;
-    font-size: var(--text-sm);
-}
-
-/* Section Headers */
-h2 {
-    font-size: clamp(1.75rem, 4vw, 2.5rem);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: var(--space-3xl) 0 var(--space-xl);
-    text-align: center;
-    position: relative;
-}
-
-h2::after {
-    content: '';
-    position: absolute;
-    bottom: -8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 3px;
-    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
-    border-radius: 2px;
-}
-
-/* Clean Paragraph Styling */
-p {
-    font-size: var(--text-base);
-    color: var(--text-secondary);
-    line-height: 1.7;
-    margin-bottom: var(--space-lg);
-    max-width: 65ch;
-}
-
-/* Modern Button System */
-a, button, .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-sm);
-    padding: var(--space-md) var(--space-xl);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    text-decoration: none;
-    border-radius: 12px;
-    border: 2px solid var(--accent-primary);
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    color: white;
-    cursor: pointer;
-    transition: all var(--transition-normal);
-    position: relative;
-    overflow: hidden;
-    margin: var(--space-xs) var(--space-md) var(--space-xs) 0;
-    box-shadow: 0 4px 16px rgba(233, 30, 99, 0.3);
-}
-
-/* Primary Button Variant */
-.btn-primary, button {
-    background: linear-gradient(135deg, 
-        var(--accent-primary) 0%, 
-        var(--accent-secondary) 100%
-    );
-    border: 1px solid var(--accent-primary);
-    color: white;
-    box-shadow: var(--shadow-glow);
-}
-
-/* Button Hover Effects */
-a:hover, button:hover, .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(233, 30, 99, 0.4);
-    filter: brightness(1.1);
-}
-
-/* Navigation Styling */
-nav {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border-primary);
-    padding: var(--space-lg) 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
-}
-
-.nav-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 var(--space-lg);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.nav-links {
-    display: flex;
-    gap: var(--space-lg);
-    align-items: center;
-}
-
-.nav-links a {
-    color: var(--text-primary);
-    text-decoration: none;
-    font-weight: 500;
-    padding: var(--space-sm) var(--space-md);
-    border-radius: 8px;
-    transition: all var(--transition-normal);
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    margin: 0;
-}
-
-.nav-links a:hover {
-    background: var(--bg-secondary);
-    color: var(--accent-primary);
-    transform: none;
-    box-shadow: none;
-}
-
-/* Form Elements */
-input, textarea {
-    width: 100%;
-    padding: var(--space-md) var(--space-lg);
-    font-size: 1rem;
-    background: white;
-    border: 2px solid var(--border-primary);
-    border-radius: 12px;
-    color: var(--text-primary);
-    transition: all var(--transition-normal);
-    margin: var(--space-sm) 0;
-}
-
-input:focus, textarea:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 4px rgba(233, 30, 99, 0.1);
-}
-
-input::placeholder, textarea::placeholder {
-    color: var(--text-muted);
-}
-
-form {
-    background: white;
-    border: 2px solid var(--border-primary);
-    border-radius: 20px;
-    padding: var(--space-2xl);
-    margin: var(--space-xl) 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-/* Clean List Styling */
-ul, ol {
-    margin: var(--space-lg) 0;
-    padding-left: 0;
-    list-style: none;
-}
-
-li {
-    margin: var(--space-md) 0;
-    padding: var(--space-md) var(--space-lg);
-    background: white;
-    border: 1px solid var(--border-primary);
-    border-left: 4px solid var(--accent-primary);
-    border-radius: 12px;
-    color: var(--text-secondary);
-    transition: all var(--transition-normal);
-    position: relative;
-}
-
-li:hover {
-    background: var(--bg-secondary);
-    border-left-color: var(--accent-secondary);
-    transform: translateX(4px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-}
-
-/* Modern Card System */
-.card {
-    background: white;
-    border: 2px solid var(--border-primary);
-    border-radius: 20px;
-    padding: var(--space-2xl);
-    margin: var(--space-xl) 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-    transition: all var(--transition-slow);
-    position: relative;
-}
-
-.card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 16px 48px rgba(233, 30, 99, 0.08);
-    border-color: var(--accent-primary);
-}
-
-/* Footer */
-footer {
-    margin-top: var(--space-3xl);
-    padding: var(--space-2xl);
-    text-align: center;
-    color: var(--text-muted);
-    border-top: 2px solid var(--border-primary);
-    background: var(--bg-secondary);
-    font-size: var(--text-sm);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .container { 
-        padding: var(--space-xl) var(--space-md); 
-    }
-    
-    h1 { 
-        font-size: clamp(2rem, 6vw, 3rem);
-        margin-bottom: var(--space-lg);
-    }
-    
-    h2 { 
-        font-size: clamp(1.5rem, 5vw, 2rem);
-        margin: var(--space-2xl) 0 var(--space-lg);
-    }
-    
-    .topics-grid {
-        grid-template-columns: 1fr;
-        gap: var(--space-lg);
-    }
-    
-    .search-container {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .nav-links {
-        flex-direction: column;
-        gap: var(--space-md);
-    }
-    
-    body::before, body::after {
-        width: 200px;
-    }
-}
-
-/* Smooth Scrolling */
-html {
-    scroll-behavior: smooth;
-    scroll-padding-top: 80px;
-}
-
-/* Selection Styling */
-::selection {
-    background: rgba(233, 30, 99, 0.2);
-    color: var(--text-primary);
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-}
-
-::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, var(--accent-secondary), var(--accent-primary));
-}
-
-/* Focus Visible */
-*:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
+.bg-noise.native-noise-bg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.4; pointer-events: none; background-color: transparent; filter: url('#bgNoise'); z-index: 0;
 }
 """
 
 
-def generate_html(page_def, data_store=None, form_data=None, styles=None, components=None, animations=None):
+def generate_html(
+    page_def, data_store=None, form_data=None, styles=None, components=None, animations=None
+):
     """Convert a PageDef AST node into a full HTML page string.
 
     styles: list of StyleDef nodes collected from the program
@@ -550,20 +160,59 @@ def generate_html(page_def, data_store=None, form_data=None, styles=None, compon
     if custom_css or animation_css:
         extra_css = f'\n    <style>\n{custom_css}\n{animation_css}\n    </style>'
 
+    native_animations_js = """
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if(entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.native-pull-up').forEach(el => observer.observe(el));
+    });
+    </script>
+    """
+
+    # Font loading — system stack (default, no network) or Google Fonts CDN.
+    if _CONFIG['fonts'] == 'cdn':
+        font_link = (
+            '<link href="https://fonts.googleapis.com/css2?'
+            'family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
+        )
+    else:
+        font_link = ''
+
+    # Footer — None/empty = omit. User-provided text is HTML-escaped.
+    footer_html = f'<footer>{_esc(_CONFIG["footer"])}</footer>' if _CONFIG['footer'] else ''
+
+    # Theme (v9.3.0 Phase 4) — color-scheme meta drives native form controls
+    # and scrollbars; the palette CSS injects the CSS-variable colour tokens.
+    theme = _CONFIG['theme']
+    color_scheme_meta = {
+        'dark': '<meta name="color-scheme" content="dark">\n    <meta name="darkreader-lock">',
+        'light': '<meta name="color-scheme" content="light">',
+        'auto': '<meta name="color-scheme" content="light dark">',
+    }[theme]
+    theme_css = _theme_css(theme)
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {color_scheme_meta}
     <title>{_esc(title)}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>{STYLES}</style>{extra_css}
+    {font_link}
+    <style>{theme_css}\n{STYLES}</style>{extra_css}
 </head>
 <body>
     <div class="container">
         {body_html}
     </div>
-    <footer>Powered by EPL v1.0</footer>
+    {footer_html}
+    {native_animations_js}
     {f'<script>{scripts}</script>' if scripts else ''}
 </body>
 </html>"""
@@ -613,7 +262,9 @@ def _esc_css_value(value):
     """Sanitize a CSS property value — remove dangerous characters."""
     if not isinstance(value, str):
         value = str(value)
-    return value.replace('{', '').replace('}', '').replace(';', '').replace('<', '').replace('>', '')
+    return (
+        value.replace('{', '').replace('}', '').replace(';', '').replace('<', '').replace('>', '')
+    )
 
 
 def _safe_href(url):
@@ -672,14 +323,25 @@ def _render_element(elem, data_store=None, form_data=None):
     if tag == 'input':
         name = attrs.get('name', '')
         ph = attrs.get('placeholder', '')
-        return f'<input type="text" name="{_esc(name)}" id="{_esc(name)}" placeholder="{_esc(ph)}">'
+        # Auto-detect input type from name attribute
+        input_type = attrs.get('type', 'text')
+        if input_type == 'text' and 'password' in name.lower():
+            input_type = 'password'
+        elif input_type == 'text' and 'email' in name.lower():
+            input_type = 'email'
+        return f'<input type="{_esc(input_type)}" name="{_esc(name)}" id="{_esc(name)}" placeholder="{_esc(ph)}">'
 
     if tag == 'form':
         action = attrs.get('action', '')
         children_html = '\n'.join(
             _render_element(c, store, form_data) for c in (elem.children or [])
         )
-        return f'<form action="{_esc(action)}" method="POST">\n{children_html}\n<button type="submit" class="btn">Submit</button>\n</form>'
+        # Only add a default Submit button if the form doesn't already have one
+        has_button = any(
+            getattr(c, 'tag', '') == 'button' for c in (elem.children or [])
+        )
+        submit_btn = '' if has_button else '\n<button type="submit" class="btn">Submit</button>'
+        return f'<form action="{_esc(action)}" method="POST">\n{children_html}{submit_btn}\n</form>'
 
     if tag == 'list':
         # content is a ListLiteral or evaluated list
@@ -713,8 +375,51 @@ def _render_element(elem, data_store=None, form_data=None):
             )
         return '\n'.join(html_parts)
 
+    if tag == 'noise_overlay':
+        return '<div class="noise-overlay native-noise"></div>' + \
+               '<svg style="display:none"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/></filter></svg>'
+
+    if tag == 'bg_noise':
+        return '<div class="bg-noise native-noise-bg"></div>' + \
+               '<svg style="display:none"><filter id="bgNoise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter></svg>'
+
+    if tag == 'words_pull_up':
+        asterisk = attrs.get('asterisk', '').lower() == 'true'
+        words = str(content).split(' ')
+        spans = []
+        for i, w in enumerate(words):
+            if not w: continue
+            delay = i * 0.1
+            spans.append(f'<span class="native-pull-up" style="transition-delay: {delay}s;">{_esc(w)}</span>')
+        if asterisk:
+            delay = len(words) * 0.1
+            spans.append(f'<span class="native-pull-up hero-asterisk" style="transition-delay: {delay}s;">*</span>')
+        return f'<div class="native-words-wrapper">{"&nbsp;".join(spans)}</div>'
+
+    if tag == 'words_pull_up_multi_style':
+        children = elem.children or []
+        spans = []
+        word_index = 0
+        for child in children:
+            if getattr(child, 'tag', '') == 'segment':
+                seg_content = str(getattr(child, 'content', ''))
+                seg_style = getattr(child, 'attributes', {}).get('style', '')
+                words = seg_content.split(' ')
+                for w in words:
+                    if not w: continue
+                    delay = word_index * 0.1
+                    spans.append(f'<span class="native-pull-up {seg_style}" style="transition-delay: {delay}s;">{_esc(w)}</span>')
+                    word_index += 1
+        return f'<div class="native-words-wrapper">{"&nbsp;".join(spans)}</div>'
+
     if tag == 'script':
         return ''  # scripts go in the <script> section
+
+    if tag == 'raw_html':
+        # Escape hatch (v9.3.0). Emits the source string verbatim — no escaping.
+        # The author is responsible for ensuring `content` is safe. Never pass
+        # user input here without first sanitising it (e.g. via bleach).
+        return content if isinstance(content, str) else str(content)
 
     return f'<div>{_esc(str(content))}</div>'
 
@@ -778,7 +483,9 @@ def _generate_animation_css(animations):
                 value = prop.value
                 if isinstance(value, ast.Literal):
                     value = value.value
-                props.append(f'        {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};')
+                props.append(
+                    f'        {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};'
+                )
             keyframe_css.append(f'    {kf.percentage}% {{\n' + '\n'.join(props) + '\n    }')
         css_parts.append(f'@keyframes {safe_name} {{\n' + '\n'.join(keyframe_css) + '\n}')
 
@@ -828,8 +535,7 @@ def _render_any_element(elem, data_store=None, form_data=None, components=None):
 
     if isinstance(elem, ast.ResponsiveBlock):
         return '\n'.join(
-            _render_any_element(c, data_store, form_data, comps)
-            for c in elem.body if c
+            _render_any_element(c, data_store, form_data, comps) for c in elem.body if c
         )
 
     if isinstance(elem, ast.Scene3D):
@@ -867,8 +573,7 @@ def _render_styled_element(elem, data_store=None, form_data=None, components=Non
 
     comps = components or {}
     children_html = '\n'.join(
-        _render_any_element(c, data_store, form_data, comps)
-        for c in elem.children if c
+        _render_any_element(c, data_store, form_data, comps) for c in elem.children if c
     )
 
     return f'<{tag}{class_attr}{id_attr}{style_attr}>\n{children_html}\n</{tag}>'
@@ -913,8 +618,7 @@ def _render_layout_container(elem, data_store=None, form_data=None, components=N
 
     comps = components or {}
     children_html = '\n'.join(
-        _render_any_element(c, data_store, form_data, comps)
-        for c in elem.children if c
+        _render_any_element(c, data_store, form_data, comps) for c in elem.children if c
     )
 
     return f'<div{style_attr}>\n{children_html}\n</div>'
@@ -958,9 +662,7 @@ def _render_scene_3d(scene):
             color = _esc_js(node.color)
             intensity = node.intensity
             if lt == 'ambient':
-                lights_js.append(
-                    f'scene.add(new THREE.AmbientLight("{color}", {intensity}));'
-                )
+                lights_js.append(f'scene.add(new THREE.AmbientLight("{color}", {intensity}));')
             elif lt == 'directional':
                 pos = node.position or [5, 10, 5]
                 lights_js.append(
@@ -998,7 +700,9 @@ def _render_scene_3d(scene):
                 f'  scene.add(mesh); }}'
             )
 
-    lights_code = '\n'.join(lights_js) if lights_js else 'scene.add(new THREE.AmbientLight("#fff", 0.5));'
+    lights_code = (
+        '\n'.join(lights_js) if lights_js else 'scene.add(new THREE.AmbientLight("#fff", 0.5));'
+    )
     meshes_code = '\n'.join(meshes_js)
 
     return (
@@ -1038,10 +742,7 @@ def _render_draw_command(cmd):
         rw = props.get('width', 100)
         rh = props.get('height', 50)
         fill = _esc_js(props.get('fill', '#000'))
-        draw_code = (
-            f'ctx.fillStyle = "{fill}";\n'
-            f'ctx.fillRect({x}, {y}, {rw}, {rh});'
-        )
+        draw_code = f'ctx.fillStyle = "{fill}";\nctx.fillRect({x}, {y}, {rw}, {rh});'
         if 'stroke' in props:
             draw_code += f'\nctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.strokeRect({x}, {y}, {rw}, {rh});'
 
@@ -1078,18 +779,13 @@ def _render_draw_command(cmd):
         font = _esc_js(props.get('font', '16px Arial'))
         fill = _esc_js(props.get('fill', '#000'))
         draw_code = (
-            f'ctx.font = "{font}";\n'
-            f'ctx.fillStyle = "{fill}";\n'
-            f'ctx.fillText("{content}", {x}, {y});'
+            f'ctx.font = "{font}";\nctx.fillStyle = "{fill}";\nctx.fillText("{content}", {x}, {y});'
         )
 
     elif shape == 'path':
         points = _esc_js(props.get('points', ''))
         fill = _esc_js(props.get('fill', 'transparent'))
-        draw_code = (
-            f'const p = new Path2D("{points}");\n'
-            f'ctx.fillStyle = "{fill}"; ctx.fill(p);'
-        )
+        draw_code = f'const p = new Path2D("{points}");\nctx.fillStyle = "{fill}"; ctx.fill(p);'
         if 'stroke' in props:
             draw_code += f'\nctx.strokeStyle = "{_esc_js(props["stroke"])}"; ctx.stroke(p);'
 

@@ -1,0 +1,3 @@
+Create m equal to Map with Authorization = "Bearer test"
+Set m["Content-Type"] to "application/json"
+Say m

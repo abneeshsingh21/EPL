@@ -1,0 +1,44 @@
+Import "memory.epl"
+Import "tools.epl"
+Import "agent.epl"
+Import "gateway.epl"
+Import "github.epl"
+
+Say "╔══════════════════════════════════════════════╗"
+Say "║      EPLAI Discord Agent v1.0                ║"
+Say "║  Built 100% in EPL — English Prog. Language  ║"
+Say "║  LLM: Groq LLaMA 3 70B (Free, 300+ tok/s)    ║"
+Say "║  Memory: SQLite  |  Search: DuckDuckGo Free  ║"
+Say "╚══════════════════════════════════════════════╝"
+Say ""
+
+Create discord_token equal to env_get("DISCORD_TOKEN")
+Create groq_api_key equal to env_get("GROQ_API_KEY")
+
+If discord_token is equal to Nothing then
+    Say "❌ ERROR: DISCORD_TOKEN environment variable is not set."
+    exit_code(1)
+End
+
+If groq_api_key is equal to Nothing then
+    Say "❌ ERROR: GROQ_API_KEY environment variable is not set."
+    exit_code(1)
+End
+
+Say "✅ DISCORD_TOKEN loaded."
+Say "✅ GROQ_API_KEY loaded."
+
+Say "[Memory] Opening database: agent_memory.db"
+Create db equal to db_open("agent_memory.db")
+memory_setup(db)
+Say "[Memory] ✅ Database ready."
+Say ""
+
+Say "[Bot] Connecting to Discord Gateway using EPL native WebSocket..."
+Say "[Bot] Using EPL's net_ws_connect — no Python bridge."
+Say ""
+
+Say "[System] Spawning GitHub Webhook listener on port 8080..."
+thread_run(run_github_server, [8080])
+
+gateway_run(db, discord_token, groq_api_key)

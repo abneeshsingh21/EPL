@@ -471,8 +471,70 @@ class Lexer:
         # Check if it's a keyword
         if lower_word in KEYWORDS:
             self.tokens.append(Token(KEYWORDS[lower_word], word, self.line, start_col))
+            # Script blocks contain raw JS — capture everything until "End"
+            if KEYWORDS[lower_word] == TokenType.SCRIPT:
+                self._read_script_body()
         else:
             self.tokens.append(Token(TokenType.IDENTIFIER, word, self.line, start_col))
+
+    def _read_script_body(self):
+        """Capture raw JavaScript/CSS text inside Script ... End blocks.
+
+        After the SCRIPT token is emitted, this consumes all content until
+        a line whose stripped text starts with 'End' (case-insensitive).
+        The captured text is emitted as a single STRING token, followed by
+        a NEWLINE and an END token so the parser sees: SCRIPT STRING END.
+        """
+        # Skip whitespace and newline after "Script"
+        while self.pos < len(self.source) and self.source[self.pos] in (' ', '\t'):
+            self._advance()
+        if self.pos < len(self.source) and self.source[self.pos] == '\r':
+            self._advance()
+        if self.pos < len(self.source) and self.source[self.pos] == '\n':
+            self._advance()
+            self.line += 1
+            self.column = 1
+
+        start_line = self.line
+        start_col = self.column
+        body_parts = []
+
+        while self.pos < len(self.source):
+            # Read a full line
+            line_start = self.pos
+            while self.pos < len(self.source) and self.source[self.pos] not in ('\n', '\r'):
+                self._advance()
+
+            line_text = self.source[line_start:self.pos]
+
+            # Check if this line is "End" (possibly indented)
+            stripped = line_text.strip().lower()
+            if stripped == 'end' or stripped.startswith('end ') or stripped.startswith('end\t'):
+                # Emit the collected body as a STRING token
+                body = '\n'.join(body_parts)
+                self.tokens.append(Token(TokenType.NEWLINE, '\\n', self.line, 1))
+                self.tokens.append(Token(TokenType.STRING, body, start_line, start_col))
+                self.tokens.append(Token(TokenType.NEWLINE, '\\n', self.line, 1))
+                # Emit the END token
+                self.tokens.append(Token(TokenType.END, 'End', self.line, 1))
+                # Consume the newline after End
+                if self.pos < len(self.source) and self.source[self.pos] == '\r':
+                    self._advance()
+                if self.pos < len(self.source) and self.source[self.pos] == '\n':
+                    self._advance()
+                    self.line += 1
+                    self.column = 1
+                return
+
+            body_parts.append(line_text)
+
+            # Consume the newline
+            if self.pos < len(self.source) and self.source[self.pos] == '\r':
+                self._advance()
+            if self.pos < len(self.source) and self.source[self.pos] == '\n':
+                self._advance()
+                self.line += 1
+                self.column = 1
 
     def _resolve_multi_word_keywords(self, tokens: list) -> list:
         """

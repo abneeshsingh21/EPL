@@ -12,6 +12,7 @@ from epl.errors import EPLError, set_source_context
 from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
+from epl._debug_log import suppressed as _debug_suppressed
 
 CROSS_TARGETS = {
     'windows-x64': 'x86_64-pc-windows-msvc',
@@ -61,6 +62,7 @@ def _offer_ai_explanation(error_msg, source_code: Optional[str] = None) -> None:
                 file=sys.stderr,
             )
         except Exception:
+            _debug_suppressed('runtime_support.py:63')
             pass
 
 
@@ -98,6 +100,7 @@ def run_source(
                 try:
                     save_cache(program, source, cache_file)
                 except Exception:
+                    _debug_suppressed('runtime_support.py:100')
                     pass
 
         if strict:
@@ -176,6 +179,7 @@ def run_file(
                 )
                 return False
         except Exception:
+            _debug_suppressed('runtime_support.py:178')
             pass
 
     if not force_interpret:
@@ -187,7 +191,9 @@ def run_file(
         except (KeyboardInterrupt, SystemExit, MemoryError):
             raise
         except Exception:
-            print(f'  [EPL] VM fallback to interpreter for: {filepath}', file=sys.stderr)
+            # v7.8: Only show fallback message in verbose mode to reduce noise
+            if os.environ.get('EPL_VERBOSE') or '--verbose' in sys.argv:
+                print(f'  [EPL] VM fallback to interpreter for: {filepath}', file=sys.stderr)
 
     interpreter = Interpreter(safe_mode=safe_mode)
     return run_source(

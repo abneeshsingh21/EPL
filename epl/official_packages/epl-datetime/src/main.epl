@@ -1,0 +1,346 @@
+Note: EPL DateTime Package — Pure Date/Time Calculations in pure EPL
+Note: Date arithmetic, formatting, calendar generation, ranges.
+Note: All calculations use integer arithmetic — no system calls needed.
+Note: Use "epl-datetime" to access these functions.
+
+Note: ===========================================================
+Note:  Core
+Note: ===========================================================
+
+Define Function create_date Takes year, month, day
+    Return Map with year = year and month = month and day = day
+End
+
+Define Function is_leap_year Takes year
+    Return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+End
+
+Define Function days_in_month Takes year, month
+    Create days equal to [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    If month == 2 and is_leap_year(year)
+        Return 29
+    End
+    Return days[month - 1]
+End
+
+Define Function days_in_year Takes year
+    If is_leap_year(year)
+        Return 366
+    End
+    Return 365
+End
+
+Define Function is_valid_date Takes year, month, day
+    If month < 1 or month > 12
+        Return false
+    End
+    If day < 1 or day > days_in_month(year, month)
+        Return false
+    End
+    Return true
+End
+
+Define Function compare_dates Takes date1, date2
+    If date1["year"] < date2["year"]
+        Return -1
+    End
+    If date1["year"] > date2["year"]
+        Return 1
+    End
+    If date1["month"] < date2["month"]
+        Return -1
+    End
+    If date1["month"] > date2["month"]
+        Return 1
+    End
+    If date1["day"] < date2["day"]
+        Return -1
+    End
+    If date1["day"] > date2["day"]
+        Return 1
+    End
+    Return 0
+End
+
+Note: ===========================================================
+Note:  Day of Week / Calendar
+Note: ===========================================================
+
+Define Function day_of_week Takes year, month, day
+    Note: Zeller's congruence — returns 0=Sunday through 6=Saturday
+    Create m equal to month
+    Create y equal to year
+    If m < 3
+        Set m to m + 12
+        Set y to y - 1
+    End
+    Create k equal to y % 100
+    Create j equal to floor(y / 100)
+    Create h equal to (day + floor((13 * (m + 1)) / 5) + k + floor(k / 4) + floor(j / 4) - 2 * j) % 7
+    Set h to ((h % 7) + 7) % 7
+    Create dow equal to ((h + 6) % 7)
+    Return dow
+End
+
+Define Function day_of_week_name Takes year, month, day
+    Create names equal to ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    Create dow equal to day_of_week(year, month, day)
+    Return names[dow]
+End
+
+Define Function day_of_year Takes year, month, day
+    Create total equal to 0
+    For m from 1 to month - 1
+        Set total to total + days_in_month(year, m)
+    End
+    Return total + day
+End
+
+Define Function week_of_year Takes year, month, day
+    Create doy equal to day_of_year(year, month, day)
+    Create dow_jan1 equal to day_of_week(year, 1, 1)
+    Return floor((doy + dow_jan1 - 1) / 7) + 1
+End
+
+Define Function generate_calendar Takes year, month
+    Create first_dow equal to day_of_week(year, month, 1)
+    Create total_days equal to days_in_month(year, month)
+    Create weeks equal to []
+    Create week equal to []
+    For i from 0 to first_dow - 1
+        Add 0 to week
+    End
+    For day from 1 to total_days
+        Add day to week
+        If length(week) == 7
+            Add week to weeks
+            Set week to []
+        End
+    End
+    If length(week) > 0
+        While length(week) < 7
+            Add 0 to week
+        End
+        Add week to weeks
+    End
+    Return weeks
+End
+
+Note: ===========================================================
+Note:  Arithmetic
+Note: ===========================================================
+
+Define Function date_to_days Takes date
+    Create y equal to date["year"] - 1
+    Create total equal to y * 365 + floor(y / 4) - floor(y / 100) + floor(y / 400)
+    Set total to total + day_of_year(date["year"], date["month"], date["day"])
+    Return total
+End
+
+Define Function days_to_date Takes day_count
+    Create y equal to floor(day_count / 365)
+    While true
+        Create test_days equal to y * 365 + floor(y / 4) - floor(y / 100) + floor(y / 400)
+        If test_days >= day_count
+            Set y to y - 1
+        Otherwise
+            Break
+        End
+    End
+    Create remaining equal to day_count - (y * 365 + floor(y / 4) - floor(y / 100) + floor(y / 400))
+    Create year equal to y + 1
+    Create month equal to 1
+    While month <= 12
+        Create dim equal to days_in_month(year, month)
+        If remaining <= dim
+            Break
+        End
+        Set remaining to remaining - dim
+        Set month to month + 1
+    End
+    Return create_date(year, month, remaining)
+End
+
+Define Function add_days Takes date, n
+    Create total equal to date_to_days(date) + n
+    Return days_to_date(total)
+End
+
+Define Function subtract_days Takes date, n
+    Create total equal to date_to_days(date) - n
+    Return days_to_date(total)
+End
+
+Define Function add_months Takes date, n
+    Create new_month equal to date["month"] + n
+    Create new_year equal to date["year"]
+    While new_month > 12
+        Set new_month to new_month - 12
+        Set new_year to new_year + 1
+    End
+    While new_month < 1
+        Set new_month to new_month + 12
+        Set new_year to new_year - 1
+    End
+    Create max_day equal to days_in_month(new_year, new_month)
+    Create new_day equal to min(date["day"], max_day)
+    Return create_date(new_year, new_month, new_day)
+End
+
+Define Function add_years Takes date, n
+    Create new_year equal to date["year"] + n
+    Create new_day equal to date["day"]
+    If date["month"] == 2 and date["day"] == 29 and not is_leap_year(new_year)
+        Set new_day to 28
+    End
+    Return create_date(new_year, date["month"], new_day)
+End
+
+Define Function days_between Takes date1, date2
+    Return absolute(date_to_days(date2) - date_to_days(date1))
+End
+
+Note: ===========================================================
+Note:  Formatting and Parsing
+Note: ===========================================================
+
+Define Function _zero_pad Takes n
+    If n < 10
+        Return "0" + to_text(n)
+    End
+    Return to_text(n)
+End
+
+Define Function format_date Takes date, pattern
+    Create result equal to pattern
+    Set result to result.replace("YYYY", to_text(date["year"]))
+    Set result to result.replace("MM", _zero_pad(date["month"]))
+    Set result to result.replace("DD", _zero_pad(date["day"]))
+    Set result to result.replace("M", to_text(date["month"]))
+    Set result to result.replace("D", to_text(date["day"]))
+    Return result
+End
+
+Define Function parse_date Takes txt, pattern
+    Create year equal to 0
+    Create month equal to 0
+    Create day equal to 0
+    If pattern == "YYYY-MM-DD"
+        Create parts equal to txt.split("-")
+        Set year to to_integer(parts[0])
+        Set month to to_integer(parts[1])
+        Set day to to_integer(parts[2])
+    Otherwise if pattern == "DD/MM/YYYY"
+        Create parts equal to txt.split("/")
+        Set day to to_integer(parts[0])
+        Set month to to_integer(parts[1])
+        Set year to to_integer(parts[2])
+    Otherwise if pattern == "MM/DD/YYYY"
+        Create parts equal to txt.split("/")
+        Set month to to_integer(parts[0])
+        Set day to to_integer(parts[1])
+        Set year to to_integer(parts[2])
+    End
+    Return create_date(year, month, day)
+End
+
+Define Function month_name Takes month
+    Create names equal to ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    Return names[month - 1]
+End
+
+Define Function month_short_name Takes month
+    Create names equal to ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    Return names[month - 1]
+End
+
+Define Function format_relative Takes date1, date2
+    Create diff equal to date_to_days(date2) - date_to_days(date1)
+    If diff == 0
+        Return "today"
+    End
+    If diff == 1
+        Return "tomorrow"
+    End
+    If diff == -1
+        Return "yesterday"
+    End
+    If diff > 0
+        If diff < 7
+            Return "in " + to_text(diff) + " days"
+        End
+        If diff < 30
+            Return "in " + to_text(floor(diff / 7)) + " weeks"
+        End
+        If diff < 365
+            Return "in " + to_text(floor(diff / 30)) + " months"
+        End
+        Return "in " + to_text(floor(diff / 365)) + " years"
+    End
+    Create abs_diff equal to absolute(diff)
+    If abs_diff < 7
+        Return to_text(abs_diff) + " days ago"
+    End
+    If abs_diff < 30
+        Return to_text(floor(abs_diff / 7)) + " weeks ago"
+    End
+    If abs_diff < 365
+        Return to_text(floor(abs_diff / 30)) + " months ago"
+    End
+    Return to_text(floor(abs_diff / 365)) + " years ago"
+End
+
+Note: ===========================================================
+Note:  Ranges and Sequences
+Note: ===========================================================
+
+Define Function date_range Takes start_date, end_date
+    Create result equal to []
+    Create current equal to start_date
+    While compare_dates(current, end_date) <= 0
+        Add create_date(current["year"], current["month"], current["day"]) to result
+        Set current to add_days(current, 1)
+    End
+    Return result
+End
+
+Define Function is_weekend Takes date
+    Create dow equal to day_of_week(date["year"], date["month"], date["day"])
+    Return dow == 5 or dow == 6
+End
+
+Define Function next_weekday Takes date
+    Create current equal to add_days(date, 1)
+    While is_weekend(current)
+        Set current to add_days(current, 1)
+    End
+    Return current
+End
+
+Define Function business_days_between Takes date1, date2
+    Create count equal to 0
+    Create current equal to date1
+    While compare_dates(current, date2) < 0
+        Set current to add_days(current, 1)
+        If not is_weekend(current)
+            Set count to count + 1
+        End
+    End
+    Return count
+End
+
+Note: ===========================================================
+Note:  Periods
+Note: ===========================================================
+
+Define Function quarter_of Takes date
+    Return floor((date["month"] - 1) / 3) + 1
+End
+
+Define Function start_of_month Takes date
+    Return create_date(date["year"], date["month"], 1)
+End
+
+Define Function end_of_month Takes date
+    Return create_date(date["year"], date["month"], days_in_month(date["year"], date["month"]))
+End

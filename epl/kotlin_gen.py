@@ -322,16 +322,24 @@ class KotlinGenerator:
             tag = props.get('tag', 'heading')
             self.imports.add('androidx.compose.ui.text.font.FontWeight')
             if tag in ('h1', 'heading'):
-                self._line(f'Text(text = {text_str}, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)')
+                self._line(
+                    f'Text(text = {text_str}, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)'
+                )
             elif tag == 'h2':
-                self._line(f'Text(text = {text_str}, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)')
+                self._line(
+                    f'Text(text = {text_str}, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)'
+                )
             else:
-                self._line(f'Text(text = {text_str}, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)')
+                self._line(
+                    f'Text(text = {text_str}, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)'
+                )
         elif wtype == 'link':
             text_str = self._expr(text) if text and hasattr(text, 'line') else f'"{text or "Link"}"'
             href = props.get('href', props.get('to', ''))
             self.imports.add('androidx.compose.ui.text.style.TextDecoration')
-            self._line(f'Text(text = {text_str}, color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline)')
+            self._line(
+                f'Text(text = {text_str}, color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline)'
+            )
         elif wtype == 'button':
             handler = w.get('action')
             handler_str = f'{{ {self._expr(handler).strip(chr(34))}() }}' if handler else '{}'
@@ -468,68 +476,82 @@ class KotlinGenerator:
                 content = elem.content
                 if tag in ('heading', 'h1', 'h2', 'h3'):
                     self.widget_counter += 1
-                    self.widgets.append({
-                        'id': f'heading_{self.widget_counter}',
-                        'type': 'heading',
-                        'text': content,
-                        'properties': {'tag': tag},
-                        'action': None,
-                    })
+                    self.widgets.append(
+                        {
+                            'id': f'heading_{self.widget_counter}',
+                            'type': 'heading',
+                            'text': content,
+                            'properties': {'tag': tag},
+                            'action': None,
+                        }
+                    )
                 elif tag in ('text', 'paragraph', 'p'):
                     self.widget_counter += 1
-                    self.widgets.append({
-                        'id': f'text_{self.widget_counter}',
-                        'type': 'label',
-                        'text': content,
-                        'properties': {},
-                        'action': None,
-                    })
+                    self.widgets.append(
+                        {
+                            'id': f'text_{self.widget_counter}',
+                            'type': 'label',
+                            'text': content,
+                            'properties': {},
+                            'action': None,
+                        }
+                    )
                 elif tag == 'button':
                     self.widget_counter += 1
                     action = elem.attributes.get('action')
-                    self.widgets.append({
-                        'id': f'button_{self.widget_counter}',
-                        'type': 'button',
-                        'text': content,
-                        'properties': {},
-                        'action': action,
-                    })
+                    self.widgets.append(
+                        {
+                            'id': f'button_{self.widget_counter}',
+                            'type': 'button',
+                            'text': content,
+                            'properties': {},
+                            'action': action,
+                        }
+                    )
                 elif tag in ('input', 'textbox'):
                     self.widget_counter += 1
-                    self.widgets.append({
-                        'id': f'input_{self.widget_counter}',
-                        'type': 'input',
-                        'text': content,
-                        'properties': elem.attributes,
-                        'action': None,
-                    })
+                    self.widgets.append(
+                        {
+                            'id': f'input_{self.widget_counter}',
+                            'type': 'input',
+                            'text': content,
+                            'properties': elem.attributes,
+                            'action': None,
+                        }
+                    )
                 elif tag in ('link', 'a'):
                     self.widget_counter += 1
-                    self.widgets.append({
-                        'id': f'link_{self.widget_counter}',
-                        'type': 'link',
-                        'text': content,
-                        'properties': elem.attributes,
-                        'action': None,
-                    })
+                    self.widgets.append(
+                        {
+                            'id': f'link_{self.widget_counter}',
+                            'type': 'link',
+                            'text': content,
+                            'properties': elem.attributes,
+                            'action': None,
+                        }
+                    )
                 elif tag == 'image':
                     self.widget_counter += 1
-                    self.widgets.append({
-                        'id': f'image_{self.widget_counter}',
-                        'type': 'image',
-                        'text': content,
-                        'properties': elem.attributes,
-                        'action': None,
-                    })
+                    self.widgets.append(
+                        {
+                            'id': f'image_{self.widget_counter}',
+                            'type': 'image',
+                            'text': content,
+                            'properties': elem.attributes,
+                            'action': None,
+                        }
+                    )
                 else:
                     self.widget_counter += 1
-                    self.widgets.append({
-                        'id': f'elem_{self.widget_counter}',
-                        'type': 'label',
-                        'text': content,
-                        'properties': {},
-                        'action': None,
-                    })
+                    self.widgets.append(
+                        {
+                            'id': f'elem_{self.widget_counter}',
+                            'type': 'label',
+                            'text': content,
+                            'properties': {},
+                            'action': None,
+                        }
+                    )
 
     def _android_widget_class(self, wtype):
         """Map EPL widget type to Android widget class."""
@@ -1678,11 +1700,20 @@ class KotlinGenerator:
     # ─── v6.0+v6.1: Style, Layout, 3D & Canvas (Compose) ────
 
     _NAMED_COLORS = {
-        'red': 'ff0000', 'green': '00ff00', 'blue': '0000ff',
-        'white': 'ffffff', 'black': '000000', 'yellow': 'ffff00',
-        'cyan': '00ffff', 'magenta': 'ff00ff', 'orange': 'ff8c00',
-        'purple': '800080', 'pink': 'ffc0cb', 'gray': '808080',
-        'grey': '808080', 'transparent': '000000',
+        'red': 'ff0000',
+        'green': '00ff00',
+        'blue': '0000ff',
+        'white': 'ffffff',
+        'black': '000000',
+        'yellow': 'ffff00',
+        'cyan': '00ffff',
+        'magenta': 'ff00ff',
+        'orange': 'ff8c00',
+        'purple': '800080',
+        'pink': 'ffc0cb',
+        'gray': '808080',
+        'grey': '808080',
+        'transparent': '000000',
     }
 
     def _css_color_to_compose(self, color_str):
@@ -1696,13 +1727,20 @@ class KotlinGenerator:
             c = ''.join(ch * 2 for ch in c)
         if len(c) == 6 and all(ch in '0123456789abcdefABCDEF' for ch in c):
             return f'Color(0xFF{c})'
-        return f'Color(0xFF000000)'
+        return 'Color(0xFF000000)'
 
     def _css_value_to_dp(self, value):
         """Extract numeric value from CSS size string (e.g., '16px' -> 16)."""
         if isinstance(value, (int, float)):
             return int(value)
-        s = str(value).replace('px', '').replace('rem', '').replace('em', '').replace('%', '').strip()
+        s = (
+            str(value)
+            .replace('px', '')
+            .replace('rem', '')
+            .replace('em', '')
+            .replace('%', '')
+            .strip()
+        )
         try:
             return int(float(s))
         except (ValueError, TypeError):
@@ -1738,7 +1776,7 @@ class KotlinGenerator:
         self.imports.add('androidx.compose.runtime.Composable')
 
         name = node.name.replace('-', '_').replace(' ', '_').title().replace('_', '')
-        self._line(f'@Composable')
+        self._line('@Composable')
         self._line(f'fun {name}Style(content: @Composable () -> Unit) {{')
         self.indent += 1
 
@@ -1779,7 +1817,7 @@ class KotlinGenerator:
         self.imports.add('androidx.compose.runtime.Composable')
 
         modifiers = []
-        for prop in (node.inline_styles or []):
+        for prop in node.inline_styles or []:
             pname = prop.property_name.lower().replace('-', '_')
             val = prop.value
             if pname == 'background':
@@ -1797,7 +1835,7 @@ class KotlinGenerator:
 
         self._line(f'{compose_widget}(modifier = {mod_chain}) {{')
         self.indent += 1
-        for child in (node.children or []):
+        for child in node.children or []:
             self._emit_stmt(child)
         self.indent -= 1
         self._line('}')
@@ -1815,7 +1853,7 @@ class KotlinGenerator:
             self.imports.add('androidx.compose.foundation.lazy.grid.LazyVerticalGrid')
             self.imports.add('androidx.compose.foundation.lazy.grid.GridCells')
             cols = int(props.get('columns', 2))
-            self._line(f'LazyVerticalGrid(')
+            self._line('LazyVerticalGrid(')
             self.indent += 1
             self._line(f'columns = GridCells.Fixed({cols}),')
             self._line(f'horizontalArrangement = Arrangement.spacedBy({gap}.dp),')
@@ -1823,7 +1861,7 @@ class KotlinGenerator:
             self.indent -= 1
             self._line(') {')
             self.indent += 1
-            for child in (node.children or []):
+            for child in node.children or []:
                 self._line('item {')
                 self.indent += 1
                 self._emit_stmt(child)
@@ -1837,7 +1875,7 @@ class KotlinGenerator:
             arrangement = 'horizontalArrangement' if direction == 'row' else 'verticalArrangement'
             self._line(f'{container}({arrangement} = Arrangement.spacedBy({gap}.dp)) {{')
             self.indent += 1
-            for child in (node.children or []):
+            for child in node.children or []:
                 self._emit_stmt(child)
             self.indent -= 1
             self._line('}')
@@ -1847,14 +1885,14 @@ class KotlinGenerator:
         self.imports.add('androidx.compose.runtime.Composable')
         name = node.name.replace('-', '_').replace(' ', '_')
         param_strs = []
-        for p in (node.params or []):
+        for p in node.params or []:
             pname = p[0] if isinstance(p, tuple) else str(p)
             param_strs.append(f'{pname}: Any? = null')
         params = ', '.join(param_strs)
-        self._line(f'@Composable')
+        self._line('@Composable')
         self._line(f'fun {name}({params}) {{')
         self.indent += 1
-        for stmt in (node.body or []):
+        for stmt in node.body or []:
             self._emit_stmt(stmt)
         self.indent -= 1
         self._line('}')
@@ -1862,8 +1900,10 @@ class KotlinGenerator:
     def _emit_component_use_compose(self, node):
         """Emit component function call."""
         name = node.component_name.replace('-', '_').replace(' ', '_').title().replace('_', '')
-        args = ', '.join(f'{k} = {self._expr(v)}' if hasattr(v, 'line') else f'{k} = "{v}"'
-                         for k, v in (node.arguments or {}).items())
+        args = ', '.join(
+            f'{k} = {self._expr(v)}' if hasattr(v, 'line') else f'{k} = "{v}"'
+            for k, v in (node.arguments or {}).items()
+        )
         self._line(f'{name}({args})')
 
     def _emit_animate_def_compose(self, node):
@@ -1886,12 +1926,12 @@ class KotlinGenerator:
             self._line(f'val {name}Transition = rememberInfiniteTransition()')
             self._line(f'val {name}Anim by {name}Transition.animateFloat(')
             self.indent += 1
-            self._line(f'initialValue = 0f,')
-            self._line(f'targetValue = 1f,')
-            self._line(f'animationSpec = infiniteRepeatable(')
+            self._line('initialValue = 0f,')
+            self._line('targetValue = 1f,')
+            self._line('animationSpec = infiniteRepeatable(')
             self.indent += 1
             self._line(f'animation = tween(durationMillis = {duration_ms}, easing = {easing}),')
-            self._line(f'repeatMode = RepeatMode.Restart')
+            self._line('repeatMode = RepeatMode.Restart')
             self.indent -= 1
             self._line(')')
             self.indent -= 1
@@ -1899,7 +1939,7 @@ class KotlinGenerator:
         else:
             self._line(f'val {name}Anim = animateFloatAsState(')
             self.indent += 1
-            self._line(f'targetValue = 1f,')
+            self._line('targetValue = 1f,')
             self._line(f'animationSpec = tween(durationMillis = {duration_ms}, easing = {easing})')
             self.indent -= 1
             self._line(')')
@@ -1917,7 +1957,7 @@ class KotlinGenerator:
         self._line(f'// 3D Scene: {node.name}')
         self._line(f'Canvas(modifier = Modifier.size({w}.dp, {h}.dp)) {{')
         self.indent += 1
-        self._line(f'drawRect(color = Color(0xFF1a1a2e), size = size)')
+        self._line('drawRect(color = Color(0xFF1a1a2e), size = size)')
 
         for child in node.body:
             if isinstance(child, ast.MeshAdd):
@@ -1925,17 +1965,23 @@ class KotlinGenerator:
                 px, py = child.position[0], child.position[1]
                 sx, sy = child.scale[0], child.scale[1]
                 if child.shape == 'cube':
-                    self._line(f'drawRect(color = {color}, '
-                               f'topLeft = Offset({px + w // 2}f, {py + h // 2}f), '
-                               f'size = Size({50 * sx}f, {50 * sy}f))')
+                    self._line(
+                        f'drawRect(color = {color}, '
+                        f'topLeft = Offset({px + w // 2}f, {py + h // 2}f), '
+                        f'size = Size({50 * sx}f, {50 * sy}f))'
+                    )
                 elif child.shape == 'sphere':
-                    self._line(f'drawCircle(color = {color}, '
-                               f'radius = {25 * sx}f, '
-                               f'center = Offset({px + w // 2}f, {py + h // 2}f))')
+                    self._line(
+                        f'drawCircle(color = {color}, '
+                        f'radius = {25 * sx}f, '
+                        f'center = Offset({px + w // 2}f, {py + h // 2}f))'
+                    )
                 elif child.shape in ('plane', 'floor'):
-                    self._line(f'drawRect(color = {color}, '
-                               f'topLeft = Offset(0f, {h - 50}f), '
-                               f'size = Size({w}f, 50f))')
+                    self._line(
+                        f'drawRect(color = {color}, '
+                        f'topLeft = Offset(0f, {h - 50}f), '
+                        f'size = Size({w}f, 50f))'
+                    )
 
         self.indent -= 1
         self._line('}')
@@ -1961,37 +2007,39 @@ class KotlinGenerator:
             x, y = props.get('x', 0), props.get('y', 0)
             w, h = props.get('width', 100), props.get('height', 50)
             fill = self._css_color_to_compose(props.get('fill', '#000'))
-            self._line(f'drawRect(color = {fill}, '
-                       f'topLeft = Offset({x}f, {y}f), '
-                       f'size = Size({w}f, {h}f))')
+            self._line(
+                f'drawRect(color = {fill}, topLeft = Offset({x}f, {y}f), size = Size({w}f, {h}f))'
+            )
         elif shape == 'circle':
             x, y = props.get('x', 50), props.get('y', 50)
             r = props.get('radius', 25)
             fill = self._css_color_to_compose(props.get('fill', '#000'))
-            self._line(f'drawCircle(color = {fill}, '
-                       f'radius = {r}f, '
-                       f'center = Offset({x}f, {y}f))')
+            self._line(f'drawCircle(color = {fill}, radius = {r}f, center = Offset({x}f, {y}f))')
         elif shape == 'line':
             x1, y1 = props.get('x1', 0), props.get('y1', 0)
             x2, y2 = props.get('x2', 100), props.get('y2', 100)
             stroke = self._css_color_to_compose(props.get('stroke', '#000'))
             lw = props.get('width', 1)
-            self._line(f'drawLine(color = {stroke}, '
-                       f'start = Offset({x1}f, {y1}f), '
-                       f'end = Offset({x2}f, {y2}f), '
-                       f'strokeWidth = {lw}f)')
+            self._line(
+                f'drawLine(color = {stroke}, '
+                f'start = Offset({x1}f, {y1}f), '
+                f'end = Offset({x2}f, {y2}f), '
+                f'strokeWidth = {lw}f)'
+            )
         elif shape == 'text':
-            self._line(f'// Text drawing requires native canvas')
+            self._line('// Text drawing requires native canvas')
             x, y = props.get('x', 10), props.get('y', 30)
             content = props.get('content', '')
             fill = self._css_color_to_compose(props.get('fill', '#000'))
-            self._line(f'drawContext.canvas.nativeCanvas.drawText("{content}", '
-                       f'{x}f, {y}f, android.graphics.Paint().apply {{ color = {fill}.toArgb() }})')
+            self._line(
+                f'drawContext.canvas.nativeCanvas.drawText("{content}", '
+                f'{x}f, {y}f, android.graphics.Paint().apply {{ color = {fill}.toArgb() }})'
+            )
         elif shape == 'path':
             points = props.get('points', '')
             fill = self._css_color_to_compose(props.get('fill', '#000'))
             self._line(f'// SVG Path: {points}')
-            self._line(f'val path = Path()')
+            self._line('val path = Path()')
             self._line(f'drawPath(path = path, color = {fill})')
 
         self.indent -= 1

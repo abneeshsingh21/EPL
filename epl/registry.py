@@ -1,5 +1,5 @@
 """
-EPL Package Registry v5.0 — Phase 4: Production Package Ecosystem
+EPL Package Registry v7.6 — Phase 4: Production Package Ecosystem
 GitHub-based package registry with search, publish, download tracking, and version management.
 
 Supports:

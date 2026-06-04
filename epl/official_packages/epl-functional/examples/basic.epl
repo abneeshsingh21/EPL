@@ -1,0 +1,60 @@
+Note: EPL Functional Package — Usage Examples
+Use "epl-functional"
+
+Note: --- Pipe and Compose ---
+Create numbers equal to [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+Print "Pipe value through functions:"
+Create result equal to pipe_many(5, [lambda x -> x * 2, lambda x -> x + 1])
+Print result
+
+Note: --- Partition ---
+Print "Partition evens/odds:"
+Create parts equal to partition(numbers, lambda x -> x % 2 == 0)
+Print parts
+
+Note: --- Group By ---
+Create words equal to ["apple", "ant", "banana", "avocado", "berry"]
+Print "Group by first letter:"
+Print group_by(words, lambda w -> w.char_at(0))
+
+Note: --- Take/Drop While ---
+Print "Take while < 5:"
+Print take_while(numbers, lambda x -> x < 5)
+
+Print "Drop while < 5:"
+Print drop_while(numbers, lambda x -> x < 5)
+
+Note: --- Scan (running totals) ---
+Print "Running sum:"
+Print scan([1, 2, 3, 4, 5], lambda acc, x -> acc + x, 0)
+
+Note: --- Window ---
+Print "Sliding window of 3:"
+Print window([1, 2, 3, 4, 5], 3)
+
+Note: --- Frequencies ---
+Print "Frequencies:"
+Print frequencies(["a", "b", "a", "c", "b", "a"])
+
+Note: --- Cartesian Product ---
+Print "Cartesian product:"
+Print cartesian_product([1, 2], ["a", "b"])
+
+Note: --- Predicates ---
+Print "All positive:"
+Print all_of([1, 2, 3], lambda x -> x > 0)
+
+Print "Count evens:"
+Print count_by(numbers, lambda x -> x % 2 == 0)
+
+Note: --- Option Type ---
+Create opt equal to some(42)
+Print "Is some:"
+Print is_some(opt)
+Print "Unwrap:"
+Print unwrap_or(opt, 0)
+
+Create empty equal to none_val()
+Print "Unwrap empty with default:"
+Print unwrap_or(empty, -1)

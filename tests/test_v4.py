@@ -399,7 +399,6 @@ def _test_type_system():
 def _test_async_module():
     """Test async IO module loads."""
     try:
-
         print('  PASS: Async IO module loads')
         return True
     except Exception as e:

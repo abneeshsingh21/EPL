@@ -34,6 +34,7 @@ import urllib.request as _urllib_request
 import uuid as _uuid
 
 from epl.errors import RuntimeError as EPLRuntimeError
+from epl._debug_log import suppressed as _debug_suppressed
 
 _install_lock = _threading.Lock()
 _module_cache = {}
@@ -141,6 +142,9 @@ STDLIB_FUNCTIONS = {
     'json_parse',
     'json_stringify',
     'json_pretty',
+    # Hashing
+    'sha256',
+    'md5',
     # Database
     'db_open',
     'db_close',
@@ -943,6 +947,28 @@ _state_lock = _threading.Lock()  # Protects all module-level state dicts
 _real_db_instances = {}  # name -> database_real.Database
 _real_db_models = {}  # "db:model" -> database_real.Model
 _real_db_txns = {}  # txn_id -> connection (in transaction)
+
+# v9.3.0 Phase 5 — SQL injection hardening.
+# Single source of truth for "what is a safe SQL identifier?". The 7 prior
+# in-function copies of this regex made it easy for new endpoints to forget
+# validation; route everything through `_assert_sql_identifier` instead.
+_SQL_IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+
+def _assert_sql_identifier(name, kind='identifier'):
+    """Reject anything that isn't a bare SQL identifier (table or column name).
+
+    Raises RuntimeError on failure. Callers that need an EPLRuntimeError should
+    catch + re-raise with line context (the cross-cutting helper stays decoupled
+    from interpreter-specific error types).
+    """
+    if not isinstance(name, str) or not _SQL_IDENT_RE.match(name):
+        raise RuntimeError(
+            f'Invalid SQL {kind}: {name!r}. '
+            f'Identifiers must match [a-zA-Z_][a-zA-Z0-9_]*. '
+            f'Use parameter placeholders (?) for values.'
+        )
+    return name
 _net_tcp_connections = {}  # id -> networking.TCPConnection
 _net_tcp_servers = {}  # id -> networking.TCPServer
 _net_udp_sockets = {}  # id -> networking.UDPSocket
@@ -1074,7 +1100,7 @@ def _http_request(method, url, body=None, headers=None, timeout=30):
             # Try to auto-parse JSON
             parsed_body = resp_body
             ct = resp_headers.get('Content-Type', '')
-            if 'json' in ct.lower():
+            if 'json' in ct.lower() or resp_body.strip().startswith('{') or resp_body.strip().startswith('['):
                 try:
                     parsed_body = _json.loads(resp_body)
                     parsed_body = _to_epl(parsed_body)
@@ -2104,7 +2130,7 @@ def _url_parse(url):
 # ═══════════════════════════════════════════════════════════
 
 
-def call_stdlib(name, args, line):
+def call_stdlib(name, args, line, interpreter=None):
     """Dispatch a stdlib function call.
 
     Args:
@@ -2119,6 +2145,19 @@ def call_stdlib(name, args, line):
         EPLRuntimeError on failure
     """
     try:
+        # ── Hashing ──
+        if name == 'sha256':
+            if not args:
+                raise EPLRuntimeError('sha256(text) requires a string argument.', line)
+            import hashlib as _hl
+            return _hl.sha256(str(args[0]).encode('utf-8')).hexdigest()
+
+        if name == 'md5':
+            if not args:
+                raise EPLRuntimeError('md5(text) requires a string argument.', line)
+            import hashlib as _hl
+            return _hl.md5(str(args[0]).encode('utf-8')).hexdigest()
+
         # ── HTTP ──
         if name == 'http_get':
             if len(args) < 1:
@@ -2508,6 +2547,27 @@ def call_stdlib(name, args, line):
         if name == 'sign':
             return _sign(args[0]) if args else 0
 
+        # ── System ──
+        if name == 'print_error':
+            if not args:
+                raise EPLRuntimeError('print_error(msg) requires a message.', line)
+            return _print_error(args[0])
+        if name == 'read_input':
+            prompt = str(args[0]) if args else ''
+            return _read_input(prompt)
+        if name == 'exit_code':
+            if not args:
+                raise EPLRuntimeError('exit_code(code) requires an exit code.', line)
+            return _exit_code(args[0])
+        if name == 'args':
+            return _get_args()
+        if name == 'timer_start':
+            timer_name = str(args[0]) if args else 'default'
+            return _timer_start(timer_name)
+        if name == 'timer_stop':
+            timer_name = str(args[0]) if args else 'default'
+            return _timer_stop(timer_name)
+
         # ── String/Encoding ──
         if name == 'format':
             if not args:
@@ -2601,82 +2661,25 @@ def call_stdlib(name, args, line):
         # ── Threading ──
         if name == 'thread_run':
             if not args:
-                raise EPLRuntimeError('thread_run(function, ...args) requires a function.', line)
-            return _thread_run(args[0], *args[1:])
-        if name == 'thread_sleep':
-            if not args:
-                raise EPLRuntimeError('thread_sleep(seconds) requires seconds.', line)
-            return _thread_sleep(args[0])
-        if name == 'atomic_counter':
-            nm = str(args[0]) if args else 'default'
-            inc = args[1] if len(args) > 1 else None
-            return _atomic_counter(nm, inc)
-
-        # ── Network ──
-        if name == 'socket_connect':
-            if len(args) < 2:
-                raise EPLRuntimeError(
-                    'socket_connect(host, port[, timeout]) requires host and port.', line
-                )
-            timeout = float(args[2]) if len(args) > 2 else 10
-            return _socket_connect(args[0], args[1], timeout)
-        if name == 'socket_send':
-            if len(args) < 2:
-                raise EPLRuntimeError('socket_send(id, data) requires id and data.', line)
-            return _socket_send(args[0], args[1])
-        if name == 'socket_receive':
-            if not args:
-                raise EPLRuntimeError('socket_receive(id[, size]) requires a socket ID.', line)
-            size = int(args[1]) if len(args) > 1 else 4096
-            return _socket_receive(args[0], size)
-        if name == 'socket_close':
-            if not args:
-                raise EPLRuntimeError('socket_close(id) requires a socket ID.', line)
-            return _socket_close(args[0])
-        if name == 'dns_lookup':
-            if not args:
-                raise EPLRuntimeError('dns_lookup(hostname) requires a hostname.', line)
-            return _dns_lookup(args[0])
-        if name == 'is_port_open':
-            if len(args) < 2:
-                raise EPLRuntimeError('is_port_open(host, port) requires host and port.', line)
-            timeout = float(args[2]) if len(args) > 2 else 3
-            return _is_port_open(args[0], args[1], timeout)
-
-        # ── System ──
-        if name == 'print_error':
-            if not args:
-                raise EPLRuntimeError('print_error(msg) requires a message.', line)
-            return _print_error(args[0])
-        if name == 'read_input':
-            prompt = str(args[0]) if args else ''
-            return _read_input(prompt)
-        if name == 'exit_code':
-            if not args:
-                raise EPLRuntimeError('exit_code(code) requires a code.', line)
-            return _exit_code(args[0])
-        if name == 'args':
-            return _get_args()
-        if name == 'timer_start':
-            nm = str(args[0]) if args else 'default'
-            return _timer_start(nm)
-        if name == 'timer_stop':
-            nm = str(args[0]) if args else 'default'
-            return _timer_stop(nm)
-
-        # ── Concurrency (epl.concurrency) ──
-        if name == 'mutex_create':
-            _conc = _require_module('epl.concurrency', feature_name='Concurrency')
-            return _conc.create_mutex()
-        if name == 'mutex_lock':
-            if not args:
-                raise EPLRuntimeError('mutex_lock(mutex[, timeout]) requires a mutex.', line)
-            timeout = float(args[1]) if len(args) > 1 else -1
-            return args[0].acquire(timeout)
-        if name == 'mutex_unlock':
-            if not args:
-                raise EPLRuntimeError('mutex_unlock(mutex) requires a mutex.', line)
-            args[0].release()
+                raise EPLRuntimeError('thread_run(func, [args]) requires a function.', line)
+            import threading
+            func = args[0]
+            
+            def _wrap(*a):
+                if interpreter:
+                    try:
+                        if hasattr(func, '__class__') and func.__class__.__name__ == 'FunctionDef':
+                            interpreter._call_callable(func, list(a), getattr(interpreter, 'global_env', None), 0)
+                        else:
+                            func(*a)
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
+                        print(f"[EPL thread] Error: {e}")
+                        
+            t = threading.Thread(target=_wrap, args=args[1] if len(args)>1 else ())
+            t.daemon = True
+            t.start()
             return None
         if name == 'rwlock_create':
             _conc = _require_module('epl.concurrency', feature_name='Concurrency')
@@ -3390,14 +3393,30 @@ def call_stdlib(name, args, line):
                 raise EPLRuntimeError(f'No database connection: {db_name}', line)
             record = _from_epl(args[2]) if hasattr(args[2], 'data') else args[2]
             where_arg = _from_epl(args[3]) if hasattr(args[3], 'data') else args[3]
-            # If where is a dict, convert to SQL string + params
+            # v9.3.0 Phase 5 — validate every interpolated identifier. Previously
+            # a dict WHERE blindly trusted column names, so a key like
+            # `"id=1 OR 1=1 --"` would bypass the predicate entirely.
             if isinstance(where_arg, dict):
-                where_parts = [f'{k} = ?' for k in where_arg.keys()]
+                for k in where_arg.keys():
+                    try:
+                        _assert_sql_identifier(k, 'column')
+                    except RuntimeError as exc:
+                        raise EPLRuntimeError(str(exc), line) from exc
+                where_parts = [f'"{k}" = ?' for k in where_arg.keys()]
                 where_sql = ' AND '.join(where_parts)
                 where_params = tuple(where_arg.values())
             else:
+                # Raw string WHERE accepted for power users, but only with a
+                # params tuple supplied — bare string-only is the classic
+                # injection footgun and is now refused.
+                if len(args) <= 4:
+                    raise EPLRuntimeError(
+                        'real_db_update with a string WHERE requires a params tuple. '
+                        'Use placeholders (?) for every value, or pass a dict WHERE.',
+                        line,
+                    )
                 where_sql = str(where_arg)
-                where_params = tuple(args[4]) if len(args) > 4 else ()
+                where_params = tuple(args[4])
             return _real_db_instances[db_name].update(str(args[1]), record, where_sql, where_params)
         if name == 'real_db_delete':
             if len(args) < 3:
@@ -3407,12 +3426,23 @@ def call_stdlib(name, args, line):
                 raise EPLRuntimeError(f'No database connection: {db_name}', line)
             where_arg = _from_epl(args[2]) if hasattr(args[2], 'data') else args[2]
             if isinstance(where_arg, dict):
-                where_parts = [f'{k} = ?' for k in where_arg.keys()]
+                for k in where_arg.keys():
+                    try:
+                        _assert_sql_identifier(k, 'column')
+                    except RuntimeError as exc:
+                        raise EPLRuntimeError(str(exc), line) from exc
+                where_parts = [f'"{k}" = ?' for k in where_arg.keys()]
                 where_sql = ' AND '.join(where_parts)
                 where_params = tuple(where_arg.values())
             else:
+                if len(args) <= 3:
+                    raise EPLRuntimeError(
+                        'real_db_delete with a string WHERE requires a params tuple. '
+                        'Use placeholders (?) for every value, or pass a dict WHERE.',
+                        line,
+                    )
                 where_sql = str(where_arg)
-                where_params = tuple(args[3]) if len(args) > 3 else ()
+                where_params = tuple(args[3])
             return _real_db_instances[db_name].delete(str(args[1]), where_sql, where_params)
         if name == 'real_db_find_by_id':
             if len(args) < 3:
@@ -3933,7 +3963,18 @@ def call_stdlib(name, args, line):
                 raise EPLRuntimeError(f'Unknown thread pool: {pid}', line)
             fn = args[1]
             fn_args = tuple(args[2:])
-            future = _real_thread_pools[pid].submit(fn, *fn_args)
+            
+            is_epl_func = hasattr(fn, '__class__') and fn.__class__.__name__ in ('FunctionDef', 'EPLLambda', 'AsyncFunctionDef')
+            if is_epl_func:
+                _interp = interpreter
+                _env = getattr(_interp, 'global_env', None) if _interp else None
+                def wrapper(*wargs):
+                    return _interp._call_callable(fn, list(wargs), _env, line)
+                future = _real_thread_pools[pid].submit(wrapper, *fn_args)
+            elif callable(fn):
+                future = _real_thread_pools[pid].submit(fn, *fn_args)
+            else:
+                raise EPLRuntimeError('real_thread_pool_submit() requires a callable.', line)
             fid = f'fut_{_new_id()}'
             _db_connections[fid] = future  # reuse for storage
             return fid
@@ -4615,6 +4656,12 @@ def call_stdlib(name, args, line):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
+            for k in list(set_data.keys()) + list(where_data.keys()):
+                if not _IDENT_RE.match(k):
+                    raise EPLRuntimeError(f'Invalid column name: {k}', line)
             set_cols = ', '.join(f'"{k}" = ?' for k in set_data.keys())
             where_cols = ' AND '.join(f'"{k}" = ?' for k in where_data.keys())
             params = list(set_data.values()) + list(where_data.values())
@@ -4629,6 +4676,12 @@ def call_stdlib(name, args, line):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
+            for k in where_data.keys():
+                if not _IDENT_RE.match(k):
+                    raise EPLRuntimeError(f'Invalid column name: {k}', line)
             where_cols = ' AND '.join(f'"{k}" = ?' for k in where_data.keys())
             params = list(where_data.values())
             conn.execute(f'DELETE FROM "{table}" WHERE {where_cols}', params)
@@ -4643,10 +4696,16 @@ def call_stdlib(name, args, line):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
             sql = f'SELECT COUNT(*) FROM "{table}"'
             params = []
             if len(args) > 2 and args[2]:
                 where_data = _from_epl(args[2])
+                for k in where_data.keys():
+                    if not _IDENT_RE.match(k):
+                        raise EPLRuntimeError(f'Invalid column name: {k}', line)
                 where_cols = ' AND '.join(f'"{k}" = ?' for k in where_data.keys())
                 sql += f' WHERE {where_cols}'
                 params = list(where_data.values())
@@ -4659,6 +4718,9 @@ def call_stdlib(name, args, line):
             conn = _db_connections.get(conn_id)
             if not conn:
                 raise EPLRuntimeError(f'No DB connection: {conn_id}', line)
+            _IDENT_RE = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+            if not _IDENT_RE.match(table):
+                raise EPLRuntimeError(f'Invalid table name: {table}', line)
             rows = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
             return [
                 _to_epl_dict(
@@ -4738,10 +4800,18 @@ def call_stdlib(name, args, line):
         if name == 'exec_async':
             if not args:
                 raise EPLRuntimeError('exec_async(command) requires a command.', line)
-
-            cmd = str(args[0])
+            # Accept either a list of arguments [cmd, arg1, ...] or a single string
+            # (single-string form is parsed with shlex — NO shell, NO injection).
+            raw = _from_epl(args[0])
+            if isinstance(raw, (list, tuple)):
+                cmd_list = [str(x) for x in raw]
+            else:
+                import shlex as _shlex
+                cmd_list = _shlex.split(str(raw), posix=(_os.name != 'nt'))
+            if not cmd_list:
+                raise EPLRuntimeError('exec_async: empty command.', line)
             proc = _subprocess.Popen(
-                cmd, shell=True, stdout=_subprocess.PIPE, stderr=_subprocess.PIPE
+                cmd_list, shell=False, stdout=_subprocess.PIPE, stderr=_subprocess.PIPE
             )
             pid = f'proc_{_new_id()}'
             _async_processes[pid] = proc
@@ -5557,7 +5627,7 @@ def call_stdlib(name, args, line):
         #  WebServer (Flask-powered production web server)
         # ══════════════════════════════════════════════════
         if name.startswith('web_'):
-            return _call_web(name, args, line)
+            return _call_web(name, args, line, interpreter=interpreter)
 
         # ══════════════════════════════════════════════════
         #  Auth & JWT (Phase 3)
@@ -5683,7 +5753,7 @@ def _ensure_flask():
     return flask
 
 
-def _call_web(name, args, line):
+def _call_web(name, args, line, interpreter=None):
     """Dispatch web_* stdlib functions."""
     from epl.interpreter import EPLDict
 
@@ -5724,7 +5794,8 @@ def _call_web(name, args, line):
 
         handler = args[2] if len(args) > 2 else None
 
-        if handler is None or not callable(handler):
+        is_epl_func = hasattr(handler, '__class__') and handler.__class__.__name__ in ('FunctionDef', 'EPLLambda', 'AsyncFunctionDef')
+        if handler is None or not (callable(handler) or is_epl_func):
             raise EPLRuntimeError(
                 f'{name}(app_id, path, handler) requires a callable handler function.', line
             )
@@ -5735,13 +5806,21 @@ def _call_web(name, args, line):
 
         # Register with Flask
         flask = _ensure_flask()
-        if handler is not None and callable(handler):
+
+        # Capture interpreter reference for EPL function callbacks
+        _interp = interpreter
+        _global_env = getattr(interpreter, 'global_env', None) if interpreter else None
+
+        if handler is not None and (callable(handler) or is_epl_func):
             # EPL callback — wrap it, passing URL params as list
-            def make_view(h, m):
+            def make_view(h, m, is_epl, interp_ref, env_ref):
                 def view_func(**kwargs):
                     try:
-                        if kwargs:
-                            result = h(*list(kwargs.values()))
+                        url_args = list(kwargs.values())
+                        if is_epl and interp_ref and env_ref:
+                            result = interp_ref._call_callable(h, url_args, env_ref, line)
+                        elif kwargs:
+                            result = h(*url_args)
                         else:
                             result = h()
                         if isinstance(result, EPLDict):
@@ -5759,7 +5838,7 @@ def _call_web(name, args, line):
                 view_func.__name__ = f'epl_view_{_new_id()}'
                 return view_func
 
-            app.add_url_rule(path, view_func=make_view(handler, methods), methods=methods)
+            app.add_url_rule(path, view_func=make_view(handler, methods, is_epl_func, _interp, _global_env), methods=methods)
         return path
 
     if name == 'web_start':
@@ -5782,13 +5861,21 @@ def _call_web(name, args, line):
 
             def make_cors_handler(cfg):
                 def add_cors(response):
-                    response.headers['Access-Control-Allow-Origin'] = cfg.get('origin', '*')
+                    origin = cfg.get('origin', '*')
+                    # When using credentials, cannot use wildcard origin — echo request origin
+                    if origin == '*':
+                        flask = _ensure_flask()
+                        req_origin = flask.request.headers.get('Origin', '*')
+                        response.headers['Access-Control-Allow-Origin'] = req_origin if req_origin else '*'
+                    else:
+                        response.headers['Access-Control-Allow-Origin'] = origin
                     response.headers['Access-Control-Allow-Methods'] = cfg.get(
                         'methods', 'GET,POST,PUT,DELETE,OPTIONS'
                     )
                     response.headers['Access-Control-Allow-Headers'] = cfg.get(
                         'headers', 'Content-Type,Authorization'
                     )
+                    response.headers['Access-Control-Allow-Credentials'] = 'true'
                     return response
 
                 return add_cors
@@ -6530,6 +6617,7 @@ def _call_ws_server(name, args, line):
                     data = bytes(b ^ mask_key[i % 4] for i, b in enumerate(data))
                 return (opcode, data)
             except Exception:
+                _debug_suppressed('stdlib.py:6569')
                 return None
 
         def ws_send_frame(sock, data, opcode=1):
@@ -6583,6 +6671,7 @@ def _call_ws_server(name, args, line):
                     try:
                         handler(cid)
                     except Exception:
+                        _debug_suppressed('stdlib.py:6622')
                         pass
                 while server_data['running']:
                     result = ws_read_frame(client_sock)
@@ -6601,8 +6690,10 @@ def _call_ws_server(name, args, line):
                             try:
                                 handler(cid, msg)
                             except Exception:
+                                _debug_suppressed('stdlib.py:6640')
                                 pass
             except Exception:
+                _debug_suppressed('stdlib.py:6642')
                 pass
             finally:
                 handler = server_data['handlers'].get('on_disconnect')
@@ -6610,6 +6701,7 @@ def _call_ws_server(name, args, line):
                     try:
                         handler(cid)
                     except Exception:
+                        _debug_suppressed('stdlib.py:6649')
                         pass
                 for room_members in server_data['rooms'].values():
                     room_members.discard(cid)
@@ -6617,6 +6709,7 @@ def _call_ws_server(name, args, line):
                 try:
                     client_sock.close()
                 except Exception:
+                    _debug_suppressed('stdlib.py:6656')
                     pass
 
         def accept_loop(server_data):
@@ -6654,11 +6747,13 @@ def _call_ws_server(name, args, line):
             try:
                 srv['server'].close()
             except Exception:
+                _debug_suppressed('stdlib.py:6693')
                 pass
         for cid, client in list(srv['clients'].items()):
             try:
                 client['socket'].close()
             except Exception:
+                _debug_suppressed('stdlib.py:6698')
                 pass
         srv['clients'].clear()
         srv['rooms'].clear()
@@ -6713,6 +6808,7 @@ def _call_ws_server(name, args, line):
                 client['send'](msg)
                 count += 1
             except Exception:
+                _debug_suppressed('stdlib.py:6752')
                 pass
         return count
 
@@ -6775,6 +6871,7 @@ def _call_ws_server(name, args, line):
                     client['send'](msg)
                     count += 1
                 except Exception:
+                    _debug_suppressed('stdlib.py:6814')
                     pass
         return count
 
@@ -7523,6 +7620,7 @@ def _widget_belongs_to(widget, window):
                 return True
             w = w.master
     except Exception:
+        _debug_suppressed('stdlib.py:7562')
         pass
     return False
 
@@ -9808,11 +9906,13 @@ def _call_game(name, args, line):
             try:
                 pygame.mixer.stop()
             except Exception:
+                _debug_suppressed('stdlib.py:9847')
                 pass
             try:
                 pygame.display.quit()
                 pygame.display.init()
             except Exception:
+                _debug_suppressed('stdlib.py:9852')
                 pass
         return None
 
@@ -9984,6 +10084,7 @@ def _call_game(name, args, line):
                 pygame = _ensure_pygame()
                 pygame.mixer.stop()
             except Exception:
+                _debug_suppressed('stdlib.py:10023')
                 pass
             game.get('timers', {}).clear()
             # Clean up sprites belonging to this game
@@ -11157,6 +11258,7 @@ def _call_3d(name, args, line):
                 try:
                     on_update()
                 except Exception:
+                    _debug_suppressed('stdlib.py:11196')
                     pass
             # Render frame
             ctx = ctx_data['ctx']

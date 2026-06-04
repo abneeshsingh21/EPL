@@ -479,12 +479,12 @@ def _auto_register_to_index(
         body = e.read().decode('utf-8', errors='replace')[:200]
         print(f'  [error] GitHub API returned {e.code}: {body}')
         if e.code == 401:
-            print(f'  [info] Token may be invalid. Run "epl login" with a valid token.')
+            print('  [info] Token may be invalid. Run "epl login" with a valid token.')
         elif e.code == 404:
             print(f'  [info] Index repo not found. Check {INDEX_REPO} exists.')
     except urllib.error.URLError as e:
         print(f'  [error] Network error: {e.reason}')
-        print(f'  [info] Check your internet connection.')
+        print('  [info] Check your internet connection.')
     except Exception as e:
         print(f'  [warn] Auto-registration failed: {e}')
         print(f'  [info] You can manually register at https://github.com/{INDEX_REPO}')

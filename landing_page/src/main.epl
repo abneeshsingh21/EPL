@@ -1,0 +1,329 @@
+Note: EPL Premium Landing Page - Exact Implementation with Native Animations
+
+Style "global-reset"
+    Margin "0"
+    Padding "0"
+    BoxSizing "border-box"
+End
+
+Create WebApp called epl_landing
+
+Route "/" shows
+    Page "EPL - English Programming Language"
+        
+        Script
+            const fontLinks = document.createElement('link');
+            fontLinks.href = 'https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Instrument+Serif:ital@1&display=swap';
+            fontLinks.rel = 'stylesheet';
+            document.head.appendChild(fontLinks);
+
+            const style = document.createElement('style');
+            const meta1 = document.createElement('meta');
+            meta1.name = 'color-scheme';
+            meta1.content = 'dark';
+            document.head.appendChild(meta1);
+            const meta2 = document.createElement('meta');
+            meta2.name = 'darkreader-lock';
+            document.head.appendChild(meta2);
+            style.textContent = `
+                /* CSS RESETS to override default EPL styles */
+                :root { color-scheme: dark; }
+                body { background-color: #000000 !important; margin: 0; padding: 0; min-height: 100vh; overflow-x: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #F5F4E8; }
+                * { font-family: 'Almarai', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+                .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; width: 100%; }
+                p { margin: 0; max-width: 100%; }
+
+                /* Nav styling */
+                .navbar { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); background: #000000; padding: 12px 32px; border-radius: 999px; border: 1px solid #333; z-index: 50; display: flex; gap: 24px; }
+                .navbar a { color: rgba(225, 224, 204, 0.8) !important; text-decoration: none; font-size: 14px; transition: color 0.2s; background: none !important; box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }
+                .navbar a:hover { color: #E1E0CC !important; transform: none !important; background: none !important; }
+
+                /* Hero Container */
+                .hero-section { min-height: 100vh; padding: 24px; position: relative; }
+                .hero-inner { background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 50%, rgba(0,0,0,0.6) 100%); border-radius: 32px; height: calc(100vh - 48px); position: relative; overflow: hidden; display: flex; align-items: flex-end; }
+                
+                /* Hero Content Grid */
+                .hero-content { padding: 64px; width: 100%; position: relative; z-index: 10; display: grid; grid-template-columns: 8fr 4fr; gap: 40px; align-items: end; }
+                .hero-heading { font-size: clamp(6rem, 15vw, 15rem); font-weight: 500; line-height: 0.9; letter-spacing: -0.07em; color: #F5F4E8; margin: 0; }
+                .hero-asterisk { font-size: clamp(2rem, 5vw, 5rem); vertical-align: super; color: #F5F4E8; opacity: 0.9; }
+                .hero-desc { color: #F5F4E8 !important; font-size: clamp(1.2rem, 1.5vw, 1.5rem); line-height: 1.4; margin-bottom: 32px; font-weight: 300; -webkit-font-smoothing: antialiased; }
+
+                /* Custom CTA Pill */
+                .cta-wrap a { background: #DEDBC8 !important; color: #000000 !important; padding: 12px 32px !important; border-radius: 999px !important; display: inline-flex !important; align-items: center !important; gap: 16px !important; text-decoration: none !important; font-weight: bold !important; transition: all 0.3s ease !important; border: none !important; box-shadow: none !important; }
+                .cta-wrap a:hover { gap: 24px !important; transform: scale(1.05) !important; }
+                .cta-icon { background: #000000; color: #DEDBC8; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+                /* About Section */
+                .about-section { background: #000000; padding: 120px 24px; display: flex; justify-content: center; position: relative; }
+                .about-card { background: #101010; border-radius: 32px; max-width: 1200px; width: 100%; padding: 80px 40px; text-align: center; border: 1px solid #222; }
+                .about-label { color: #DEDBC8; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 32px; display: inline-block; }
+                .about-heading { font-size: clamp(2.5rem, 5vw, 4.5rem); line-height: 1.1; margin-bottom: 48px; color: #F5F4E8; }
+                .italic-serif { font-family: 'Instrument Serif', serif; font-style: italic; }
+                .about-body { color: #F5F4E8 !important; font-size: clamp(1.4rem, 2vw, 2rem); line-height: 1.6; max-width: 800px; margin: 0 auto; font-weight: 300; -webkit-font-smoothing: antialiased; }
+                
+                /* Character animation support */
+                .char-span { transition: opacity 0.2s ease, text-shadow 0.2s ease; opacity: 0.8; }
+                .char-span.active { opacity: 1; text-shadow: 0 0 12px rgba(245, 244, 232, 0.4); }
+
+                /* Features Section */
+                .features-section { background: #000000; min-height: 100vh; padding: 120px 24px; position: relative; }
+                .features-header { text-align: center; margin-bottom: 80px; position: relative; z-index: 10; }
+                .features-title { font-size: clamp(3rem, 6vw, 5rem); line-height: 1.1; margin: 0; color: #F5F4E8; }
+                .features-subtitle { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.1; margin: 16px 0 0 0; color: #E8E7D8 !important; font-weight: 300; -webkit-font-smoothing: antialiased; }
+                
+                .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; max-width: 1400px; margin: 0 auto; position: relative; z-index: 10; }
+                .feature-card { background: #212121; border-radius: 24px; padding: 40px; border: 1px solid #333; display: flex; flex-direction: column; transform: scale(0.95); opacity: 0; transition: all 0.6s cubic-bezier(0.16,1,0.3,1); }
+                .feature-card.visible { opacity: 1; transform: scale(1); }
+                .fc-icon { color: #F5F4E8; font-size: 24px; margin-bottom: 24px; display: inline-block; }
+                .fc-title { color: #F5F4E8; font-size: 20px; font-weight: bold; margin-bottom: 24px; }
+                .fc-list { color: #E8E7D8 !important; font-size: 16px; line-height: 2; margin-bottom: auto; -webkit-font-smoothing: antialiased; }
+                .fc-item { display: flex; align-items: center; }
+                .fc-check { color: #DEDBC8; margin-right: 8px; }
+                .fc-link a { color: #DEDBC8 !important; text-decoration: none !important; margin-top: 32px !important; font-size: 14px !important; font-weight: bold !important; background: none !important; border: none !important; padding: 0 !important; box-shadow: none !important; display: inline-block !important; }
+                
+                /* Native delay overrides for cards */
+                .delay-1 { transition-delay: 0.15s; }
+                .delay-2 { transition-delay: 0.3s; }
+                .delay-3 { transition-delay: 0.45s; }
+
+                /* Responsive */
+                @media (max-width: 1024px) {
+                    .hero-content { grid-template-columns: 1fr; gap: 24px; text-align: center; padding: 32px; }
+                    .features-grid { grid-template-columns: 1fr 1fr; }
+                }
+                @media (max-width: 768px) {
+                    .features-grid { grid-template-columns: 1fr; }
+                    .navbar { width: 90%; justify-content: center; flex-wrap: wrap; }
+                    .hero-heading { font-size: clamp(4rem, 10vw, 8rem); }
+                }
+            `;
+            document.head.appendChild(style);
+        End
+
+        Div class "hero-section"
+            Div class "hero-inner"
+                NoiseOverlay
+                
+                Div class "navbar"
+                    Link "Overview" to "#about"
+                    Link "Ecosystem" to "#features"
+                    Link "Playground" to "#"
+                    Link "Docs" to "#"
+                    Link "Connect" to "#"
+                End
+
+                Div class "hero-content"
+                    Div class "hero-left hero-heading"
+                        WordsPullUp "EPL" asterisk "true"
+                    End
+                    Div class "hero-right"
+                        Div class "hero-desc"
+                            WordsPullUp "EPL is an English Programming Language built to make coding feel more natural, readable, and AI-friendly while still staying practical for real software development."
+                        End
+                        Div class "cta-wrap"
+                            Link "Try EPL →" to "#"
+                        End
+                    End
+                End
+            End
+        End
+
+        Div class "about-section" id "about"
+            Div class "about-card"
+                Div class "about-label"
+                    Text "English-first coding"
+                End
+                
+                Div class "about-heading"
+                    WordsPullUpMultiStyle
+                        Segment "EPL is built for clarity, "
+                        Segment "a human-like coding experience. " style "italic-serif"
+                        Segment "and a long-term ecosystem for modern development."
+                    End
+                End
+
+                Div class "about-body scroll-text" id "scroll-text"
+                    Text "EPL is not just a syntax experiment. It is being shaped as a real ecosystem with a playground, documentation, installation support, editor integration, and a vision for making programming easier for both humans and AI."
+                End
+            End
+        End
+
+        Div class "features-section" id "features"
+            BgNoise
+            
+            Div class "features-header"
+                Div class "features-title"
+                    WordsPullUp "Built as a real language ecosystem."
+                End
+                Div class "features-subtitle"
+                    WordsPullUp "Made for humans, developers, and AI."
+                End
+            End
+
+            Div class "features-grid"
+                Div class "feature-card native-pull-up delay-0"
+                    Div class "fc-title"
+                        Text "Ecosystem"
+                    End
+                    Div class "fc-list"
+                        Text "A language with a future."
+                    End
+                End
+
+                Div class "feature-card native-pull-up delay-1"
+                    Div class "fc-icon"
+                        Text "Aa"
+                    End
+                    Div class "fc-title"
+                        Text "Plain-English Syntax. 01"
+                    End
+                    Div class "fc-list"
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "readable syntax"
+                            End
+                        End
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "natural language feel"
+                            End
+                        End
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "beginner-friendly structure"
+                            End
+                        End
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "AI-friendly direction"
+                            End
+                        End
+                    End
+                    Div class "fc-link"
+                        Link "Learn more ↗" to "#"
+                    End
+                End
+
+                Div class "feature-card native-pull-up delay-2"
+                    Div class "fc-icon"
+                        Text "{}"
+                    End
+                    Div class "fc-title"
+                        Text "EPL Playground. 02"
+                    End
+                    Div class "fc-list"
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "quick testing"
+                            End
+                        End
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "instant experimentation"
+                            End
+                        End
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "learning by doing"
+                            End
+                        End
+                    End
+                    Div class "fc-link"
+                        Link "Learn more ↗" to "#"
+                    End
+                End
+
+                Div class "feature-card native-pull-up delay-3"
+                    Div class "fc-icon"
+                        Text "/>"
+                    End
+                    Div class "fc-title"
+                        Text "VS Code + Install. 03"
+                    End
+                    Div class "fc-list"
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "VS Code extension support"
+                            End
+                        End
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "pip install eplang"
+                            End
+                        End
+                        Div class "fc-item"
+                            Span class "fc-check"
+                                Text "✓"
+                            End
+                            Span class "fc-text"
+                                Text "easy developer workflow"
+                            End
+                        End
+                    End
+                    Div class "fc-link"
+                        Link "Learn more ↗" to "#"
+                    End
+                End
+            End
+        End
+
+        Script
+            // Character animation setup (still using Script because it requires scroll calculation per rect)
+            setTimeout(() => {
+                const textContainer = document.getElementById('scroll-text');
+                if(textContainer) {
+                    const p = textContainer.querySelector('p') || textContainer;
+                    const chars = p.textContent.split('');
+                    p.innerHTML = '';
+                    chars.forEach(c => {
+                        const span = document.createElement('span');
+                        span.textContent = c;
+                        span.className = 'char-span';
+                        p.appendChild(span);
+                    });
+
+                    window.addEventListener('scroll', () => {
+                        const rect = textContainer.getBoundingClientRect();
+                        const viewHeight = window.innerHeight;
+                        if(rect.top < viewHeight && rect.bottom > 0) {
+                            const progress = 1 - (rect.bottom / (viewHeight + rect.height));
+                            const spans = textContainer.querySelectorAll('.char-span');
+                            const activeCount = Math.floor(progress * spans.length * 1.5);
+                            spans.forEach((span, i) => {
+                                if(i < activeCount) span.classList.add('active');
+                                else span.classList.remove('active');
+                            });
+                        }
+                    });
+                }
+            }, 100);
+        End
+    End
+End

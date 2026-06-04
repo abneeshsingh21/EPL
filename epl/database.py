@@ -388,7 +388,10 @@ class QueryBuilder:
 
     def __init__(self, db: 'Database', table: str):
         self._db = db
-        self._table = table
+        # Validate the table name up front — injection attempts shouldn't even
+        # build a QueryBuilder.
+        self._table_raw = table
+        self._table = _quote_identifier(table)
         self._select_cols = ['*']
         self._where_clauses: List[Tuple[str, Any]] = []
         self._order_by: List[str] = []
@@ -399,68 +402,86 @@ class QueryBuilder:
         self._having: Optional[str] = None
 
     def select(self, *columns) -> 'QueryBuilder':
-        self._select_cols = list(columns) if columns else ['*']
+        if not columns:
+            self._select_cols = ['*']
+        else:
+            self._select_cols = [
+                '*' if c == '*' else _quote_identifier(c) for c in columns
+            ]
         return self
 
     def where(self, condition: str, value: Any = None) -> 'QueryBuilder':
+        # raw `where()` accepts arbitrary fragments by design; reserve it for
+        # trusted callers and prefer the typed where_* helpers below.
         self._where_clauses.append((condition, value))
         return self
 
     def where_eq(self, column: str, value: Any) -> 'QueryBuilder':
-        self._where_clauses.append((f'{column} = ?', value))
+        self._where_clauses.append((f'{_quote_identifier(column)} = ?', value))
         return self
 
     def where_like(self, column: str, pattern: str) -> 'QueryBuilder':
-        self._where_clauses.append((f'{column} LIKE ?', pattern))
+        self._where_clauses.append((f'{_quote_identifier(column)} LIKE ?', pattern))
         return self
 
     def where_in(self, column: str, values: list) -> 'QueryBuilder':
+        if not values:
+            # `IN ()` is a SQL syntax error; degenerate case → always false.
+            self._where_clauses.append(('1 = 0', None))
+            return self
         placeholders = ','.join(['?' for _ in values])
-        self._where_clauses.append((f'{column} IN ({placeholders})', values))
+        self._where_clauses.append(
+            (f'{_quote_identifier(column)} IN ({placeholders})', values)
+        )
         return self
 
     def where_gt(self, column: str, value: Any) -> 'QueryBuilder':
-        self._where_clauses.append((f'{column} > ?', value))
+        self._where_clauses.append((f'{_quote_identifier(column)} > ?', value))
         return self
 
     def where_lt(self, column: str, value: Any) -> 'QueryBuilder':
-        self._where_clauses.append((f'{column} < ?', value))
+        self._where_clauses.append((f'{_quote_identifier(column)} < ?', value))
         return self
 
     def where_between(self, column: str, low: Any, high: Any) -> 'QueryBuilder':
-        self._where_clauses.append((f'{column} BETWEEN ? AND ?', (low, high)))
+        self._where_clauses.append(
+            (f'{_quote_identifier(column)} BETWEEN ? AND ?', (low, high))
+        )
         return self
 
     def where_null(self, column: str) -> 'QueryBuilder':
-        self._where_clauses.append((f'{column} IS NULL', None))
+        self._where_clauses.append((f'{_quote_identifier(column)} IS NULL', None))
         return self
 
     def where_not_null(self, column: str) -> 'QueryBuilder':
-        self._where_clauses.append((f'{column} IS NOT NULL', None))
+        self._where_clauses.append((f'{_quote_identifier(column)} IS NOT NULL', None))
         return self
 
     def order_by(self, column: str, direction: str = 'ASC') -> 'QueryBuilder':
-        self._order_by.append(f'{column} {direction}')
+        dir_upper = str(direction).strip().upper()
+        if dir_upper not in ('ASC', 'DESC'):
+            raise ValueError(f'Invalid ORDER BY direction: {direction!r}')
+        self._order_by.append(f'{_quote_identifier(column)} {dir_upper}')
         return self
 
     def limit(self, n: int) -> 'QueryBuilder':
-        self._limit_val = n
+        self._limit_val = int(n)  # int() forces sane SQL — no string injection
         return self
 
     def offset(self, n: int) -> 'QueryBuilder':
-        self._offset_val = n
+        self._offset_val = int(n)
         return self
 
     def join(self, table: str, on: str) -> 'QueryBuilder':
-        self._join_clauses.append(f'JOIN {table} ON {on}')
+        self._join_clauses.append(f'JOIN {_quote_identifier(table)} ON {on}')
         return self
 
     def left_join(self, table: str, on: str) -> 'QueryBuilder':
-        self._join_clauses.append(f'LEFT JOIN {table} ON {on}')
+        self._join_clauses.append(f'LEFT JOIN {_quote_identifier(table)} ON {on}')
         return self
 
     def group_by(self, *columns) -> 'QueryBuilder':
-        self._group_by.extend(columns)
+        self._group_by.extend(_quote_identifier(c) for c in columns)
         return self
 
     def having(self, condition: str) -> 'QueryBuilder':

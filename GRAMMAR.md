@@ -1,6 +1,6 @@
-# EPL Formal Grammar Specification v5.0
+# EPL Formal Grammar Specification v7.6
 
-This document defines the complete formal grammar for the EPL (English Programming Language) v5.0.
+This document defines the complete formal grammar for the EPL (English Programming Language) v7.6.
 The notation uses Extended Backus–Naur Form (EBNF) with the following conventions:
 
 - `"keyword"` — literal keyword (case-insensitive)

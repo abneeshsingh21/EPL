@@ -1,5 +1,5 @@
 """
-EPL Type System v4.0
+EPL Type System v7.6
 Production-grade static type checking with:
   - Type annotations for variables, function params/returns
   - Interface definitions with required method signatures

@@ -1,0 +1,55 @@
+Note: EPL Algo Package — Usage Examples
+Use "epl-algo"
+
+Note: --- Sorting ---
+Create data equal to [64, 34, 25, 12, 22, 11, 90]
+Print "Original:"
+Print data
+
+Print "Merge sort:"
+Print merge_sort(data)
+
+Print "Quick sort:"
+Print quick_sort(data)
+
+Print "Heap sort:"
+Print heap_sort(data)
+
+Note: --- Searching ---
+Create sorted_data equal to [2, 5, 8, 12, 16, 23, 38, 56, 72, 91]
+Print "Binary search for 23:"
+Print binary_search(sorted_data, 23)
+
+Print "Insert point for 15:"
+Print binary_search_insert_point(sorted_data, 15)
+
+Note: --- Graph ---
+Create g equal to create_graph()
+Set g to add_vertex(g, "A")
+Set g to add_vertex(g, "B")
+Set g to add_vertex(g, "C")
+Set g to add_vertex(g, "D")
+Set g to add_edge(g, "A", "B", 4)
+Set g to add_edge(g, "A", "C", 2)
+Set g to add_edge(g, "B", "D", 3)
+Set g to add_edge(g, "C", "B", 1)
+Set g to add_edge(g, "C", "D", 5)
+
+Print "BFS from A:"
+Print bfs(g, "A")
+
+Print "DFS from A:"
+Print dfs(g, "A")
+
+Print "Dijkstra A->D:"
+Print dijkstra(g, "A", "D")
+
+Note: --- Dynamic Programming ---
+Print "LIS of [10,9,2,5,3,7,101,18]:"
+Print longest_increasing_subsequence([10, 9, 2, 5, 3, 7, 101, 18])
+
+Print "Coin change [1,5,10] for 27:"
+Print coin_change([1, 5, 10], 27)
+
+Print "Max subarray sum:"
+Print max_subarray_sum([-2, 1, -3, 4, -1, 2, 1, -5, 4])

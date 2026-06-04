@@ -1,0 +1,219 @@
+Note: ═══════════════════════════════════════════════════════
+Note:  EPL Student Grade Manager
+Note:  A complete classroom tool with OOP, analytics, and charts
+Note: ═══════════════════════════════════════════════════════
+
+Note: === Define the Student class ===
+
+Class Student
+    name = ""
+    grades = []
+    
+    Function average
+        If length(grades) == 0 then
+            Return 0
+        End
+        Create sum equal to 0
+        For each g in grades
+            Increase sum by g
+        End
+        Return round(sum / length(grades))
+    End
+    
+    Function highest
+        Create best equal to 0
+        For each g in grades
+            If g > best then
+                Set best to g
+            End
+        End
+        Return best
+    End
+    
+    Function lowest
+        Create worst equal to 100
+        For each g in grades
+            If g < worst then
+                Set worst to g
+            End
+        End
+        Return worst
+    End
+    
+    Function letter_grade
+        Create avg equal to this.average()
+        If avg is at least 90 then
+            Return "A"
+        Otherwise If avg is at least 80 then
+            Return "B"
+        Otherwise If avg is at least 70 then
+            Return "C"
+        Otherwise If avg is at least 60 then
+            Return "D"
+        Else
+            Return "F"
+        End
+    End
+    
+    Function status
+        Create avg equal to this.average()
+        If avg is at least 70 then
+            Return "Passing"
+        Else
+            Return "At Risk"
+        End
+    End
+End
+
+Note: === Create our classroom ===
+
+Create alice equal to new Student
+alice.name = "Alice Johnson"
+alice.grades = [95, 88, 92, 97, 90]
+
+Create bob equal to new Student
+bob.name = "Bob Smith"
+bob.grades = [72, 68, 75, 80, 65]
+
+Create charlie equal to new Student
+charlie.name = "Charlie Brown"
+charlie.grades = [85, 90, 78, 88, 82]
+
+Create diana equal to new Student
+diana.name = "Diana Prince"
+diana.grades = [98, 95, 100, 92, 99]
+
+Create evan equal to new Student
+evan.name = "Evan Williams"
+evan.grades = [55, 62, 58, 70, 45]
+
+Create students equal to [alice, bob, charlie, diana, evan]
+
+Note: === Generate the Report ===
+
+Say "============================================================"
+Say "         Student Grade Report                               "
+Say "         Computer Science 101 - Fall 2026                   "
+Say "============================================================"
+Say ""
+
+Note: --- Individual Student Reports ---
+
+Say "---- Student Details ----"
+Say ""
+
+For each student in students
+    Create avg equal to student.average()
+    Create letter equal to student.letter_grade()
+    Create hi equal to student.highest()
+    Create lo equal to student.lowest()
+    Create pass_status equal to student.status()
+    
+    Say "  " + student.name
+    Say "   Grades: " + student.grades
+    Say "   Average: " + avg + " | Letter: " + letter + " | " + pass_status
+    Say "   Best: " + hi + " | Worst: " + lo + " | Range: " + (hi - lo)
+    Say ""
+End
+
+Note: === Class Statistics ===
+
+Say "---- Class Statistics ----"
+Say ""
+
+Create class_total equal to 0
+Create highest_avg equal to 0
+Create lowest_avg equal to 100
+Create top_student equal to ""
+Create struggling_student equal to ""
+Create passing_count equal to 0
+Create honor_roll_count equal to 0
+
+For each student in students
+    Create avg equal to student.average()
+    Increase class_total by avg
+    
+    If avg > highest_avg then
+        Set highest_avg to avg
+        Set top_student to student.name
+    End
+    
+    If avg < lowest_avg then
+        Set lowest_avg to avg
+        Set struggling_student to student.name
+    End
+    
+    If avg is at least 70 then
+        Increase passing_count by 1
+    End
+    
+    If avg is at least 90 then
+        Increase honor_roll_count by 1
+    End
+End
+
+Create class_average equal to round(class_total / length(students))
+Create pass_rate equal to round((passing_count / length(students)) * 100)
+
+Say "  Class Average: " + class_average
+Say "  Top Student: " + top_student + " (" + highest_avg + ")"
+Say "  Needs Help: " + struggling_student + " (" + lowest_avg + ")"
+Say "  Pass Rate: " + pass_rate + "% (" + passing_count + " of " + length(students) + ")"
+Say "  Honor Roll: " + honor_roll_count + " student(s)"
+
+Note: === Grade Distribution ===
+
+Say ""
+Say "---- Grade Distribution ----"
+Say ""
+
+Create count_a equal to 0
+Create count_b equal to 0
+Create count_c equal to 0
+Create count_d equal to 0
+Create count_f equal to 0
+
+For each student in students
+    Create letter equal to student.letter_grade()
+    If letter equals "A" then
+        Increase count_a by 1
+    Otherwise If letter equals "B" then
+        Increase count_b by 1
+    Otherwise If letter equals "C" then
+        Increase count_c by 1
+    Otherwise If letter equals "D" then
+        Increase count_d by 1
+    Else
+        Increase count_f by 1
+    End
+End
+
+Say "  A: " + count_a + " ######"
+Say "  B: " + count_b + " ###"
+Say "  C: " + count_c + " ###"
+Say "  D: " + count_d + " ###"
+Say "  F: " + count_f + " ###"
+
+Note: === Teacher Recommendations ===
+
+Say ""
+Say "---- Teacher Recommendations ----"
+Say ""
+
+For each student in students
+    Create avg equal to student.average()
+    If avg < 70 then
+        Say "  [!] " + student.name + " (avg " + avg + ") - Schedule parent-teacher conference"
+    Otherwise If avg is between 70 and 79 then
+        Say "  [*] " + student.name + " (avg " + avg + ") - Assign extra practice problems"
+    Otherwise If avg is at least 90 then
+        Say "  [+] " + student.name + " (avg " + avg + ") - Candidate for advanced placement"
+    Else
+        Say "  [=] " + student.name + " (avg " + avg + ") - On track, keep it up"
+    End
+End
+
+Say ""
+Say "============================================================"
+Say "  Report generated by EPL Grade Manager                     "
+Say "============================================================"

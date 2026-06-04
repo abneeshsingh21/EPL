@@ -1,0 +1,61 @@
+Note: EPL DateTime Package — Usage Examples
+Use "epl-datetime"
+
+Note: --- Core ---
+Create today equal to create_date(2026, 5, 13)
+Print "Today:"
+Print today
+
+Print "Is 2024 a leap year?"
+Print is_leap_year(2024)
+
+Print "Days in February 2024:"
+Print days_in_month(2024, 2)
+
+Print "Is valid date 2023-02-29?"
+Print is_valid_date(2023, 2, 29)
+
+Note: --- Day of Week ---
+Print "Day of week for 2026-05-13:"
+Print day_of_week_name(2026, 5, 13)
+
+Print "Day of year:"
+Print day_of_year(2026, 5, 13)
+
+Note: --- Arithmetic ---
+Print "Add 30 days to today:"
+Print add_days(today, 30)
+
+Print "Subtract 100 days:"
+Print subtract_days(today, 100)
+
+Print "Add 3 months:"
+Print add_months(today, 3)
+
+Create christmas equal to create_date(2026, 12, 25)
+Print "Days until Christmas:"
+Print days_between(today, christmas)
+
+Note: --- Formatting ---
+Print format_date(today, "DD/MM/YYYY")
+Print format_date(today, "YYYY-MM-DD")
+
+Print "Month name:"
+Print month_name(5)
+
+Create past equal to create_date(2026, 4, 1)
+Print "Relative:"
+Print format_relative(past, today)
+
+Note: --- Calendar ---
+Print "May 2026 calendar:"
+Print generate_calendar(2026, 5)
+
+Note: --- Business Days ---
+Create start equal to create_date(2026, 5, 1)
+Create end_d equal to create_date(2026, 5, 31)
+Print "Business days in May 2026:"
+Print business_days_between(start, end_d)
+
+Print "Quarter:"
+Print quarter_of(today)

@@ -1,30 +1,58 @@
+<div align="center">
+
 # Contributors
 
-Thank you to everyone who has contributed to EPL! 🎉
+Thank you to everyone who has contributed to **EPL — English Programming Language**! 🎉
 
-> This file lists all contributors to the EPL project.
-> To add yourself, open a PR editing this file.
+Every contribution, whether code, documentation, testing, or design, makes EPL better.
+
+</div>
+
+---
 
 ## Core Team
 
-| Contributor | Role |
-|-------------|------|
-| EPL Team | Creator & Maintainer |
+| Contributor | GitHub | Role |
+|:-----------:|--------|------|
+| **Abneesh Singh** | [@abneeshsingh21](https://github.com/abneeshsingh21) | Creator & Lead Maintainer |
 
 ---
 
-## Community Contributors
+## Contributors
 
-*Be the first community contributor! Check [good first issues](https://github.com/epl-lang/epl/issues?q=label%3A%22good+first+issue%22) to get started.*
+| Contributor | GitHub | Contributions |
+|:-----------:|--------|---------------|
+| **Koushal** | [@imkoushal](https://github.com/imkoushal) | AI Error Explainer (`epl fix`), 27-pattern analysis engine, foreign keyword detection (PR #3) |
+| **Divesh** | [@D1v3shh](https://github.com/D1v3shh) | AWS Cloud Backend — S3, Lambda, SQS integration with lazy-loaded boto3 (PR #4) |
 
 ---
 
-## How to Contribute
+## How to Become a Contributor
 
-1. Fork the repository
-2. Create a branch: `git checkout -b my-feature`
-3. Make your changes and add tests
-4. Run the test suite: `epl test tests/`
-5. Submit a pull request
+1. **Find an issue** — Check [good first issues](https://github.com/abneeshsingh21/EPL/issues?q=label%3A%22good+first+issue%22) to get started
+2. **Fork & branch** — `git checkout -b feature/my-contribution`
+3. **Make your changes** — Write code, add tests, update docs
+4. **Submit a PR** — Follow the [Contributing Guide](CONTRIBUTING.md)
+5. **Get credited** — Once merged, you'll be added to this file!
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
+### Contribution Types We Recognize
+
+| Type | Description |
+|------|-------------|
+| 💻 **Code** | Features, bug fixes, performance improvements |
+| 📖 **Documentation** | Guides, tutorials, API reference |
+| 🧪 **Testing** | Test coverage, CI/CD improvements |
+| 🐛 **Bug Reports** | Well-documented issue reports |
+| 💡 **Ideas** | Feature proposals and architecture discussions |
+| 🌍 **Translation** | i18n error messages and documentation |
+| 📦 **Packages** | Official or community EPL packages |
+
+---
+
+<div align="center">
+
+**Want to contribute?** Read the [Contributing Guide](CONTRIBUTING.md) to get started.
+
+*This file is maintained by the core team. Contributors are added after their first PR is merged.*
+
+</div>

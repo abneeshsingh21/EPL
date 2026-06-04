@@ -1284,10 +1284,7 @@ def main():
         '_ensure_flask has auto-install docstring',
         lambda: (
             'auto-install'
-            in (
-                __import__('epl.stdlib', fromlist=['_ensure_flask'])._ensure_flask.__doc__
-                or ''
-            )
+            in (__import__('epl.stdlib', fromlist=['_ensure_flask'])._ensure_flask.__doc__ or '')
         ),
     )
 
@@ -1296,10 +1293,7 @@ def main():
         '_ensure_toga has auto-install docstring',
         lambda: (
             'auto-install'
-            in (
-                __import__('epl.stdlib', fromlist=['_ensure_toga'])._ensure_toga.__doc__
-                or ''
-            )
+            in (__import__('epl.stdlib', fromlist=['_ensure_toga'])._ensure_toga.__doc__ or '')
         ),
     )
 
@@ -1449,7 +1443,9 @@ def main():
     def _test_android_project_generation():
         import shutil
 
-        gen = __import__('epl.stdlib', fromlist=['_generate_android_project'])._generate_android_project
+        gen = __import__(
+            'epl.stdlib', fromlist=['_generate_android_project']
+        )._generate_android_project
         stdlib = __import__('epl.stdlib', fromlist=['_mobile_apps', '_mobile_widget_meta'])
         old_apps = dict(stdlib._mobile_apps)
         old_meta = dict(stdlib._mobile_widget_meta)
@@ -1530,7 +1526,9 @@ def main():
     def _test_android_project_screens():
         import shutil
 
-        gen = __import__('epl.stdlib', fromlist=['_generate_android_project'])._generate_android_project
+        gen = __import__(
+            'epl.stdlib', fromlist=['_generate_android_project']
+        )._generate_android_project
         stdlib = __import__('epl.stdlib', fromlist=['_mobile_apps', '_mobile_widget_meta'])
         old_apps = dict(stdlib._mobile_apps)
         old_meta = dict(stdlib._mobile_widget_meta)

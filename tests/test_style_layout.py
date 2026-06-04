@@ -11,12 +11,11 @@ Tests parser, HTML generation, and JS transpilation of:
 """
 
 import pytest
-
+from epl import ast_nodes as ast
+from epl.html_gen import _generate_animation_css, _generate_custom_css, generate_html
+from epl.js_transpiler import transpile_to_js
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl import ast_nodes as ast
-from epl.html_gen import generate_html, _generate_custom_css, _generate_animation_css
-from epl.js_transpiler import transpile_to_js
 
 
 def _parse(code):
@@ -41,7 +40,9 @@ class TestStyleDefParsing:
         assert style.properties[0].value == '#fff'
 
     def test_multi_word_property(self):
-        prog = _parse('Style "box"\n    Border radius "12px"\n    Box shadow "0 2px 8px rgba(0,0,0,0.1)"\nEnd\n')
+        prog = _parse(
+            'Style "box"\n    Border radius "12px"\n    Box shadow "0 2px 8px rgba(0,0,0,0.1)"\nEnd\n'
+        )
         style = prog.statements[0]
         assert style.properties[0].property_name == 'border-radius'
         assert style.properties[0].value == '12px'
@@ -145,7 +146,9 @@ class TestLayoutContainerParsing:
         assert layout.properties['gap'] == '24px'
 
     def test_flex_with_align(self):
-        prog = _parse('Flex direction "column" align "center" justify "space-between"\n    Say "a"\nEnd\n')
+        prog = _parse(
+            'Flex direction "column" align "center" justify "space-between"\n    Say "a"\nEnd\n'
+        )
         layout = prog.statements[0]
         assert layout.properties['align'] == 'center'
         assert layout.properties['justify'] == 'space-between'
@@ -154,10 +157,7 @@ class TestLayoutContainerParsing:
 class TestComponentDefParsing:
     def test_component_basic(self):
         prog = _parse(
-            'Component "Card" takes title, description\n'
-            '    Say title\n'
-            '    Say description\n'
-            'End\n'
+            'Component "Card" takes title, description\n    Say title\n    Say description\nEnd\n'
         )
         comp = prog.statements[0]
         assert isinstance(comp, ast.ComponentDef)
@@ -166,11 +166,7 @@ class TestComponentDefParsing:
         assert len(comp.body) == 2
 
     def test_component_no_params(self):
-        prog = _parse(
-            'Component "Footer"\n'
-            '    Say "Built with EPL"\n'
-            'End\n'
-        )
+        prog = _parse('Component "Footer"\n    Say "Built with EPL"\nEnd\n')
         comp = prog.statements[0]
         assert comp.name == 'Footer'
         assert comp.params == []
@@ -241,11 +237,14 @@ class TestTransitionDefParsing:
 class TestCustomCSSGeneration:
     def test_generate_css_from_style_def(self):
         styles = [
-            ast.StyleDef('card', [
-                ast.StyleProperty('background', '#ffffff'),
-                ast.StyleProperty('border-radius', '12px'),
-                ast.StyleProperty('padding', '24px'),
-            ]),
+            ast.StyleDef(
+                'card',
+                [
+                    ast.StyleProperty('background', '#ffffff'),
+                    ast.StyleProperty('border-radius', '12px'),
+                    ast.StyleProperty('padding', '24px'),
+                ],
+            ),
         ]
         css = _generate_custom_css(styles)
         assert '.card {' in css
@@ -266,10 +265,16 @@ class TestCustomCSSGeneration:
 class TestAnimationCSSGeneration:
     def test_keyframes_generation(self):
         animations = [
-            ast.AnimateDef('fadeIn', '1s', 'ease-out', None, [
-                ast.KeyframeDef(0, [ast.StyleProperty('opacity', '0')]),
-                ast.KeyframeDef(100, [ast.StyleProperty('opacity', '1')]),
-            ]),
+            ast.AnimateDef(
+                'fadeIn',
+                '1s',
+                'ease-out',
+                None,
+                [
+                    ast.KeyframeDef(0, [ast.StyleProperty('opacity', '0')]),
+                    ast.KeyframeDef(100, [ast.StyleProperty('opacity', '1')]),
+                ],
+            ),
         ]
         css = _generate_animation_css(animations)
         assert '@keyframes fadeIn' in css
@@ -283,45 +288,87 @@ class TestAnimationCSSGeneration:
 
 class TestStyledElementHTMLRendering:
     def test_div_renders(self):
-        page = ast.PageDef('Test', [
-            ast.StyledElement('div', ['card'], [], {}, [
-                ast.HtmlElement('heading', 'Hello', {}, [], 0),
-            ], [], 0),
-        ], 0)
+        page = ast.PageDef(
+            'Test',
+            [
+                ast.StyledElement(
+                    'div',
+                    ['card'],
+                    [],
+                    {},
+                    [
+                        ast.HtmlElement('heading', 'Hello', {}, [], 0),
+                    ],
+                    [],
+                    0,
+                ),
+            ],
+            0,
+        )
         html = generate_html(page)
         assert '<div class="card">' in html
         assert '<h1>Hello</h1>' in html
         assert '</div>' in html
 
     def test_section_with_id(self):
-        page = ast.PageDef('Test', [
-            ast.StyledElement('section', [], [], {'id': 'hero'}, [
-                ast.HtmlElement('text', 'Welcome', {}, [], 0),
-            ], [], 0),
-        ], 0)
+        page = ast.PageDef(
+            'Test',
+            [
+                ast.StyledElement(
+                    'section',
+                    [],
+                    [],
+                    {'id': 'hero'},
+                    [
+                        ast.HtmlElement('text', 'Welcome', {}, [], 0),
+                    ],
+                    [],
+                    0,
+                ),
+            ],
+            0,
+        )
         html = generate_html(page)
         assert '<section id="hero">' in html
 
 
 class TestLayoutContainerHTMLRendering:
     def test_flex_container(self):
-        page = ast.PageDef('Test', [
-            ast.LayoutContainer('flex', {'direction': 'row', 'gap': '16px'}, [
-                ast.HtmlElement('text', 'Item 1', {}, [], 0),
-                ast.HtmlElement('text', 'Item 2', {}, [], 0),
-            ], 0),
-        ], 0)
+        page = ast.PageDef(
+            'Test',
+            [
+                ast.LayoutContainer(
+                    'flex',
+                    {'direction': 'row', 'gap': '16px'},
+                    [
+                        ast.HtmlElement('text', 'Item 1', {}, [], 0),
+                        ast.HtmlElement('text', 'Item 2', {}, [], 0),
+                    ],
+                    0,
+                ),
+            ],
+            0,
+        )
         html = generate_html(page)
         assert 'display: flex' in html
         assert 'flex-direction: row' in html
         assert 'gap: 16px' in html
 
     def test_grid_container(self):
-        page = ast.PageDef('Test', [
-            ast.LayoutContainer('grid', {'columns': 3, 'gap': '24px'}, [
-                ast.HtmlElement('text', 'Grid item', {}, [], 0),
-            ], 0),
-        ], 0)
+        page = ast.PageDef(
+            'Test',
+            [
+                ast.LayoutContainer(
+                    'grid',
+                    {'columns': 3, 'gap': '24px'},
+                    [
+                        ast.HtmlElement('text', 'Grid item', {}, [], 0),
+                    ],
+                    0,
+                ),
+            ],
+            0,
+        )
         html = generate_html(page)
         assert 'display: grid' in html
         assert 'grid-template-columns: repeat(3, 1fr)' in html
@@ -372,12 +419,24 @@ class TestFullPipeline:
             'End\n'
         )
         styles = [s for s in prog.statements if isinstance(s, ast.StyleDef)]
-        page = ast.PageDef('Test', [
-            ast.StyledElement('div', ['card'], [], {}, [
-                ast.HtmlElement('heading', 'Product', {}, [], 0),
-                ast.HtmlElement('text', '$9.99', {}, [], 0),
-            ], [], 0),
-        ], 0)
+        page = ast.PageDef(
+            'Test',
+            [
+                ast.StyledElement(
+                    'div',
+                    ['card'],
+                    [],
+                    {},
+                    [
+                        ast.HtmlElement('heading', 'Product', {}, [], 0),
+                        ast.HtmlElement('text', '$9.99', {}, [], 0),
+                    ],
+                    [],
+                    0,
+                ),
+            ],
+            0,
+        )
         html = generate_html(page, styles=styles)
         assert '.card {' in html
         assert 'background: #ffffff;' in html
@@ -387,16 +446,34 @@ class TestFullPipeline:
     def test_animation_with_styled_element(self):
         """Animation CSS class applied to a styled element."""
         animations = [
-            ast.AnimateDef('slideUp', '0.5s', 'ease', None, [
-                ast.KeyframeDef(0, [ast.StyleProperty('transform', 'translateY(20px)')]),
-                ast.KeyframeDef(100, [ast.StyleProperty('transform', 'translateY(0)')]),
-            ]),
+            ast.AnimateDef(
+                'slideUp',
+                '0.5s',
+                'ease',
+                None,
+                [
+                    ast.KeyframeDef(0, [ast.StyleProperty('transform', 'translateY(20px)')]),
+                    ast.KeyframeDef(100, [ast.StyleProperty('transform', 'translateY(0)')]),
+                ],
+            ),
         ]
-        page = ast.PageDef('Test', [
-            ast.StyledElement('div', ['card'], [], {'data-animate': 'slideUp'}, [
-                ast.HtmlElement('text', 'Animated', {}, [], 0),
-            ], [], 0),
-        ], 0)
+        page = ast.PageDef(
+            'Test',
+            [
+                ast.StyledElement(
+                    'div',
+                    ['card'],
+                    [],
+                    {'data-animate': 'slideUp'},
+                    [
+                        ast.HtmlElement('text', 'Animated', {}, [], 0),
+                    ],
+                    [],
+                    0,
+                ),
+            ],
+            0,
+        )
         html = generate_html(page, animations=animations)
         assert '@keyframes slideUp' in html
         assert '.animate-slideUp' in html
@@ -405,6 +482,7 @@ class TestFullPipeline:
     def test_interpreter_handles_new_nodes(self):
         """Interpreter should not crash on new v6.0 nodes."""
         from epl.interpreter import Interpreter
+
         prog = _parse(
             'Style "card"\n'
             '    Background "#fff"\n'
@@ -467,22 +545,55 @@ class TestFullPipeline:
         styles = [s for s in prog.statements if isinstance(s, ast.StyleDef)]
         animations = [s for s in prog.statements if isinstance(s, ast.AnimateDef)]
 
-        page = ast.PageDef('E-Commerce', [
-            ast.StyledElement('nav', ['navbar'], [], {}, [
-                ast.HtmlElement('link', 'Home', {'href': '/'}, [], 0),
-                ast.HtmlElement('link', 'Shop', {'href': '/shop'}, [], 0),
-            ], [], 0),
-            ast.LayoutContainer('grid', {'columns': 3, 'gap': '20px'}, [
-                ast.StyledElement('div', ['product-card'], [], {'data-animate': 'fadeIn'}, [
-                    ast.HtmlElement('heading', 'Widget', {}, [], 0),
-                    ast.HtmlElement('text', '$9.99', {}, [], 0),
-                ], [], 0),
-                ast.StyledElement('div', ['product-card'], [], {'data-animate': 'fadeIn'}, [
-                    ast.HtmlElement('heading', 'Gadget', {}, [], 0),
-                    ast.HtmlElement('text', '$19.99', {}, [], 0),
-                ], [], 0),
-            ], 0),
-        ], 0)
+        page = ast.PageDef(
+            'E-Commerce',
+            [
+                ast.StyledElement(
+                    'nav',
+                    ['navbar'],
+                    [],
+                    {},
+                    [
+                        ast.HtmlElement('link', 'Home', {'href': '/'}, [], 0),
+                        ast.HtmlElement('link', 'Shop', {'href': '/shop'}, [], 0),
+                    ],
+                    [],
+                    0,
+                ),
+                ast.LayoutContainer(
+                    'grid',
+                    {'columns': 3, 'gap': '20px'},
+                    [
+                        ast.StyledElement(
+                            'div',
+                            ['product-card'],
+                            [],
+                            {'data-animate': 'fadeIn'},
+                            [
+                                ast.HtmlElement('heading', 'Widget', {}, [], 0),
+                                ast.HtmlElement('text', '$9.99', {}, [], 0),
+                            ],
+                            [],
+                            0,
+                        ),
+                        ast.StyledElement(
+                            'div',
+                            ['product-card'],
+                            [],
+                            {'data-animate': 'fadeIn'},
+                            [
+                                ast.HtmlElement('heading', 'Gadget', {}, [], 0),
+                                ast.HtmlElement('text', '$19.99', {}, [], 0),
+                            ],
+                            [],
+                            0,
+                        ),
+                    ],
+                    0,
+                ),
+            ],
+            0,
+        )
 
         html = generate_html(page, styles=styles, animations=animations)
         assert '.navbar {' in html

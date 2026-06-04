@@ -47,6 +47,7 @@ if _EPL_ROOT not in sys.path:
     sys.path.insert(0, _EPL_ROOT)
 
 from epl import __version__
+from epl._debug_log import suppressed as _debug_suppressed
 
 # ─── ANSI Colors ──────────────────────────────────────────
 
@@ -114,6 +115,18 @@ HELP = f"""\
   epl build <file.epl>             Compile to native executable (.exe)
   epl wasm <file.epl>              Compile to WebAssembly (.wasm)
   epl test [dir|file]              Run EPL test suite
+                                   --filter=PATTERN  Run only matching tests
+                                   --fail-fast / -x  Stop on first failure
+                                   --timeout=SECS    Per-test time limit
+                                   --coverage        Show code coverage report
+                                   --junit-xml=FILE  Write JUnit XML report
+                                   --quiet / -q      Minimal output (progress dots)
+  epl watch <file|dir>               Watch files and re-run on changes
+                                   --test            Re-run tests instead of program
+                                   --clear           Clear screen before each re-run
+                                   --debounce=MS     Set debounce interval (default: 300)
+                                   --timeout=SECS    Per-run timeout (default: none — long-running
+                                                     servers/bots are not killed; pass a number to cap)
   epl repl                         Start interactive REPL
   epl use [--frozen] [package]     Install project deps or a package
   epl install [--frozen] [package] Alias for 'epl use'
@@ -170,6 +183,8 @@ HELP = f"""\
   epl ai <prompt>                  AI code assistant
   epl gen <description>            AI-generate EPL code
   epl explain <file.epl>           AI-explain what code does
+  epl doctor                       Check environment health
+                                   --json   Output as JSON for CI
 
 {_bold('Flags:')}
   --strict       Enable static type checking
@@ -250,6 +265,7 @@ def _load_project_manifest(path='.'):
     try:
         return load_manifest(path)
     except Exception:
+        _debug_suppressed('cli.py:264')
         return None
 
 
@@ -305,24 +321,6 @@ def _resolve_target_args(args):
     return None
 
 
-def _resolve_main_module():
-    """Resolve the source-checkout main module without re-importing when possible."""
-    main_mod = sys.modules.get('main')
-    if main_mod is None:
-        main_mod = sys.modules.get('__main__')
-    if main_mod is not None and hasattr(main_mod, 'legacy_main'):
-        return main_mod
-
-    import importlib
-
-    return importlib.import_module('main')
-
-
-def _legacy_dispatch(argv):
-    """Run a legacy command through the compatibility dispatcher in main.py."""
-    return _resolve_main_module().legacy_main(list(argv))
-
-
 # ─── Command Dispatch ─────────────────────────────────────
 
 
@@ -330,6 +328,14 @@ def cli_main(argv=None):
     """Main CLI entry point for the `epl` command."""
     if argv is None:
         argv = sys.argv[1:]
+
+    # Non-blocking background update check (daemon thread, never slows CLI)
+    try:
+        from epl.update_checker import check_for_updates
+
+        check_for_updates()
+    except Exception:
+        pass  # Update checker must never break the CLI
 
     # No args → REPL
     if not argv:
@@ -393,6 +399,7 @@ def cli_main(argv=None):
         'compile': lambda: _build(rest, flags, 'compile'),
         'wasm': lambda: _wasm(rest),
         'test': lambda: _run_tests(rest, flags),
+        'watch': lambda: _watch(rest, flags),
         'repl': lambda: _run_repl(flags),
         'install': lambda: _pkg_install(rest),
         'use': lambda: _pkg_install(rest),  # Alias: "epl use" = "epl install"
@@ -462,6 +469,7 @@ def cli_main(argv=None):
         'resolve': lambda: _resolve(),
         'workspace': lambda: _workspace(rest),
         'ci': lambda: _ci(rest),
+        'doctor': lambda: _doctor(rest, flags),
         'sync-index': lambda: _sync_index(rest),
         'monitor': lambda: _monitor(rest),
         'login': lambda: _login(rest),
@@ -584,6 +592,7 @@ def _fix_file(args, flags):
             exp = explain(exc, source=source, ai=True)
             print(format_explanation(exp), file=sys.stderr)
         except Exception:
+            _debug_suppressed('cli.py:590')
             pass
         return 1
     except Exception as exc:
@@ -1110,7 +1119,12 @@ def _project_template(name, template):
         )
     elif template == 'ecommerce':
         description = f'{name} — EPL e-commerce store'
-        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        dependencies = {
+            'epl-ui': '^1.0.0',
+            'epl-css': '^1.0.0',
+            'epl-animate': '^1.0.0',
+            'epl-db': f'^{__version__}',
+        }
         scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} — E-commerce store template\n'
@@ -1120,10 +1134,10 @@ def _project_template(name, template):
             'Import "epl-db"\n\n'
             'Create db equal to open(":memory:")\n'
             'Call create_table(db, "products", Map with id = "INTEGER" and name = "TEXT" and price = "REAL" and image = "TEXT" and description = "TEXT")\n'
-            'Call execute(db, "INSERT INTO products VALUES (1, \'Wireless Headphones\', 79.99, \'/img/headphones.png\', \'Premium sound quality\')")\n'
-            'Call execute(db, "INSERT INTO products VALUES (2, \'Smart Watch\', 199.99, \'/img/watch.png\', \'Track your fitness\')")\n'
-            'Call execute(db, "INSERT INTO products VALUES (3, \'Laptop Stand\', 49.99, \'/img/stand.png\', \'Ergonomic aluminum\')")\n'
-            'Call execute(db, "INSERT INTO products VALUES (4, \'USB-C Hub\', 39.99, \'/img/hub.png\', \'7-in-1 connectivity\')")\n\n'
+            "Call execute(db, \"INSERT INTO products VALUES (1, 'Wireless Headphones', 79.99, '/img/headphones.png', 'Premium sound quality')\")\n"
+            "Call execute(db, \"INSERT INTO products VALUES (2, 'Smart Watch', 199.99, '/img/watch.png', 'Track your fitness')\")\n"
+            "Call execute(db, \"INSERT INTO products VALUES (3, 'Laptop Stand', 49.99, '/img/stand.png', 'Ergonomic aluminum')\")\n"
+            "Call execute(db, \"INSERT INTO products VALUES (4, 'USB-C Hub', 39.99, '/img/hub.png', '7-in-1 connectivity')\")\n\n"
             'Style "product-card"\n'
             '    Background "#ffffff"\n'
             '    Border "1px solid #e2e8f0"\n'
@@ -1194,7 +1208,12 @@ def _project_template(name, template):
         )
     elif template == 'dashboard':
         description = f'{name} — EPL admin dashboard'
-        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        dependencies = {
+            'epl-ui': '^1.0.0',
+            'epl-css': '^1.0.0',
+            'epl-animate': '^1.0.0',
+            'epl-db': f'^{__version__}',
+        }
         scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} — Admin dashboard template\n'
@@ -1204,9 +1223,9 @@ def _project_template(name, template):
             'Import "epl-db"\n\n'
             'Create db equal to open(":memory:")\n'
             'Call create_table(db, "users", Map with id = "INTEGER" and name = "TEXT" and email = "TEXT" and role = "TEXT")\n'
-            'Call execute(db, "INSERT INTO users VALUES (1, \'Alice\', \'alice@example.com\', \'Admin\')")\n'
-            'Call execute(db, "INSERT INTO users VALUES (2, \'Bob\', \'bob@example.com\', \'Editor\')")\n'
-            'Call execute(db, "INSERT INTO users VALUES (3, \'Charlie\', \'charlie@example.com\', \'Viewer\')")\n\n'
+            "Call execute(db, \"INSERT INTO users VALUES (1, 'Alice', 'alice@example.com', 'Admin')\")\n"
+            "Call execute(db, \"INSERT INTO users VALUES (2, 'Bob', 'bob@example.com', 'Editor')\")\n"
+            "Call execute(db, \"INSERT INTO users VALUES (3, 'Charlie', 'charlie@example.com', 'Viewer')\")\n\n"
             'Style "sidebar"\n'
             '    Width "260px"\n'
             '    Background "#1a202c"\n'
@@ -1284,7 +1303,12 @@ def _project_template(name, template):
         )
     elif template == 'blog':
         description = f'{name} — EPL blog'
-        dependencies = {'epl-ui': '^1.0.0', 'epl-css': '^1.0.0', 'epl-animate': '^1.0.0', 'epl-db': f'^{__version__}'}
+        dependencies = {
+            'epl-ui': '^1.0.0',
+            'epl-css': '^1.0.0',
+            'epl-animate': '^1.0.0',
+            'epl-db': f'^{__version__}',
+        }
         scripts['serve'] = 'epl serve src/main.epl'
         main_source = (
             f'Note: {name} — Blog template\n'
@@ -1294,9 +1318,9 @@ def _project_template(name, template):
             'Import "epl-db"\n\n'
             'Create db equal to open(":memory:")\n'
             'Call create_table(db, "posts", Map with id = "INTEGER" and title = "TEXT" and excerpt = "TEXT" and author = "TEXT" and date = "TEXT")\n'
-            'Call execute(db, "INSERT INTO posts VALUES (1, \'Getting Started with EPL\', \'Learn how to build your first EPL app.\', \'Admin\', \'2025-01-15\')")\n'
-            'Call execute(db, "INSERT INTO posts VALUES (2, \'Building Production Apps\', \'Best practices for production EPL applications.\', \'Admin\', \'2025-01-20\')")\n'
-            'Call execute(db, "INSERT INTO posts VALUES (3, \'EPL Style System\', \'How to use the new Style and Layout system.\', \'Admin\', \'2025-02-01\')")\n\n'
+            "Call execute(db, \"INSERT INTO posts VALUES (1, 'Getting Started with EPL', 'Learn how to build your first EPL app.', 'Admin', '2025-01-15')\")\n"
+            "Call execute(db, \"INSERT INTO posts VALUES (2, 'Building Production Apps', 'Best practices for production EPL applications.', 'Admin', '2025-01-20')\")\n"
+            "Call execute(db, \"INSERT INTO posts VALUES (3, 'EPL Style System', 'How to use the new Style and Layout system.', 'Admin', '2025-02-01')\")\n\n"
             'Style "post-card"\n'
             '    Background "#ffffff"\n'
             '    Border "1px solid #e2e8f0"\n'
@@ -1349,9 +1373,7 @@ def _project_template(name, template):
             'End\n'
         )
         test_source = (
-            'Define Function test_blog_smoke\n'
-            '    expect_true(True, "blog template loads")\n'
-            'End\n'
+            'Define Function test_blog_smoke\n    expect_true(True, "blog template loads")\nEnd\n'
         )
         readme_body = _template_readme(
             name,
@@ -1649,15 +1671,107 @@ def _build(args, flags, command='build'):
         return 1
 
 
+def _watch(args, flags):
+    """Watch files and re-run on changes."""
+    from epl.watcher import run_watch
+
+    # Separate watch-specific flags from targets
+    all_flags = set(flags)
+    targets = []
+    for a in args:
+        if a.startswith('--') or a.startswith('-'):
+            all_flags.add(a)
+        else:
+            targets.append(a)
+
+    if not targets:
+        # Default: watch current directory
+        targets = ['.']
+
+    target = targets[0]
+    test_mode = '--test' in all_flags
+    clear = '--clear' in all_flags
+
+    KNOWN_WATCH_FLAGS = {'--test', '--clear', '--debug', '-h', '--help'}
+    KNOWN_WATCH_PREFIXES = ('--debounce=', '--timeout=')
+
+    # Parse --debounce=N and --timeout=N
+    debounce_ms = 300
+    timeout = None
+    for f in all_flags:
+        if f.startswith('--debounce='):
+            try:
+                debounce_ms = int(f.split('=', 1)[1])
+            except ValueError:
+                print(f'{_red("Error:")} --debounce must be a number')
+                return 1
+        elif f.startswith('--timeout='):
+            val = f.split('=', 1)[1].strip().lower()
+            if val in ('none', 'off', '0', 'disable'):
+                timeout = None
+            else:
+                try:
+                    timeout = float(val)
+                except ValueError:
+                    print(f'{_red("Error:")} --timeout must be a number or "none"')
+                    return 1
+        elif f.startswith('--') and f not in KNOWN_WATCH_FLAGS and not any(
+            f.startswith(p) for p in KNOWN_WATCH_PREFIXES
+        ):
+            print(f'{_yellow("Warning:")} unknown watch flag {f!r} ignored')
+
+    return run_watch(
+        target,
+        flags=all_flags,
+        test_mode=test_mode,
+        clear=clear,
+        debounce_ms=debounce_ms,
+        timeout=timeout,
+    )
+
+
 def _run_tests(args, flags):
     from fnmatch import fnmatch
 
     from epl.test_framework import EPLTestRunner
 
-    targets = list(args)
+    # Separate test-specific flags from file/directory targets
+    # The global CLI parser only captures known flags; test-specific ones end up in args
+    all_flags = set(flags)
+    targets = []
+    for a in args:
+        if a.startswith('--') or a.startswith('-'):
+            all_flags.add(a)
+        else:
+            targets.append(a)
     if not targets:
         targets = ['tests'] if os.path.isdir('tests') else ['.']
 
+    # Parse flags
+    filter_pattern = None
+    junit_xml = None
+    timeout = None
+    fail_fast = '--fail-fast' in all_flags or '-x' in all_flags
+    coverage_enabled = '--coverage' in all_flags
+    quiet = '--quiet' in all_flags or '-q' in all_flags
+    no_color = '--no-color' in all_flags
+
+    for f in all_flags:
+        if f.startswith('--filter='):
+            filter_pattern = f.split('=', 1)[1]
+        elif f.startswith('-k='):
+            filter_pattern = f.split('=', 1)[1]
+        elif f.startswith('--junit-xml='):
+            junit_xml = f.split('=', 1)[1]
+        elif f.startswith('--timeout='):
+            val = f.split('=', 1)[1]
+            try:
+                timeout = float(val)
+            except ValueError:
+                print(f'{_red("Error:")} --timeout must be a number, got "{val}"')
+                return 1
+
+    # Discover test files
     discovered = []
     seen = set()
 
@@ -1685,17 +1799,43 @@ def _run_tests(args, flags):
 
     if not discovered:
         print(f'{_red("Error:")} No EPL test files found.')
+        print(f'{_dim("Hint:")} Place test files named test_*.epl or *_test.epl in a tests/ directory.')
         return 1
 
+    # Pre-scan to count tests for the collection header
+    test_count = 0
+    for test_file in discovered:
+        try:
+            with open(test_file, 'r', encoding='utf-8') as f:
+                source = f.read()
+            # Count test_ functions (rough regex scan)
+            import re
+            test_count += len(re.findall(r'(?m)^Function\s+(test_\w+|Test_\w+)', source))
+            # Count inline Test blocks
+            test_count += len(re.findall(r'(?m)^\s*Test\s+["\']', source))
+        except Exception:
+            _debug_suppressed('cli.py:1811')
+            pass
+
     runner = EPLTestRunner(
-        verbose='--quiet' not in flags,
-        color='--no-color' not in flags,
+        verbose=not quiet,
+        color=not no_color,
+        fail_fast=fail_fast,
+        timeout=timeout,
+        filter_pattern=filter_pattern,
+        junit_xml=junit_xml,
+        coverage_enabled=coverage_enabled,
     )
 
+    runner.print_collection_header(len(discovered), test_count)
+
     for test_file in discovered:
+        if runner._stop_requested:
+            break
         runner.run_file(test_file)
 
     return 0 if runner.report() else 1
+
 
 
 def _run_repl(flags):
@@ -1953,8 +2093,8 @@ def _pkg_publish(args):
         manifest_path = os.path.join(path, 'epl.toml')
         if os.path.isfile(manifest_path):
             try:
-                from epl.publisher import run_publish_checks
                 from epl.package_manager import load_manifest
+                from epl.publisher import run_publish_checks
 
                 manifest = load_manifest(path)
                 checks = run_publish_checks(manifest, path)
@@ -2415,6 +2555,7 @@ def _serve(args):
             app, interpreter = _load_epl_web_app(filename)
             if enable_observability:
                 from epl.observability import attach
+
                 attach(app)
                 print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
             print(f'  {_yellow("⚠ Development mode")} — not for production use')
@@ -2434,6 +2575,7 @@ def _serve(args):
             app, interpreter = _load_epl_web_app(filename)
             if enable_observability:
                 from epl.observability import attach
+
                 attach(app)
                 print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
 
@@ -2497,7 +2639,19 @@ def _deploy(args):
         deploy_cli([])
         return 0
 
-    valid_targets = ('gunicorn', 'nginx', 'tomcat', 'docker', 'systemd', 'asgi', 'k8s', 'aws', 'gcp', 'azure', 'all')
+    valid_targets = (
+        'gunicorn',
+        'nginx',
+        'tomcat',
+        'docker',
+        'systemd',
+        'asgi',
+        'k8s',
+        'aws',
+        'gcp',
+        'azure',
+        'all',
+    )
     if args[0] not in valid_targets:
         print(f"{_red('Error:')} Unknown deploy target '{args[0]}'")
         print(f'Valid targets: {", ".join(valid_targets)}')
@@ -3705,7 +3859,7 @@ def _copilot(args):
 
 
 def _start_lsp(args):
-    from epl.lsp_server import EPLLanguageServer, JSONRPC
+    from epl.lsp_server import JSONRPC, EPLLanguageServer
 
     tcp_mode = '--tcp' in args
     port = 2087
@@ -4218,6 +4372,19 @@ def _ci(args):
     ci_cli(list(args))
 
 
+def _doctor(args, flags):
+    """Check environment health."""
+    from epl.doctor import run_doctor
+
+    all_flags = set(flags)
+    for a in args:
+        if a.startswith('--') or a.startswith('-'):
+            all_flags.add(a)
+
+    json_output = '--json' in all_flags
+    return run_doctor(json_output=json_output)
+
+
 def _sync_index(args):
     from epl.package_index import PackageIndex
 
@@ -4377,6 +4544,7 @@ def _registry_server(args):
 
     if subcmd == 'status':
         import urllib.request
+
         port = 4873
         if len(args) > 1 and args[1] == '--port' and len(args) > 2:
             port = int(args[2])

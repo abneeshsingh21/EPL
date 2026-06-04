@@ -1,0 +1,14 @@
+[package]
+name = "epl-premium-landing"
+version = "1.0.0"
+description = "EPL Premium Landing Page"
+entry = "src/main.epl"
+
+[dependencies]
+epl-ui = "^1.0.0"
+epl-css = "^1.0.0"
+epl-animate = "^1.0.0"
+
+[scripts]
+serve = "epl serve src/main.epl"
+build = "epl compile src/main.epl --target=web"

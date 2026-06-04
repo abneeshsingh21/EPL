@@ -1,11 +1,21 @@
 """
-EPL - English Programming Language v7.0
+EPL — English Programming Language v9.0 (enterprise hardening release)
 A production-ready independent programming language with English syntax.
 
-Phase 6: Mobile & Desktop (Build Apps with UIs)
-- 6a Desktop GUI: Compose Multiplatform Desktop apps with native packaging (MSI/DMG/DEB/RPM)
-- 6b Android: Enhanced Jetpack Compose + Views, Room DB, Retrofit, Navigation, APK build
-- 6c Web Apps: Browser-ready SPAs via JS transpilation, WASM+JS glue, Kotlin/JS, PWA support
+v9.0 highlights — security & robustness sweep:
+- SQL identifier validation across db_update/db_delete/db_count/db_table_info
+  and the QueryBuilder / database_real CRUD helpers (defense-in-depth).
+- exec_async no longer uses shell=True; accepts argv lists or shlex-parsed
+  strings, sandbox-blocked alongside kill_process and env_delete.
+- AI cloud config moved out of the package directory to a per-user XDG path
+  (~/.config/epl/ai_config.json or %APPDATA%\\epl\\), chmod 0600, Gemini key
+  sent via x-goog-api-key header instead of URL.
+- Generators raise EPLRuntimeError on yield-timeout (was: silent stale value);
+  per-yield timeout configurable via EPL_GENERATOR_TIMEOUT.
+- `epl watch` no longer hard-caps each run at 60s; --timeout=<seconds|none>.
+- `epl serve` defaults --host to 127.0.0.1 and warns on 0.0.0.0.
+- main.py error reporting standardized via _cli_error_report/_cli_error_exit
+  helpers (EPL_DEBUG=1 / --debug for full tracebacks).
 
 Targets: Bytecode VM (default), Interpreter, LLVM Native, JavaScript, Node.js,
          Kotlin/Android, MicroPython/IoT, Desktop (Compose), Web (JS/WASM/Kotlin-JS)
@@ -18,7 +28,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__version__ = '7.5.8'
+__version__ = '9.3.0'
 __author__ = 'Abneesh Singh'
 __email__ = 'singhabneesh250@gmail.com'
 __license__ = 'Apache 2.0'

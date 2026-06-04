@@ -1,5 +1,5 @@
 """
-EPL Documentation Site Generator v4.2
+EPL Documentation Site Generator v7.6
 Generates a complete static documentation website with:
   - Getting started guide
   - Language reference
@@ -179,7 +179,7 @@ class SiteGenerator:
 <body>
 <header class="site-header">
   <h1><a href="index.html" style="color:inherit;text-decoration:none">EPL</a></h1>
-  <span class="version">v4.2</span>
+  <span class="version">v7.6</span>
   <nav>
     <a href="getting-started.html">Getting Started</a>
     <a href="reference.html">Reference</a>

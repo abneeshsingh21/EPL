@@ -910,17 +910,11 @@ class BytecodeCompiler:
             self._emit(Op.STORE_GLOBAL, node.name)
 
     def _compile_index_assign(self, node):
+        """Compile `target[index] = value` — emit value, target, index, then INDEX_STORE."""
         self._compile_expr(node.value)
-        obj = node.object if hasattr(node, 'object') else node
-        name = getattr(obj, 'name', None) or getattr(node, 'name', None)
-        if name:
-            idx = self._resolve_local(name)
-            if idx is not None:
-                self._emit(Op.LOAD_VAR, idx)
-            else:
-                self._emit(Op.LOAD_GLOBAL, name)
-        if hasattr(node, 'index'):
-            self._compile_expr(node.index)
+        target = getattr(node, 'obj', None) or getattr(node, 'object', None) or node
+        self._compile_expr(target)
+        self._compile_expr(node.index)
         self._emit(Op.INDEX_STORE)
 
     def _compile_if(self, node):
@@ -1083,6 +1077,11 @@ class BytecodeCompiler:
 
         self.instructions = []
         self.locals_stack.append({})
+
+        # Pre-register the function name so recursive calls inside the body
+        # resolve to Op.CALL rather than falling through to Op.CALL_BUILTIN.
+        # The real CompiledFunction replaces this placeholder below.
+        self.functions.setdefault(node.name, None)
 
         # Declare parameters as locals
         from epl.ast_nodes import RestParameter
@@ -1256,7 +1255,13 @@ class BytecodeCompiler:
                 methods[member.name] = mfunc
 
             elif isinstance(member, ast.VarDeclaration):
-                properties[member.name] = None
+                default = None
+                val = getattr(member, 'value', None)
+                if isinstance(val, ast.Literal):
+                    default = val.value
+                elif isinstance(val, (str, int, float, bool)) or val is None:
+                    default = val
+                properties[member.name] = default
 
         compiled = CompiledClass(
             name=node.name,
@@ -1403,7 +1408,7 @@ class BytecodeCompiler:
             self._emit(Op.BUILD_DICT, len(node.pairs))
 
         elif isinstance(node, ast.IndexAccess):
-            self._compile_expr(node.object)
+            self._compile_expr(node.obj)
             self._compile_expr(node.index)
             self._emit(Op.INDEX)
 
@@ -1424,7 +1429,7 @@ class BytecodeCompiler:
             self._compile_lambda(node)
 
         elif isinstance(node, ast.SliceAccess):
-            self._compile_expr(node.object)
+            self._compile_expr(node.obj)
             self._compile_expr(node.start) if node.start else self._emit(
                 Op.LOAD_CONST, self._add_const(None)
             )
@@ -1991,8 +1996,13 @@ class VM:
                         else:
                             break
                 except VMError as e:
-                    e.with_call_stack(self._capture_call_stack())
-                    raise
+                    if self.try_stack:
+                        handler_ip = self.try_stack.pop()
+                        frame.ip = handler_ip
+                        stack.append(str(e))
+                    else:
+                        e.with_call_stack(self._capture_call_stack())
+                        raise
                 except Exception as e:
                     if self.try_stack:
                         handler_ip = self.try_stack.pop()
@@ -2143,15 +2153,14 @@ class VM:
     def _op_jump_if_false(self, inst):
         if not self.stack:
             raise VMError('Stack underflow on JUMP_IF_FALSE', inst.line)
-        val = self.stack[-1]
+        val = self.stack.pop()
         if not val:
-            self.stack.pop()
             self.call_stack[-1].ip = inst.arg
 
     def _op_jump_if_true(self, inst):
         if not self.stack:
             raise VMError('Stack underflow on JUMP_IF_TRUE', inst.line)
-        val = self.stack[-1]
+        val = self.stack.pop()
         if val:
             self.call_stack[-1].ip = inst.arg
 
@@ -2414,11 +2423,11 @@ class VM:
         self.stack.append(result)
 
     def _op_new_instance(self, inst):
-        cls_name = inst.arg
+        cls_name, arg_count = inst.arg
         cls = self.classes.get(cls_name)
         if not cls:
             raise VMError(f'Unknown class: {cls_name}', inst.line)
-        self.stack.append(VMInstance(cls))
+        self._call_constructor(cls, arg_count)
 
     # I/O
     def _op_print(self, inst):
@@ -2769,13 +2778,19 @@ class VM:
             return len(args[0]) if args else 0
 
         def _type_of(args, line):
-            return self._type_name(args[0]) if args else 'None'
+            return self._type_name(args[0]) if args else 'nothing'
 
         def _to_text(args, line):
             return str(args[0]) if args else ''
 
-        def _to_number(args, line):
+        def _to_integer(args, line):
             return int(float(args[0])) if args else 0
+
+        def _to_number(args, line):
+            if not args:
+                return 0
+            value = float(args[0])
+            return int(value) if value.is_integer() else value
 
         def _to_decimal(args, line):
             return float(args[0]) if args else 0.0
@@ -3032,8 +3047,8 @@ class VM:
             'to_string': _to_text,
             'Text': _to_text,
             'to_number': _to_number,
-            'to_integer': _to_number,
-            'Integer': _to_number,
+            'to_integer': _to_integer,
+            'Integer': _to_integer,
             'to_decimal': _to_decimal,
             'Decimal': _to_decimal,
             'Float': _to_decimal,
@@ -3092,6 +3107,7 @@ class VM:
             'keys': _keys,
             'values': _values,
             'has_key': _has_key,
+            'has': _has_key,
             'merge': _merge,
             # I/O
             'read_input': _read_input,
@@ -3359,7 +3375,7 @@ class VM:
             return list(obj.values())
         if method == 'items':
             return [[k, v] for k, v in obj.items()]
-        if method == 'has_key':
+        if method == 'has_key' or method == 'has':
             return args[0] in obj
         if method == 'get':
             return obj.get(args[0], args[1] if len(args) > 1 else None)
@@ -3444,26 +3460,26 @@ class VM:
     def _type_name(self, val):
         """Get EPL type name for a value."""
         if val is None:
-            return 'None'
+            return 'nothing'
         elif isinstance(val, bool):
-            return 'Boolean'
+            return 'boolean'
         elif isinstance(val, int):
-            return 'Integer'
+            return 'integer'
         elif isinstance(val, float):
-            return 'Decimal'
+            return 'decimal'
         elif isinstance(val, str):
-            return 'Text'
+            return 'text'
         elif isinstance(val, list):
-            return 'List'
+            return 'list'
         elif isinstance(val, dict):
-            return 'Dict'
+            return 'map'
         elif isinstance(val, VMInstance):
             return val.class_def.name
         elif isinstance(val, CompiledFunction):
-            return 'Function'
+            return 'function'
         elif isinstance(val, CompiledClass):
-            return 'Class'
-        return 'Unknown'
+            return 'class'
+        return 'unknown'
 
 
 # ─── Convenience functions ────────────────────────────────────

@@ -1,0 +1,14 @@
+[project]
+name = "epl-algo"
+version = "1.0.0"
+description = "Classic algorithms — sorting, searching, graph traversal, dynamic programming"
+author = "Abneesh Singh"
+license = "Apache-2.0"
+entry = "src/main.epl"
+keywords = ["algorithms", "sorting", "searching", "graph", "dynamic-programming", "data-structures"]
+
+[dependencies]
+
+[scripts]
+example = "epl run examples/basic.epl"
+test = "epl test examples/"

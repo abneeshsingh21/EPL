@@ -1,5 +1,5 @@
 """
-EPL Error System v5.0
+EPL Error System v7.6
 Provides clear, English-language error messages with helpful suggestions.
 Includes full exception hierarchy, custom exceptions, and finally support.
 Production-grade: ANSI colors, source context, error codes, "did you mean?" suggestions.
@@ -68,7 +68,6 @@ ERROR_CODES = {
     'ImportError': 'E1300',
     'AttributeError': 'E1400',
     'AssertionError': 'E1500',
-    'AssertionError': 'E1500',  # backward compat alias
     'ConcurrencyError': 'E1600',
     'EPLError': 'E0000',
 }

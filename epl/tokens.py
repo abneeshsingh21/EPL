@@ -129,6 +129,8 @@ class TokenType(Enum):
     DELETE_KW = auto()
     REDIRECT = auto()
     AT = auto()
+    RAW = auto()  # v9.3.0 — escape hatch: `Raw HTML "<table>..."` emits literally.
+    HTML_KW = auto()  # Pairs with RAW; standalone HTML still allowed elsewhere.
 
     # --- v0.6: Power Features ---
     OP_POWER = auto()  # **
@@ -265,6 +267,12 @@ class TokenType(Enum):
     FILL = auto()  # "Fill"
     STROKE = auto()  # "Stroke"
 
+    # --- v7.0: Native Animation Components ---
+    WORDS_PULL_UP = auto()
+    WORDS_PULL_UP_MULTI_STYLE = auto()
+    SEGMENT = auto()
+    NOISE_OVERLAY = auto()
+    BG_NOISE = auto()
 
     # --- Keywords: Logical ---
     AND = auto()
@@ -349,6 +357,8 @@ class Token:
 # Mapping of single-word keywords (case-insensitive) to token types
 KEYWORDS = {
     'create': TokenType.CREATE,
+    'make': TokenType.CREATE,       # v7.8: English synonym for Create
+    'let': TokenType.CREATE,        # v7.8: English synonym for Create
     'set': TokenType.SET,
     'to': TokenType.TO,
     'equal': TokenType.EQUAL,
@@ -363,12 +373,14 @@ KEYWORDS = {
     'boolean': TokenType.TYPE_BOOLEAN,
     'list': TokenType.TYPE_LIST,
     'print': TokenType.PRINT,
+    'output': TokenType.PRINT,      # v7.8: English synonym for Print
     'input': TokenType.INPUT,
     'display': TokenType.DISPLAY,
     'show': TokenType.SHOW,
     'if': TokenType.IF,
     'then': TokenType.THEN,
     'otherwise': TokenType.OTHERWISE,
+    'else': TokenType.OTHERWISE,    # v7.8: English synonym for Otherwise
     'end': TokenType.END,
     'repeat': TokenType.REPEAT,
     'times': TokenType.TIMES,
@@ -379,6 +391,7 @@ KEYWORDS = {
     'from': TokenType.FROM,
     'by': TokenType.BY,
     'define': TokenType.DEFINE,
+    'declare': TokenType.DEFINE,    # v7.8: English synonym for Define
     'function': TokenType.FUNCTION,
     'call': TokenType.CALL,
     'with': TokenType.WITH,
@@ -455,6 +468,8 @@ KEYWORDS = {
     'delete': TokenType.DELETE_KW,
     'redirect': TokenType.REDIRECT,
     'at': TokenType.AT,
+    'raw': TokenType.RAW,
+    'html': TokenType.HTML_KW,
     'say': TokenType.SAY,
     'ask': TokenType.ASK,
     'remember': TokenType.REMEMBER,
@@ -559,6 +574,12 @@ KEYWORDS = {
     'draw': TokenType.DRAW,
     'fill': TokenType.FILL,
     'stroke': TokenType.STROKE,
+    # v7.0: Native Animation Components
+    'wordspullup': TokenType.WORDS_PULL_UP,
+    'wordspullupmultistyle': TokenType.WORDS_PULL_UP_MULTI_STYLE,
+    'segment': TokenType.SEGMENT,
+    'noiseoverlay': TokenType.NOISE_OVERLAY,
+    'bgnoise': TokenType.BG_NOISE,
 }
 
 # Multi-word keyword phrases (checked in order, longest first)

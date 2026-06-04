@@ -84,13 +84,8 @@ Say _.shuffle([1, 2, 3, 4, 5])
 ```
 
 ### 3D Scene
-```epl
-Scene "demo" 800 by 600
-    Box "cube" at 0 1 0 size 2 2 2 color "#ff4500"
-    Light "sun" at 5 10 5
-    Camera at 0 5 10 look 0 0 0
-End
-```
+
+3D scene syntax is still evolving. For now, use the playground primarily for parser-backed core EPL, web examples, and JavaScript bridge experiments, and treat 3D snippets as experimental until they are covered by parser-verified docs examples.
 
 ## Features
 

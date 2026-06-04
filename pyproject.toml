@@ -21,6 +21,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Compilers",
     "Topic :: Software Development :: Interpreters",
 ]
@@ -28,6 +29,7 @@ classifiers = [
 [project.optional-dependencies]
 llvm = ["llvmlite>=0.41.0"]
 ai = ["openai>=1.0.0"]
+secure = ["keyring>=24.0.0"]
 server = [
     "waitress>=2.1.0",
     "uvicorn>=0.30.0",
@@ -48,15 +50,18 @@ all = [
     "prompt_toolkit>=3.0.0",
     "pygments>=2.15.0",
     "boto3>=1.28.0",
+    "keyring>=24.0.0",
 ]
 
 [project.scripts]
 epl = "epl.cli:main"
+epl-mcp = "epl.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/abneeshsingh21/EPL"
 Documentation = "https://github.com/abneeshsingh21/EPL/tree/main/docs"
 Repository = "https://github.com/abneeshsingh21/EPL"
+Changelog = "https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md"
 
 [tool.setuptools.dynamic]
 version = {attr = "epl.__version__"}
@@ -112,11 +117,29 @@ select = [
     "B",  # flake8-bugbear
 ]
 ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
+    "E501",  # line too long
+    "E721",  # type comparison (use isinstance)
+    "E722",  # bare except
+    "E731",  # lambda assignment
+    "E741",  # ambiguous variable name
+    "W291",  # trailing whitespace
+    "W293",  # blank line with whitespace
+    "B004",  # unreliable callable check
+    "B007",  # unused loop control variable
+    "B008",  # function call in argument defaults
+    "B011",  # assert False
+    "B023",  # function uses loop variable
+    "B028",  # no explicit stacklevel
+    "B904",  # raise without from in except
+    "C401",  # unnecessary generator set
+    "C405",  # unnecessary literal set
+    "C414",  # unnecessary double cast
     "C901",  # too complex
-    "E402",  # module level import not at top of file (sys.path hacks)
-    "F841",  # unused variables (common in tests)
+    "E402",  # module import not at top
+    "F401",  # unused import (intentional in tests)
+    "F601",  # dict key repeated
+    "F811",  # redefinition of unused name
+    "F841",  # unused variable
 ]
 
 [tool.ruff.format]
@@ -124,3 +147,11 @@ quote-style = "single"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
+
+[tool.mypy]
+exclude = [
+    "epl/official_packages",
+    "benchmarks",
+]
+implicit_optional = true
+ignore_missing_imports = true

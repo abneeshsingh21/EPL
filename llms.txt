@@ -1,0 +1,30 @@
+# EPL — English Programming Language
+
+> EPL is a production-ready programming language with English syntax. Write code in plain English — build apps, web servers, APIs, desktop GUIs, and more. Install: `pip install eplang`
+
+## Documentation
+
+- [Syntax Reference](https://github.com/abneeshsingh21/EPL/blob/main/GRAMMAR.md): Complete formal grammar specification
+- [Examples](https://github.com/abneeshsingh21/EPL/tree/main/examples): 50+ working code examples
+- [README](https://github.com/abneeshsingh21/EPL/blob/main/README.md): Getting started guide
+- [Changelog](https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md): Version history
+- [Full Reference for LLMs](https://github.com/abneeshsingh21/EPL/blob/main/llms-full.txt): Complete syntax and examples for AI consumption
+
+## Key Syntax Rules
+
+- Variables: `Create name = "Ada"` or `Set count to 5`
+- Output: `Say "Hello"` or `Display "text"`
+- Input: `Ask "Name?" store in name`
+- Functions: `Function greet takes name ... End`
+- Conditionals: `If x > 5 Then ... Otherwise ... End` (use `Otherwise`, NOT `Else`)
+- Loops: `For i from 1 to 10 ... End` or `While x > 0 ... End`
+- Classes: `Class Dog ... End` then `Create d = new Dog()`
+- Web: `Create WebApp called app` then `Route "/" shows ... End` then `Start app on port 8080`
+- Maps: `Create user = Map with name = "Ada" and role = "admin"`
+- Errors: `Try ... Catch error ... End`
+- Comments: `Note: this is a comment` (NOT `//` or `#`)
+- Every block ends with `End`
+
+## Optional
+
+- [MCP Server](https://github.com/abneeshsingh21/EPL): Connect AI tools via `python -m epl.mcp_server` for real-time EPL validation, execution, and transpilation

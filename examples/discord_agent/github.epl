@@ -1,0 +1,55 @@
+Note: EPL GitHub Webhook Server
+
+Create WebApp called github_hook
+
+Route "/webhook" responds with
+    Create payload equal to request.data
+    If payload is not equal to Nothing then
+        Create sender equal to payload.get("sender")
+        Create repo equal to payload.get("repository")
+        
+        Create sender_name equal to "Someone"
+        If sender is not equal to Nothing then
+            Set sender_name to sender.get("login")
+        End
+        
+        Create repo_name equal to "a repository"
+        If repo is not equal to Nothing then
+            Set repo_name to repo.get("full_name")
+        End
+        
+        Say "[GitHub] Received webhook from " + sender_name + " for repo " + repo_name
+
+        Note: Extract commit details if available
+        Create commits equal to payload.get("commits")
+        Create commit_info equal to ""
+        If commits is not equal to Nothing then
+            If length(commits) > 0 then
+                Create latest equal to commits[0]
+                Set commit_info to "\n**Commit:** `" + latest.get("message") + "`"
+            End
+        End
+        
+        Create message equal to "🚀 **New EPL Update Pushed!**\n\n**Repository:** `" + repo_name + "`\n**Author:** `" + sender_name + "`" + commit_info + "\n\nCheck the latest changes on [GitHub](https://github.com/abneeshsingh21/EPL)!"
+        
+        Note: Post to #announcements (correct channel) instead of random last-active
+        Create announcements_channel equal to "1507812398499893349"
+        Create db equal to db_open("agent_memory.db")
+        Create embed equal to Map with description = message and color = 1752220
+        Create embeds_arr equal to []
+        embeds_arr.add(embed)
+        Create body equal to json_stringify(Map with embeds = embeds_arr)
+        Create token equal to env_get("DISCORD_TOKEN")
+        db_execute(db, "INSERT INTO outbound_queue (channel_id, payload, token) VALUES (?, ?, ?)", [announcements_channel, body, token])
+        Say "[GitHub] Queued announcement to #announcements."
+        
+        Send json Map with status = "ok"
+    Else
+        Send json Map with status = "error"
+    End
+End
+
+Function run_github_server takes port
+    Display "GitHub Webhook Server listening on port " + port
+    Start github_hook on port port
+End

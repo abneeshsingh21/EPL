@@ -1,11 +1,13 @@
 """Tests for JS transpiler v6.1: Scene3D and DrawCommand."""
-import sys
+
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.js_transpiler import transpile_to_js
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.js_transpiler import transpile_to_js
 
 
 def to_js(src):
@@ -35,7 +37,9 @@ class TestScene3DJS:
         assert 'AmbientLight("#ffffff", 0.5)' in js
 
     def test_scene_directional_light(self):
-        js = to_js('Scene "dir"\n    Light "directional" color "#fff" intensity 0.8 position 5, 10, 5\nEnd\n')
+        js = to_js(
+            'Scene "dir"\n    Light "directional" color "#fff" intensity 0.8 position 5, 10, 5\nEnd\n'
+        )
         assert 'DirectionalLight("#fff", 0.8)' in js
         assert 'position.set(5, 10, 5)' in js
 
@@ -45,7 +49,9 @@ class TestScene3DJS:
         assert 'color: "#ff0000"' in js
 
     def test_scene_mesh_sphere(self):
-        js = to_js('Scene "s"\n    Mesh "sphere" position 3, 1, 0 scale 2, 2, 2 color "#00ff00"\nEnd\n')
+        js = to_js(
+            'Scene "s"\n    Mesh "sphere" position 3, 1, 0 scale 2, 2, 2 color "#00ff00"\nEnd\n'
+        )
         assert 'SphereGeometry(1,32,32)' in js
         assert 'position.set(3, 1, 0)' in js
         assert 'scale.set(2, 2, 2)' in js

@@ -703,7 +703,7 @@ _PATTERNS = [
         'match': r'node\.js is not installed',
         'category': 'runtime',
         'explain': lambda m, src, lines: (
-            "The JavaScript bridge requires Node.js, which is not installed on this system.",
+            'The JavaScript bridge requires Node.js, which is not installed on this system.',
             "Install Node.js from https://nodejs.org/ and ensure 'node' is in your PATH.",
             '',
         ),
@@ -721,9 +721,9 @@ _PATTERNS = [
         'match': r'js bridge (?:pipe broken|process terminated)',
         'category': 'runtime',
         'explain': lambda m, src, lines: (
-            "The Node.js bridge subprocess crashed or was terminated unexpectedly.",
-            "Check your Node.js installation and ensure no other process is interfering. "
-            "Try running the program again.",
+            'The Node.js bridge subprocess crashed or was terminated unexpectedly.',
+            'Check your Node.js installation and ensure no other process is interfering. '
+            'Try running the program again.',
             '',
         ),
     },

@@ -1,0 +1,196 @@
+Note: ═══════════════════════════════════════════════════════
+Note:  EPL Word Frequency Analyzer
+Note:  Text analytics — parallel lists as a frequency table
+Note: ═══════════════════════════════════════════════════════
+
+Note: === Sample Corpus ===
+
+Create corpus equal to "the quick brown fox jumps over the lazy dog the dog barked at the fox the fox ran away quickly dogs and foxes are natural rivals a quick dog can catch a slow fox but a clever fox will always outwit a dog"
+
+Note: === Split and Filter ===
+
+Create all_words equal to corpus.split(" ")
+Create filtered_words equal to []
+
+For each w in all_words
+    Create trimmed equal to w.trim()
+    If length(trimmed) > 0 then
+        Add trimmed to filtered_words
+    End
+End
+
+Note: === Stop Words ===
+
+Create stop_words equal to ["the", "a", "an", "and", "or", "but", "at", "by", "for", "is", "are", "was", "be", "to", "of", "in", "on", "over", "away", "always"]
+
+Note: === Build Frequency Table (parallel lists) ===
+
+Create freq_words equal to []
+Create freq_counts equal to []
+
+For each word in filtered_words
+
+    Note: Skip stop words
+    Create is_stop equal to false
+    For each sw in stop_words
+        If word equals sw then
+            Set is_stop to true
+        End
+    End
+
+    If is_stop equals false then
+
+        Note: Find if word already in freq_words
+        Create found_idx equal to -1
+        For idx from 0 to length(freq_words) - 1
+            If freq_words[idx] equals word then
+                Set found_idx to idx
+            End
+        End
+
+        If found_idx equals -1 then
+            Note: New word — add it
+            Add word to freq_words
+            Add 1 to freq_counts
+        Else
+            Note: Existing word — increment count
+            freq_counts[found_idx] = freq_counts[found_idx] + 1
+        End
+
+    End
+End
+
+Create total_unique equal to length(freq_words)
+Create total_words equal to length(filtered_words)
+
+Note: === Find Top 10 Words (selection sort pass) ===
+
+Create top_words equal to []
+Create top_counts equal to []
+Create used_idx equal to []
+
+Repeat 10 times
+    Create best_word equal to ""
+    Create best_count equal to 0
+    Create best_idx equal to -1
+
+    For idx from 0 to length(freq_words) - 1
+        Create already_used equal to false
+        For each u in used_idx
+            If idx equals u then
+                Set already_used to true
+            End
+        End
+
+        If already_used equals false then
+            If freq_counts[idx] > best_count then
+                Set best_count to freq_counts[idx]
+                Set best_word to freq_words[idx]
+                Set best_idx to idx
+            End
+        End
+    End
+
+    If best_idx > -1 then
+        Add best_word to top_words
+        Add best_count to top_counts
+        Add best_idx to used_idx
+    End
+End
+
+Note: === Print Report ===
+
+Say "════════════════════════════════════════════════"
+Say "          Text Analytics Report                 "
+Say "════════════════════════════════════════════════"
+Say ""
+Say "  Corpus length: " + length(corpus) + " chars"
+Say "  Total words:   " + total_words
+Say "  Unique words:  " + total_unique
+Say ""
+Say "  ── Top " + length(top_words) + " Most Frequent Words ──"
+Say ""
+
+For i from 0 to length(top_words) - 1
+    Create wrd equal to top_words[i]
+    Create cnt equal to top_counts[i]
+    Create pct equal to round((cnt / total_words) * 100)
+
+    Note: Build bar chart
+    Create bar equal to ""
+    For j from 1 to cnt
+        Set bar to bar + "█"
+    End
+
+    Note: Pad word for alignment
+    Create padded equal to wrd
+    For k from length(wrd) to 9
+        Set padded to padded + " "
+    End
+
+    Say "  " + (i + 1) + ". " + padded + " " + cnt + "x  " + bar + " (" + pct + "%)"
+End
+
+Say ""
+Say "  ── Word Length Distribution ──"
+Say ""
+
+Create len_short equal to 0
+Create len_mid equal to 0
+Create len_long equal to 0
+Create len_xlong equal to 0
+
+For each wrd in freq_words
+    Create wlen equal to length(wrd)
+    If wlen is at most 3 then
+        Increase len_short by 1
+    Otherwise If wlen is at most 6 then
+        Increase len_mid by 1
+    Otherwise If wlen is at most 9 then
+        Increase len_long by 1
+    Else
+        Increase len_xlong by 1
+    End
+End
+
+Say "  1-3 chars:   " + len_short + " words"
+Say "  4-6 chars:   " + len_mid + " words"
+Say "  7-9 chars:   " + len_long + " words"
+Say "  10+ chars:   " + len_xlong + " words"
+
+Note: Average word length across all filtered words
+Create total_char_len equal to 0
+For each wrd in filtered_words
+    Increase total_char_len by length(wrd)
+End
+Create avg_word_len equal to round(total_char_len / total_words)
+Say "  Avg length:  " + avg_word_len + " chars"
+
+Say ""
+Say "  ── Readability ──"
+Say ""
+
+If avg_word_len is at most 4 then
+    Say "  Grade Level: Elementary (simple vocabulary)"
+Otherwise If avg_word_len is at most 5 then
+    Say "  Grade Level: Middle School (moderate vocabulary)"
+Otherwise If avg_word_len is at most 6 then
+    Say "  Grade Level: High School (advanced vocabulary)"
+Else
+    Say "  Grade Level: College Level (complex vocabulary)"
+End
+
+Create richness equal to round((total_unique / total_words) * 100)
+Say "  Vocab Richness: " + richness + "% (unique/total)"
+If richness > 60 then
+    Say "  Assessment: Rich, varied vocabulary"
+Otherwise If richness > 40 then
+    Say "  Assessment: Moderate vocabulary diversity"
+Else
+    Say "  Assessment: Repetitive text — low variety"
+End
+
+Say ""
+Say "════════════════════════════════════════════════"
+Say "  Analyzed by EPL Text Analytics               "
+Say "════════════════════════════════════════════════"

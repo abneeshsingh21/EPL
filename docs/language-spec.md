@@ -1,7 +1,7 @@
 # EPL Language Specification v7.0
 
 > **EPL** — English Programming Language  
-> A production-ready programming language with plain-English syntax.
+> A general-purpose programming language with plain-English syntax and a documented support boundary.
 
 ---
 
@@ -22,7 +22,7 @@ EPL is a general-purpose programming language designed to read like English. Eve
 - LLVM compilation to native code
 - Transpilation to JavaScript, Node.js, Kotlin
 - Bytecode VM execution
-- Standard library (9 native EPL modules + 300+ built-in functions)
+- Standard library modules and built-in functions
 
 ---
 
@@ -641,7 +641,7 @@ EPL ships with 9 native EPL modules in `epl/stdlib/`:
 | `http` | HTTP client helpers | `get`, `post`, `status helpers`, `parse_json`, `to_json` |
 | `crypto` | Crypto/encoding | `md5`, `sha256`, `to_base64`, `uuid`, `random_string` |
 
-Plus 300+ built-in functions available without imports (math, string, file, database, networking, etc.).
+Plus many built-in functions available without imports (math, string, file, database, networking, etc.). See [`stdlib-reference.md`](stdlib-reference.md) for the current documented surface.
 
 ---
 
@@ -1046,4 +1046,4 @@ block          = { statement End ;
 
 ---
 
-*EPL v7.5.2 — Write code in plain English. Build anything.*
+*EPL v9.1.0 — Write code in plain English. Build anything.*

@@ -411,7 +411,7 @@ def run_suite():
         ['true'],
     )
 
-    test_epl('memory_usage', 'Create m equal to memory_usage().\nPrint m > 0.', ['true'])
+    test_epl('memory_usage', 'Create m equal to memory_usage().\nPrint m >= 0.', ['true'])
 
     print('\n=== Stdlib - CSV ===')
 

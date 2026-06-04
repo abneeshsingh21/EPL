@@ -243,7 +243,7 @@ class TestLockfileV3(unittest.TestCase):
                     expected_sha256='zip-hash',
                 )
                 pip_call.assert_called_once_with(
-                    [sys.executable, '-m', 'pip', 'install', 'PyYAML==6.0.1']
+                    [sys.executable, '-m', 'pip', 'install', '--', 'PyYAML==6.0.1']
                 )
 
     def test_file_lock_allows_concurrent_workers_to_complete(self):

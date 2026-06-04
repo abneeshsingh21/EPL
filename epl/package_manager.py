@@ -1,5 +1,5 @@
 """
-EPL Package Manager (v3.0)
+EPL Package Manager (v7.6)
 Install, manage, and publish EPL packages.
 Supports: semver resolution, transitive dependencies, lockfiles with integrity verification,
 conflict detection, local/GitHub/URL/registry sources, publish workflow, and EPL manifests.
@@ -1211,6 +1211,12 @@ def find_package_module(name):
             entry = os.path.join(local_modules, entry_name)
             if os.path.isfile(entry):
                 return os.path.abspath(entry)
+        # Honor manifest-based entry points for structured local packages.
+        manifest = load_manifest(local_modules)
+        if manifest and 'entry' in manifest:
+            entry = os.path.join(local_modules, manifest['entry'])
+            if os.path.isfile(entry):
+                return os.path.abspath(entry)
     local_module_file = os.path.join('.', 'epl_modules', f'{name}.epl')
     if os.path.isfile(local_module_file):
         return os.path.abspath(local_module_file)
@@ -1655,7 +1661,14 @@ def install_from_lockfile(path='.', include_bridge=False, strict=False):
         pip_spec = info.get('pip_spec') or import_name
         requirement = f'{distribution}=={version}' if version else pip_spec
         try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
+            requirement = _normalize_python_requirement(import_name, requirement)
+        except ValueError as e:
+            print(f'  Refusing to install {import_name} from lockfile: {e}')
+            success = False
+            continue
+        try:
+            # `--` separator: pip will not parse the requirement as a flag.
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--', requirement])
             resolved = _resolve_installed_python_package(import_name, pip_spec)
             expected_integrity = info.get('integrity', '')
             if expected_integrity and resolved and resolved.get('integrity') != expected_integrity:
@@ -1812,13 +1825,43 @@ def _validate_python_import_name(import_name):
 
 
 def _normalize_python_requirement(import_name, requirement=None):
-    """Normalize a pip requirement string for installation."""
+    """Normalize a pip requirement string for installation.
+
+    v9.3.0 Phase 6 — command-injection hardening. pip parses flags from positional
+    arguments, so a manifest entry like ``requests --extra-index-url https://evil``
+    would, before this check, cause pip to silently honour the attacker-supplied
+    flag. We now reject any requirement that starts with ``-`` or sneaks a flag
+    in via whitespace. Callers should additionally use ``--`` before the
+    requirement when invoking pip, as belt-and-braces.
+    """
     import_name = _validate_python_import_name(import_name)
     if requirement is None:
         return import_name
     requirement = str(requirement).strip()
     if not requirement or requirement == '*':
         return import_name
+    # Flag injection: a leading dash, or any whitespace-separated token starting
+    # with one. Real pip requirements never need these; reject hard.
+    if requirement.startswith('-') or any(
+        tok.startswith('-') for tok in requirement.split()
+    ):
+        raise ValueError(
+            f'Refusing to install Python requirement {requirement!r}: '
+            f'requirement strings must not contain flags. '
+            f'Pin a version with `package==1.2.3` or use a version specifier.'
+        )
+    # Also forbid embedded URLs/paths in the version field — pip happily installs
+    # `package @ https://evil/whl` but the EPL surface is "name + version", not
+    # "name + arbitrary install spec". Power users can call pip directly.
+    if '@' in requirement and not requirement.startswith(import_name + '['):
+        # Allow `pkg[extra]` (no @) but block `pkg @ url`.
+        for marker in (' @ ', '@http', '@git+', '@file:'):
+            if marker in requirement:
+                raise ValueError(
+                    f'Refusing to install Python requirement {requirement!r}: '
+                    f'URL/path install specs are not supported via manifest. '
+                    f'Use a registered PyPI version.'
+                )
     return requirement
 
 
@@ -1887,7 +1930,8 @@ def install_python_package(import_name, requirement=None, save=True, project_pat
     requirement = _normalize_python_requirement(import_name, requirement)
 
     try:
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
+        # `--` separator: belt-and-braces against pip parsing the requirement as a flag.
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--', requirement])
     except subprocess.CalledProcessError:
         print(f'  Failed to install Python package: {requirement}')
         return False
@@ -1956,9 +2000,14 @@ def install_python_dependencies(path='.'):
     print(f'  Installing {len(deps)} Python dependencies...')
     ok = True
     for import_name, requirement in deps.items():
-        requirement = _normalize_python_requirement(import_name, requirement)
         try:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', requirement])
+            requirement = _normalize_python_requirement(import_name, requirement)
+        except ValueError as e:
+            print(f'  Refusing to install {import_name}: {e}')
+            ok = False
+            continue
+        try:
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--', requirement])
             print(f'  Installed Python dependency: {requirement}')
         except subprocess.CalledProcessError:
             print(f'  Failed to install Python dependency: {requirement}')
@@ -1993,12 +2042,32 @@ def _validate_npm_package_name(name):
     name = name.strip()
     if not _SAFE_NPM_NAME_RE.match(name.lower()):
         raise ValueError(
-            f'Invalid npm package name "{name}". '
-            f'Must match @scope/name or bare-name format.'
+            f'Invalid npm package name "{name}". Must match @scope/name or bare-name format.'
         )
     if '..' in name or '/' in name.split('@')[-1].split('/')[0] if '@' in name else '/' in name:
         raise ValueError(f'Invalid npm package name "{name}": contains path traversal.')
     return name
+
+
+def _validate_npm_version_spec(version):
+    """Reject npm version specs that smuggle flags into the install argv.
+
+    v9.3.0 Phase 6 — command-injection hardening. ``npm install pkg@<spec>``
+    accepts the spec verbatim; a manifest entry like ``version = "* --before-script=evil"``
+    would, before this check, become a real npm flag. Power users who genuinely
+    need URL/git installs should call npm directly.
+    """
+    if version is None or version == '' or version == '*':
+        return version
+    if not isinstance(version, str):
+        raise ValueError(f'npm version must be a string, got {type(version).__name__}')
+    version = version.strip()
+    if version.startswith('-') or any(tok.startswith('-') for tok in version.split()):
+        raise ValueError(
+            f'Refusing to install npm version spec {version!r}: '
+            f'must not contain flags. Use a semver range like "^1.2.3".'
+        )
+    return version
 
 
 def install_js_package(name, version=None, save=True, project_path='.'):
@@ -2012,10 +2081,10 @@ def install_js_package(name, version=None, save=True, project_path='.'):
     """
     try:
         name = _validate_npm_package_name(name)
+        version = _validate_npm_version_spec(version)
     except ValueError as e:
         print(f'Error: {e}')
         return False
-
 
     npm_bin = shutil.which('npm')
     if not npm_bin:
@@ -2025,8 +2094,9 @@ def install_js_package(name, version=None, save=True, project_path='.'):
 
     install_target = f'{name}@{version}' if version else name
     try:
+        # `--` separator: prevents npm from parsing the target as a flag.
         subprocess.check_call(
-            [npm_bin, 'install', install_target],
+            [npm_bin, 'install', '--', install_target],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -2097,10 +2167,18 @@ def install_js_dependencies(path='.'):
     print(f'  Installing {len(deps)} JavaScript dependencies...')
     ok = True
     for name, version in deps.items():
+        try:
+            name = _validate_npm_package_name(name)
+            version = _validate_npm_version_spec(version)
+        except ValueError as e:
+            print(f'  Refusing to install {name}: {e}')
+            ok = False
+            continue
         target = f'{name}@{version}' if version and version != '*' else name
         try:
+            # `--` separator: prevents npm from parsing the target as a flag.
             subprocess.check_call(
-                [npm_bin, 'install', target],
+                [npm_bin, 'install', '--', target],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -2419,7 +2497,7 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
     name = _sanitize_package_name(name)
     official_pkg = _get_official_package_dir(name)
     if official_pkg:
-        return _install_from_local(official_pkg, source=f'official:{name}')
+        return _install_builtin_package(name, local=local, project_path=project_path)
     # Check built-in registry first
     if name in BUILTIN_REGISTRY:
         return _install_builtin_package(name, local=local, project_path=project_path)
@@ -2535,6 +2613,18 @@ def _install_builtin_package(name, local=False, project_path='.'):
             os.makedirs(modules_dir, exist_ok=True)
             shutil.copytree(official_pkg, dest)
             manifest = load_manifest(dest)
+            if manifest:
+                entry = manifest.get('entry', 'main.epl')
+                entry_path = os.path.join(dest, entry)
+                root_main = os.path.join(dest, 'main.epl')
+                if (
+                    entry != 'main.epl'
+                    and os.path.isfile(entry_path)
+                    and not os.path.exists(root_main)
+                ):
+                    shutil.copy2(entry_path, root_main)
+                if not os.path.exists(os.path.join(dest, MANIFEST_NAME)):
+                    save_manifest(manifest, dest, fmt='json')
             version = manifest.get('version', '?') if manifest else '?'
             print(f'  Installed: {name} @ {version} (official) -> epl_modules/')
             return True

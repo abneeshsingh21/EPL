@@ -64,6 +64,23 @@ Redis-backed features:
 
 - `pip install "eplang[redis]"`
 
+## Database Workflows
+
+Core release-gated path:
+
+- built-in SQLite via the `db_*` helpers
+- SQLite-backed reference web apps exercised by CI smoke tests
+
+Available but environment-specific:
+
+- `real_db_*` adapter workflows
+- ORM-style helpers and migrations
+
+Not yet release-gated:
+
+- PostgreSQL/MySQL production deployments
+- non-SQLite migration and driver-specific behavior
+
 ## Runtime Targets
 
 Production-ready and CI-backed:

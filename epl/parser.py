@@ -150,6 +150,10 @@ class Parser:
         TokenType.RESPONSIVE,
         TokenType.CLASSNAME,
         TokenType.APPLY,
+        # v9.3.0: Raw HTML escape hatch — these must remain usable as identifiers
+        # (`html = ""` is common in legacy code; `raw` is also a frequent var name).
+        TokenType.RAW,
+        TokenType.HTML_KW,
         # v6.1: 3D & Canvas keywords usable as identifiers
         TokenType.SCENE,
         TokenType.CAMERA_KW,
@@ -677,6 +681,24 @@ class Parser:
         if self._match_identifier():
             return self._parse_shorthand_assignment()
 
+        # v7.8: Smart keyword suggestion for misspelled words
+        import difflib
+        _statement_keywords = [
+            'Create', 'Make', 'Let', 'Set', 'Print', 'Display', 'Show', 'Say', 'Output',
+            'If', 'While', 'For', 'Repeat', 'Define', 'Declare', 'Function', 'Class',
+            'Return', 'Call', 'Try', 'Catch', 'Match', 'When', 'Import', 'Use',
+            'Write', 'Read', 'Append', 'Break', 'Continue', 'Throw', 'Assert',
+            'Wait', 'Exit', 'Constant', 'Increase', 'Decrease', 'Add', 'Sort',
+            'Reverse', 'Route', 'Start', 'Page', 'Send', 'Window', 'Async',
+            'Otherwise', 'Else', 'End', 'Remember', 'Multiply', 'Divide',
+        ]
+        suggestions = difflib.get_close_matches(tok.value, _statement_keywords, n=2, cutoff=0.6)
+        if suggestions:
+            hint = ' or '.join(f'"{s}"' for s in suggestions)
+            raise ParserError(
+                f'Unknown keyword "{tok.value}". Did you mean {hint}?',
+                tok.line,
+            )
         raise ParserError(
             f'Unexpected token "{tok.value}". Expected a statement like Create, Set, Print, If, etc.',
             tok.line,
@@ -794,6 +816,24 @@ class Parser:
             self._end_statement()
             return ast.AugmentedAssignment(var_name, op, value, line)
 
+        # v7.8: Smart keyword suggestion for misspelled words
+        import difflib
+        _statement_keywords = [
+            'Create', 'Make', 'Let', 'Set', 'Print', 'Display', 'Show', 'Say', 'Output',
+            'If', 'While', 'For', 'Repeat', 'Define', 'Declare', 'Function', 'Class',
+            'Return', 'Call', 'Try', 'Catch', 'Match', 'When', 'Import', 'Use',
+            'Write', 'Read', 'Append', 'Break', 'Continue', 'Throw', 'Assert',
+            'Wait', 'Exit', 'Constant', 'Increase', 'Decrease', 'Add', 'Sort',
+            'Reverse', 'Route', 'Start', 'Page', 'Send', 'Window', 'Async',
+            'Otherwise', 'Else', 'End', 'Remember', 'Multiply', 'Divide',
+        ]
+        suggestions = difflib.get_close_matches(var_name, _statement_keywords, n=2, cutoff=0.6)
+        if suggestions:
+            hint = ' or '.join(f'"{s}"' for s in suggestions)
+            raise ParserError(
+                f'Unknown word "{var_name}". Did you mean {hint}?',
+                self._current().line,
+            )
         raise ParserError(
             f'Unexpected token after "{var_name}". Did you mean "{var_name} = ..."?',
             self._current().line,
@@ -828,8 +868,8 @@ class Parser:
         # Skip optional "variable" keyword
         self._optional(TokenType.VARIABLE)
 
-        # Skip optional "named"
-        self._optional(TokenType.NAMED)
+        # Skip optional "named" or "called" (v7.8: synonym support)
+        self._optional(TokenType.NAMED, TokenType.CALLED)
 
         # Variable name
         name_tok = self._expect_identifier('Expected a variable name after "Create".')
@@ -2309,6 +2349,18 @@ class Parser:
         self._skip_newlines()
         tok = self._current()
 
+        # v9.3.0 — Raw HTML escape hatch: `Raw HTML "<table>..."`.
+        # Emits the string literally without escaping. The author takes
+        # responsibility for safety; never wire user-controlled input here.
+        if tok.type == TokenType.RAW and self._peek().type == TokenType.HTML_KW:
+            self._advance()  # consume RAW
+            self._advance()  # consume HTML
+            content = self._expect(
+                TokenType.STRING, 'Expected HTML string after `Raw HTML`'
+            ).value
+            self._end_statement()
+            return ast.HtmlElement('raw_html', content, line=tok.line)
+
         if tok.type == TokenType.HEADING:
             self._advance()
             content = self._expect(TokenType.STRING, 'Expected heading text').value
@@ -2425,13 +2477,61 @@ class Parser:
         if tok.type == TokenType.PAGE:
             return self._parse_page()
 
+        # v7.0: Native Animation Components
+        if tok.type == TokenType.WORDS_PULL_UP:
+            self._advance()
+            content = self._expect(TokenType.STRING, 'Expected WordsPullUp text').value
+            attrs = {}
+            if self._match(TokenType.IDENTIFIER) and str(self._current().value).lower() == 'asterisk':
+                self._advance()
+                attrs['asterisk'] = self._expect(TokenType.STRING, 'Expected asterisk value (e.g. "true")').value
+            self._end_statement()
+            return ast.HtmlElement('words_pull_up', content, attrs, line=tok.line)
+
+        if tok.type == TokenType.NOISE_OVERLAY:
+            self._advance()
+            self._end_statement()
+            return ast.HtmlElement('noise_overlay', None, {}, line=tok.line)
+
+        if tok.type == TokenType.BG_NOISE:
+            self._advance()
+            self._end_statement()
+            return ast.HtmlElement('bg_noise', None, {}, line=tok.line)
+
+        if tok.type == TokenType.WORDS_PULL_UP_MULTI_STYLE:
+            self._advance()
+            self._end_statement()
+            self._skip_newlines()
+            children = []
+            while not self._is_block_end():
+                if self._match(TokenType.SEGMENT):
+                    seg_tok = self._current()
+                    self._advance()
+                    seg_content = self._expect(TokenType.STRING, 'Expected Segment text').value
+                    seg_attrs = {}
+                    if self._match(TokenType.STYLE):
+                        self._advance()
+                        seg_attrs['style'] = self._expect(TokenType.STRING, 'Expected style classes').value
+                    self._end_statement()
+                    children.append(ast.HtmlElement('segment', seg_content, seg_attrs, line=seg_tok.line))
+                else:
+                    self._advance()
+                self._skip_newlines()
+            self._consume_block_end()
+            return ast.HtmlElement('words_pull_up_multi_style', None, {}, children, line=tok.line)
+
         # v6.0: Structural elements inside Page
         _structural_map = {
-            TokenType.DIV: 'div', TokenType.SECTION: 'section',
-            TokenType.NAV: 'nav', TokenType.HEADER_EL: 'header',
-            TokenType.FOOTER_EL: 'footer', TokenType.SPAN: 'span',
-            TokenType.ARTICLE: 'article', TokenType.ASIDE: 'aside',
-            TokenType.MAIN_EL: 'main', TokenType.CONTAINER: 'container',
+            TokenType.DIV: 'div',
+            TokenType.SECTION: 'section',
+            TokenType.NAV: 'nav',
+            TokenType.HEADER_EL: 'header',
+            TokenType.FOOTER_EL: 'footer',
+            TokenType.SPAN: 'span',
+            TokenType.ARTICLE: 'article',
+            TokenType.ASIDE: 'aside',
+            TokenType.MAIN_EL: 'main',
+            TokenType.CONTAINER: 'container',
         }
         if tok.type in _structural_map:
             return self._parse_styled_element(_structural_map[tok.type])
@@ -3332,10 +3432,21 @@ class Parser:
         """Try to parse as HTML element first, then fall back to statement."""
         tok = self._current()
         nxt = self._peek()
-        if tok.type in (
-            TokenType.HEADING, TokenType.SUBHEADING, TokenType.LINK,
-            TokenType.IMAGE, TokenType.BUTTON, TokenType.FORM,
-        ) and nxt and nxt.type == TokenType.STRING:
+        if (
+            tok.type
+            in (
+                TokenType.HEADING,
+                TokenType.SUBHEADING,
+                TokenType.LINK,
+                TokenType.IMAGE,
+                TokenType.BUTTON,
+                TokenType.FORM,
+                TokenType.WORDS_PULL_UP,
+                TokenType.NOISE_OVERLAY,
+                TokenType.BG_NOISE,
+                TokenType.WORDS_PULL_UP_MULTI_STYLE,
+            )
+        ):
             return self._parse_html_element()
         if tok.type == TokenType.TYPE_TEXT and nxt and nxt.type == TokenType.STRING:
             return self._parse_html_element()
@@ -3373,7 +3484,9 @@ class Parser:
         line = self._current().line
         parts = []
 
-        while not self._match(TokenType.STRING, TokenType.NUMBER, TokenType.NEWLINE, TokenType.EOF, TokenType.END):
+        while not self._match(
+            TokenType.STRING, TokenType.NUMBER, TokenType.NEWLINE, TokenType.EOF, TokenType.END
+        ):
             tok = self._current()
             parts.append(tok.value.lower() if tok.value else '')
             self._advance()
@@ -3419,7 +3532,9 @@ class Parser:
                     class_names.append(self._advance().value)
                 continue
             tok = self._current()
-            if tok.type == TokenType.CLASS or (tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'class'):
+            if tok.type == TokenType.CLASS or (
+                tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'class'
+            ):
                 self._advance()
                 if self._match(TokenType.STRING):
                     class_names.append(self._advance().value)
@@ -3457,7 +3572,7 @@ class Parser:
 
     def _parse_layout_container(self, layout_type):
         """Flex direction "row" gap "16px" align "center" ... End
-           Grid columns 3 gap "20px" ... End"""
+        Grid columns 3 gap "20px" ... End"""
         line = self._current().line
         self._advance()  # consume FLEX/GRID
 
@@ -3465,7 +3580,9 @@ class Parser:
         while not self._match(TokenType.NEWLINE, TokenType.EOF):
             tok = self._current()
             if tok.type == TokenType.IDENTIFIER or tok.type in (
-                TokenType.GRID, TokenType.FLEX, TokenType.ANIMATE,
+                TokenType.GRID,
+                TokenType.FLEX,
+                TokenType.ANIMATE,
             ):
                 prop_name = tok.value.lower()
                 self._advance()
@@ -3699,7 +3816,11 @@ class Parser:
             if tok.type == TokenType.POSITION:
                 self._advance()
                 position = self._parse_number_list(3)
-            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() in ('look_at', 'lookat', 'target'):
+            elif tok.type == TokenType.IDENTIFIER and tok.value.lower() in (
+                'look_at',
+                'lookat',
+                'target',
+            ):
                 self._advance()
                 look_at = self._parse_number_list(3)
             elif tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'fov':
@@ -3814,7 +3935,9 @@ class Parser:
         while not self._match(TokenType.NEWLINE, TokenType.EOF):
             tok = self._current()
             if tok.type == TokenType.IDENTIFIER or tok.type in (
-                TokenType.FILL, TokenType.STROKE, TokenType.POSITION,
+                TokenType.FILL,
+                TokenType.STROKE,
+                TokenType.POSITION,
                 TokenType.SCALE_KW,
             ):
                 prop_name = tok.value.lower()

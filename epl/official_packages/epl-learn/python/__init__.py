@@ -359,7 +359,7 @@ def load_boston():
     try:
         data = datasets.load_boston()
         return {'X': data.data.tolist(), 'y': data.target.tolist()}
-    except:
+    except Exception:
         data = datasets.fetch_california_housing()
         return {'X': data.data.tolist(), 'y': data.target.tolist()}
 

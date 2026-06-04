@@ -1,0 +1,16 @@
+Note: Minimal smoke test for epl-string
+Import "epl/official_packages/epl-string/src/main" As str
+
+Create result1 equal to str.to_camel_case("hello world")
+Say result1
+
+Create result2 equal to str.to_snake_case("helloWorld")
+Say result2
+
+Create result3 equal to str.is_palindrome("racecar")
+Say to_text(result3)
+
+Create result4 equal to str.levenshtein_distance("kitten", "sitting")
+Say to_text(result4)
+
+Say "Done"

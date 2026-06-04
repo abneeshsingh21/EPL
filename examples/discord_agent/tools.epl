@@ -1,0 +1,219 @@
+Function tool_web_search takes query
+    Create url equal to "https://api.duckduckgo.com/?q=" + url_encode(query) + "&format=json"
+    Create response equal to http_get(url)
+
+    If response.status is not equal to 200 then
+        Return "Search failed: " + response.body
+    End
+
+    Create data equal to response.body
+    Create result equal to data["AbstractText"]
+
+    If result is equal to "" then
+        Create related equal to data["RelatedTopics"]
+        If length(related) > 0 then
+            Create first_topic equal to related[0]
+            If first_topic["Text"] is not equal to Nothing then
+                Set result to first_topic["Text"]
+            End
+        End
+    End
+
+    If result is equal to "" then
+        Return "No useful information found for: " + query
+    End
+
+    Return result
+End
+
+Function tool_weather takes location
+    Create url equal to "https://wttr.in/" + url_encode(location) + "?format=j1"
+    Create response equal to http_get(url)
+    If response.status is not equal to 200 then
+        Return "Could not fetch weather for " + location
+    End
+    Create data equal to response.body
+    Create current equal to data["current_condition"][0]
+    Return "Weather in " + location + ": " + current["temp_C"] + "C, " + current["weatherDesc"][0]["value"] + "."
+End
+
+Function tool_calculate takes expression
+    Create url equal to "http://api.mathjs.org/v4/?expr=" + url_encode(expression)
+    Create response equal to http_get(url)
+    If response.status is not equal to 200 then
+        Return "Calculation failed: " + response.body
+    End
+    Return "Result of " + expression + " = " + response.body
+End
+
+Function tool_news takes topic
+    Return tool_web_search(topic + " latest breaking news")
+End
+
+Function tool_generate_image takes prompt
+    Create prompt_encoded equal to url_encode(prompt)
+    Create url equal to "https://image.pollinations.ai/prompt/" + prompt_encoded + "?width=1920&height=1080&nologo=true"
+    Return url
+End
+
+Function tool_create_role takes guild_id, token, role_name, color_hex, permissions
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/roles"
+    Create body equal to json_stringify(Map with name = role_name and permissions = permissions)
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_post(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Role '" + role_name + "' created successfully."
+    Else
+        Return "Failed to create role. Error: " + response.body
+    End
+End
+
+Function tool_create_channel takes guild_id, token, channel_name, type
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/channels"
+    Create type_int equal to int(type)
+    Create body equal to json_stringify(Map with name = channel_name and type = type_int)
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_post(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Channel '" + channel_name + "' created successfully."
+    Else
+        Return "Failed to create channel. Error: " + response.body
+    End
+End
+
+Function tool_scan_server takes guild_id, token
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/channels"
+    Create headers equal to dict_from_lists(["Authorization"], ["Bot " + token])
+    Create response equal to http_get(url, headers)
+    If response.status >= 200 and response.status < 300 then
+        Create channels equal to response.body
+        Create names equal to []
+        For Each ch in channels
+            Create type_str equal to "text"
+            If ch["type"] is equal to 4 then
+                Set type_str to "category"
+            End
+            names.add(ch["name"] + " (" + type_str + ") ID: " + ch["id"])
+        End
+        Return "CHANNELS: " + names.join(", ")
+    Else
+        Return "Failed to scan server. Error: " + response.body
+    End
+End
+
+Function tool_broadcast takes channel_id, token, msg_text
+    Create url equal to "https://discord.com/api/v10/channels/" + channel_id + "/messages"
+    Create embed equal to Map with description = msg_text and color = 15158332
+    Create embeds_arr equal to []
+    embeds_arr.add(embed)
+    Create body equal to json_stringify(Map with embeds = embeds_arr)
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_post(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Broadcast successfully sent to channel " + channel_id
+    Else
+        Return "Broadcast failed. Error: " + response.body
+    End
+End
+
+Function tool_check_github takes trigger
+    Create url equal to "https://api.github.com/repos/abneeshsingh21/EPL/commits?per_page=3"
+    Create headers equal to dict_from_lists(["User-Agent", "Accept"], ["EPL-Discord-Bot", "application/vnd.github.v3+json"])
+    Create response equal to http_get(url, headers)
+    If response.status >= 200 and response.status < 300 then
+        Create commits equal to response.body
+        Create results equal to []
+        For Each c in commits
+            Create commit equal to c["commit"]
+            results.add(commit["message"] + " by " + commit["author"]["name"])
+        End
+        Return "Latest EPL Commits: " + results.join(" | ")
+    Else
+        Return "Failed to check GitHub. Error: " + response.body
+    End
+End
+
+Note: ═══════════════════════════════════════════════════════════════
+Note: NEW TOOLS — Auto-Role, Delete Message, Timeout, DM, Kick
+Note: ═══════════════════════════════════════════════════════════════
+
+Function tool_assign_role takes guild_id, token, user_id, role_id
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/members/" + user_id + "/roles/" + role_id
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_put(url, "{}", headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Role assigned successfully to user " + user_id
+    Else
+        Return "Failed to assign role. Error: " + response.body
+    End
+End
+
+Function tool_delete_message takes channel_id, message_id, token
+    Create url equal to "https://discord.com/api/v10/channels/" + channel_id + "/messages/" + message_id
+    Create headers equal to dict_from_lists(["Authorization"], ["Bot " + token])
+    Create response equal to http_delete(url, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Message deleted successfully."
+    Else
+        Return "Failed to delete message. Error: " + response.body
+    End
+End
+
+Function tool_timeout_user takes guild_id, token, user_id, duration_seconds
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "/members/" + user_id
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Note: Calculate ISO timestamp for timeout expiry
+    Create body equal to json_stringify(Map with communication_disabled_until = "2099-01-01T00:00:00Z")
+    If duration_seconds is equal to 0 then
+        Set body to json_stringify(Map with communication_disabled_until = Nothing)
+    End
+    Create response equal to http_patch(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "User timed out successfully."
+    Else
+        Return "Failed to timeout user. Error: " + response.body
+    End
+End
+
+Function tool_send_welcome takes channel_id, token, username, user_id
+    Create url equal to "https://discord.com/api/v10/channels/" + channel_id + "/messages"
+    
+    Create welcome_msg equal to "# 👋 Welcome to the EPL Community, **" + username + "**!\n\n"
+    Set welcome_msg to welcome_msg + "We're thrilled to have you here! 🎉\n\n"
+    Set welcome_msg to welcome_msg + "**EPL (English Programming Language)** lets you write code using natural English — no cryptic syntax needed.\n\n"
+    Set welcome_msg to welcome_msg + "```\nCreate message equal to " + "\x22" + "Hello, " + username + "!" + "\x22" + "\nSay message\n```\n\n"
+    Set welcome_msg to welcome_msg + "🚀 **Quick Start:**\n"
+    Set welcome_msg to welcome_msg + "• `pip install eplang` → Install EPL\n"
+    Set welcome_msg to welcome_msg + "• `epl repl` → Try it interactively\n"
+    Set welcome_msg to welcome_msg + "• `epl run hello.epl` → Run your first program\n\n"
+    Set welcome_msg to welcome_msg + "📚 **Explore:**\n"
+    Set welcome_msg to welcome_msg + "• <#1507812500769603604> → Getting Started guide\n"
+    Set welcome_msg to welcome_msg + "• <#1507811866154635344> → Ask me anything about EPL\n"
+    Set welcome_msg to welcome_msg + "• <#1507813223406112890> → Get help from the community\n"
+    Set welcome_msg to welcome_msg + "• <#1507812597431402707> → Chat with the community\n\n"
+    Set welcome_msg to welcome_msg + "I'm **EPLAI**, the AI assistant here. Mention me or visit <#1507811866154635344> and I'll help you learn EPL! 🤖"
+
+    Create embed equal to Map with description = welcome_msg and color = 3066993
+    Create embeds_arr equal to []
+    embeds_arr.add(embed)
+    Create body equal to json_stringify(Map with content = "<@" + user_id + ">" and embeds = embeds_arr)
+    Create headers equal to dict_from_lists(["Authorization", "Content-Type"], ["Bot " + token, "application/json"])
+    Create response equal to http_post(url, body, headers)
+    If response.status >= 200 and response.status < 300 then
+        Return "Welcome message sent for " + username
+    Else
+        Return "Failed to send welcome. Error: " + response.body
+    End
+End
+
+Function tool_get_server_member_count takes guild_id, token
+    Create url equal to "https://discord.com/api/v10/guilds/" + guild_id + "?with_counts=true"
+    Create headers equal to dict_from_lists(["Authorization"], ["Bot " + token])
+    Create response equal to http_get(url, headers)
+    If response.status >= 200 and response.status < 300 then
+        Create data equal to response.body
+        Return data["approximate_member_count"]
+    Else
+        Return 0
+    End
+End

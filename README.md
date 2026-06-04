@@ -2,21 +2,21 @@
 
 # 🌐 EPL — English Programming Language
 
-### *Write code the way you think. In plain English.*
-
-[![PyPI version](https://img.shields.io/pypi/v/eplang?color=blue&label=pip%20install%20eplang&style=for-the-badge)](https://pypi.org/project/eplang/)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue?style=for-the-badge&logo=python)](https://python.org)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green?style=for-the-badge)](LICENSE)
-[![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC?style=for-the-badge&logo=visual-studio-code)](https://marketplace.visualstudio.com/publishers/epl-lang)
-[![GitHub Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=for-the-badge&logo=github)](https://github.com/abneeshsingh21/EPL/stargazers)
-[![CI/CD](https://img.shields.io/github/actions/workflow/status/abneeshsingh21/EPL/ci.yml?style=for-the-badge&logo=github)](https://github.com/abneeshsingh21/EPL/actions/workflows/ci.yml)
-[![Lint](https://img.shields.io/github/actions/workflow/status/abneeshsingh21/EPL/lint.yml?label=Ruff%20Lint&style=for-the-badge)](https://github.com/abneeshsingh21/EPL/actions/workflows/lint.yml)
-[![CodeRabbit](https://img.shields.io/badge/AI%20Review-CodeRabbit-orange?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48L3N2Zz4=)](https://coderabbit.ai)
+### Write code the way you think. In plain English.
 
 <br/>
 
-> **EPL is a fully-featured, production-ready programming language where every keyword is natural English.**
-> Build web apps, APIs, Android apps, desktop tools, AI pipelines — all in a syntax anyone can read.
+[![PyPI](https://img.shields.io/pypi/v/eplang?color=3572A5&label=PyPI&logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/eplang/)
+[![Downloads](https://img.shields.io/pypi/dm/eplang?color=3572A5&label=Downloads&style=flat-square)](https://pypi.org/project/eplang/)
+[![Python](https://img.shields.io/badge/Python-3.9%E2%80%933.12-3572A5?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![License](https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square)](LICENSE)
+[![VS Code](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
+[![Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=flat-square&logo=github&color=e3b341)](https://github.com/abneeshsingh21/EPL/stargazers)
+
+<br/>
+
+EPL is a **fully-featured programming language** where every keyword is natural English.  
+Build web apps, REST APIs, mobile apps, AI pipelines, and cloud-native services — in a syntax anyone can read, write, and maintain.
 
 <br/>
 
@@ -24,57 +24,32 @@
 pip install eplang
 ```
 
+<br/>
+
+[Documentation](https://abneeshsingh21.github.io/EPL/) · [Playground](https://abneeshsingh21.github.io/EPL/playground) · [VS Code Extension](https://marketplace.visualstudio.com/publishers/epl-lang) · [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/)
+
 </div>
+
+<br/>
 
 ---
 
-## ✨ What does EPL look like?
+## Overview
+
+EPL (English Programming Language) eliminates the gap between pseudocode and executable code. Its syntax reads like structured English, while its runtime delivers the performance and tooling expected from a modern language — bytecode VM, LLVM native compilation, WASM targets, and a 22-package official ecosystem.
 
 ```epl
-Note: Hello World
-Say "Hello, World!"
+Note: A production-grade REST API in EPL
 
-Note: Variables
-name = "Abneesh"
-age = 20
-
-Note: Conditionals
-If age is greater than 18 then
-    Say "Welcome, " + name
-Otherwise
-    Say "Access denied"
-End
-
-Note: Functions
-Function greet takes person
-    Return "Hello, " + person + "!"
-End
-
-Say greet("World")
-
-Note: Loops
-Repeat 5 times
-    Say "EPL is awesome!"
-End
-
-Note: Lists
-fruits = ["apple", "banana", "mango"]
-For Each fruit in fruits
-    Say fruit
-End
-
-Note: Web Server
 Create WebApp called app
 
-Route "/" shows
-    Page "Welcome"
-        Heading "Welcome to EPL"
-        Text "This page is served by the native EPL web runtime."
-    End
+Route "/api/users" responds with
+    users = [Map with name = "Alice" and role = "admin", Map with name = "Bob" and role = "user"]
+    Send json Map with data = users and count = length(users) and status = "ok"
 End
 
-Route "/api/health" responds with
-    Send json Map with status = "ok"
+Route "/health" responds with
+    Send json Map with status = "healthy" and version = "7.5.9"
 End
 ```
 
@@ -82,7 +57,7 @@ End
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Install
 
@@ -90,296 +65,428 @@ End
 pip install eplang
 ```
 
-### Run your first program
+### Run
 
 ```bash
 echo 'Say "Hello from EPL!"' > hello.epl
 epl hello.epl
 ```
 
-### Start the interactive REPL
+### REPL
 
 ```bash
 epl repl
 ```
 
-### Create a full project
+### Scaffold a Project
 
 ```bash
-epl new myapp --template web
-epl new authapp --template auth
-epl new botapp --template chatbot
-epl new studio --template frontend
-cd myapp
-epl serve
+epl new myapp --template web        # Web app with routing
+epl new authapp --template auth     # Auth API with JWT
+epl new botapp --template chatbot   # AI chatbot
+epl new studio --template frontend  # Creative frontend
 ```
 
-### Production serving
+### Production Deployment
 
 ```bash
 pip install "eplang[server]"
+epl serve app.epl                    # Dev server
+epl deploy k8s app.epl --image myapp:1.0 --tls  # Kubernetes
+epl deploy aws app.epl               # AWS ECS
 ```
 
-EPL supports production WSGI and ASGI deployment through generated adapters and the `epl serve` runtime surface.
-
-- WSGI: Waitress and Gunicorn
-- ASGI: Uvicorn and Hypercorn
-- Adapter generation: WSGI / ASGI deploy entrypoints for external servers such as Daphne or other ASGI hosts
-
-For multi-worker ASGI deployment, use the generated `deploy/asgi.py` entrypoint with your server's import-string form rather than an in-process app object launch.
+EPL supports WSGI (Waitress, Gunicorn) and ASGI (Uvicorn, Hypercorn) deployment through generated adapters and the `epl serve` runtime.
 
 ---
 
-## 🆚 EPL vs Other Languages
+## Language at a Glance
 
-| Feature | EPL | Python | JavaScript | Java |
-|---------|-----|--------|------------|------|
-| Syntax readability | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| Learning curve | Minutes | Days | Days | Weeks |
-| Web framework built-in | ✅ | ❌ | ❌ | ❌ |
-| Android transpiler | ✅ | ❌ | ❌ | ✅ |
-| WASM compilation | ✅ | ❌ | ✅ | ❌ |
-| Native compiler (LLVM) | ✅ | ❌ | ❌ | ✅ |
-| Package manager | ✅ | pip | npm | Maven |
-| LSP / IDE support | ✅ | ✅ | ✅ | ✅ |
-| AI assistant built-in | ✅ | ❌ | ❌ | ❌ |
+<table>
+<tr>
+<td width="50%">
 
----
-
-## 🏗️ What Can You Build?
-
-### 🌐 Web Applications
+**Variables & Control Flow**
 ```epl
-Create WebApp called apiApp
+name = "Abneesh"
+age = 20
+scores = [95, 87, 92]
 
-Route "/api/users" responds with
-    users = ["Alice", "Bob"]
-    Send json Map with users = users and count = length(users)
+If age is greater than 18 then
+    Say "Welcome, " + name
+Otherwise
+    Say "Access denied"
+End
+
+For Each score in scores
+    Say score
+End
+
+Repeat 3 times
+    Say "Iteration complete"
 End
 ```
 
-### 🤖 AI & Machine Learning
+</td>
+<td width="50%">
+
+**Functions & OOP**
 ```epl
-Import "epl.ai" As ai
+Function fibonacci takes n
+    If n is less than 2 then
+        Return n
+    End
+    Return fibonacci(n - 1) + fibonacci(n - 2)
+End
 
-messages = [Map with role = "user" and content = "Explain quantum computing simply"]
-response = ai.chat(messages)
-Say response
+Class User has name, email, role
+    Method display
+        Say "User: " + this.name
+    End
+End
+
+user = new User("Ada", "ada@epl.dev", "admin")
+user.display()
 ```
 
-### ☁️ AWS Cloud Integration
+</td>
+</tr>
+</table>
+
+---
+
+## Architecture
+
+EPL is a multi-backend language with a unified frontend:
+
+```
+                    ┌──────────────┐
+   .epl source  ──▶│    Lexer      │
+                    │    Parser     │
+                    │    AST        │
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────────┐
+              ▼            ▼                ▼
+     ┌──────────────┐ ┌──────────┐  ┌─────────────┐
+     │  Interpreter │ │ Bytecode │  │    LLVM      │
+     │  (Tree-walk) │ │ VM       │  │  (Native)    │
+     └──────────────┘ └──────────┘  └─────────────┘
+              │            │                │
+              ▼            ▼                ▼
+         Python host   Stack VM       .exe / .o
+                                    (x86, ARM, WASM)
+```
+
+### Compilation Targets
+
+| Target | Command | Output |
+|--------|---------|--------|
+| Interpreter | `epl run app.epl` | Direct execution |
+| Bytecode VM | `epl vm app.epl` | Stack-based VM |
+| Native Binary | `epl build app.epl` | LLVM → `.exe` / ELF |
+| WebAssembly | `epl wasm app.epl` | `.wasm` module |
+| JavaScript | `epl js app.epl` | Browser/Node.js |
+| Kotlin | `epl kotlin app.epl` | JVM / Android |
+| Python | `epl python app.epl` | `.py` transpile |
+
+---
+
+## Ecosystem
+
+### Official Package Registry — 22 Packages
+
+EPL ships with a curated package ecosystem covering web, data, AI, security, and infrastructure:
+
+<table>
+<tr><th>Category</th><th>Packages</th><th>Description</th></tr>
+<tr><td><b>Web & API</b></td><td><code>epl-web</code> · <code>epl-http</code></td><td>HTTP router, WebSocket, REST client, middleware</td></tr>
+<tr><td><b>Data & DB</b></td><td><code>epl-db</code> · <code>epl-dataframe</code> · <code>epl-collections</code></td><td>SQLite ORM, DataFrame ops, typed collections</td></tr>
+<tr><td><b>AI & ML</b></td><td><code>epl-learn</code> · <code>epl-array</code> · <code>epl-plot</code></td><td>Scikit-learn bindings, NumPy arrays, Matplotlib charts</td></tr>
+<tr><td><b>Math & Science</b></td><td><code>epl-math</code> · <code>epl-science</code> · <code>epl-algo</code></td><td>Number theory, SciPy integration, graph algorithms</td></tr>
+<tr><td><b>Security</b></td><td><code>epl-auth</code> · <code>epl-crypto</code> · <code>epl-validator</code></td><td>JWT auth, hashing/encryption, input validation</td></tr>
+<tr><td><b>Infrastructure</b></td><td><code>epl-cloud</code> · <code>epl-cache</code> · <code>epl-email</code></td><td>AWS/GCP/Azure, Redis caching, SMTP</td></tr>
+<tr><td><b>Language</b></td><td><code>epl-string</code> · <code>epl-datetime</code> · <code>epl-functional</code> · <code>epl-struct</code></td><td>String utils, date ops, FP patterns, typed records</td></tr>
+<tr><td><b>Testing</b></td><td><code>epl-test</code></td><td>Unit testing framework with assertions</td></tr>
+</table>
+
+```bash
+epl install epl-auth         # Install a package
+epl install epl-math         # Packages resolve from the official registry
+```
+
+Browse all packages at the [EPL Package Registry →](https://abneeshsingh21.github.io/epl-packages-index/)
+
+### Standard Library — 21 Modules
+
+Built-in modules available without installation: `math`, `string`, `http`, `json`, `crypto`, `datetime`, `regex`, `io`, `os`, `sql`, `net`, `html`, `web`, `websocket`, `collections`, `encoding`, `functional`, `auth`, `template`, `testing`, `sql`.
+
+### JavaScript/TypeScript Bridge
+
+Access the entire NPM ecosystem from EPL:
+
 ```epl
-Import "epl-cloud"
-
-Note: Use AWS services natively
-s3_bucket = cloud_s3_bucket("my-epl-bucket")
-cloud_s3_upload(s3_bucket, "data.txt", "Hello Cloud!")
-
-queue = cloud_sqs_queue("task-queue")
-cloud_sqs_send(queue, "Start background job")
-```
-
-### 🗄️ Database Apps
-```epl
-Import "epl-db"
-
-db = open("myapp.db")
-create_table(db, "users", Map with name = "TEXT" and email = "TEXT")
-insert(db, "users", Map with name = "Ada" and email = "ada@example.com")
-Say query(db, "SELECT * FROM users")
-```
-
-### 📱 Android Apps (Kotlin transpile)
-```bash
-epl android myapp/main.epl   # Generates full Android Studio project
-```
-
-### 🍎 iOS Apps (SwiftUI project generation)
-```bash
-epl ios myapp/main.epl       # Generates Xcode / SwiftUI project
-```
-
-### 🖥️ Desktop Apps
-```bash
-epl desktop myapp/main.epl   # Generates Compose Multiplatform desktop app
-```
-
-### ⚡ Native Executables
-```bash
-epl build myapp/main.epl     # Compiles via LLVM to native .exe / binary
-```
-
-### 🔌 JavaScript/TypeScript Bridge
-```epl
-Use javascript "lodash" as lodash
+Use javascript "lodash" as _
 Use javascript "axios" as axios
 
-Say lodash.capitalize("hello from epl")
+result = _.chunk([1, 2, 3, 4, 5, 6], 2)
 response = axios.get("https://api.example.com/data")
 Say response.data
 ```
 
-### ☸️ Kubernetes Deployment
-```bash
-epl deploy k8s myapp/main.epl --image myapp:1.0 --host myapp.example.com --tls
-```
+---
 
-### 📊 Observability & Monitoring
+## What Can You Build
+
+<table>
+<tr>
+<td width="50%">
+
+**🌐 Web Applications & APIs**
 ```epl
 Create WebApp called app
 
-Import "epl.observability" As obs
-obs.attach(app)
-
-Note: Auto-adds /_health, /_ready, /_metrics endpoints
+Route "/api/users" responds with
+    users = query(db, "SELECT * FROM users")
+    Send json Map with data = users
+End
 ```
 
----
+**🤖 AI & Machine Learning**
+```epl
+Import "epl.ai" As ai
+messages = [Map with role = "user" and content = "Explain EPL"]
+response = ai.chat(messages)
+Say response
+```
 
-## 📦 CLI Reference
+**🗄️ Database Applications**
+```epl
+Import "epl-db"
+db = open("app.db")
+create_table(db, "tasks", Map with title = "TEXT" and done = "INT")
+insert(db, "tasks", Map with title = "Ship EPL" and done = 0)
+```
 
+</td>
+<td width="50%">
+
+**📱 Android Apps**
 ```bash
-epl run <file.epl>        # Run a program
-epl repl                  # Interactive REPL
-epl new <name>            # Create new project
-epl build <file.epl>      # Compile to native executable
-epl wasm <file.epl>       # Compile to WebAssembly
-epl serve <file.epl>      # Start web server
-epl test [dir]            # Run test suite
-epl fix <file>            # AI Error Diagnostics
-epl check [file]          # Static type checking
-epl fmt <file>            # Format source code
-epl lint [file]           # Lint source code
-epl js <file.epl>         # Transpile to JavaScript
-epl python <file.epl>     # Transpile to Python
-epl kotlin <file.epl>     # Transpile to Kotlin
-epl android <file.epl>    # Generate Android project
-epl ios <file.epl>        # Generate iOS project
-epl desktop <file.epl>    # Generate desktop app
-epl web <file.epl>        # Generate web app (WASM/JS/Kotlin-JS)
-epl deploy k8s <file>     # Generate Kubernetes manifests
-epl deploy aws <file>     # Deploy to AWS ECS
-epl deploy gcp <file>     # Deploy to GCP Cloud Run
-epl deploy azure <file>   # Deploy to Azure Container Apps
-epl playground            # Start browser playground
-epl copilot               # AI code assistant
-epl install <package>     # Install a package
-epl upgrade               # Update EPL
+epl android app.epl
+# → Full Android Studio project with Kotlin
+```
+
+**🍎 iOS Apps**
+```bash
+epl ios app.epl
+# → Xcode project with SwiftUI views
+```
+
+**🖥️ Desktop Apps**
+```bash
+epl desktop app.epl
+# → Compose Multiplatform desktop app
+```
+
+**⚡ Native Executables**
+```bash
+epl build app.epl
+# → LLVM-compiled native binary
+```
+
+**☸️ Kubernetes Deployment**
+```bash
+epl deploy k8s app.epl \
+  --image myapp:1.0 \
+  --host app.example.com --tls
+```
+
+</td>
+</tr>
+</table>
+
+---
+
+## Feature Matrix
+
+| Category | Capabilities |
+|----------|-------------|
+| **Language** | OOP, generics, async/await, pattern matching, lambdas, generators, enums, decorators, type inference |
+| **Type System** | Static type checker (`epl check`), gradual typing, generic constraints |
+| **Performance** | Bytecode VM with constant folding, LLVM native compilation, dead code elimination, tail-call optimization |
+| **Web** | HTTP/WebSocket router, WSGI/ASGI adapters, middleware pipeline, sessions, templates, static files |
+| **Database** | SQLite ORM, Redis, PostgreSQL — `Store`/`Fetch`/`Delete` English APIs |
+| **Security** | Sandboxed FFI, pickle allowlist, recursion/scope-depth limits, input validation |
+| **Tooling** | LSP server, REPL, debugger, formatter (`epl fmt`), linter (`epl lint`), test runner, code coverage |
+| **Targets** | Interpreter, VM, LLVM native, JS, Kotlin, Python, WASM, MicroPython — 8 compilation backends |
+| **Packaging** | SemVer registry, lockfiles, checksums, dependency resolution, PyPI bridge |
+| **AI** | Built-in `ai` module, AI Error Explainer (`epl fix`), dual-model copilot (Groq/Gemini) |
+| **DevOps** | K8s manifests, AWS/GCP/Azure deploy, Prometheus metrics, health endpoints, structured logging |
+| **Interop** | JS/TS bridge for NPM, Python bridge for PyPI, persistent Node.js subprocess |
+| **Stdlib** | 300+ built-in functions: HTTP, DB, Math, Crypto, File I/O, JSON, Regex, DateTime, HTML |
+
+---
+
+## CLI Reference
+
+```
+Usage: epl <command> [options]
+
+Core
+  epl run <file>              Run an EPL program
+  epl repl                    Interactive REPL
+  epl new <name> [--template] Scaffold a new project
+  epl serve <file>            Start web server (dev mode)
+
+Build & Compile
+  epl build <file>            Compile to native executable (LLVM)
+  epl wasm <file>             Compile to WebAssembly
+  epl js <file>               Transpile to JavaScript
+  epl python <file>           Transpile to Python
+  epl kotlin <file>           Transpile to Kotlin
+
+Platform Targets
+  epl android <file>          Generate Android Studio project
+  epl ios <file>              Generate Xcode / SwiftUI project
+  epl desktop <file>          Generate Compose Multiplatform app
+  epl web <file>              Generate WASM/JS web app
+
+Quality & Tooling
+  epl check [file]            Static type checking
+  epl fmt <file>              Format source code
+  epl lint [file]             Lint source code
+  epl test [dir]              Run test suite
+  epl fix <file>              AI-powered error diagnostics
+
+Deploy
+  epl deploy k8s <file>       Generate Kubernetes manifests
+  epl deploy aws <file>       Deploy to AWS ECS
+  epl deploy gcp <file>       Deploy to GCP Cloud Run
+  epl deploy azure <file>     Deploy to Azure Container Apps
+
+Packages
+  epl install <package>       Install a package
+  epl upgrade                 Upgrade EPL to latest version
+
+Tools
+  epl playground              Browser-based playground
+  epl copilot                 AI code assistant
 ```
 
 ---
 
-## 🔋 Feature Highlights
+## Comparison
 
-| Category | Features |
-|----------|----------|
-| **Language** | OOP, async/await, generics, pattern matching, lambdas, generators |
-| **Performance** | Bytecode VM, LLVM native compiler, constant folding, dead code elimination |
-| **Web** | HTTP router, WebSocket, WSGI/ASGI, middleware, sessions, templates |
-| **Database** | SQLite ORM, Redis, PostgreSQL, Store/Fetch/Delete English APIs |
-| **Security** | Safe FFI sandbox, pickle allowlist, recursion limits, scope depth limits |
-| **Tooling** | LSP server, debugger, REPL, test framework, code coverage, formatter |
-| **Targets** | Interpreter, VM, LLVM native, JavaScript, Node.js, Kotlin, Python, WASM, MicroPython |
-| **Packaging** | SemVer package manager, lockfiles, checksums, PyPI integration |
-| **AI** | Built-in `ai` module, AI Error Explainer (`epl fix`), Dual "Thinking" Mode via Groq/Gemini |
-| **DevOps** | K8s manifests, AWS/GCP/Azure deploy, Prometheus metrics, health checks, structured logging |
-| **JS Bridge** | `Use javascript/typescript` for NPM ecosystem access, persistent Node.js subprocess |
-| **Standard Library** | 300+ functions across HTTP, DB, Math, Crypto, File I/O, JSON, Regex, Date |
+| Capability | EPL | Python | JavaScript | Go | Java |
+|-----------|-----|--------|------------|-----|------|
+| Natural-language syntax | ✅ | — | — | — | — |
+| Learning curve | Minutes | Days | Days | Weeks | Weeks |
+| Built-in web framework | ✅ | — | — | — | — |
+| Built-in AI module | ✅ | — | — | — | — |
+| Package manager | ✅ | pip | npm | go mod | Maven |
+| Native compilation | ✅ LLVM | — | — | ✅ | ✅ JIT |
+| WASM target | ✅ | — | ✅ | ✅ | — |
+| Mobile transpiler | ✅ Android + iOS | — | React Native | — | ✅ |
+| LSP / IDE support | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Type checking | ✅ Gradual | ✅ mypy | ✅ TS | ✅ | ✅ |
 
 ---
 
-## 📚 Documentation
+## VS Code Extension
+
+The official EPL extension provides a first-class development experience:
+
+- **Syntax Highlighting** — Full TextMate grammar for `.epl` files
+- **Real-time Diagnostics** — Type errors, unused variables, parse errors
+- **IntelliSense** — Autocomplete for keywords, builtins, and imports
+- **Hover Documentation** — Inline docs for all 300+ built-in functions
+- **Run & Check** — `Ctrl+Shift+R` to run, `Ctrl+Shift+K` to type-check
+
+Install from the [VS Code Marketplace →](https://marketplace.visualstudio.com/publishers/epl-lang)
+
+---
+
+## Documentation
 
 | Resource | Link |
 |----------|------|
-| Documentation Site | [abneeshsingh21.github.io/EPL](https://abneeshsingh21.github.io/EPL/) |
-| Language Reference | [docs/language-reference.md](docs/language-reference.md) |
 | Getting Started | [docs/getting-started.md](docs/getting-started.md) |
-| Publishing Packages | [docs/publishing.md](docs/publishing.md) |
-| Architecture | [docs/architecture.md](docs/architecture.md) |
-| Package Manager | [docs/package-manager.md](docs/package-manager.md) |
+| Language Specification | [docs/language-spec.md](docs/language-spec.md) |
 | Tutorials | [docs/tutorials.md](docs/tutorials.md) |
+| Package Manager Guide | [docs/package-manager.md](docs/package-manager.md) |
+| Architecture Overview | [docs/architecture.md](docs/architecture.md) |
+| Publishing Packages | [docs/publishing.md](docs/publishing.md) |
+| Full Documentation Site | [abneeshsingh21.github.io/EPL](https://abneeshsingh21.github.io/EPL/) |
 | Changelog | [CHANGELOG.md](CHANGELOG.md) |
 
 ---
 
-## 🛠️ VS Code Extension
+## Contributing
 
-Install the EPL extension for:
-- ✅ Syntax highlighting for `.epl` files
-- ✅ Real-time diagnostics (type errors, unused variables)
-- ✅ Auto-completions and hover docs
-- ✅ Run files with `Ctrl+Shift+R`
-- ✅ Type check with `Ctrl+Shift+K`
-
-**Install:** Search `EPL` in VS Code Extensions, or visit the [Marketplace](https://marketplace.visualstudio.com/publishers/epl-lang).
-
----
-
-## 💬 Community
-
-- [GitHub Discussions](https://github.com/abneeshsingh21/EPL/discussions) — Ask questions, share projects, propose features
-- [Issue Tracker](https://github.com/abneeshsingh21/EPL/issues) — Bug reports and feature requests
-- [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/) — Browse and publish EPL packages
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! We have strict enterprise guidelines to maintain code quality. 
-
-Before contributing, please read:
-- [CONTRIBUTING.md](CONTRIBUTING.md) for the automated testing and Ruff formatting requirements.
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for our community standards.
-- [CLA.md](CLA.md) for our required Contributor License Agreement.
+We welcome contributions from the community. EPL maintains enterprise-grade code quality standards with automated CI, Ruff formatting, and comprehensive test coverage.
 
 ```bash
 git clone https://github.com/abneeshsingh21/EPL.git
 cd EPL
 pip install -e ".[dev,cloud]"
 ruff format .
-pytest tests/
+pytest tests/ -x --tb=short -q
 ```
 
-See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the list of contributors.
+Before contributing, please read:
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Development workflow and testing requirements
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — Community standards
+- [CLA.md](CLA.md) — Contributor License Agreement
+
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the full list of contributors.
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
-- [x] Core language (interpreter + VM + LLVM)
-- [x] Web framework, ORM, async I/O
-- [x] Package manager with lockfiles
-- [x] LSP server, debugger, REPL
-- [x] Android & Desktop transpilers
-- [x] PyPI release (`pip install eplang`)
-- [x] VS Code extension
-- [x] Official documentation website
-- [x] Online playground (try EPL in browser with AST-Aware AI Copilot)
-- [x] iOS transpiler (SwiftUI project generation)
-- [x] EPL Notebook (Jupyter-style)
-- [x] Kubernetes & Cloud Deploy (AWS/GCP/Azure)
-- [x] JavaScript/TypeScript Bridge (NPM interop)
-- [x] Observability (health checks, metrics, structured logging)
-- [ ] Community package registry
+- [x] Core language — interpreter, bytecode VM, LLVM native compiler
+- [x] Web framework — HTTP/WebSocket router, WSGI/ASGI, middleware
+- [x] Package manager — SemVer, lockfiles, checksums, dependency resolution
+- [x] Developer tooling — LSP server, debugger, REPL, formatter, linter
+- [x] Mobile targets — Android (Kotlin) and iOS (SwiftUI) transpilers
+- [x] Desktop target — Compose Multiplatform app generation
+- [x] Cloud deploy — AWS ECS, GCP Cloud Run, Azure, Kubernetes
+- [x] JavaScript/TypeScript bridge — Full NPM ecosystem interop
+- [x] AI integration — Built-in module, error explainer, copilot
+- [x] Observability — Health checks, Prometheus metrics, structured logging
+- [x] PyPI distribution — `pip install eplang`
+- [x] VS Code extension — Syntax, diagnostics, IntelliSense
+- [x] Official documentation site and browser playground
+- [x] 22 official packages across web, data, AI, security, and infrastructure
 - [ ] WebSocket real-time collaboration
+- [ ] Language server protocol v2 (semantic tokens, rename, references)
+- [ ] GPU compute target (CUDA/ROCm via LLVM)
 
 ---
 
-## 📄 License
+## Community
+
+- [GitHub Discussions](https://github.com/abneeshsingh21/EPL/discussions) — Questions, ideas, and project showcase
+- [Issue Tracker](https://github.com/abneeshsingh21/EPL/issues) — Bug reports and feature requests
+- [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/) — Browse and publish EPL packages
+
+---
+
+## License
 
 Copyright © 2024–2026 **Abneesh Singh** (<singhabneesh250@gmail.com>)
 
-Licensed under the **Apache License 2.0**. See [LICENSE](LICENSE) for details.
+Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution requirements.
 
-> "EPL" and "English Programming Language" are trademarks of Abneesh Singh. See [NOTICE](NOTICE) for strict attribution requirements.
+> "EPL" and "English Programming Language" are trademarks of Abneesh Singh.
 
 ---
 
 <div align="center">
 
-**⭐ Star this repo if EPL excites you!**
+**⭐ If EPL resonates with you, consider starring the repository.**
 
-Made with ❤️ by [Abneesh Singh](https://github.com/abneeshsingh21)
+Made with precision by [Abneesh Singh](https://github.com/abneeshsingh21)
 
 </div>

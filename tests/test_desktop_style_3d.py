@@ -1,11 +1,13 @@
 """Tests for Desktop/Compose v6.0+v6.1: Style, Layout, 3D & Canvas."""
-import sys
+
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from epl.desktop import DesktopComposeGenerator
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.desktop import DesktopComposeGenerator
 
 
 def parse(src):
@@ -75,13 +77,17 @@ class TestComponentDefDesktop:
 
 class TestAnimateDefDesktop:
     def test_animate_generates_state(self):
-        out = to_desktop('Animate "fadeIn"\n    Duration "1s"\n    Easing "ease"\n    Keyframe 0\n        Opacity "0"\n    End\n    Keyframe 100\n        Opacity "1"\n    End\nEnd\n')
+        out = to_desktop(
+            'Animate "fadeIn"\n    Duration "1s"\n    Easing "ease"\n    Keyframe 0\n        Opacity "0"\n    End\n    Keyframe 100\n        Opacity "1"\n    End\nEnd\n'
+        )
         assert 'animateFloatAsState' in out or 'tween' in out
 
 
 class TestScene3DDesktop:
     def test_scene_generates_canvas(self):
-        out = to_desktop('Scene "demo" width 800 height 600\n    Mesh "cube" position 0, 0, 0 color "#ff0000"\nEnd\n')
+        out = to_desktop(
+            'Scene "demo" width 800 height 600\n    Mesh "cube" position 0, 0, 0 color "#ff0000"\nEnd\n'
+        )
         assert 'Canvas(' in out
         assert 'drawRect' in out
 

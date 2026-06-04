@@ -216,7 +216,7 @@ class TestVMBuiltinDictDispatch(unittest.TestCase):
 
     def test_builtin_type_of(self):
         vm = run_vm('Display type_of(42)')
-        self.assertEqual(vm.output_lines, ['Integer'])
+        self.assertEqual(vm.output_lines, ['integer'])
 
 
 class TestVMDispatch(unittest.TestCase):

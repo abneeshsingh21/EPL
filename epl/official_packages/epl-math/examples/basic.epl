@@ -1,0 +1,61 @@
+Note: EPL Math Package — Usage Examples
+Use "epl-math"
+
+Note: --- Number Theory ---
+Print "Primes up to 50:"
+Print sieve_of_eratosthenes(50)
+
+Print "Prime factors of 360:"
+Print prime_factors(360)
+
+Print "10th prime number:"
+Print nth_prime(10)
+
+Print "Divisors of 28:"
+Print divisors(28)
+
+Print "Is 28 perfect?"
+Print is_perfect(28)
+
+Print "Euler totient of 12:"
+Print euler_totient(12)
+
+Print "2^10 mod 1000:"
+Print modular_pow(2, 10, 1000)
+
+Note: --- Combinatorics ---
+Print "P(5,3):"
+Print permutations_count(5, 3)
+
+Print "C(10,3):"
+Print combinations_count(10, 3)
+
+Print "5th Catalan number:"
+Print catalan_number(5)
+
+Print "Pascal row 5:"
+Print pascal_row(5)
+
+Note: --- Statistics ---
+Create data equal to [4, 8, 15, 16, 23, 42]
+Print "Variance:"
+Print variance(data)
+
+Print "Standard deviation:"
+Print std_dev(data)
+
+Print "75th percentile:"
+Print percentile(data, 75)
+
+Print "Quartiles:"
+Print quartiles(data)
+
+Note: --- Sequences ---
+Print "First 10 Fibonacci:"
+Print fibonacci_sequence(10)
+
+Print "Arithmetic 2,5,8...:"
+Print arithmetic_sequence(2, 3, 6)
+
+Print "Geometric 1,2,4...:"
+Print geometric_sequence(1, 2, 6)

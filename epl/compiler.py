@@ -1,5 +1,5 @@
 """
-EPL Compiler (v1.0)
+EPL Compiler (v7.6)
 Compiles EPL AST -> LLVM IR -> native executable.
 Full feature support: variables, math, strings, lists, maps,
 if/while/for/repeat/for-each, functions, classes, imports, print, input,
@@ -40,6 +40,7 @@ except Exception:
     llvm = None  # type: ignore
     HAS_LLVM = False
 
+from epl import __version__
 from epl import ast_nodes as ast
 from epl.errors import RuntimeError as EPLRuntimeError
 
@@ -133,7 +134,7 @@ class Compiler:
             {
                 'language': ir.DIToken('DW_LANG_C'),
                 'file': self._di_file,
-                'producer': 'EPL Compiler v5.0',
+                'producer': f'EPL Compiler v{__version__}',
                 'runtimeVersion': 0,
                 'isOptimized': self.opt_level > 0,
             },
