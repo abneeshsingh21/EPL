@@ -25,11 +25,12 @@ CROSS_TARGETS = {
 }
 
 
-def _offer_ai_explanation(error_msg, source_code: Optional[str] = None) -> None:
+def _offer_ai_explanation(error_msg, source_code: Optional[str] = None, use_ai: bool = False) -> None:
     """Show rich error explanation using the error_explainer module.
 
-    Provides pattern-based diagnostics (always), plus optional AI analysis
-    when an AI backend (Ollama or cloud) is available.
+    Provides pattern-based diagnostics (always). AI analysis is only used
+    when use_ai=True (triggered by --ai-errors flag). By default, the
+    explainer runs 100% offline with zero API calls.
     """
     try:
         from epl.error_explainer import explain, format_explanation
@@ -40,7 +41,7 @@ def _offer_ai_explanation(error_msg, source_code: Optional[str] = None) -> None:
         else:
             error = EPLError(str(error_msg))
 
-        exp = explain(error, source=source_code, ai=True)
+        exp = explain(error, source=source_code, ai=use_ai)
         print(format_explanation(exp), file=sys.stderr)
     except Exception:
         # Fallback: try the basic AI explain if the explainer fails
@@ -134,7 +135,9 @@ def run_source(
         else:
             print(f'\n{exc}', file=sys.stderr)
             if ai_help:
-                _offer_ai_explanation(str(exc), source)
+                _offer_ai_explanation(str(exc), source, use_ai=True)
+            else:
+                _offer_ai_explanation(str(exc), source, use_ai=False)
         return False
 
 

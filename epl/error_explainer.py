@@ -559,6 +559,92 @@ def _explain_repeat_count(match, source_line, source_lines):
     )
 
 
+def _explain_type_assign_mismatch(match, source_line, source_lines):
+    """Explain type assignment mismatch — e.g. assigning decimal to integer variable."""
+    value_type = match.group(1) if match.lastindex >= 1 else 'value'
+    var_name = match.group(2) if match.lastindex >= 2 else 'the variable'
+    var_type = match.group(3) if match.lastindex >= 3 else 'declared type'
+    return (
+        f"You are trying to assign a {value_type} value to variable '{var_name}' "
+        f"which was declared as type {var_type}. Type-checked variables can only "
+        f"hold values of their declared type.",
+        f"Either:\n"
+        f"      1. Convert the value: to_integer(value) or round(value)\n"
+        f"      2. Change the variable type to 'decimal': Create {var_name} as Decimal equal to <value>\n"
+        f"      3. Remove the type annotation: {var_name} = <value>",
+        '',
+    )
+
+
+def _explain_overflow(match, source_line, source_lines):
+    return (
+        'A numeric calculation produced a result too large to represent.',
+        'Check your math for unintended large exponents or infinite loops.',
+        '',
+    )
+
+
+def _explain_file_not_found(match, source_line, source_lines):
+    path = match.group(1) if match.lastindex else 'the file'
+    return (
+        f"The file '{path}' could not be found or opened.",
+        f"Check that the file path is correct and the file exists:\n"
+        f"      If file_exists(\"{path}\") Then\n"
+        f"          Create content equal to file_read(\"{path}\")\n"
+        f"      End",
+        '',
+    )
+
+
+def _explain_method_not_found(match, source_line, source_lines):
+    method = match.group(1) if match.lastindex else 'the method'
+    return (
+        f"Method '{method}' does not exist on this object.",
+        f"Check the spelling. Common list methods: push(), pop(), map(), filter(), reduce().\n"
+        f"      Common string methods: split(), trim(), uppercase(), lowercase(), replace().",
+        '',
+    )
+
+
+def _explain_missing_then(match, source_line, source_lines):
+    return (
+        "An 'If' statement is missing its 'Then' keyword.",
+        "Add 'Then' after the condition:\n"
+        "      If age > 18 Then\n"
+        "          Say \"Adult\"\n"
+        "      End",
+        '',
+    )
+
+
+def _explain_missing_takes(match, source_line, source_lines):
+    return (
+        "A Function definition with parameters is missing the 'Takes' keyword.",
+        "Add 'Takes' before the parameter list:\n"
+        "      Function greet Takes name\n"
+        "          Say \"Hello, \" + name\n"
+        "      End",
+        '',
+    )
+
+
+def _explain_iterator_exhausted(match, source_line, source_lines):
+    return (
+        'A generator or iterator has been fully consumed and has no more values.',
+        'If you need to iterate again, recreate the generator.',
+        '',
+    )
+
+
+def _explain_read_only(match, source_line, source_lines):
+    prop = match.group(1) if match.lastindex else 'the property'
+    return (
+        f"'{prop}' is read-only and cannot be modified.",
+        'Use a different variable name, or copy the value into a mutable variable first.',
+        '',
+    )
+
+
 # ─── Pattern Registry ────────────────────────────────────
 
 _PATTERNS = [
@@ -669,6 +755,81 @@ _PATTERNS = [
         'match': r'cannot (?:add|subtract|negate|slice|index into)',
         'category': 'type',
         'explain': _explain_type_mismatch,
+    },
+    # Type assignment mismatch — e.g. "Cannot assign decimal value to variable X of type integer"
+    {
+        'match': r'cannot assign (\w+) value to variable ["\']?(\w+)["\']? of type (\w+)',
+        'category': 'type',
+        'explain': _explain_type_assign_mismatch,
+    },
+    {
+        'match': r'cannot assign .* to .*type',
+        'category': 'type',
+        'explain': lambda m, src, lines: (
+            'You are assigning a value of the wrong type to a type-checked variable.',
+            'Convert the value to the correct type, or remove the type annotation.',
+            '',
+        ),
+    },
+    # Numeric overflow
+    {
+        'match': r'overflow|number too large|result too large',
+        'category': 'runtime',
+        'explain': _explain_overflow,
+    },
+    # File I/O errors
+    {
+        'match': r'(?:file|path) ["\']?([^\'"]+)["\']? (?:not found|does not exist)',
+        'category': 'io',
+        'explain': _explain_file_not_found,
+    },
+    {
+        'match': r'permission denied|access denied',
+        'category': 'io',
+        'explain': lambda m, src, lines: (
+            'The program does not have permission to access this file or resource.',
+            'Check file permissions, or run with appropriate privileges.',
+            '',
+        ),
+    },
+    # Method not found on object
+    {
+        'match': r'(?:method|member) ["\']?(\w+)["\']? (?:not found|does not exist|is not defined)',
+        'category': 'name',
+        'explain': _explain_method_not_found,
+    },
+    # Missing Then / Takes keywords
+    {
+        'match': r'expected ["\']?then["\']?',
+        'category': 'syntax',
+        'explain': _explain_missing_then,
+    },
+    {
+        'match': r'expected ["\']?takes["\']?',
+        'category': 'syntax',
+        'explain': _explain_missing_takes,
+    },
+    # Iterator / Generator exhaustion
+    {
+        'match': r'generator.*exhaust|iterator.*stop|stopiteration',
+        'category': 'runtime',
+        'explain': _explain_iterator_exhausted,
+    },
+    # Read-only property
+    {
+        'match': r'(?:read.only|cannot (?:set|modify|write)) ["\']?(\w+)["\']?',
+        'category': 'runtime',
+        'explain': _explain_read_only,
+    },
+    # Map/Dict key type errors
+    {
+        'match': r'(?:map|dict) key must be',
+        'category': 'type',
+        'explain': lambda m, src, lines: (
+            'Map keys must be strings, numbers, or booleans — not lists or maps.',
+            'Convert the key to a string: to_text(key).',
+            '',
+        ),
     },
     # Beginner mistakes (foreign language syntax)
     {
@@ -806,7 +967,8 @@ def _get_ai_explanation(error, source: str = None) -> str:
     """Get AI-powered explanation using the configured AI backend.
 
     Uses Ollama (local) or cloud provider (Gemini/Groq) if available.
-    Returns empty string if no AI backend is reachable.
+    Returns empty string if no AI backend is reachable or no API key is configured.
+    NEVER leaks API errors (401, 403, etc.) to the user.
     """
     try:
         from epl.ai import _use_cloud, explain_error, is_available
@@ -815,7 +977,14 @@ def _get_ai_explanation(error, source: str = None) -> str:
             return ''
 
         error_msg = getattr(error, 'message', str(error))
-        return explain_error(error_msg, source_code=source) or ''
+        result = explain_error(error_msg, source_code=source) or ''
+
+        # Never show raw API errors to users
+        if result and ('api error' in result.lower() or 'invalid api key' in result.lower()
+                       or '401' in result or '403' in result):
+            return ''
+
+        return result
     except Exception:
         return ''
 

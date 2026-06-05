@@ -589,7 +589,8 @@ def _fix_file(args, flags):
         try:
             from epl.error_explainer import explain, format_explanation
 
-            exp = explain(exc, source=source, ai=True)
+            use_ai = '--ai-errors' in flags
+            exp = explain(exc, source=source, ai=use_ai)
             print(format_explanation(exp), file=sys.stderr)
         except Exception:
             _debug_suppressed('cli.py:590')
