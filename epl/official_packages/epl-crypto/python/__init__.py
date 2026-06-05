@@ -1,14 +1,22 @@
 """
 EPL Crypto Package - Python Backend
 Encryption & cryptography: AES-256, RSA, signatures, key derivation, file encryption.
+
+Requires: pip install cryptography
 """
 
 import base64 as _b64
 import hashlib as _hashlib
 import os as _os
 
+_CRYPTOGRAPHY_INSTALL_HINT = (
+    "epl-crypto requires the 'cryptography' package.\n"
+    "Install it with:  pip install cryptography\n"
+    "Then restart your EPL program."
+)
+
 # ═══════════════════════════════════════════════════════════
-#  AES-256 Symmetric Encryption (using cryptography lib if available, else fallback)
+#  AES-256-GCM Symmetric Encryption
 # ═══════════════════════════════════════════════════════════
 
 try:
@@ -23,40 +31,47 @@ except ImportError:
     _HAS_CRYPTOGRAPHY = False
 
 
+def _require_cryptography(fn_name: str) -> None:
+    """Raise a clear ImportError if the cryptography package is absent."""
+    if not _HAS_CRYPTOGRAPHY:
+        raise ImportError(
+            f"epl-crypto: '{fn_name}' requires the 'cryptography' package.\n"
+            + _CRYPTOGRAPHY_INSTALL_HINT
+        )
+
+
 def aes_generate_key():
+    """Generate a random 256-bit AES key (base64-encoded)."""
     key = _os.urandom(32)
     return _b64.b64encode(key).decode()
 
 
 def aes_encrypt(plaintext, secret_key):
-    key = _b64.b64decode(secret_key.encode())
-    if _HAS_CRYPTOGRAPHY:
-        aesgcm = _AESGCM(key)
-        nonce = _os.urandom(12)
-        ct = aesgcm.encrypt(nonce, plaintext.encode(), None)
-        return _b64.b64encode(nonce + ct).decode()
-    else:
-        # XOR-based fallback (NOT secure, but functional without cryptography lib)
-        from itertools import cycle
+    """Encrypt plaintext with AES-256-GCM.
 
-        data = plaintext.encode()
-        encrypted = bytes(a ^ b for a, b in zip(data, cycle(key)))
-        return _b64.b64encode(encrypted).decode()
+    Requires the 'cryptography' package.  There is no insecure fallback —
+    AES without a proper cipher library cannot be provided safely.
+    """
+    _require_cryptography('aes_encrypt')
+    key = _b64.b64decode(secret_key.encode())
+    aesgcm = _AESGCM(key)
+    nonce = _os.urandom(12)
+    ct = aesgcm.encrypt(nonce, plaintext.encode(), None)
+    return _b64.b64encode(nonce + ct).decode()
 
 
 def aes_decrypt(ciphertext, secret_key):
+    """Decrypt AES-256-GCM ciphertext produced by aes_encrypt().
+
+    Requires the 'cryptography' package.
+    """
+    _require_cryptography('aes_decrypt')
     key = _b64.b64decode(secret_key.encode())
     raw = _b64.b64decode(ciphertext.encode())
-    if _HAS_CRYPTOGRAPHY:
-        aesgcm = _AESGCM(key)
-        nonce = raw[:12]
-        ct = raw[12:]
-        return aesgcm.decrypt(nonce, ct, None).decode()
-    else:
-        from itertools import cycle
-
-        decrypted = bytes(a ^ b for a, b in zip(raw, cycle(key)))
-        return decrypted.decode()
+    aesgcm = _AESGCM(key)
+    nonce = raw[:12]
+    ct = raw[12:]
+    return aesgcm.decrypt(nonce, ct, None).decode()
 
 
 # ═══════════════════════════════════════════════════════════

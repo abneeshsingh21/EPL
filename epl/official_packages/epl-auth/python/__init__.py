@@ -126,31 +126,87 @@ def generate_uuid():
 #  Sessions
 # ═══════════════════════════════════════════════════════════
 
-_sessions = {}
+import threading as _threading
+
+_sessions: dict = {}
+_sessions_lock = _threading.Lock()
+_rate_limits_lock = _threading.Lock()
+
+# ── Background eviction ────────────────────────────────────
+
+_EVICTION_INTERVAL_SECONDS = 300  # sweep every 5 minutes
+_eviction_timer = None
+
+
+def _evict_expired() -> None:
+    """Remove expired sessions and stale rate-limit buckets.
+
+    Runs in a background daemon thread on a self-rescheduling timer so
+    the in-process dicts don't grow without bound even when specific
+    tokens / identifiers are never referenced again.
+    """
+    global _eviction_timer
+    now = _time.time()
+
+    with _sessions_lock:
+        expired_tokens = [t for t, s in _sessions.items() if s['expires_at'] < now]
+        for t in expired_tokens:
+            del _sessions[t]
+
+    with _rate_limits_lock:
+        # Remove buckets whose most-recent timestamp is older than the
+        # largest sensible window (1 hour).  Callers that care about
+        # shorter windows already prune per-call; this is catch-all.
+        stale_keys = [
+            k for k, ts in _rate_limits.items()
+            if not ts or (now - max(ts)) > 3600
+        ]
+        for k in stale_keys:
+            del _rate_limits[k]
+
+    # Reschedule
+    _eviction_timer = _threading.Timer(_EVICTION_INTERVAL_SECONDS, _evict_expired)
+    _eviction_timer.daemon = True
+    _eviction_timer.start()
+
+
+def _start_eviction_timer() -> None:
+    global _eviction_timer
+    if _eviction_timer is None or not _eviction_timer.is_alive():
+        _eviction_timer = _threading.Timer(_EVICTION_INTERVAL_SECONDS, _evict_expired)
+        _eviction_timer.daemon = True
+        _eviction_timer.start()
+
+
+# Start on first import
+_start_eviction_timer()
 
 
 def create_session(user_id, data, expires_in_minutes):
     token = _secrets.token_urlsafe(32)
-    _sessions[token] = {
-        'user_id': user_id,
-        'data': data,
-        'expires_at': _time.time() + float(expires_in_minutes) * 60,
-    }
+    with _sessions_lock:
+        _sessions[token] = {
+            'user_id': user_id,
+            'data': data,
+            'expires_at': _time.time() + float(expires_in_minutes) * 60,
+        }
     return token
 
 
 def validate_session(session_token, secret=None):
-    session = _sessions.get(session_token)
-    if session is None:
-        return None
-    if session['expires_at'] < _time.time():
-        del _sessions[session_token]
-        return None
-    return session
+    with _sessions_lock:
+        session = _sessions.get(session_token)
+        if session is None:
+            return None
+        if session['expires_at'] < _time.time():
+            del _sessions[session_token]
+            return None
+        return session
 
 
 def invalidate_session(session_token):
-    _sessions.pop(session_token, None)
+    with _sessions_lock:
+        _sessions.pop(session_token, None)
     return True
 
 
@@ -220,6 +276,21 @@ def sha512(data):
 
 
 def md5(data):
+    """Return the MD5 hex digest of data.
+
+    .. deprecated::
+        MD5 is cryptographically broken and must not be used for security
+        purposes (passwords, tokens, signatures).  Use sha256() or
+        hash_password() instead.  This function is retained only for
+        non-security checksums and legacy interoperability.
+    """
+    import warnings
+    warnings.warn(
+        "epl-auth md5() is not safe for security purposes. "
+        "Use sha256() for checksums or hash_password() for passwords.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return _hashlib.md5(str(data).encode()).hexdigest()
 
 
@@ -236,23 +307,32 @@ def hmac_verify(message, signature, key):
 #  Rate Limiting
 # ═══════════════════════════════════════════════════════════
 
-_rate_limits = {}
+_rate_limits: dict = {}
 
 
 def check_rate_limit(identifier, max_requests, window_seconds):
+    """Sliding-window rate limiter.
+
+    Returns True if the request is allowed, False if the limit is exceeded.
+    Thread-safe: uses _rate_limits_lock for all dict mutations.
+    Stale entries are periodically removed by the background eviction timer.
+    """
     now = _time.time()
     key = str(identifier)
-    if key not in _rate_limits:
-        _rate_limits[key] = []
-    _rate_limits[key] = [t for t in _rate_limits[key] if now - t < float(window_seconds)]
-    if len(_rate_limits[key]) >= int(max_requests):
-        return False
-    _rate_limits[key].append(now)
+    win = float(window_seconds)
+    with _rate_limits_lock:
+        bucket = [t for t in _rate_limits.get(key, []) if now - t < win]
+        if len(bucket) >= int(max_requests):
+            _rate_limits[key] = bucket
+            return False
+        bucket.append(now)
+        _rate_limits[key] = bucket
     return True
 
 
 def reset_rate_limit(identifier):
-    _rate_limits.pop(str(identifier), None)
+    with _rate_limits_lock:
+        _rate_limits.pop(str(identifier), None)
     return True
 
 

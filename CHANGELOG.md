@@ -13,7 +13,20 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 ## [9.4.0] — 2026-06-05
 
 Multi-phase enterprise-grade remediation against the v9.3.0 audit findings.
-Phases 1–3 ship in this release.
+Phases 1–4 ship in this release.
+
+### Phase 4 — Official package security
+
+**Security**
+- `epl-crypto` — Removed insecure XOR-based fallback from `aes_encrypt` / `aes_decrypt`. When the `cryptography` package is absent, both functions now raise a clear `ImportError` with an install hint instead of silently falling back to a trivially-broken XOR cipher. Added `_require_cryptography(fn_name)` helper used by both functions.
+- `epl-validator` — `sanitize_sql()` previously escaped only `'` and `"`. Extended to a full 12-character-class sanitizer: `\`, `'`, `"`, `` ` ``, `;`, `--`, `#`, `%`, `_`, NUL, `\n`, `\r`. Backslash is processed first to prevent double-escaping. Includes `WARNING` docstring reminding callers to prefer parameterised queries.
+- `epl-validator` — `matches_pattern()` and `validate()` schema pattern fields previously used bare `re.match()`, allowing a crafted pattern to hang the process via catastrophic backtracking (ReDoS). Both now route through `_safe_match()`, which executes the match in a daemon thread and raises `ValueError` if it does not complete within 1 second.
+- `epl-auth` — `md5()` now emits a `DeprecationWarning` on every call, steering users toward `sha256()` or `hash_password()`. The digest return value is unchanged for checksum / legacy compatibility.
+- `epl-auth` — Session dict (`_sessions`) previously grew without bound. Added a background daemon thread (`_evict_expired`) that sweeps expired sessions every 5 minutes. All session and rate-limit dict mutations are now protected by `_sessions_lock` / `_rate_limits_lock` (thread-safety gap closed). `check_rate_limit` uses a local `bucket` copy to avoid holding the lock during list comprehension iteration.
+- `mcp_http_server.py` — `CORS_ORIGIN` default changed from `"*"` (allows any origin) to `"null"` (blocks all cross-origin browser requests). Operators set `EPL_MCP_CORS_ORIGIN=https://their-app.example.com` to allow a specific origin. Module docstring updated with guidance and a NEVER-use-`*`-for-authenticated-endpoints warning.
+
+**Tests**
+- 75 new tests in `tests/test_phase4_security.py` covering: XOR removal (simulate absent lib, verify `ImportError`), AES round-trip + fresh-nonce, SQL escaping for all 12 character classes + backslash-first ordering, ReDoS timeout, `_safe_match` invalid-regex handling, schema pattern integration, MD5 `DeprecationWarning` presence + content, session eviction on `validate_session` and via background timer, 50-thread concurrent session creation, 20-thread rate-limit fairness (exactly 10 allowed / 10 blocked), JWT round-trip + bad-secret + expiry, CORS default string + env-override.
 
 ### Phase 1 — Critical language pipeline fixes
 

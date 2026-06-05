@@ -5,8 +5,52 @@ Data validation: schema validation, type checking, regex patterns, sanitization.
 
 import html as _html
 import json as _json
+import queue as _queue
 import re as _re
+import threading as _threading
 import uuid as _uuid
+
+# ═══════════════════════════════════════════════════════════
+#  ReDoS guard — user-supplied pattern execution
+# ═══════════════════════════════════════════════════════════
+
+_PATTERN_TIMEOUT_SECONDS = 1.0  # max time for any user-supplied regex match
+
+
+def _safe_match(pattern: str, value: str) -> bool:
+    """Match a user-supplied regex pattern against value with a timeout.
+
+    Runs the match in a daemon thread.  If it does not complete within
+    _PATTERN_TIMEOUT_SECONDS, the thread is abandoned and ValueError is raised.
+    This prevents catastrophic backtracking (ReDoS) from hanging the process.
+
+    Raises:
+        ValueError: if the pattern times out or is invalid.
+    """
+    result_q: '_queue.Queue[object]' = _queue.Queue()
+
+    def _run():
+        try:
+            result_q.put(bool(_re.match(pattern, value)))
+        except _re.error as exc:
+            result_q.put(exc)
+
+    t = _threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(timeout=_PATTERN_TIMEOUT_SECONDS)
+
+    if t.is_alive():
+        # Thread still running — catastrophic backtracking detected.
+        raise ValueError(
+            f"Pattern match timed out after {_PATTERN_TIMEOUT_SECONDS}s. "
+            "The pattern may cause catastrophic backtracking (ReDoS). "
+            "Simplify the pattern or reduce its input."
+        )
+
+    item = result_q.get_nowait()
+    if isinstance(item, Exception):
+        raise ValueError(f"Invalid regex pattern: {item}") from item
+    return bool(item)
 
 # ═══════════════════════════════════════════════════════════
 #  Schema Creation & Validation
@@ -108,8 +152,11 @@ def validate(schema, data):
             if not isinstance(value, bool):
                 errors.append(f"Field '{name}' must be a boolean")
         elif ftype == 'pattern':
-            if not _re.match(field['pattern'], str(value)):
-                errors.append(f"Field '{name}' does not match pattern")
+            try:
+                if not _safe_match(field['pattern'], str(value)):
+                    errors.append(f"Field '{name}' does not match pattern")
+            except ValueError as exc:
+                errors.append(f"Field '{name}' pattern error: {exc}")
         elif ftype == 'enum':
             if value not in field['allowed']:
                 errors.append(f"Field '{name}' must be one of: {field['allowed']}")
@@ -201,7 +248,12 @@ def is_alphanumeric(val):
 
 
 def matches_pattern(val, pattern):
-    return bool(_re.match(pattern, str(val)))
+    """Match val against a user-supplied regex pattern.
+
+    Protected against catastrophic backtracking (ReDoS): raises ValueError
+    if the match does not complete within 1 second.
+    """
+    return _safe_match(pattern, str(val))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -237,9 +289,37 @@ def sanitize_html(val):
 
 
 def sanitize_sql(val):
+    """Escape dangerous SQL characters in a string value.
+
+    WARNING: This is a last-resort defence-in-depth measure only.
+    Always prefer parameterised queries / prepared statements over
+    string interpolation.  This function does NOT make arbitrary SQL
+    safe — it only escapes the most common injection characters.
+
+    Characters escaped:
+      \\    → \\\\   (must be first to avoid double-escaping)
+      '     → ''     (SQL string delimiter)
+      "     → \\"    (identifier/string delimiter in some dialects)
+      `     → \\`    (MySQL identifier delimiter)
+      ;     → \\;    (statement terminator)
+      --    → \\-\\- (line comment)
+      #     → \\#    (MySQL line comment)
+      %     → \\%    (LIKE wildcard)
+      _     → \\_    (LIKE single-char wildcard)
+      NUL   → ''     (null byte)
+      \\n   → \\n    (newline)
+      \\r   → \\r    (carriage return)
+    """
     s = str(val)
+    s = s.replace('\\', '\\\\')   # must be first
     s = s.replace("'", "''")
-    s = s.replace('\\', '\\\\')
+    s = s.replace('"', '\\"')
+    s = s.replace('`', '\\`')
+    s = s.replace(';', '\\;')
+    s = s.replace('--', '\\-\\-')
+    s = s.replace('#', '\\#')
+    s = s.replace('%', '\\%')
+    s = s.replace('_', '\\_')
     s = s.replace('\x00', '')
     s = s.replace('\n', '\\n')
     s = s.replace('\r', '\\r')

@@ -10,7 +10,14 @@ Usage:
 
 Env vars:
     PORT (default: 8000)
-    EPL_MCP_CORS_ORIGIN (default: *)
+    EPL_MCP_CORS_ORIGIN
+        Allowed CORS origin for the /mcp endpoint.
+        Default: "null"  — blocks all cross-origin browser requests.
+        Set to your frontend origin for production deployments, e.g.:
+            EPL_MCP_CORS_ORIGIN=https://your-app.example.com
+        Set to "*" only for fully public, unauthenticated tool endpoints.
+        NEVER use "*" when the MCP server has access to sensitive resources
+        or executes code on behalf of authenticated users.
 """
 
 from __future__ import annotations
@@ -28,7 +35,10 @@ app = Flask(__name__)
 
 # ── CORS Middleware ───────────────────────────────────────────────────
 
-CORS_ORIGIN = os.environ.get("EPL_MCP_CORS_ORIGIN", "*")
+# Default "null": blocks all cross-origin browser requests.
+# Set EPL_MCP_CORS_ORIGIN to your frontend origin for production use.
+# Never use "*" unless the endpoint is intentionally public and unauthenticated.
+CORS_ORIGIN = os.environ.get("EPL_MCP_CORS_ORIGIN", "null")
 
 
 @app.after_request
