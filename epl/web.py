@@ -2009,6 +2009,9 @@ class EPLHandler(BaseHTTPRequestHandler):
                 else:
                     self._send_html(str(result) if result else '<p>OK</p>')
             except Exception as e:
+                import traceback as _tb
+                _error_logger.error('Route handler error [%s %s]: %s\n%s',
+                                    self.command, self.path, e, _tb.format_exc())
                 self._send_error(500, f'Handler error: {e}')
             return
         if response_type == 'page':
@@ -2293,7 +2296,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         self._add_security_headers()
         self.send_header(
             'Content-Security-Policy',
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'",
         )
         self.end_headers()
         self.wfile.write(compressed)
@@ -2315,10 +2318,28 @@ class EPLHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(compressed)
 
+    @staticmethod
+    def _validate_redirect(location: str) -> str:
+        """Block open-redirect: only allow relative paths and same-origin absolute URLs."""
+        from urllib.parse import urlparse
+        loc = (location or '').strip()
+        if not loc:
+            return '/'
+        parsed = urlparse(loc)
+        # Relative URLs (no scheme, no netloc) are always safe
+        if not parsed.scheme and not parsed.netloc:
+            # Prevent protocol-relative URLs like //evil.com
+            if loc.startswith('//'):
+                return '/'
+            return loc
+        # Absolute URLs are rejected — EPL apps should only redirect to their own paths
+        return '/'
+
     def _send_redirect(self, location):
         """HTTP 303 redirect (See Other) - always redirects to GET."""
+        safe_location = self._validate_redirect(location)
         self.send_response(303)
-        self.send_header('Location', location)
+        self.send_header('Location', safe_location)
         # Persist session cookie on redirects so login flows work
         session_id = self._get_session_id()
         if session_id:
@@ -2350,10 +2371,10 @@ class EPLHandler(BaseHTTPRequestHandler):
             if not d:
                 continue
             fp = os.path.normpath(os.path.join(d, path.lstrip('/')))
-            # Path traversal protection
-            safe_root = os.path.normpath(os.path.abspath(d))
-            abs_fp = os.path.normpath(os.path.abspath(fp))
-            if not abs_fp.startswith(safe_root):
+            # Path traversal protection (realpath resolves symlinks too)
+            safe_root = os.path.realpath(os.path.abspath(d))
+            abs_fp = os.path.realpath(os.path.abspath(fp))
+            if not abs_fp.startswith(safe_root + os.sep) and abs_fp != safe_root:
                 continue
             if os.path.isfile(fp):
                 ctype, _ = mimetypes.guess_type(fp)

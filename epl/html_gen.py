@@ -314,8 +314,8 @@ def _render_element(elem, data_store=None, form_data=None):
 
     if tag == 'button':
         onclick = attrs.get('onclick', '')
-        # Sanitize onclick: only allow simple function calls (alphanumeric + parentheses)
-        if onclick and not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\([^)]*\)$', onclick):
+        # Sanitize onclick: only allow bare function calls with safe argument chars
+        if onclick and not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\([a-zA-Z0-9_,\s\'\"\.\-]*\)$', onclick):
             onclick = ''  # Strip unsafe onclick values
         onclick_attr = f' onclick="{_esc(onclick)}"' if onclick else ''
         return f'<button{onclick_attr}>{_esc(content)}</button>'
@@ -427,6 +427,7 @@ def _render_element(elem, data_store=None, form_data=None):
 def _resolve_store_templates(text, data_store):
     """Replace $count{collection} and $items{collection} in text."""
     import re
+    import html as _html_mod
 
     def replace_count(m):
         coll = m.group(1)
@@ -434,7 +435,12 @@ def _resolve_store_templates(text, data_store):
 
     def replace_items(m):
         coll = m.group(1)
-        return str(data_store.get(coll, []))
+        items = data_store.get(coll, [])
+        # Escape HTML in each item value to prevent stored-XSS
+        if isinstance(items, list):
+            escaped = [_html_mod.escape(str(item)) for item in items]
+            return str(escaped)
+        return _html_mod.escape(str(items))
 
     text = re.sub(r'\$count\{(\w+)\}', replace_count, text)
     text = re.sub(r'\$items\{(\w+)\}', replace_items, text)
