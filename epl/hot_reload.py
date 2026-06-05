@@ -118,11 +118,36 @@ class FileWatcher:
         _logger.info('File watcher stopped')
 
 
+def _kill_process(proc, timeout: float = 5.0) -> None:
+    """Terminate a subprocess, escalating to SIGKILL if it ignores SIGTERM.
+
+    Uses SIGKILL (os.kill with SIGKILL on POSIX, TerminateProcess on Windows)
+    as a fallback after `timeout` seconds so the parent never blocks forever
+    waiting for a child that ignores SIGTERM.
+    """
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _logger.warning('Child ignored SIGTERM after %.1fs — sending SIGKILL', timeout)
+        proc.kill()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass  # Nothing more we can do; OS will reap eventually
+
+
 class HotReloader:
     """Auto-restart server when source files change.
 
     Strategy: re-execute the current process with the same arguments.
     This is the same approach used by Flask and Django's dev servers.
+
+    Thread-safety: `_restart_event` is a `threading.Event` so the watcher
+    thread (which calls `_on_change`) and the main loop can communicate
+    without a data race on a plain boolean.
     """
 
     def __init__(self, watch_dirs=None, patterns=None, interval=1.0):
@@ -132,17 +157,20 @@ class HotReloader:
             interval=interval,
         )
         self._watcher.on_change(self._on_change)
-        self._restart_pending = False
+        # threading.Event is safe to set/wait from different threads;
+        # a plain bool is not (no memory barrier guarantee in CPython's GIL
+        # relaxation paths, and non-CPython implementations may reorder).
+        self._restart_event = threading.Event()
         self._child = None
         self._is_child = os.environ.get('EPL_RELOAD_CHILD') == '1'
 
     def _on_change(self, changed_files):
-        """Handle file changes — trigger restart."""
+        """Handle file changes — trigger restart. Called from watcher thread."""
         short = [os.path.basename(f) for f in changed_files[:5]]
-        _logger.info(f'Files changed: {", ".join(short)} — restarting...')
+        _logger.info('Files changed: %s — restarting...', ', '.join(short))
         print(f'\n  [HOT RELOAD] Files changed: {", ".join(short)}')
         print('  [HOT RELOAD] Restarting server...\n')
-        self._restart_pending = True
+        self._restart_event.set()
 
     def run_with_reload(self, target_fn, *args, **kwargs):
         """Run target_fn with hot-reload support.
@@ -151,48 +179,39 @@ class HotReloader:
         If this is the child process, it runs target_fn directly.
         """
         if self._is_child:
-            # We're the child — just run the server
             target_fn(*args, **kwargs)
             return
 
-        # We're the parent — spawn child and watch
         self._watcher.start()
-        while True:
-            env = os.environ.copy()
-            env['EPL_RELOAD_CHILD'] = '1'
-            cmd = [sys.executable] + sys.argv
-            _logger.info(f'Starting child process: {" ".join(cmd)}')
-            print('  [HOT RELOAD] Server starting (watching for changes)...')
+        try:
+            while True:
+                env = os.environ.copy()
+                env['EPL_RELOAD_CHILD'] = '1'
+                cmd = [sys.executable] + sys.argv
+                _logger.info('Starting child process: %s', ' '.join(cmd))
+                print('  [HOT RELOAD] Server starting (watching for changes)...')
 
-            try:
+                self._restart_event.clear()
                 self._child = subprocess.Popen(cmd, env=env)
-                while not self._restart_pending:
+
+                # Poll child exit OR wait for a file-change event.
+                while not self._restart_event.is_set():
                     ret = self._child.poll()
                     if ret is not None:
-                        # Child exited on its own
                         if ret != 0:
-                            _logger.warning(f'Child exited with code {ret}, waiting for fix...')
+                            _logger.warning('Child exited with code %d, waiting for fix...', ret)
                             print(
                                 f'  [HOT RELOAD] Server crashed (exit {ret}). Waiting for file change...'
                             )
-                            # Wait for a file change before restarting
-                            self._restart_pending = False
-                            while not self._restart_pending:
-                                time.sleep(0.5)
+                            # Block until watcher fires, then restart.
+                            self._restart_event.wait()
                         break
                     time.sleep(0.2)
 
-                # Kill child if still running
-                if self._child.poll() is None:
-                    self._child.terminate()
-                    self._child.wait(timeout=5)
-            except KeyboardInterrupt:
-                if self._child and self._child.poll() is None:
-                    self._child.terminate()
-                    self._child.wait(timeout=5)
-                break
-            finally:
-                self._restart_pending = False
+                _kill_process(self._child)
+                self._restart_event.clear()
+        except KeyboardInterrupt:
+            _kill_process(self._child)
 
         self._watcher.stop()
 
@@ -208,5 +227,4 @@ class HotReloader:
     def stop(self):
         """Stop the reloader."""
         self._watcher.stop()
-        if self._child and self._child.poll() is None:
-            self._child.terminate()
+        _kill_process(self._child)

@@ -62,47 +62,59 @@ class EPLMutex:
 
 
 class EPLRWLock:
-    """Read-Write lock allowing multiple readers or one writer.
+    """Read-Write lock allowing multiple readers or one exclusive writer.
 
-    Multiple threads can read simultaneously, but writing is exclusive.
-    Writers have priority: when a writer is waiting, new readers are blocked
-    to prevent writer starvation.
+    Multiple threads can read simultaneously. When a writer arrives, new
+    readers are blocked (writer-priority to prevent starvation). The writer
+    then waits for all active readers to drain before taking the write lock.
+
+    Implementation uses two separate locks to close the re-acquisition
+    window that exists in the single-lock Condition pattern:
+      _write_lock  — serialises all writers; held for the full write section.
+      _state_lock  — guards _readers and _writers_waiting counters.
+      _drain_event — signals when active reader count reaches zero.
     """
 
     def __init__(self):
-        self._lock = threading.Lock()
-        self._read_ready = threading.Condition(self._lock)
+        self._write_lock = threading.Lock()   # exclusive write access
+        self._state_lock = threading.Lock()   # guards counters only
+        self._drain_event = threading.Event() # set when _readers == 0
+        self._drain_event.set()               # initially no readers
         self._readers = 0
-        self._writers_waiting = 0  # Prevents writer starvation
+        self._writers_waiting = 0
 
     def acquire_read(self):
-        with self._read_ready:
-            # Block new readers if writers are waiting (prevents starvation)
-            while self._writers_waiting > 0:
-                self._read_ready.wait()
+        """Acquire a shared read lock. Blocks if a writer is waiting or active."""
+        # Block new readers while a writer is pending or active.
+        # _write_lock acts as the write-active gate: if a writer holds it,
+        # this acquire blocks until the write completes.
+        self._write_lock.acquire()
+        with self._state_lock:
             self._readers += 1
+            self._drain_event.clear()  # readers active → drain event not set
+        self._write_lock.release()
 
     def release_read(self):
-        with self._read_ready:
+        """Release a previously acquired read lock."""
+        with self._state_lock:
             self._readers -= 1
             if self._readers == 0:
-                self._read_ready.notify_all()
+                self._drain_event.set()  # signal any waiting writer
 
     def acquire_write(self):
-        with self._read_ready:
+        """Acquire the exclusive write lock. Blocks until all readers drain."""
+        with self._state_lock:
             self._writers_waiting += 1
-            while self._readers > 0:
-                self._read_ready.wait()
+        # Take the write lock to block new readers immediately.
+        self._write_lock.acquire()
+        with self._state_lock:
             self._writers_waiting -= 1
-            # Re-acquire the underlying lock for exclusive write access.
-            # The Condition's __exit__ will NOT release it because we
-            # explicitly acquire it again below after the Condition block.
-        self._lock.acquire()
+        # Wait for any readers that were already inside to finish.
+        self._drain_event.wait()
 
     def release_write(self):
-        self._lock.release()
-        with self._read_ready:
-            self._read_ready.notify_all()
+        """Release the exclusive write lock."""
+        self._write_lock.release()
 
     def __repr__(self):
         return f'<RWLock readers={self._readers} writers_waiting={self._writers_waiting}>'

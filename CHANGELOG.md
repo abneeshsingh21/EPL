@@ -10,6 +10,46 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.4.0] — 2026-06-05
+
+Multi-phase enterprise-grade remediation against the v9.3.0 audit findings.
+Phases 1–3 ship in this release.
+
+### Phase 1 — Critical language pipeline fixes
+
+**Fixed**
+- `vm.py` — Float zero (`0.0`) is now caught by the division guard alongside integer zero; previously `10.0 / 0.0` silently produced `inf` instead of a runtime error.
+- `vm.py` — List index-set (`obj[i] = val`) now raises a clean `VMError` on out-of-range indices instead of propagating a raw Python `IndexError`.
+- `lexer.py` — Triple-quote boundary check corrected (off-by-one that could read one byte past the source buffer on a 2-char source ending in `"`).
+- `lexer.py` — Hex (`\xNN`) and Unicode (`\uXXXX`) escape sequences now guard against reading past end-of-source before slicing, raising a clean `LexerError` instead of silently accepting a truncated escape.
+- `parser.py` — Rest-parameter error path now raises `ParserError(msg, line)` directly instead of calling the non-existent `self._error()` method, which previously caused an `AttributeError` crash on malformed rest parameters.
+- `python_transpiler.py` — Range loops (`for x from A to B`) were emitting one extra iteration when no step was specified. The `end + 1` expression is now correctly parenthesised for both step and no-step paths.
+- `type_checker.py` — `_check_call` now reads `node.arguments` (the correct AST attribute) instead of `node.args`, so type inference for function calls no longer silently receives an empty argument list.
+- `type_system.py` — `TypeScope.resolve_type_name` accepts a `_seen` guard set and breaks circular alias chains (`type A = B; type B = A`) by returning `EPLType(PRIMITIVE, 'any')` instead of recursing infinitely.
+
+### Phase 2 — Security
+
+**Security**
+- `web.py` — Open redirect at 7 locations: all redirect targets now pass through `_validate_redirect()`, which allows only relative paths and rejects absolute URLs and protocol-relative `//host` forms. Attackers can no longer craft `?next=https://evil.com` payloads that redirect users off-site after login/logout.
+- `web.py` — Static file path traversal: changed from `os.path.normpath` + bare `startswith` to `os.path.realpath` + `startswith(root + os.sep)`, so symlinks pointing outside the static root are also blocked.
+- `web.py` — CSP header tightened: removed `script-src 'unsafe-inline'`; added `object-src 'none'` and `base-uri 'self'` to close dangling-markup and base-tag injection vectors.
+- `html_gen.py` — Button `onclick` regex replaced: `[^)]*` (accepted arbitrary JS) with an explicit allowlist `[a-zA-Z0-9_,\s\'\".\-]*` that only allows safe argument characters.
+- `html_gen.py` — `$items{collection}` store template now HTML-escapes every item value via `html.escape()` before rendering, closing the stored-XSS vector where attacker-controlled collection values were injected verbatim.
+
+### Phase 3 — Concurrency, resource leaks, and atomicity
+
+**Fixed**
+- `bytecode_cache.py` — `save()` now writes to a `.eplc.tmp` sibling and renames it into place atomically. A crash or OOM mid-write previously left a truncated `.eplc` that caused a silent full re-parse on every subsequent run. The temp file is cleaned up on any exception before re-raising.
+- `async_io.py` — `EPLInterval.stop()` now cancels the underlying asyncio `Future` immediately via `task.cancel()` in addition to setting `_running = False`. Previously, a sleeping interval task would not wake until the current sleep elapsed, leaving a thread alive for up to `interval` seconds after `stop()`.
+- `concurrency.py` — `EPLRWLock` rewritten to eliminate a deadlock window. The previous implementation exited the `Condition` context (releasing `_lock`) and then immediately called `self._lock.acquire()` bare — another thread could win that acquire in the gap, breaking write exclusion. The new design uses three separate primitives: `_write_lock` (serialises writers and gates new readers), `_drain_event` (signals when active reader count hits zero), and `_state_lock` (guards the reader/writer counters).
+- `hot_reload.py` — `_restart_pending` plain `bool` replaced with `threading.Event` (`_restart_event`). A plain bool has no memory-barrier guarantee outside CPython's GIL and is not safe to set from one thread and read from another in general. `Event.set()` / `Event.wait()` / `Event.is_set()` are explicitly thread-safe.
+- `hot_reload.py` — New `_kill_process(proc, timeout)` helper escalates SIGTERM → SIGKILL after `timeout` seconds. The previous `proc.terminate(); proc.wait(timeout=5)` could hang indefinitely if the child ignored SIGTERM. All termination paths (`run_with_reload`, `stop`, `KeyboardInterrupt`) now use this helper.
+
+**Tests**
+- 30 new tests in `tests/test_phase3_reliability.py` covering: atomic write crash safety (mid-write OSError simulation), interval stop cancellation and idempotency, RWLock concurrent readers (peak count), writer exclusion, no-deadlock under mixed contention, `_kill_process` SIGTERM→SIGKILL escalation, and `HotReloader` event thread-visibility.
+
+---
+
 ## [9.3.0] — 2026-06-01
 
 Multi-phase enterprise-grade enhancement program. All phases bundled into a single release. Sections below correspond to phases completed before publish.
