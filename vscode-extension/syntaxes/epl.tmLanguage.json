@@ -65,8 +65,16 @@
           "end": "\"",
           "patterns": [
             {
+              "name": "constant.character.escape.unicode.epl",
+              "match": "\\\\u[0-9a-fA-F]{4}"
+            },
+            {
+              "name": "constant.character.escape.hex.epl",
+              "match": "\\\\x[0-9a-fA-F]{2}"
+            },
+            {
               "name": "constant.character.escape.epl",
-              "match": "\\\\[nrt\\\\\"']"
+              "match": "\\\\[nrt\\\\\\\"\\'0abfv]"
             },
             {
               "name": "variable.other.interpolation.epl",
