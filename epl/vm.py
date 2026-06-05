@@ -2072,10 +2072,10 @@ class VM:
 
     def _op_div(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
-        if b == 0:
+        if b == 0 or b == 0.0:
             raise VMError('Division by zero', inst.line)
         result = a / b
-        self.stack.append(int(result) if result == int(result) else result)
+        self.stack.append(int(result) if isinstance(result, float) and result == int(result) else result)
 
     def _op_mod(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
@@ -2350,7 +2350,10 @@ class VM:
         obj = self.stack.pop()
         val = self.stack.pop()
         if isinstance(obj, list):
-            obj[int(idx)] = val
+            i = int(idx)
+            if i < -len(obj) or i >= len(obj):
+                raise VMError(f'Index {i} out of range for list of length {len(obj)}', inst.line)
+            obj[i] = val
         elif isinstance(obj, dict):
             obj[idx] = val
 

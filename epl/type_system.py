@@ -268,21 +268,27 @@ class TypeScope:
             return self.parent.lookup_interface(name)
         return None
 
-    def resolve_type_name(self, name: str) -> Optional[EPLType]:
+    def resolve_type_name(self, name: str, _seen: Optional[set] = None) -> Optional[EPLType]:
         """Resolve a type name to an EPLType — checks primitives, aliases, classes, interfaces."""
         if name in PRIMITIVE_MAP:
             return PRIMITIVE_MAP[name]
         if name in self.type_aliases:
-            return self.type_aliases[name]
+            # Guard against circular aliases (type A = B; type B = A)
+            seen = _seen or set()
+            if name in seen:
+                return EPLType(TypeKind.PRIMITIVE, 'any')  # break the cycle
+            alias_target = self.type_aliases[name]
+            if isinstance(alias_target, EPLType) and alias_target.name != name:
+                return alias_target
+            return EPLType(TypeKind.PRIMITIVE, 'any')
         if name in self.classes:
             return self.classes[name]
         if name in self.interfaces:
-            iface = self.interfaces[name]
             return EPLType(TypeKind.INTERFACE, name)
         if name in self.generic_vars:
             return self.generic_vars[name]
         if self.parent:
-            return self.parent.resolve_type_name(name)
+            return self.parent.resolve_type_name(name, _seen)
         return None
 
     def child(self, name: str = 'local') -> 'TypeScope':

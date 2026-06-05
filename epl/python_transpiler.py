@@ -276,7 +276,9 @@ class PythonTranspiler:
         step = ''
         if hasattr(node, 'step') and node.step is not None:
             step = f', {self._expr(node.step)}'
-        self._line(f'for {node.var_name} in range({start}, {end} + 1{step}):')
+        # EPL ranges are inclusive on both ends; Python range() is exclusive on end
+        end_expr = f'({end}) + 1' if step == '' else f'({end}) + 1{step}'
+        self._line(f'for {node.var_name} in range({start}, {end_expr}):')
         self.indent += 1
         for s in node.body:
             self._emit_stmt(s)

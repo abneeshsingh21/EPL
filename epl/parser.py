@@ -1273,7 +1273,7 @@ class Parser:
             if self._match(TokenType.REST):
                 self._advance()  # consume "rest"
                 if not self._match_identifier():
-                    raise self._error('Expected parameter name after "rest".')
+                    raise ParserError('Expected parameter name after "rest".', self._current().line)
                 rest_name = self._expect_identifier('Expected rest parameter name.').value
                 params.append(ast.RestParameter(rest_name, self._current().line))
                 break  # rest must be last

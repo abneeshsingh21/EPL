@@ -266,7 +266,7 @@ class Lexer:
         start_col = self.column
 
         # Check for triple-quote (multi-line string)
-        if self.pos + 2 < len(self.source) and self.source[self.pos : self.pos + 3] == '"""':
+        if self.pos + 2 <= len(self.source) - 1 and self.source[self.pos : self.pos + 3] == '"""':
             self._read_triple_string(start_line, start_col)
             return
 
@@ -362,7 +362,8 @@ class Lexer:
             return simple[escape_char]
         # \xNN hex escape
         if escape_char == 'x':
-            hex_str = self.source[self.pos + 1 : self.pos + 3]
+            remaining = len(self.source) - (self.pos + 1)
+            hex_str = self.source[self.pos + 1 : self.pos + 3] if remaining >= 2 else ''
             if len(hex_str) == 2 and all(c in '0123456789abcdefABCDEF' for c in hex_str):
                 self._advance()  # skip first hex digit
                 self._advance()  # skip second hex digit
@@ -370,7 +371,8 @@ class Lexer:
             raise LexerError(f'Invalid hex escape "\\x{hex_str}".', start_line, start_col)
         # \uXXXX unicode escape
         if escape_char == 'u':
-            uni_str = self.source[self.pos + 1 : self.pos + 5]
+            remaining = len(self.source) - (self.pos + 1)
+            uni_str = self.source[self.pos + 1 : self.pos + 5] if remaining >= 4 else ''
             if len(uni_str) == 4 and all(c in '0123456789abcdefABCDEF' for c in uni_str):
                 for _ in range(4):
                     self._advance()

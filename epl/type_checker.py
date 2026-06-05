@@ -496,7 +496,7 @@ class TypeChecker:
         )
         if fname in self._functions:
             param_types, _ = self._functions[fname]
-            args = node.args if hasattr(node, 'args') else []
+            args = getattr(node, 'arguments', None) or getattr(node, 'args', None) or []
             if len(args) < len(param_types):
                 # Check if missing args have defaults (from function def)
                 pass  # Can't check defaults without more info
