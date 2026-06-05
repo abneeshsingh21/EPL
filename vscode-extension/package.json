@@ -130,7 +130,7 @@
       {
         "command": "epl.fixFile",
         "title": "EPL: Fix Errors",
-        "icon": "$(tools)"
+        "icon": "$(pulse)"
       },
       {
         "command": "epl.serve",
