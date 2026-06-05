@@ -549,18 +549,21 @@ def _run_file(args, flags):
 
 
 def _fix_file(args, flags):
-    """Run a file, catch errors, and show AI-powered fix suggestions.
+    """Run a file, catch errors, and show enterprise-grade diagnostic output.
 
-    Usage: epl fix <file.epl>
-    Always shows the error explainer output, with AI enhancement when available.
+    Usage: epl fix <file.epl>           Diagnose errors (offline, zero API calls)
+           epl fix <file.epl> --fix     Auto-apply suggested corrections
+           epl fix <file.epl> --ai-errors  Include AI-powered deep analysis
     """
-    args = _resolve_target_args(args)
-    if not args:
+    auto_fix = '--fix' in flags or any(a == '--fix' for a in args)
+    clean_args = [a for a in (args or []) if a != '--fix']
+    clean_args = _resolve_target_args(clean_args)
+    if not clean_args:
         print(f'{_red("Error:")} No file specified.')
-        print('Usage: epl fix <file.epl>')
+        print('Usage: epl fix <file.epl> [--fix]')
         return 1
 
-    filename = args[0]
+    filename = clean_args[0]
     if not os.path.isfile(filename):
         print(f'{_red("Error:")} File not found: {filename}')
         return 1
@@ -592,6 +595,39 @@ def _fix_file(args, flags):
             use_ai = '--ai-errors' in flags
             exp = explain(exc, source=source, ai=use_ai)
             print(format_explanation(exp), file=sys.stderr)
+
+            # Auto-fix: apply corrected code if available and --fix flag
+            if auto_fix and exp.corrected_code and exp.line and exp.source_line:
+                source_lines = source.splitlines()
+                if 0 < exp.line <= len(source_lines):
+                    old_line = source_lines[exp.line - 1]
+                    # Preserve original indentation
+                    indent = old_line[:len(old_line) - len(old_line.lstrip())]
+                    new_line = indent + exp.corrected_code.strip()
+                    source_lines[exp.line - 1] = new_line
+                    fixed_source = '\n'.join(source_lines)
+                    if source.endswith('\n'):
+                        fixed_source += '\n'
+                    with open(filename, 'w', encoding='utf-8') as f:
+                        f.write(fixed_source)
+                    print(
+                        f'\n  {_green("[FIXED]")} Line {exp.line} auto-corrected in {_bold(filename)}',
+                        file=sys.stderr,
+                    )
+                    print(
+                        f'  {_dim("Old:")} {old_line.strip()}',
+                        file=sys.stderr,
+                    )
+                    print(
+                        f'  {_green("New:")} {exp.corrected_code.strip()}',
+                        file=sys.stderr,
+                    )
+            elif auto_fix and not exp.corrected_code:
+                print(
+                    f'\n  {_yellow("[SKIP]")} No auto-fix available for this error. '
+                    f'Apply the suggested fix manually.',
+                    file=sys.stderr,
+                )
         except Exception:
             _debug_suppressed('cli.py:590')
             pass

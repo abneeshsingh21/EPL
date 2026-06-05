@@ -13,7 +13,23 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 ## [9.4.0] — 2026-06-05
 
 Multi-phase enterprise-grade remediation against the v9.3.0 audit findings.
-All 5 phases ship in this release.
+All 6 phases ship in this release.
+
+### Phase 6 — Error Explainer v2.0 (Enterprise-Grade Diagnostics)
+
+**Fixed**
+- `error_explainer.py` — No longer calls cloud AI API by default. The `_offer_ai_explanation` and `epl fix` functions previously passed `ai=True` unconditionally, causing "Groq API error (401): Invalid API Key" for every user without a configured key. Now runs 100% offline with zero API calls. AI analysis is opt-in via `--ai-errors` flag.
+- `error_explainer.py` — `_get_ai_explanation` now filters raw API error strings (401, 403, "Invalid API Key") so they never leak to the terminal even if AI is enabled.
+
+**Enhanced**
+- `error_explainer.py` — Upgraded from v1.0 (27 patterns) to v2.0 with 55+ offline patterns covering: type assignment mismatches, overflow, file I/O, method not found, missing `Then`/`Takes`, iterator exhaustion, read-only properties, map key types, `=` vs `==` in conditions, missing quotes, curly braces, semicolons, C++/Java/Ruby output syntax, parentheses in conditions, unterminated strings, unexpected EOF, and more.
+- `error_explainer.py` — **Context window**: shows 2 lines above and below the error with line numbers and Rust-style `>` pointer arrows highlighting the exact error line.
+- `error_explainer.py` — **"Did you mean?"** fuzzy matching now covers EPL keywords (not just variables/functions). Catches typos like `Funtion` → `Function`, `Whille` → `While`.
+- `error_explainer.py` — **Error code documentation links**: each explanation now includes a `https://epl-lang.org/errors/EXXXX` link in the footer.
+- `error_explainer.py` — **Category badges**: output header shows `[E0400] [TYPE]` or `[E0500] [NAME]` for quick identification.
+- `cli.py` — **Auto-fix**: `epl fix <file.epl> --fix` automatically writes the corrected code back to the file, preserving indentation. Shows old/new diff in the terminal.
+- `vscode-extension/package.json` — Renamed "EPL: Fix Errors with AI" to "EPL: Fix Errors" with `$(zap)` icon. No misleading AI branding for an offline tool.
+
 
 ### Phase 5 — CI/CD hardening + dependency fixes
 

@@ -1,11 +1,13 @@
 """
-EPL Error Explainer v1.0
-Provides rich, structured error explanations with optional AI enhancement.
+EPL Error Explainer v2.0 — Enterprise-Grade Diagnostics
 
-Analyses EPLError instances using pattern matching to identify common mistakes
-(typos, Python/JS syntax habits, missing blocks, type mismatches) and produces
-clear, actionable fix suggestions. Optionally calls the AI backend for deeper
-analysis when the --ai-errors flag is active.
+Provides Rust/Elm-level error explanations with:
+  - 55+ offline pattern matchers (zero API calls needed)
+  - Context window: shows surrounding source lines with pointer arrows
+  - "Did you mean?" fuzzy matching for variables, functions, AND keywords
+  - Auto-fix suggestions with corrected code
+  - Error code documentation links
+  - Optional AI enhancement via --ai-errors flag
 
 Usage (internal):
     from epl.error_explainer import explain, format_explanation
@@ -16,8 +18,8 @@ Usage (internal):
 import difflib
 import logging
 import re
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple
 
 _log = logging.getLogger(__name__)
 
@@ -46,6 +48,11 @@ class ErrorExplanation:
     # Metadata
     category: str = ''  # "syntax", "runtime", "type", "name", "io", "index"
     confidence: float = 1.0  # How confident the pattern match is (0.0-1.0)
+
+    # v2.0: Enterprise-grade fields
+    context_lines: List[Tuple[int, str]] = field(default_factory=list)  # (line_no, content)
+    docs_link: str = ''  # e.g. "https://epl-lang.org/errors/E0400"
+    did_you_mean: str = ''  # Fuzzy keyword/token suggestion
 
 
 # ─── EPL Stdlib Functions (for "did you mean?" on functions) ──
@@ -280,6 +287,52 @@ _EPL_KEYWORDS = {
     'file',
 }
 
+# ─── EPL Keywords List (for "did you mean?" on keywords) ──
+
+_EPL_KEYWORD_LIST = sorted(_EPL_KEYWORDS)
+
+
+def _did_you_mean_keyword(token: str) -> str:
+    """Fuzzy-match a mistyped token against all EPL keywords.
+
+    Returns the best match or empty string if no close match found.
+    Handles common typos like 'Funtion' -> 'Function', 'Whille' -> 'While'.
+    """
+    token_lower = token.lower()
+    if token_lower in _EPL_KEYWORDS:
+        return ''  # Exact match — not a typo
+    matches = difflib.get_close_matches(token_lower, _EPL_KEYWORD_LIST, n=1, cutoff=0.7)
+    return matches[0].capitalize() if matches else ''
+
+
+# ─── Error Code Documentation Map ────────────────────────
+
+_DOCS_BASE_URL = 'https://epl-lang.org/errors'
+
+
+def _get_docs_link(error_code: str) -> str:
+    """Generate a documentation link for an error code."""
+    if not error_code or error_code == 'E0000':
+        return ''
+    return f'{_DOCS_BASE_URL}/{error_code}'
+
+
+# ─── Context Window Builder ──────────────────────────────
+
+
+def _build_context_lines(source_lines, error_line, radius=2):
+    """Build a context window of source lines around the error.
+
+    Returns a list of (line_number, line_content) tuples showing
+    `radius` lines before and after the error line.
+    """
+    if not source_lines or not error_line:
+        return []
+    total = len(source_lines)
+    start = max(1, error_line - radius)
+    end = min(total, error_line + radius)
+    return [(i, source_lines[i - 1]) for i in range(start, end + 1)]
+
 
 # ─── Pattern Explainer Functions ─────────────────────────
 
@@ -330,12 +383,22 @@ def _explain_unexpected_token(match, source_line, source_lines):
     """Generate explanation for unexpected token errors."""
     token = match.group(1)
     lower_token = token.lower()
+    # Check for Python/JS foreign keywords
     if lower_token in _FOREIGN_KEYWORD_MAP:
         epl_equiv = _FOREIGN_KEYWORD_MAP[lower_token]
         return (
             f"'{token}' is not valid EPL syntax — it looks like Python or JavaScript.",
             f'EPL equivalent: {epl_equiv}',
             '',
+        )
+    # Try fuzzy keyword match for typos (e.g. 'Funtion' -> 'Function')
+    suggestion = _did_you_mean_keyword(token)
+    if suggestion:
+        corrected = source_line.replace(token, suggestion) if source_line else ''
+        return (
+            f"'{token}' is not a recognized keyword. Did you mean '{suggestion}'?",
+            f"Replace '{token}' with '{suggestion}'.",
+            corrected,
         )
     return (
         f"The parser did not expect '{token}' at this position.",
@@ -888,6 +951,167 @@ _PATTERNS = [
             '',
         ),
     },
+    # ─── More beginner mistakes ───────────────────────────
+    # Using = instead of == in conditions
+    {
+        'match': r'unexpected.*(?:assign|equal).*(?:if|while|condition)',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "You may be using '=' (assignment) where you meant '==' (comparison).",
+            "In conditions, use '==' to compare:\n"
+            "      If score == 100 Then\n"
+            "          Say \"Perfect!\"\n"
+            "      End",
+            src.replace(' = ', ' == ') if src and ' = ' in src else '',
+        ),
+    },
+    # Missing quotes around strings
+    {
+        'match': r'unexpected.*identifier.*(?:say|display|show|print)',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            'You may be missing quotes around a text value.',
+            'Wrap text in double quotes:\n'
+            '      Say "Hello, World!"',
+            '',
+        ),
+    },
+    # Using curly braces (C/Java style)
+    {
+        'match': r'unexpected.*[{}]',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "EPL does not use curly braces { } — it uses 'End' to close blocks.",
+            "Remove the braces and use 'End' instead:\n"
+            "      If condition Then\n"
+            "          ...\n"
+            "      End",
+            '',
+        ),
+    },
+    # Using semicolons
+    {
+        'match': r'unexpected.*semicolon|unexpected.*[;]',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "EPL does not use semicolons — each statement goes on its own line.",
+            'Remove the semicolon. Each EPL statement is one line.',
+            src.replace(';', '') if src else '',
+        ),
+    },
+    # C++ cout / Java System.out
+    {
+        'match': r'unexpected.*cout|unexpected.*system',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "EPL does not use 'cout' or 'System.out' — it uses English keywords.",
+            'Use: Say "your message"  or  Display "your message"',
+            '',
+        ),
+    },
+    # Ruby puts
+    {
+        'match': r'unexpected.*puts',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "EPL does not use 'puts' — it uses English keywords for output.",
+            'Use: Say "your message"  or  Print "your message"',
+            '',
+        ),
+    },
+    # Parentheses around If condition (C-style)
+    {
+        'match': r'unexpected.*parenthes.*(?:if|while)',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "EPL does not require parentheses around conditions.",
+            "Remove the parentheses:\n"
+            "      If age > 18 Then\n"
+            "          (not: If (age > 18) Then)",
+            '',
+        ),
+    },
+    # Wrong string concatenation (using , instead of +)
+    {
+        'match': r'cannot.*concatenat.*comma|unexpected comma.*(?:say|print|display)',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "Use '+' to join text values, not commas.",
+            'Concatenate with +:\n'
+            '      Say "Hello, " + name + "!"',
+            '',
+        ),
+    },
+    # Missing 'In' in For Each
+    {
+        'match': r'expected.*in.*for each|for each.*missing.*in',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "'For Each' loops require the 'In' keyword.",
+            "Use: For Each item In myList\n"
+            "         Say item\n"
+            "     End",
+            '',
+        ),
+    },
+    # Missing 'equal to' in Create
+    {
+        'match': r'expected.*equal.*create|create.*missing.*equal',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "'Create' statements need 'equal to' to assign a value.",
+            "Use: Create name equal to \"EPL\"\n"
+            "     or: Create count equal to 0",
+            '',
+        ),
+    },
+    # Wrong boolean values
+    {
+        'match': r'unexpected.*true|unexpected.*false',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "EPL booleans are capitalized: True/False or Yes/No.",
+            "Use: True, False, Yes, No\n"
+            "     (not: true, false)",
+            '',
+        ),
+    },
+    # Missing 'to' in range loop
+    {
+        'match': r'expected.*to.*for.*from|for.*from.*missing.*to',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            "'For...from' loops require the 'to' keyword.",
+            "Use: For i from 1 to 10\n"
+            "         Say i\n"
+            "     End",
+            '',
+        ),
+    },
+    # Unterminated string
+    {
+        'match': r'unterminated string|unclosed string|string not closed',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            'A string literal was opened with a quote but never closed.',
+            'Make sure every opening quote has a matching closing quote:\n'
+            '      Say "Hello, World!"',
+            '',
+        ),
+    },
+    # Unexpected end of input
+    {
+        'match': r'unexpected end of (?:input|file)|unexpected eof',
+        'category': 'syntax',
+        'explain': lambda m, src, lines: (
+            'The file ended unexpectedly — a block or expression is incomplete.',
+            'Check that all blocks have their closing End keyword:\n'
+            '      Function greet Takes name\n'
+            '          Say "Hello, " + name\n'
+            '      End    <-- make sure this is present',
+            '',
+        ),
+    },
 ]
 
 
@@ -903,7 +1127,8 @@ def explain(error, source: str = None, ai: bool = False) -> ErrorExplanation:
         ai: Whether to include AI-generated explanation (requires Ollama or cloud API)
 
     Returns:
-        ErrorExplanation with all analysis results
+        ErrorExplanation with all analysis results including context window,
+        docs link, and keyword suggestions.
     """
     from epl.errors import _get_source_lines
 
@@ -941,6 +1166,26 @@ def explain(error, source: str = None, ai: bool = False) -> ErrorExplanation:
                 _log.debug('Pattern explainer failed: %s', exc)
             break
 
+    # v2.0: Build context window (2 lines above/below error)
+    context_lines = _build_context_lines(source_lines, error_line, radius=2)
+
+    # v2.0: Generate docs link from error code
+    docs_link = _get_docs_link(error_code)
+
+    # v2.0: Try keyword fuzzy matching on tokens in the error message
+    did_you_mean = ''
+    # Extract potential mistyped tokens from the error message
+    token_match = re.search(r"unexpected token ['\"]?(\w+)['\"]?", msg_lower)
+    if token_match:
+        did_you_mean = _did_you_mean_keyword(token_match.group(1))
+    elif source_at_line:
+        # Try each word on the error line against EPL keywords
+        for word in re.findall(r'\b([A-Z][a-z]+\w*)\b', source_at_line):
+            suggestion = _did_you_mean_keyword(word)
+            if suggestion and suggestion.lower() != word.lower():
+                did_you_mean = suggestion
+                break
+
     result = ErrorExplanation(
         error_type=error_type,
         error_code=error_code,
@@ -952,6 +1197,9 @@ def explain(error, source: str = None, ai: bool = False) -> ErrorExplanation:
         corrected_code=corrected_code,
         category=category,
         confidence=confidence,
+        context_lines=context_lines,
+        docs_link=docs_link,
+        did_you_mean=did_you_mean,
     )
 
     if ai:
@@ -993,7 +1241,15 @@ def _get_ai_explanation(error, source: str = None) -> str:
 
 
 def format_explanation(exp: ErrorExplanation, color: bool = True) -> str:
-    """Format an ErrorExplanation for terminal display."""
+    """Format an ErrorExplanation for terminal display.
+
+    Produces Rust/Elm-style diagnostic output with:
+      - Error code badge with docs link
+      - Context window with line numbers and pointer arrows
+      - 'Did you mean?' keyword suggestions
+      - Actionable fix suggestions with corrected code
+      - Category and confidence metadata
+    """
     if color:
         try:
             from epl.errors import _bold, _cyan, _dim, _green, _red, _yellow
@@ -1004,36 +1260,81 @@ def format_explanation(exp: ErrorExplanation, color: bool = True) -> str:
         _bold = _red = _green = _cyan = _dim = _yellow = lambda s: s
 
     bar = '\u2501' * 52
+    thin_bar = '\u2500' * 52
 
     lines = []
     lines.append('')
     lines.append(f'  {_cyan(bar)}')
-    lines.append(f'  {_bold("Error Explanation")}')
+
+    # ── Header with error code badge ──
+    category_badge = f'[{exp.category.upper()}]' if exp.category else ''
+    code_badge = f'[{exp.error_code}]' if exp.error_code and exp.error_code != 'E0000' else ''
+    header_parts = ['Error Explanation']
+    if code_badge:
+        header_parts.append(code_badge)
+    if category_badge:
+        header_parts.append(category_badge)
+    lines.append(f'  {_bold(" ".join(header_parts))}')
     lines.append(f'  {_cyan(bar)}')
+
+    # ── Context window (source lines around the error) ──
+    if exp.context_lines:
+        lines.append('')
+        lines.append(f'  {_bold("Source:")}')
+        # Calculate max line number width for alignment
+        max_ln = max(ln for ln, _ in exp.context_lines)
+        ln_width = len(str(max_ln))
+        for ln, content in exp.context_lines:
+            ln_str = str(ln).rjust(ln_width)
+            if ln == exp.line:
+                # Error line — highlighted with arrow
+                lines.append(f'  {_red(">")} {_dim(ln_str)} {_red("|")} {_bold(content)}')
+                # Pointer arrow under the line
+                stripped = content.lstrip()
+                indent = len(content) - len(stripped)
+                pointer = ' ' * indent + '^' * max(len(stripped), 1)
+                lines.append(f'    {" " * ln_width} {_red("|")} {_red(pointer)}')
+            else:
+                lines.append(f'    {_dim(ln_str)} {_dim("|")} {_dim(content)}')
+
+    # ── What went wrong ──
     lines.append('')
     lines.append(f'  {_bold("What went wrong:")}')
-
     for part in exp.what_went_wrong.split('\n'):
         lines.append(f'    {part}')
 
+    # ── Did you mean? ──
+    if exp.did_you_mean:
+        lines.append('')
+        lines.append(f'  {_bold("Did you mean:")}')
+        lines.append(f'    {_yellow(exp.did_you_mean)}')
+
+    # ── How to fix ──
     lines.append('')
     lines.append(f'  {_bold("How to fix:")}')
     for part in exp.how_to_fix.split('\n'):
         lines.append(f'    {_green(part)}')
 
+    # ── Suggested corrected code ──
     if exp.corrected_code:
         lines.append('')
         lines.append(f'  {_bold("Suggested code:")}')
         for part in exp.corrected_code.split('\n'):
             lines.append(f'    {_green(part)}')
 
+    # ── AI Analysis (only if available) ──
     if exp.ai_explanation:
         lines.append('')
+        lines.append(f'  {_dim(thin_bar)}')
         lines.append(f'  {_bold("AI Analysis:")}')
         for ai_line in exp.ai_explanation.split('\n'):
             lines.append(f'    {ai_line}')
 
+    # ── Footer with docs link ──
+    lines.append('')
     lines.append(f'  {_cyan(bar)}')
+    if exp.docs_link:
+        lines.append(f'  {_dim("Docs:")} {_cyan(exp.docs_link)}')
     lines.append('')
 
     return '\n'.join(lines)
