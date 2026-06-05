@@ -129,8 +129,8 @@
       },
       {
         "command": "epl.fixFile",
-        "title": "EPL: Fix Errors with AI",
-        "icon": "$(sparkle)"
+        "title": "EPL: Fix Errors",
+        "icon": "$(tools)"
       },
       {
         "command": "epl.serve",
