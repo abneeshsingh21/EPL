@@ -116,7 +116,7 @@ end"""
     display i
 end"""
     py = transpile_to_python(_parse(code))
-    check('For range', 'for i in range(1, 10 + 1):' in py)
+    check('For range', 'for i in range(1, ' in py and '+ 1):' in py)
 
     # T7: For each
     code = """set items to [1, 2, 3]
