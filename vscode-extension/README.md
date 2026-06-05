@@ -5,7 +5,7 @@
 **Full IDE support for the English Programming Language**
 
 [![Version](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
-[![EPL](https://img.shields.io/badge/EPL-v9.1.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
+[![EPL](https://img.shields.io/badge/EPL-v9.4.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
 
 </div>
 
@@ -26,6 +26,7 @@
 | 🧪 **Linting** | Code quality analysis |
 | 📊 **Profiling** | Performance profiling from the editor |
 | 👀 **Watch Mode** | Re-run on save, with configurable per-run timeout |
+| ⚡ **Error Diagnostics** | `epl fix` with Rust-style context window, 55+ offline patterns, `--fix` auto-correction |
 | 🩺 **Doctor** | Environment health check (`epl doctor`) |
 
 ## Prerequisites
@@ -52,7 +53,7 @@ The extension requires the `epl` CLI on your system `PATH`. If it's not found au
 | `EPL: Watch Current File` | — | Re-run on save |
 | `EPL: Serve Current File` | — | Start production web server |
 | `EPL: Deploy Current File` | — | Generate deployment configs (k8s/aws/gcp/azure/docker) |
-| `EPL: Fix Errors with AI` | — | Use the AI explainer to suggest fixes |
+| `EPL: Fix Errors` | — | Error diagnostics with 55+ offline patterns and auto-fix |
 | `EPL: Run Doctor` | — | Environment health check |
 
 ## Settings

@@ -42,7 +42,7 @@ Before your first Pull Request can be merged, you **must** sign the [Contributor
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| **Python** | 3.9 – 3.12 | Runtime and development |
+| **Python** | 3.9 – 3.13 | Runtime and development |
 | **Git** | 2.30+ | Version control |
 | **Node.js** | 18+ | JS bridge and VS Code extension (optional) |
 | **Ruff** | Latest | Linting and formatting |
@@ -102,7 +102,7 @@ Source Code (.epl)
 | `epl/lsp_server.py` | Language Server Protocol implementation |
 | `epl/js_bridge/` | Node.js interop bridge |
 | `epl/official_packages/` | First-party package library |
-| `tests/` | Test suite (84 test files, 1300+ tests) |
+| `tests/` | Test suite (90+ test files, 1642+ tests) |
 | `vscode-extension/` | VS Code extension with LSP client |
 | `docs/` | MkDocs Material documentation site |
 | `examples/` | Example programs and starter templates |
@@ -205,11 +205,11 @@ python -m pytest tests/ --cov=epl --cov-report=term-missing
 
 Every PR is tested across:
 
-| OS | Python 3.11 | Python 3.12 |
-|----|:-----------:|:-----------:|
-| Ubuntu | ✅ | ✅ |
-| macOS | ✅ | ✅ |
-| Windows | ✅ | ✅ |
+| OS | Python 3.9 | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
+|----|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
+| Ubuntu | ✅ | ✅ | ✅ | ✅ | ✅ |
+| macOS | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Windows | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ---
 
@@ -267,7 +267,7 @@ Releases are managed by the core team. The process:
 
 1. Version bump in `epl/__init__.py`
 2. Update `CHANGELOG.md` with release date
-3. Create a signed Git tag: `git tag -s v9.1.0`
+3. Create a signed Git tag: `git tag -s v9.4.0`
 4. Build and publish to PyPI: `python -m build && twine upload dist/*`
 5. Update documentation site
 

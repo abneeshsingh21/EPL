@@ -8,7 +8,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/eplang?color=3572A5&label=PyPI&logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/eplang/)
 [![Downloads](https://img.shields.io/pypi/dm/eplang?color=3572A5&label=Downloads&style=flat-square)](https://pypi.org/project/eplang/)
-[![Python](https://img.shields.io/badge/Python-3.9%E2%80%933.12-3572A5?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.9%E2%80%933.13-3572A5?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
 [![Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=flat-square&logo=github&color=e3b341)](https://github.com/abneeshsingh21/EPL/stargazers)
@@ -49,7 +49,7 @@ Route "/api/users" responds with
 End
 
 Route "/health" responds with
-    Send json Map with status = "healthy" and version = "7.5.9"
+    Send json Map with status = "healthy" and version = "9.4.0"
 End
 ```
 
@@ -321,10 +321,10 @@ epl deploy k8s app.epl \
 | **Tooling** | LSP server, REPL, debugger, formatter (`epl fmt`), linter (`epl lint`), test runner, code coverage |
 | **Targets** | Interpreter, VM, LLVM native, JS, Kotlin, Python, WASM, MicroPython — 8 compilation backends |
 | **Packaging** | SemVer registry, lockfiles, checksums, dependency resolution, PyPI bridge |
-| **AI** | Built-in `ai` module, AI Error Explainer (`epl fix`), dual-model copilot (Groq/Gemini) |
+| **AI** | Built-in `ai` module, Error Explainer v2.0 with 55+ offline patterns (`epl fix`), auto-fix (`--fix`), dual-model copilot |
 | **DevOps** | K8s manifests, AWS/GCP/Azure deploy, Prometheus metrics, health endpoints, structured logging |
 | **Interop** | JS/TS bridge for NPM, Python bridge for PyPI, persistent Node.js subprocess |
-| **Stdlib** | 300+ built-in functions: HTTP, DB, Math, Crypto, File I/O, JSON, Regex, DateTime, HTML |
+| **Stdlib** | 725+ built-in functions: HTTP, DB, Math, Crypto, File I/O, JSON, Regex, DateTime, HTML |
 
 ---
 
@@ -357,7 +357,8 @@ Quality & Tooling
   epl fmt <file>              Format source code
   epl lint [file]             Lint source code
   epl test [dir]              Run test suite
-  epl fix <file>              AI-powered error diagnostics
+  epl fix <file>              Error diagnostics (offline, 55+ patterns)
+  epl fix <file> --fix        Auto-apply suggested corrections
 
 Deploy
   epl deploy k8s <file>       Generate Kubernetes manifests
@@ -400,7 +401,8 @@ The official EPL extension provides a first-class development experience:
 - **Syntax Highlighting** — Full TextMate grammar for `.epl` files
 - **Real-time Diagnostics** — Type errors, unused variables, parse errors
 - **IntelliSense** — Autocomplete for keywords, builtins, and imports
-- **Hover Documentation** — Inline docs for all 300+ built-in functions
+- **Hover Documentation** — Inline docs for all 725+ built-in functions
+- **Error Diagnostics** — `epl fix` with Rust-style context window and `--fix` auto-correction
 - **Run & Check** — `Ctrl+Shift+R` to run, `Ctrl+Shift+K` to type-check
 
 Install from the [VS Code Marketplace →](https://marketplace.visualstudio.com/publishers/epl-lang)
@@ -453,7 +455,7 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the full list of contributors.
 - [x] Desktop target — Compose Multiplatform app generation
 - [x] Cloud deploy — AWS ECS, GCP Cloud Run, Azure, Kubernetes
 - [x] JavaScript/TypeScript bridge — Full NPM ecosystem interop
-- [x] AI integration — Built-in module, error explainer, copilot
+- [x] AI integration — Built-in module, Error Explainer v2.0 (55+ offline patterns, auto-fix), copilot
 - [x] Observability — Health checks, Prometheus metrics, structured logging
 - [x] PyPI distribution — `pip install eplang`
 - [x] VS Code extension — Syntax, diagnostics, IntelliSense
