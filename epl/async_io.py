@@ -292,7 +292,14 @@ class EPLInterval:
                 self._callback()
 
     def stop(self):
+        """Stop the interval and cancel the underlying asyncio task."""
         self._running = False
+        if self._task is not None:
+            try:
+                self._task.cancel()
+            except Exception:
+                pass
+            self._task = None
 
 
 # ═══════════════════════════════════════════════════════════

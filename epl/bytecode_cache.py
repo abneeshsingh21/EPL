@@ -66,7 +66,14 @@ def save(program, source: str, path) -> None:
     path = Path(path)
     header = _MAGIC + struct.pack('<H', _FORMAT_VERSION) + _source_hash(source)
     ast_data = pickle.dumps(program, protocol=5)
-    path.write_bytes(header + ast_data)
+    # Atomic write: temp file + rename so a crash mid-write never produces a corrupt .eplc
+    tmp = path.with_suffix('.eplc.tmp')
+    try:
+        tmp.write_bytes(header + ast_data)
+        tmp.replace(path)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def load(source: str, path):
