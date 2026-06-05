@@ -12,6 +12,10 @@ license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
 authors = [{name = "Abneesh Singh", email = "singhabneesh250@gmail.com"}]
 keywords = ["programming-language", "english", "interpreter", "compiler", "transpiler"]
+dependencies = [
+    "flask>=3.0,<4.0",
+    "requests>=2.31,<3.0",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -27,30 +31,30 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-llvm = ["llvmlite>=0.41.0"]
-ai = ["openai>=1.0.0"]
-secure = ["keyring>=24.0.0"]
+llvm = ["llvmlite>=0.41.0,<1.0"]
+ai = ["openai>=1.0.0,<2.0"]
+secure = ["keyring>=24.0.0,<26.0"]
 server = [
-    "waitress>=2.1.0",
-    "uvicorn>=0.30.0",
-    "hypercorn>=0.16.0",
-    "daphne>=4.1.0",
-    "gunicorn>=21.2; platform_system != 'Windows'",
+    "waitress>=2.1.0,<4.0",
+    "uvicorn>=0.30.0,<1.0",
+    "hypercorn>=0.16.0,<1.0",
+    "daphne>=4.1.0,<5.0",
+    "gunicorn>=21.2,<24.0; platform_system != 'Windows'",
 ]
-redis = ["redis>=5.0.0"]
-repl = ["prompt_toolkit>=3.0.0", "pygments>=2.15.0"]
-cloud = ["boto3>=1.28.0"]
-dev = ["pytest>=7.0", "coverage>=7.0", "build>=1.0.0", "ruff>=0.1.0"]
+redis = ["redis>=5.0.0,<6.0"]
+repl = ["prompt_toolkit>=3.0.0,<4.0", "pygments>=2.15.0,<3.0"]
+cloud = ["boto3>=1.28.0,<2.0"]
+dev = ["pytest>=7.0,<9.0", "coverage>=7.0,<8.0", "build>=1.0.0,<2.0", "ruff>=0.1.0,<1.0", "mypy>=1.8,<2.0"]
 all = [
-    "waitress>=2.1.0",
-    "uvicorn>=0.30.0",
-    "hypercorn>=0.16.0",
-    "daphne>=4.1.0",
-    "gunicorn>=21.2; platform_system != 'Windows'",
-    "prompt_toolkit>=3.0.0",
-    "pygments>=2.15.0",
-    "boto3>=1.28.0",
-    "keyring>=24.0.0",
+    "waitress>=2.1.0,<4.0",
+    "uvicorn>=0.30.0,<1.0",
+    "hypercorn>=0.16.0,<1.0",
+    "daphne>=4.1.0,<5.0",
+    "gunicorn>=21.2,<24.0; platform_system != 'Windows'",
+    "prompt_toolkit>=3.0.0,<4.0",
+    "pygments>=2.15.0,<3.0",
+    "boto3>=1.28.0,<2.0",
+    "keyring>=24.0.0,<26.0",
 ]
 
 [project.scripts]

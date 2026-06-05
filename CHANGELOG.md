@@ -13,7 +13,20 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 ## [9.4.0] — 2026-06-05
 
 Multi-phase enterprise-grade remediation against the v9.3.0 audit findings.
-Phases 1–4 ship in this release.
+All 5 phases ship in this release.
+
+### Phase 5 — CI/CD hardening + dependency fixes
+
+**Fixed**
+- `pyproject.toml` — Added `[project.dependencies]` with `flask>=3.0,<4.0` and `requests>=2.31,<3.0`. Both were previously undeclared: `flask` is imported unconditionally in `mcp_http_server.py`; `requests` is a hard requirement of the bundled `epl-http` package. Consumers who `pip install eplang` now receive both transitively without needing extras.
+- `pyproject.toml` — Added upper-bound version caps to all optional dependencies. Open-ended `>=X.Y` specifiers previously risked silent breakage if a major-version bump introduced breaking changes. All entries in `llvm`, `ai`, `secure`, `server`, `redis`, `repl`, `cloud`, `all` extras now carry `<NEXT_MAJOR` caps.
+- `pyproject.toml` — Added `mypy>=1.8,<2.0` to the `[dev]` optional extra, so `pip install eplang[dev]` installs the type checker alongside pytest/ruff/coverage.
+- `.github/workflows/ci.yml` — Test matrix widened from `['3.11', '3.12']` to `['3.9', '3.10', '3.11', '3.12']`, matching the `requires-python = ">=3.9"` claim. macOS excludes 3.9/3.10 to keep runner costs reasonable.
+- `.github/workflows/ci.yml` — Added `typecheck` job: installs `.[dev]` and runs `mypy epl/ --ignore-missing-imports --exclude epl/official_packages`. mypy was configured in `pyproject.toml` but had no CI step to enforce it.
+- `.github/workflows/ci.yml` — Added `test_phase3_reliability.py`, `test_phase4_security.py`, and `test_security_hardening.py` to the stable test suite whitelist and the coverage step. These files existed but were omitted from the explicit pytest invocation, meaning security and reliability tests never ran in CI.
+
+**Tests**
+- 52 new tests in `tests/test_phase5_cicd.py` — static analysis of `pyproject.toml` and `ci.yml` covering: runtime dep declaration, lower/upper bounds on all extras, mypy in dev extra, Python 3.9/3.10/3.11/3.12 matrix, typecheck job wiring, and security test file inclusion.
 
 ### Phase 4 — Official package security
 
