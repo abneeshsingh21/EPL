@@ -300,7 +300,7 @@ def test_all_previously_stubbed_produce_obj():
 def test_runtime_has_spawn_functions():
     """runtime.c should declare spawn_task and spawn_wait."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('epl_spawn_task', src)
     assert_in('epl_spawn_wait', src)
@@ -310,7 +310,7 @@ def test_runtime_has_spawn_functions():
 def test_runtime_has_ffi_functions():
     """runtime.c should declare dlopen/dlsym/dlclose wrappers."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('epl_dlopen', src)
     assert_in('epl_dlsym', src)
@@ -320,7 +320,7 @@ def test_runtime_has_ffi_functions():
 def test_runtime_has_ffi_callers():
     """runtime.c should have typed FFI call functions."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('epl_ffi_call_i64', src)
     assert_in('epl_ffi_call_double', src)
@@ -331,7 +331,7 @@ def test_runtime_has_ffi_callers():
 def test_runtime_has_debug_trap():
     """runtime.c should have epl_debug_trap."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('epl_debug_trap', src)
 
@@ -339,7 +339,7 @@ def test_runtime_has_debug_trap():
 def test_runtime_has_sleep_ms():
     """runtime.c should have sleep_ms for thread sleep."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('epl_sleep_ms', src)
 
@@ -347,7 +347,7 @@ def test_runtime_has_sleep_ms():
 def test_runtime_platform_agnostic_threading():
     """runtime.c should have both Win32 and pthread paths."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('CreateThread', src)
     assert_in('pthread_create', src)
@@ -356,7 +356,7 @@ def test_runtime_platform_agnostic_threading():
 def test_runtime_platform_agnostic_ffi():
     """runtime.c should have both LoadLibraryA and dlopen paths."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('LoadLibraryA', src)
     assert_in('dlopen', src)
@@ -365,7 +365,7 @@ def test_runtime_platform_agnostic_ffi():
 def test_runtime_ffi_supports_8_args():
     """FFI call should support up to 8 arguments."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     assert_in('case 8:', src)
 
@@ -373,7 +373,7 @@ def test_runtime_ffi_supports_8_args():
 def test_runtime_thread_runner_frees_arg():
     """Thread runner should free its argument to avoid leaks."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         src = f.read()
     # Both Win32 and Unix paths should free(ta)
     assert_true(src.count('free(ta)') >= 2, "Thread runner doesn't free args")
@@ -382,7 +382,7 @@ def test_runtime_thread_runner_frees_arg():
 def test_runtime_line_count():
     """Runtime should be substantial (2000+ lines)."""
     runtime_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'runtime.c')
-    with open(runtime_path, 'r') as f:
+    with open(runtime_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
     assert_true(len(lines) >= 2000, f'Only {len(lines)} lines in runtime.c')
 

@@ -126,7 +126,6 @@ advanced.py
 # ─── Root Scratch Files ─────────────────────────────────
 /test_*.py
 /test.js
-/main.py
 test[0-9]*.epl
 test_[0-9]*.epl
 playground_*.epl
