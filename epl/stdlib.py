@@ -5915,9 +5915,9 @@ def _call_web(name, args, line, interpreter=None):
             return None
 
     if name == 'web_json':
-        flask = _ensure_flask()
         if not args:
             raise EPLRuntimeError('web_json(data[, status]) requires data.', line)
+        flask = _ensure_flask()
         data = args[0]
         if isinstance(data, EPLDict):
             data = _from_epl(data)
@@ -5929,9 +5929,9 @@ def _call_web(name, args, line, interpreter=None):
         return resp
 
     if name == 'web_html':
-        flask = _ensure_flask()
         if not args:
             raise EPLRuntimeError('web_html(content[, status]) requires content.', line)
+        flask = _ensure_flask()
         # Auto-escape to prevent XSS — use web_html_raw() for unescaped
         from markupsafe import escape  # type: ignore[import-not-found]
 
@@ -5943,7 +5943,6 @@ def _call_web(name, args, line, interpreter=None):
         return flask.make_response(content, status)
 
     if name == 'web_redirect':
-        flask = _ensure_flask()
         if not args:
             raise EPLRuntimeError('web_redirect(url[, code]) requires URL.', line)
         url = str(args[0])
@@ -5954,6 +5953,7 @@ def _call_web(name, args, line, interpreter=None):
                 'Use relative paths like "/dashboard" instead.',
                 line,
             )
+        flask = _ensure_flask()
         code = int(args[1]) if len(args) > 1 else 302
         return flask.redirect(url, code=code)
 

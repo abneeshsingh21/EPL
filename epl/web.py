@@ -2544,22 +2544,30 @@ def _graceful_shutdown(signum, frame):
         threading.Thread(target=_active_server.shutdown, daemon=True).start()
 
 
-def start_server(app, port=3000, interpreter=None, threaded=True, workers=32):
+def start_server(app, port=3000, host='127.0.0.1', interpreter=None, threaded=True, workers=32):
     """Start the EPL web server (production-grade).
 
     Args:
         app: EPLWebApp instance
         port: Port number
+        host: Bind address (default: 127.0.0.1 — localhost only)
         interpreter: EPL interpreter for dynamic evaluation
         threaded: Use multi-threaded server
         workers: Max worker threads (thread pool size)
     """
+    import sys as _sys
+    if host == '0.0.0.0':
+        print(
+            'WARNING: Binding to 0.0.0.0 exposes this server to all network interfaces. '
+            'Use --host 127.0.0.1 for local-only access.',
+            file=_sys.stderr,
+        )
     global _active_server
     EPLHandler.app = app
     EPLHandler.interpreter = interpreter
 
     ServerClass = ThreadedHTTPServer if threaded else HTTPServer
-    server = ServerClass(('0.0.0.0', port), EPLHandler)
+    server = ServerClass((host, port), EPLHandler)
     server.daemon_threads = True
 
     # Thread pool for bounded concurrency
@@ -2659,9 +2667,17 @@ class AsyncEPLServer:
         asyncio.run(server.run())
     """
 
-    def __init__(self, app, port=3000, interpreter=None, workers=32):
+    def __init__(self, app, port=3000, host='127.0.0.1', interpreter=None, workers=32):
+        import sys as _sys
+        if host == '0.0.0.0':
+            print(
+                'WARNING: Binding to 0.0.0.0 exposes this server to all network interfaces. '
+                'Use --host 127.0.0.1 for local-only access.',
+                file=_sys.stderr,
+            )
         self.app = app
         self.port = port
+        self.host = host
         self.interpreter = interpreter
         self._server = None
         self._executor = ThreadPoolExecutor(max_workers=workers)
@@ -2682,7 +2698,7 @@ class AsyncEPLServer:
             protocol = 'https'
 
         self._server = await asyncio.start_server(
-            self._handle_connection, '0.0.0.0', self.port, ssl=ssl_ctx
+            self._handle_connection, self.host, self.port, ssl=ssl_ctx
         )
         total_routes = len(self.app.routes) + sum(len(v) for v in self.app.param_routes.values())
         print('\n  ╔══════════════════════════════════════╗')
@@ -2703,7 +2719,8 @@ class AsyncEPLServer:
 
     async def _handle_connection(self, reader, writer):
         """Handle a single HTTP connection with keep-alive support."""
-        self._active_connections += 1
+        async with self._lock:
+            self._active_connections += 1
         try:
             # Support HTTP/1.1 keep-alive (up to 100 requests per connection)
             for _ in range(100):
@@ -2716,7 +2733,8 @@ class AsyncEPLServer:
             _debug_suppressed('web.py:2688')
             pass
         finally:
-            self._active_connections -= 1
+            async with self._lock:
+                self._active_connections -= 1
             try:
                 writer.close()
                 await writer.wait_closed()
@@ -3214,7 +3232,7 @@ class HTTP2Server:
             protocol = 'https'
 
         self._server = await asyncio.start_server(
-            self._handle_connection, '0.0.0.0', self.port, ssl=ssl_ctx
+            self._handle_connection, self.host, self.port, ssl=ssl_ctx
         )
 
         total_routes = len(self.app.routes) + sum(len(v) for v in self.app.param_routes.values())
