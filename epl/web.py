@@ -2199,7 +2199,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 self._exec_delete(stmt, form_data, route_env=route_env)
             elif isinstance(stmt, ast.SendResponse) and stmt.response_type == 'redirect':
                 redirect_url = stmt.data.value if hasattr(stmt.data, 'value') else str(stmt.data)
-                return f'REDIRECT:{redirect_url}'
+                return f'REDIRECT:{self._validate_redirect(redirect_url)}'
         signal = _execute_route_block(self.interpreter, body, route_env)
         if signal is not None:
             if signal.response_type == 'redirect':
@@ -2208,7 +2208,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                     if self.interpreter
                     else signal.payload
                 )
-                return f'REDIRECT:{redirect_url}'
+                return f'REDIRECT:{self._validate_redirect(str(redirect_url))}'
             if self.interpreter is not None and signal.response_type == 'text':
                 return str(self.interpreter._eval(signal.payload, route_env))
         return None
@@ -2387,7 +2387,7 @@ class EPLHandler(BaseHTTPRequestHandler):
 
                     # ETag: hash of path + mtime + size
                     etag_raw = f'{fp}:{mtime}:{size}'.encode()
-                    etag = '"' + hashlib.md5(etag_raw).hexdigest() + '"'
+                    etag = '"' + hashlib.sha256(etag_raw).hexdigest()[:32] + '"'
 
                     # Last-Modified
                     last_modified = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(mtime))
@@ -2950,7 +2950,7 @@ class AsyncEPLServer:
                 self._exec_delete_sync(stmt, form_data)
             elif isinstance(stmt, ast.SendResponse) and stmt.response_type == 'redirect':
                 url = stmt.data.value if hasattr(stmt.data, 'value') else str(stmt.data)
-                return f'REDIRECT:{url}'
+                return f'REDIRECT:{EPLHandler._validate_redirect(url)}'
 
         # v6.0: Collect styles, components, animations
         styles = [s for s in body if isinstance(s, ast.StyleDef)]

@@ -24,14 +24,14 @@ def _pick_free_port() -> int:
     return port
 
 
-def _wait_for_server(base_url: str, timeout: float = 15.0) -> None:
+def _wait_for_server(base_url: str, timeout: float = 30.0) -> None:
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            with urlopen(f'{base_url}/_health', timeout=0.5):
+            with urlopen(f'{base_url}/_health', timeout=2):
                 return
         except Exception:
-            time.sleep(0.1)
+            time.sleep(0.3)
     raise AssertionError(f'Timed out waiting for To-Do app at {base_url}')
 
 

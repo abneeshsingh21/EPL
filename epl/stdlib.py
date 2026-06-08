@@ -101,6 +101,7 @@ def _auto_install(pip_name, display_name=None):
             print(f'[EPL] {display_name} installed successfully.', file=_sys.stderr)
             return True
         except Exception:
+            _debug_suppressed('stdlib.py:103:auto_install')
             return False
 
 
@@ -2680,7 +2681,7 @@ def call_stdlib(name, args, line, interpreter=None):
             t = threading.Thread(target=_wrap, args=args[1] if len(args)>1 else ())
             t.daemon = True
             t.start()
-            return None
+            return tid
         if name == 'rwlock_create':
             _conc = _require_module('epl.concurrency', feature_name='Concurrency')
             return _conc.create_rwlock()
@@ -4838,6 +4839,7 @@ def call_stdlib(name, args, line, interpreter=None):
                 else:
                     return _os.geteuid() == 0
             except Exception:
+                _debug_suppressed('stdlib.py:4840:is_admin')
                 return False
 
         # ── FileSystem (extended) ──
@@ -4951,7 +4953,7 @@ def call_stdlib(name, args, line, interpreter=None):
 
         # ── DateTime (extended) ──
         if name == 'utc_now':
-            return _datetime.datetime.utcnow().isoformat() + 'Z'
+            return _datetime.datetime.now(_datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         if name == 'timezone':
             import time as _time_mod
 
@@ -4970,7 +4972,7 @@ def call_stdlib(name, args, line, interpreter=None):
         if name == 'from_timestamp':
             if not args:
                 raise EPLRuntimeError('from_timestamp(epoch) requires an epoch number.', line)
-            return _datetime.datetime.utcfromtimestamp(float(args[0])).isoformat() + 'Z'
+            return _datetime.datetime.fromtimestamp(float(args[0]), _datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         if name == 'week_of_year':
             if not args:
                 raise EPLRuntimeError('week_of_year(date_str) requires a date string.', line)
@@ -5506,6 +5508,7 @@ def call_stdlib(name, args, line, interpreter=None):
             except EPLRuntimeError:
                 raise
             except Exception:
+                _debug_suppressed('stdlib.py:5508:assert_throws')
                 return True
 
         # ── Net (extended — HTTP server, WebSocket) ──
@@ -7503,6 +7506,7 @@ def _call_api(name, args, line):
             flask = _ensure_flask()
             return flask.jsonify(resp), status
         except Exception:
+            _debug_suppressed('stdlib.py:7505:api_error')
             return _to_epl(resp)
 
     if name == 'api_success':
@@ -7522,6 +7526,7 @@ def _call_api(name, args, line):
             flask = _ensure_flask()
             return flask.jsonify(resp)
         except Exception:
+            _debug_suppressed('stdlib.py:7524:api_success')
             return _to_epl(resp)
 
     if name == 'api_response':
@@ -7547,6 +7552,7 @@ def _call_api(name, args, line):
                 resp.headers[str(k)] = str(v)
             return resp
         except Exception:
+            _debug_suppressed('stdlib.py:7549:api_response')
             return _to_epl({'data': data, 'status': status})
 
     if name == 'api_parse_query':
