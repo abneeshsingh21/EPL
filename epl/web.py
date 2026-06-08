@@ -2556,6 +2556,11 @@ def start_server(app, port=3000, host='127.0.0.1', interpreter=None, threaded=Tr
         workers: Max worker threads (thread pool size)
     """
     import sys as _sys
+    if not isinstance(host, str) and interpreter is None:
+        # Backwards compatibility for start_server(app, 3000, interpreter)
+        interpreter = host
+        host = '127.0.0.1'
+        
     if host == '0.0.0.0':
         print(
             'WARNING: Binding to 0.0.0.0 exposes this server to all network interfaces. '
@@ -2669,6 +2674,11 @@ class AsyncEPLServer:
 
     def __init__(self, app, port=3000, host='127.0.0.1', interpreter=None, workers=32):
         import sys as _sys
+        if not isinstance(host, str) and interpreter is None:
+            # Backwards compatibility for AsyncEPLServer(app, 3000, interpreter)
+            interpreter = host
+            host = '127.0.0.1'
+            
         if host == '0.0.0.0':
             print(
                 'WARNING: Binding to 0.0.0.0 exposes this server to all network interfaces. '
