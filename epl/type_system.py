@@ -524,10 +524,10 @@ class TypeChecker:
         elif isinstance(node, ast.IfStatement):
             self._check_expr(node.condition, scope)
             child = scope.child('if_true')
-            self._check_body(node.true_body or [], child)
-            if node.false_body:
+            self._check_body(node.then_body or [], child)
+            if node.else_body:
                 child2 = scope.child('if_false')
-                self._check_body(node.false_body, child2)
+                self._check_body(node.else_body, child2)
             for elif_cond, elif_body in getattr(node, 'elif_clauses', []):
                 self._check_expr(elif_cond, scope)
                 child3 = scope.child('elif')
@@ -607,9 +607,11 @@ class TypeChecker:
 
         elif isinstance(node, ast.MatchStatement):
             self._check_expr(node.expression, scope)
-            for clause in node.clauses:
+            for clause in node.when_clauses:
                 child = scope.child('when')
                 self._check_body(clause.body if hasattr(clause, 'body') else [], child)
+            if getattr(node, 'default_body', None):
+                self._check_body(node.default_body, scope.child('default'))
 
         elif isinstance(node, ast.AugmentedAssignment):
             var_type = scope.lookup_var(node.name)
@@ -836,7 +838,7 @@ class TypeChecker:
             return self._check_function_call(node, scope)
 
         if isinstance(node, ast.MethodCall):
-            obj_type = self._check_expr(node.object, scope) if hasattr(node, 'object') else T_ANY
+            obj_type = self._check_expr(node.obj, scope) if hasattr(node, 'obj') else T_ANY
             for arg in node.arguments or []:
                 self._check_expr(arg, scope)
             # Infer return type from known methods
@@ -887,7 +889,7 @@ class TypeChecker:
             return T_ANY
 
         if isinstance(node, ast.PropertyAccess):
-            self._check_expr(node.object, scope)
+            self._check_expr(node.obj, scope)
             return T_ANY
 
         if isinstance(node, ast.IndexAccess):

@@ -1000,7 +1000,7 @@ import CryptoKit
         name = node.name.replace('-', '_')
         duration = str(node.duration or '1s').replace('s', '').replace('ms', '')
         try:
-            dur_val = float(duration) if '.' in duration else float(duration)
+            dur_val = float(duration)
         except ValueError:
             dur_val = 1.0
         self._state_vars.append(

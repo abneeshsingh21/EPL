@@ -683,8 +683,8 @@ class TypeChecker:
             return T_FUNCTION
 
         if isinstance(node, ast.TernaryExpression):
-            true_type = self._infer_type(node.true_value)
-            false_type = self._infer_type(node.false_value)
+            true_type = self._infer_type(node.true_expr)
+            false_type = self._infer_type(node.false_expr)
             if true_type == false_type:
                 return true_type
             return T_ANY

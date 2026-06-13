@@ -12,10 +12,15 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [9.6.0] — 2026-06-13
 
-Language Server Protocol **v2** — the next roadmap item. EPL's vision is that
-anyone can *read, write, and maintain* code in plain English; this release
-strengthens the "maintain" leg with editor-grade semantic highlighting and
-safe, token-aware refactoring.
+Language Server Protocol **v2** plus a static-analysis bug-fix batch. EPL's
+vision is that anyone can *read, write, and maintain* code in plain English;
+this release strengthens the "maintain" leg with editor-grade semantic
+highlighting and safe, token-aware refactoring, and hardens the runtime by
+running the repo's own toolchain — **mypy** (configured but, until now, never
+actually enforced), **ruff** (bugbear/pyflakes rule sets), and `compileall` —
+across all ~89K LOC of `epl/` and fixing every verified finding. Each bug fix
+ships with a regression test that fails on the old code. Full suite:
+**1,715 passed, 5 skipped, 0 failed**.
 
 ### Added
 
@@ -40,12 +45,50 @@ safe, token-aware refactoring.
   is retained as a fallback for documents that fail to lex.
 - LSP server version reported in `initialize` bumped to **2.1.0**.
 
+### Fixed
+
+- `stdlib.py` — **`thread_run` raised `NameError` on every call.** It did
+  `return tid` with `tid` undefined; now returns the started `Thread` object so
+  callers can `join()` it.
+- `vm.py` — **`random` and `random_int` builtins crashed at runtime.** A local
+  `def _random(...)` shadowed `import random as _random`, so `random` recursed
+  into itself and `random_int` called `.randint` on a function object
+  (`AttributeError`). The module import is now aliased `_random_mod`.
+- `vm.py` — removed duplicate dict keys `is_none` (defined at two sites) and
+  `sorted`; hardened `_sort` with an empty-args guard so the surviving `sort`/
+  `sorted` entries behave identically.
+- `type_system.py` / `type_checker.py` — **the type checker was silently inert on
+  `If`, ternary, and `Match` nodes.** It referenced AST attributes that do not
+  exist (`true_body`/`false_body` → `then_body`/`else_body`; `clauses` →
+  `when_clauses`; `true_value`/`false_value` → `true_expr`/`false_expr`;
+  `node.object` → `node.obj`), raising `AttributeError` that the diagnostics path
+  swallowed via a broad `except`. The checker now actually walks these nodes;
+  ternary type inference works (e.g. `1 if c otherwise 2` → `integer`). Match
+  `default_body` is now type-checked too.
+- `parser.py` — parameter-ordering error called non-existent `self._error(...)`
+  (`AttributeError`); now raises `ParserError` with a line number like every
+  other parser error.
+- `interpreter.py` — `EPLClass` now initializes `static_methods` and
+  `type_params` in `__init__` so every construction path exposes them (no more
+  `AttributeError` on lookup before the class-def executor runs).
+- `doc_linter.py` — fixed a loop-variable closure-capture bug (B023): the
+  synthesized match object now binds `fname`/`norm_params` by value.
+- `official_packages/epl-http` — removed a dead, buggy `get()` that made **two**
+  HTTP requests and returned a malformed response, shadowed by the correct one.
+- `official_packages/epl-science` — `hasattr(x, "__call__")` → `callable(x)`.
+- `ios_gen.py`, `publisher.py` — removed two useless `if/else` branches whose
+  arms were identical (RUF034).
+- `interpreter.py` — removed a dead `results` accumulator in parallel for-each.
+
 ### Tests
 
 - New `tests/test_lsp_semantic_tokens.py` (12 cases): legend stability, capability
   advertisement, delta-encoding validity, per-kind classification, the
   keyword-inside-string guarantee, token-aware references/rename, and graceful
   degradation on unlexable source.
+- New `tests/test_static_analysis_fixes.py` (9 cases), including anti-regression
+  guards that assert the type checker **actually visits** If/ternary/Match bodies
+  rather than crashing — so a future swallowed-exception regression can't hide.
 - Updated `tests/test_phase5_tooling.py` to assert the corrected token-aware
   reference semantics and the new server version.
 

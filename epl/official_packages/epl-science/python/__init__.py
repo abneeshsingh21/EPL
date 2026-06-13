@@ -28,7 +28,7 @@ def maximize(func, x0, method='BFGS'):
 def find_root(func, x0):
     """Find root of a scalar function."""
     result = optimize.root_scalar(
-        func, x0=x0, method='brentq' if hasattr(func, '__call__') else 'newton'
+        func, x0=x0, method='brentq' if callable(func) else 'newton'
     )
     return result.root
 

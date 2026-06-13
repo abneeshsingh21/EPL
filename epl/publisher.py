@@ -185,7 +185,7 @@ def run_publish_checks(manifest: dict, path: str = '.') -> List[PublishCheck]:
             'readme',
             readme_found,
             'README found' if readme_found else 'No README found',
-            severity='info' if not readme_found else 'info',
+            severity='info',
         )
     )
 

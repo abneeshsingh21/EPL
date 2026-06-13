@@ -133,7 +133,9 @@ class DocGenerator:
                     # Convert "a and b" to "a, b"
                     norm_params = raw_params.replace(' and ', ', ')
                     fn_match = type(
-                        'M', (), {'group': lambda self, n: fname if n == 1 else norm_params}
+                        'M',
+                        (),
+                        {'group': lambda self, n, _f=fname, _p=norm_params: _f if n == 1 else _p},
                     )()
             if fn_match:
                 entry = self._parse_function(fn_match, doc_comments, i + 1, filepath, lines, i)

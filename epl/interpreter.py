@@ -328,6 +328,10 @@ class EPLClass:
         self.methods = methods
         self.parent = parent
         self.visibility_map = visibility_map or {}  # {member_name: 'public'|'private'|'protected'}
+        # Populated by the class-definition executor; initialized here so every
+        # construction path exposes them (avoids AttributeError on lookup).
+        self.static_methods = {}
+        self.type_params = []
 
     def get_visibility(self, member_name):
         """Get the visibility of a member, checking parent classes if needed."""
@@ -1603,7 +1607,6 @@ class Interpreter:
         if not isinstance(items, list):
             raise EPLTypeError('Parallel For Each requires a list.', node.line)
         max_w = node.max_workers or min(len(items), 16)
-        results = [None] * len(items)
         errors = []
 
         def _run_item(idx, item):

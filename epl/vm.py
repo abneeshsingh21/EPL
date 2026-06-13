@@ -2775,7 +2775,7 @@ class VM:
         """Build name → handler dict for O(1) builtin dispatch."""
         import json as _json
         import os as _os
-        import random as _random
+        import random as _random_mod
 
         def _length(args, line):
             return len(args[0]) if args else 0
@@ -2852,10 +2852,10 @@ class VM:
             return min(args[0]) if len(args) == 1 and isinstance(args[0], list) else min(args)
 
         def _random(args, line):
-            return _random.random()
+            return _random_mod.random()
 
         def _random_int(args, line):
-            return _random.randint(int(args[0]), int(args[1]))
+            return _random_mod.randint(int(args[0]), int(args[1]))
 
         def _power(args, line):
             return args[0] ** args[1]
@@ -2922,7 +2922,7 @@ class VM:
             return args[0]
 
         def _sort(args, line):
-            return sorted(args[0])
+            return sorted(args[0]) if args else []
 
         def _range(args, line):
             if len(args) == 1:
@@ -3148,7 +3148,6 @@ class VM:
             'is_boolean': lambda args, line: isinstance(args[0], bool) if args else False,
             'is_map': lambda args, line: isinstance(args[0], dict) if args else False,
             'is_nothing': lambda args, line: args[0] is None if args else True,
-            'is_none': lambda args, line: args[0] is None if args else True,
             'uppercase': _upper,
             'lowercase': _lower,
             'reversed': lambda args, line: (
@@ -3158,7 +3157,6 @@ class VM:
                 if args
                 else []
             ),
-            'sorted': lambda args, line: sorted(args[0]) if args else [],
             'char_code': lambda args, line: ord(str(args[0])[0]) if args and args[0] else 0,
             'from_char_code': lambda args, line: chr(int(args[0])) if args else '',
             'timestamp': _time_fn,

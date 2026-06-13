@@ -1299,8 +1299,9 @@ class Parser:
                 default_expr = self._parse_expression()
                 has_default = True
             elif has_default:
-                raise self._error(
-                    f'Parameter "{param_name}" must have a default value (parameters with defaults must come last).'
+                raise ParserError(
+                    f'Parameter "{param_name}" must have a default value (parameters with defaults must come last).',
+                    self._current().line,
                 )
 
             params.append((param_name, param_type, default_expr))

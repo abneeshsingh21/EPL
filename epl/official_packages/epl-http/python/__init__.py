@@ -20,10 +20,6 @@ except ImportError:
 # ═══════════════════════════════════════════════════════════
 
 
-def get(url):
-    return _requests.get(url, timeout=30).__dict__ | {'_response': _requests.get(url, timeout=30)}
-
-
 def _make_response(resp):
     return {
         'status': resp.status_code,

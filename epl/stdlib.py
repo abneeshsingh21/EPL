@@ -2681,7 +2681,7 @@ def call_stdlib(name, args, line, interpreter=None):
             t = threading.Thread(target=_wrap, args=args[1] if len(args)>1 else ())
             t.daemon = True
             t.start()
-            return tid
+            return t
         if name == 'rwlock_create':
             _conc = _require_module('epl.concurrency', feature_name='Concurrency')
             return _conc.create_rwlock()
