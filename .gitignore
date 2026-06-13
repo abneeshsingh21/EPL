@@ -152,3 +152,7 @@ functions/
 # ─── Wrangler / Cloudflare ──────────────────────────────
 .wrangler
 .dev.vars*
+
+# ─── Agent chat exports (may contain pasted secrets) ────
+chat_export.*
+*chat_export*
