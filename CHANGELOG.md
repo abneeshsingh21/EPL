@@ -10,6 +10,58 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.5.0] — 2026-06-13
+
+Post-release stabilization of the v9.4.0 line. A community bug report (12 issues,
+46 failing tests on a fresh checkout) was triaged, fixed end-to-end, and locked in
+with a dedicated verification suite. The full test suite now reports **1,693 passed,
+5 skipped, 0 failed**.
+
+### Security
+
+- `web.py` — **BUG-01 / BUG-02: web servers no longer bind to `0.0.0.0` by default.**
+  `start_server()` and `AsyncEPLServer` now accept a `host` parameter that defaults to
+  `127.0.0.1` (localhost only) and print an explicit warning when a caller opts into
+  `0.0.0.0`. Previously every `epl serve` web app was reachable from the entire network
+  regardless of the documented `--host` default. The dedicated deployment entry point
+  `start_production_server()` continues to default to `0.0.0.0` by design.
+- `web.py` — **BUG-06: open-redirect hardening.** `_validate_redirect()` is now applied
+  to *every* `REDIRECT:` URL construction path (`_execute_action` and `_build_page_sync`),
+  closing a bypass where unvalidated redirect targets could reach the response.
+- `web.py` — **BUG-12: ETag generation moved from MD5 to SHA-256** (truncated to 32 chars),
+  bringing it in line with the v9.4.0 hardening that deprecated MD5 elsewhere in the stack.
+
+### Fixed
+
+- `main.py` — **BUG-04: restored the root `main.py` CLI re-exporter.** It re-exports
+  `compile_file`, `CROSS_TARGETS`, and the other CLI symbols, fixing 15+ import-time test
+  failures across `test_phase1_native.py`, `test_phase6.py`, `test_tier4.py`, and `test_phase7.py`.
+- `stdlib.py` — **BUG-05: web route argument validation now runs *before* Flask instantiation**,
+  so invalid route definitions raise a clear error instead of failing deep inside Flask.
+- `web.py` — **BUG-07: fixed a race condition on the active-connection counter** in
+  `AsyncEPLServer` by guarding `_active_connections` with an `asyncio.Lock`.
+- `web.py` — **BUG-09 / BUG-10: removed deprecated `datetime.utcnow()` /
+  `datetime.utcfromtimestamp()`** in favor of timezone-aware `datetime.now(timezone.utc)` /
+  `datetime.fromtimestamp(ts, timezone.utc)`. Prevents breakage on Python 3.15 where the
+  legacy APIs are removed.
+- `web.py` — **BUG-11: instrumented 6 remaining silent `except` blocks** with
+  `_debug_suppressed()` so swallowed exceptions are observable under debug logging.
+- `test_phase1_native.py` — **BUG-03: forced `encoding='utf-8'`** on `runtime.c` reads,
+  fixing `cp1252` decode crashes on Windows.
+- `test_webapp.py` — **BUG-08: raised the test server startup timeout** (15s → 30s, poll
+  0.1s → 0.3s) to remove a flaky timeout on slower machines.
+- Resolved backwards-compatibility regressions introduced while fixing the above, restoring
+  the v9.4.0 public API surface.
+
+### Tests
+
+- Added `tests/test_bug_fixes.py` — a **51-test verification suite** covering BUG-01 through
+  BUG-12 with independent assertions plus cross-cutting integration checks.
+- Full suite green on a clean checkout: **1,693 passed, 5 skipped, 0 failed** (previously
+  1,594 passed / 46 failed / 7 skipped in the community report).
+
+---
+
 ## [9.4.0] — 2026-06-05
 
 Multi-phase enterprise-grade remediation against the v9.3.0 audit findings.

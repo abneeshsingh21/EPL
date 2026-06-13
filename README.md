@@ -49,7 +49,7 @@ Route "/api/users" responds with
 End
 
 Route "/health" responds with
-    Send json Map with status = "healthy" and version = "9.4.0"
+    Send json Map with status = "healthy" and version = "9.5.0"
 End
 ```
 
