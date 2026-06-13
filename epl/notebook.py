@@ -12,6 +12,7 @@ import threading
 import uuid
 
 from epl.errors import EPLError
+from epl import _debug_log
 
 
 def _safe_error(e):
@@ -158,7 +159,7 @@ def start_notebook(port: int = 8888, open_browser: bool = True):
 
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
-            pass
+            _debug_log.suppressed('notebook:160')
 
     try:
         server.serve_forever()

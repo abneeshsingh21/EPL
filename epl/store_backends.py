@@ -13,6 +13,7 @@ import logging
 import secrets
 import threading
 import time
+from epl import _debug_log
 
 _logger = logging.getLogger('epl.store')
 
@@ -277,7 +278,7 @@ class SQLiteStoreBackend(StoreBackend):
                 try:
                     c.close()
                 except Exception:
-                    pass
+                    _debug_log.suppressed('store_backends:279')
             self._conns.clear()
 
 
@@ -379,7 +380,7 @@ class SQLiteSessionBackend(SessionBackend):
                 try:
                     c.close()
                 except Exception:
-                    pass
+                    _debug_log.suppressed('store_backends:381')
             self._conns.clear()
 
 

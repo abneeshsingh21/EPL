@@ -18,6 +18,7 @@ import io
 import pickle
 import struct
 from pathlib import Path
+from epl import _debug_log
 
 _MAGIC = b'EPLC'
 _FORMAT_VERSION = 2  # Bumped: v2 uses safe unpickler
@@ -117,6 +118,7 @@ def load(source: str, path):
         # Security violation or corrupted cache — silently reject
         return None
     except Exception:
+        _debug_log.suppressed('bytecode_cache:119')
         return None
 
 

@@ -18,6 +18,7 @@ import os
 import textwrap
 import urllib.parse
 from concurrent.futures import ThreadPoolExecutor
+from epl import _debug_log
 
 _logger = logging.getLogger('epl.deploy')
 
@@ -409,7 +410,7 @@ class WSGIAdapter:
                 else:
                     store_add(collection, val)
             except Exception:
-                pass
+                _debug_log.suppressed('deploy:411')
 
     def _exec_delete(self, stmt, form_data, route_env=None):
         from epl.web import db_store_remove, store_remove
@@ -432,7 +433,7 @@ class WSGIAdapter:
                 else:
                     store_remove(collection, int(index))
             except Exception:
-                pass
+                _debug_log.suppressed('deploy:434')
 
     def _fetch_payload(self, collection):
         items = self._store_get(collection)
@@ -787,7 +788,7 @@ class _ASGIWebSocket:
         try:
             await self._send({'type': 'websocket.close', 'code': code})
         except Exception:
-            pass
+            _debug_log.suppressed('deploy:789')
 
 
 async def _asgi_websocket_handler(scope, receive, send, app):

@@ -8,6 +8,7 @@ embeddings, streaming, and custom EPL-trained model creation.
 import json
 import urllib.error
 import urllib.request
+from epl import _debug_log
 
 # ─── Configuration ───────────────────────────────────────
 OLLAMA_HOST = 'http://localhost:11434'
@@ -67,6 +68,7 @@ def _try_keyring():
         if 'fail' in cls_name.lower() or 'null' in cls_name.lower():
             return None
     except Exception:
+        _debug_log.suppressed('ai:69')
         return None
     return keyring
 

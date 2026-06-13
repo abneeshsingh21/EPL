@@ -27,6 +27,7 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from typing import List, Optional, Tuple
+from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 #  Configuration
@@ -596,7 +597,7 @@ class GitHubRegistry:
             try:
                 return base64.b64decode(data['content']).decode('utf-8')
             except Exception:
-                pass
+                _debug_log.suppressed('registry:598')
         return None
 
     def get_versions(self, owner: str, repo: str) -> List[str]:

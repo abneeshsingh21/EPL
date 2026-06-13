@@ -11,6 +11,7 @@ import sys
 import threading
 
 from epl.errors import EPLError
+from epl import _debug_log
 
 
 def _safe_error(e):
@@ -77,7 +78,7 @@ def start_block_editor(port: int = 8090, open_browser: bool = True):
 
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
-            pass
+            _debug_log.suppressed('block_editor:79')
 
     try:
         server.serve_forever()

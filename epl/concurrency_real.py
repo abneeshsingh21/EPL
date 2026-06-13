@@ -24,6 +24,7 @@ import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
+from epl import _debug_log
 
 # ─── Thread ───────────────────────────────────────────────────
 
@@ -638,7 +639,7 @@ class Interval:
                 try:
                     self._fn(*self._args)
                 except Exception:
-                    pass
+                    _debug_log.suppressed('concurrency_real:640')
 
     def stop(self):
         self._running = False

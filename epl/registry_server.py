@@ -25,6 +25,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
+from epl import _debug_log
 
 
 class RegistryStorage:
@@ -481,6 +482,7 @@ class RegistryClient:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 return json.loads(resp.read().decode('utf-8'))
         except Exception:
+            _debug_log.suppressed('registry_server:483')
             return None
 
     def download(self, name, version, dest_dir):
@@ -496,6 +498,7 @@ class RegistryClient:
                     f.write(resp.read())
                 return archive_path
         except Exception:
+            _debug_log.suppressed('registry_server:498')
             return None
 
     def publish(self, name, version, metadata, archive_path, token=None):

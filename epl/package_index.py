@@ -24,6 +24,7 @@ import urllib.error
 import urllib.request
 import zipfile
 from typing import Dict, List, Optional, Tuple
+from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 #  Constants
@@ -452,6 +453,7 @@ class PackageIndex:
 
             return PackageIndexEntry(metadata, versions)
         except Exception:
+            _debug_log.suppressed('package_index:454')
             return None
 
     def _fetch_remote_index(self) -> Optional[Dict[str, PackageIndexEntry]]:
@@ -467,6 +469,7 @@ class PackageIndex:
                 result[name] = PackageIndexEntry.from_dict(pkg_data)
             return result
         except Exception:
+            _debug_log.suppressed('package_index:469')
             return None
 
     def _http_get_json(self, url: str, timeout: int = 10) -> Optional[dict]:

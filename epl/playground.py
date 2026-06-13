@@ -13,6 +13,7 @@ import subprocess
 import sys
 
 from epl.errors import EPLError
+from epl import _debug_log
 
 PLAYGROUND_MAX_BODY_BYTES = 1_000_000
 PLAYGROUND_EXEC_TIMEOUT_SECONDS = 10
@@ -150,7 +151,7 @@ def start_playground(port: int = 8080, open_browser: bool = True):
 
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
-            pass
+            _debug_log.suppressed('playground:152')
 
     try:
         server.serve_forever()

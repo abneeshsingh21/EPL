@@ -12,6 +12,7 @@ import shutil
 from pathlib import Path
 
 from epl import ast_nodes as ast
+from epl import _debug_log
 
 ANDROID_GRADLE_WRAPPER_VERSION = '8.2.1'
 ANDROID_GRADLE_PLUGIN_VERSION = '8.2.0'
@@ -2218,7 +2219,7 @@ class AndroidProjectGenerator:
         try:
             os.chmod(f'{output_dir}/gradlew', 0o755)
         except Exception:
-            pass
+            _debug_log.suppressed('kotlin_gen:2220')
 
         return output_dir
 

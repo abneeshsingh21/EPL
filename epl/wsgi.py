@@ -19,6 +19,7 @@ import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
+from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 #  Request / Response Objects
@@ -422,7 +423,7 @@ class EPLASGIApp:
         try:
             await handler(ws)
         except Exception:
-            pass
+            _debug_log.suppressed('wsgi:424')
         finally:
             if not ws._closed:
                 await send({'type': 'websocket.close', 'code': 1000})

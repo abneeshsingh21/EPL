@@ -5,6 +5,8 @@ windows, buttons, labels, text inputs, checkboxes, dropdowns, canvases,
 menus, dialogs, and event handling.
 """
 
+from epl import _debug_log
+
 try:
     import tkinter as tk
     from tkinter import colorchooser, filedialog, messagebox, ttk
@@ -27,13 +29,14 @@ class EPLWidget:
             try:
                 self.tk_widget.configure(**{key: value})
             except Exception:
-                pass
+                _debug_log.suppressed('gui:29')
 
     def get_property(self, key):
         if self.tk_widget:
             try:
                 return self.tk_widget.cget(key)
             except Exception:
+                _debug_log.suppressed('gui:36')
                 return None
         return None
 

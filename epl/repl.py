@@ -6,6 +6,7 @@ Falls back to plain readline REPL if prompt_toolkit is not installed.
 """
 
 from __future__ import annotations
+from epl import _debug_log
 
 # ── Keyword lists ──────────────────────────────────────────────────────────────
 EPL_KEYWORDS = [
@@ -221,7 +222,7 @@ def _build_prompt_toolkit_repl(
 
             lexer_obj = PygmentsLexer(EPLLexer)
         except Exception:
-            pass
+            _debug_log.suppressed('repl:223')
 
     session = PromptSession(
         history=FileHistory(hist_path),

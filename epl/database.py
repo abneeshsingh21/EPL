@@ -37,6 +37,7 @@ import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
+from epl import _debug_log
 
 # SQL identifier validation regex
 _VALID_IDENTIFIER = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
@@ -354,7 +355,7 @@ class ConnectionPool:
         try:
             conn.close()
         except Exception:
-            pass
+            _debug_log.suppressed('database:356')
 
     def close_all(self):
         """Close all connections in the pool."""

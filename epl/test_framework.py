@@ -50,6 +50,7 @@ from epl import ast_nodes as ast
 from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
+from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 # Code Coverage Tracker
@@ -756,7 +757,7 @@ class EPLTestRunner:
                     call_node = ast.FunctionCall(teardown_func, [], line=0)
                     test_interp._exec_function_call(call_node, test_interp.global_env)
                 except Exception:
-                    pass
+                    _debug_log.suppressed('test_framework:758')
 
             result.duration = time.time() - start
             suite.tests.append(result)

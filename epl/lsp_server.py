@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from epl import ast_nodes as ast
 from epl.lexer import Lexer
 from epl.parser import Parser
+from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 # EPL Language Intelligence
@@ -1285,6 +1286,7 @@ class JSONRPC:
             body = self.reader.read(content_length)
             return json.loads(body.decode('utf-8'))
         except Exception:
+            _debug_log.suppressed('lsp_server:1287')
             return None
 
     def write_message(self, msg: dict):

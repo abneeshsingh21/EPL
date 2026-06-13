@@ -12,6 +12,7 @@ Usage:
 import re
 
 from epl.syntax_reference import get_syntax_sections, get_syntax_text
+from epl import _debug_log
 
 # ── Public API ───────────────────────────────────────────
 
@@ -456,7 +457,7 @@ def start_copilot_web(port: int = 8095, open_browser: bool = True):
 
             webbrowser.open(f'http://127.0.0.1:{port}')
         except Exception:
-            pass
+            _debug_log.suppressed('copilot:458')
     try:
         server.serve_forever()
     except KeyboardInterrupt:

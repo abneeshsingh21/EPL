@@ -14,6 +14,7 @@ import asyncio
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 #  Event Loop Singleton
@@ -298,7 +299,7 @@ class EPLInterval:
             try:
                 self._task.cancel()
             except Exception:
-                pass
+                _debug_log.suppressed('async_io:300')
             self._task = None
 
 

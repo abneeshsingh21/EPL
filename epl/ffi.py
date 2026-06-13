@@ -23,6 +23,7 @@ import atexit
 import ctypes
 import ctypes.util
 import os
+from epl import _debug_log
 
 # ─── Security: FFI Sandbox ────────────────────────────────
 
@@ -215,7 +216,7 @@ def _cleanup_libraries():
         try:
             lib.close()
         except Exception:
-            pass
+            _debug_log.suppressed('ffi:217')
     _open_libraries.clear()
 
 

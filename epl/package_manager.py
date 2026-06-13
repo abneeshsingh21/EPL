@@ -18,6 +18,7 @@ import tempfile
 import time
 import urllib.request
 import zipfile
+from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 #  Atomic File Writes + Cross-Platform File Locking
@@ -1174,7 +1175,7 @@ def _resolve_github_archive(repo, commit=None):
         if resolved_commit:
             return resolved_commit, f'https://github.com/{repo}/archive/{resolved_commit}.zip'
     except Exception:
-        pass
+        _debug_log.suppressed('package_manager:1176')
 
     return None, f'https://github.com/{repo}/archive/refs/heads/main.zip'
 
@@ -1326,7 +1327,7 @@ def search_packages(query):
                 'latest': latest,
             }
     except Exception:
-        pass
+        _debug_log.suppressed('package_manager:1328')
 
     # Search installed packages
     if os.path.exists(PACKAGES_DIR):
@@ -1355,6 +1356,7 @@ def _get_index_entry(name):
 
         return PackageIndex().fetch_package(name)
     except Exception:
+        _debug_log.suppressed('package_manager:1357')
         return None
 
 
@@ -2533,7 +2535,7 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
             print(f'  Registry error: {e}')
             return False
         except Exception:
-            pass
+            _debug_log.suppressed('package_manager:2535')
 
     try:
         print(f'  Searching remote registry for: {name}...')
@@ -2589,6 +2591,7 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
                         return _install_from_github(_validate_github_repo(github))
                 break
             except Exception:
+                _debug_log.suppressed('package_manager:2591')
                 continue
         print(f'  Package not found: {name}')
         print('  Try: epl install github:user/repo')

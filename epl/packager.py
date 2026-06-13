@@ -547,8 +547,20 @@ class NativePackager:
         output = os.path.join(self.config.output_dir, f'{self.config.output_name}{ext}')
 
         try:
-            obj_path = compiler.emit_object(output.replace(ext, '.o'))
-            if not obj_path or not os.path.exists(obj_path):
+            obj_path = output.replace(ext, '.o')
+            # compile_to_object() returns the object-file bytes (the module was
+            # already built by compiler.compile(program) above); write them out.
+            try:
+                obj_bytes = compiler.compile_to_object()
+            except Exception as e:
+                print(f'Error: Failed to emit object file: {e}')
+                return None
+            if not obj_bytes:
+                print('Error: Failed to emit object file.')
+                return None
+            with open(obj_path, 'wb') as _obj_f:
+                _obj_f.write(obj_bytes)
+            if not os.path.exists(obj_path):
                 print('Error: Failed to emit object file.')
                 return None
 

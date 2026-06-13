@@ -22,6 +22,7 @@ import threading
 import time
 from contextlib import contextmanager
 from typing import Optional
+from epl import _debug_log
 
 # SQL identifier validation — defense-in-depth for table/column names.
 # Allows ASCII identifiers; user input flowing into table/column slots is
@@ -158,7 +159,7 @@ class ConnectionPool:
         try:
             conn.close()
         except Exception:
-            pass
+            _debug_log.suppressed('database_real:160')
 
     def release(self, conn):
         with self._lock:
@@ -606,7 +607,7 @@ class Database:
         try:
             self.close()
         except Exception:
-            pass
+            _debug_log.suppressed('database_real:608')
 
     def __repr__(self):
         return f"<Database path='{self.path}'>"
