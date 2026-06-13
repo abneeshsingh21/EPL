@@ -958,9 +958,10 @@ def test_lsp_advanced():
     # T2: References include definition
     check('References include correct URI', all(r['uri'] == 'file:///ref.epl' for r in refs))
 
-    # T3: No references for unknown
+    # T3: Keywords are not identifiers — references on the `Set` keyword
+    # (position 0,0) must return nothing now that lookup is token-aware.
     refs = analyzer.get_references('file:///ref.epl', 0, 0)
-    check('References for Set', len(refs) >= 1)
+    check('No references for keyword Set', len(refs) == 0)
 
     # T4: References across documents
     analyzer.update_document('file:///ref2.epl', 'Print x')
@@ -1111,7 +1112,7 @@ def test_lsp_server():
     check('Has formatting provider', caps.get('documentFormattingProvider') is True)
 
     # T5: Server info
-    check('Server version is 2.0.0', result['serverInfo']['version'] == '2.0.0')
+    check('Server version is 2.1.0', result['serverInfo']['version'] == '2.1.0')
 
     # T6: Document open
     server._on_did_open({'textDocument': {'uri': 'file:///test.epl', 'text': 'Print "Hello"'}})

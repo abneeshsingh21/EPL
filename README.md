@@ -461,8 +461,8 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the full list of contributors.
 - [x] VS Code extension — Syntax, diagnostics, IntelliSense
 - [x] Official documentation site and browser playground
 - [x] 22 official packages across web, data, AI, security, and infrastructure
+- [x] Language server protocol v2 (semantic tokens, token-aware rename & references)
 - [ ] WebSocket real-time collaboration
-- [ ] Language server protocol v2 (semantic tokens, rename, references)
 - [ ] GPU compute target (CUDA/ROCm via LLVM)
 
 ---

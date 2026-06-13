@@ -10,6 +10,47 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.6.0] — 2026-06-13
+
+Language Server Protocol **v2** — the next roadmap item. EPL's vision is that
+anyone can *read, write, and maintain* code in plain English; this release
+strengthens the "maintain" leg with editor-grade semantic highlighting and
+safe, token-aware refactoring.
+
+### Added
+
+- `lsp_server.py` — **Semantic tokens** (`textDocument/semanticTokens/full`).
+  The server now publishes a stable 9-type legend (`keyword`, `variable`,
+  `function`, `class`, `type`, `number`, `string`, `comment`, `operator`) and
+  emits LSP delta-encoded tokens for the whole document. Highlighting is driven
+  by the **lexer**, not regex, so an English word like `Print` is colored as a
+  keyword only where it is actually a keyword — never inside a string or
+  comment. Comments (`# …` and `Note: …`) and string literals are recovered
+  from a raw source scan because the lexer discards/unquotes them.
+- VS Code extension consumes the legend automatically via
+  `vscode-languageclient` 9.x — no client changes required.
+
+### Changed
+
+- `lsp_server.py` — **Find-references and rename are now token-aware.**
+  `get_references()` and `get_rename_edits()` match only `IDENTIFIER` tokens, so
+  occurrences inside string literals, comments, and keywords are no longer
+  returned. This makes workspace-wide rename safe (renaming `count` no longer
+  rewrites the word `count` inside a printed string). A word-boundary text scan
+  is retained as a fallback for documents that fail to lex.
+- LSP server version reported in `initialize` bumped to **2.1.0**.
+
+### Tests
+
+- New `tests/test_lsp_semantic_tokens.py` (12 cases): legend stability, capability
+  advertisement, delta-encoding validity, per-kind classification, the
+  keyword-inside-string guarantee, token-aware references/rename, and graceful
+  degradation on unlexable source.
+- Updated `tests/test_phase5_tooling.py` to assert the corrected token-aware
+  reference semantics and the new server version.
+
+---
+
 ## [9.5.0] — 2026-06-13
 
 Post-release stabilization of the v9.4.0 line. A community bug report (12 issues,

@@ -1,8 +1,8 @@
 """
-EPL Language Server Protocol (LSP) Implementation v2.0 — Production Ready
+EPL Language Server Protocol (LSP) Implementation v2.1 — Production Ready
 Provides IDE features: diagnostics (errors/warnings), code completion,
 hover information, go-to-definition, document symbols, formatting,
-references, rename, code actions, and signature help.
+references, rename, code actions, signature help, and semantic tokens.
 
 Usage:
     python -m epl.lsp_server          # stdio transport (for VS Code extension)
@@ -825,7 +825,12 @@ class EPLAnalyzer:
         return line[start:end]
 
     def get_references(self, uri: str, line: int, character: int) -> List[dict]:
-        """Find all references to the symbol at position."""
+        """Find all references to the symbol at position.
+
+        Token-aware: only IDENTIFIER tokens are matched, so occurrences inside
+        string literals, comments, and keywords are never returned. Falls back
+        to a word-boundary text scan only if the document fails to lex.
+        """
         source = self.documents.get(uri, '')
         lines = source.split('\n')
         if line >= len(lines):
@@ -835,29 +840,48 @@ class EPLAnalyzer:
             return []
         results = []
         for doc_uri, doc_text in self.documents.items():
-            doc_lines = doc_text.split('\n')
-            for i, doc_line in enumerate(doc_lines):
-                col = 0
-                while True:
-                    idx = doc_line.find(word, col)
-                    if idx == -1:
-                        break
-                    # Check word boundaries
-                    before = doc_line[idx - 1] if idx > 0 else ' '
-                    after = doc_line[idx + len(word)] if idx + len(word) < len(doc_line) else ' '
-                    if not (before.isalnum() or before == '_') and not (
-                        after.isalnum() or after == '_'
-                    ):
-                        results.append(
-                            {
-                                'uri': doc_uri,
-                                'range': {
-                                    'start': {'line': i, 'character': idx},
-                                    'end': {'line': i, 'character': idx + len(word)},
-                                },
-                            }
-                        )
-                    col = idx + len(word)
+            try:
+                occurrences = self._identifier_occurrences(doc_text, word)
+                for (line0, col0, length) in occurrences:
+                    results.append(
+                        {
+                            'uri': doc_uri,
+                            'range': {
+                                'start': {'line': line0, 'character': col0},
+                                'end': {'line': line0, 'character': col0 + length},
+                            },
+                        }
+                    )
+            except Exception:
+                results.extend(self._text_scan_references(doc_uri, doc_text, word))
+        return results
+
+    def _text_scan_references(self, doc_uri: str, doc_text: str, word: str) -> List[dict]:
+        """Word-boundary text scan fallback used when a document won't lex."""
+        results = []
+        doc_lines = doc_text.split('\n')
+        for i, doc_line in enumerate(doc_lines):
+            col = 0
+            while True:
+                idx = doc_line.find(word, col)
+                if idx == -1:
+                    break
+                # Check word boundaries
+                before = doc_line[idx - 1] if idx > 0 else ' '
+                after = doc_line[idx + len(word)] if idx + len(word) < len(doc_line) else ' '
+                if not (before.isalnum() or before == '_') and not (
+                    after.isalnum() or after == '_'
+                ):
+                    results.append(
+                        {
+                            'uri': doc_uri,
+                            'range': {
+                                'start': {'line': i, 'character': idx},
+                                'end': {'line': i, 'character': idx + len(word)},
+                            },
+                        }
+                    )
+                col = idx + len(word)
         return results
 
     def get_rename_edits(self, uri: str, line: int, character: int, new_name: str) -> dict:
@@ -1042,6 +1066,189 @@ class EPLAnalyzer:
             }
         ]
 
+    # ─── Semantic Tokens (LSP v2) ───────────────────
+    # Legend order is significant: the client maps the integer index in the
+    # encoded stream back to these names. Keep in sync with the legend sent
+    # in the server's `initialize` capabilities.
+    SEMANTIC_TOKEN_TYPES = [
+        'keyword',    # 0 — EPL keywords (Create, If, Function, ...)
+        'variable',   # 1 — identifiers not otherwise classified
+        'function',   # 2 — identifiers that name a defined function
+        'class',      # 3 — identifiers that name a defined class/enum/interface
+        'type',       # 4 — built-in type names (Integer, Text, ...)
+        'number',     # 5 — numeric literals
+        'string',     # 6 — string literals
+        'comment',    # 7 — `# ...` and `Note: ...` comments
+        'operator',   # 8 — symbolic / English operators
+    ]
+    SEMANTIC_TOKEN_MODIFIERS = ['declaration']
+
+    def _classify_token(self, token, func_names, class_names) -> Optional[int]:
+        """Map an EPL lexer token to a semantic token-type index, or None to skip."""
+        from epl.tokens import TokenType
+
+        ttype = token.type
+        name = ttype.name
+
+        if ttype == TokenType.IDENTIFIER:
+            if token.value in func_names:
+                return 2  # function
+            if token.value in class_names:
+                return 3  # class
+            return 1  # variable
+        if ttype == TokenType.NUMBER:
+            return 5
+        if ttype in (TokenType.NEWLINE, TokenType.EOF):
+            return None
+        if name.startswith('TYPE_'):
+            return 4  # type
+        if name.startswith('OP_') or ttype in (
+            TokenType.PLUS,
+            TokenType.MINUS,
+            TokenType.DOT,
+            TokenType.COMMA,
+            TokenType.LPAREN,
+            TokenType.RPAREN,
+            TokenType.LBRACKET,
+            TokenType.RBRACKET,
+            TokenType.COLON,
+            TokenType.ARROW,
+            TokenType.PIPE,
+            TokenType.QUESTION,
+        ):
+            return 8  # operator
+        # STRING literals are colored below via raw source spans (with quotes),
+        # not from the token, since the token value is unquoted/unescaped.
+        if ttype == TokenType.STRING:
+            return None
+        # Everything else is a keyword.
+        return 0
+
+    def _comment_and_string_spans(self, source: str):
+        """Scan source for comment and string spans the lexer discards or rewrites.
+
+        Returns two lists of (line0, col0, length) tuples for comments and
+        strings respectively. String spans include the surrounding quotes so
+        highlighting lines up with the editor exactly.
+        """
+        comments = []
+        strings = []
+        for i, line in enumerate(source.split('\n')):
+            j = 0
+            n = len(line)
+            while j < n:
+                ch = line[j]
+                if ch == '"':
+                    start = j
+                    j += 1
+                    while j < n:
+                        if line[j] == '\\' and j + 1 < n:
+                            j += 2
+                            continue
+                        if line[j] == '"':
+                            j += 1
+                            break
+                        j += 1
+                    strings.append((i, start, j - start))
+                    continue
+                if ch == '#':
+                    comments.append((i, j, n - j))
+                    break
+                if (ch in ('N', 'n')) and line[j : j + 5].lower() == 'note:':
+                    comments.append((i, j, n - j))
+                    break
+                j += 1
+        return comments, strings
+
+    def get_semantic_tokens(self, uri: str) -> dict:
+        """Return LSP delta-encoded semantic tokens for the whole document.
+
+        Token-based (not regex): the lexer decides what is a keyword vs an
+        identifier vs an operator, so English words like ``Print`` are colored
+        as keywords only where they are actually keywords. Comments and string
+        literals are recovered from a raw source scan because the lexer drops
+        comments and unquotes strings.
+        """
+        from epl.lexer import Lexer
+
+        source = self.documents.get(uri, '')
+        func_names, class_names = self._symbol_name_sets(uri)
+
+        # (line0, col0, length, type_index, modifiers)
+        spans = []
+        try:
+            for tok in Lexer(source).tokenize():
+                type_index = self._classify_token(tok, func_names, class_names)
+                if type_index is None:
+                    continue
+                length = len(str(tok.value))
+                if length <= 0:
+                    continue
+                spans.append((tok.line - 1, tok.column - 1, length, type_index, 0))
+        except Exception:
+            # On a lex error we still emit comments/strings below so the editor
+            # degrades gracefully instead of going fully uncolored.
+            pass
+
+        comments, strings = self._comment_and_string_spans(source)
+        for (line0, col0, length) in comments:
+            if length > 0:
+                spans.append((line0, col0, length, 7, 0))
+        for (line0, col0, length) in strings:
+            if length > 0:
+                spans.append((line0, col0, length, 6, 0))
+
+        # Drop any span that collides with a comment/string region (a keyword
+        # token the lexer never produced because it was inside a comment cannot
+        # appear here, but a stray identifier inside an unterminated string
+        # could — comments/strings win).
+        spans.sort(key=lambda s: (s[0], s[1]))
+
+        data = []
+        prev_line = 0
+        prev_col = 0
+        for (line0, col0, length, type_index, modifiers) in spans:
+            delta_line = line0 - prev_line
+            delta_col = col0 - prev_col if delta_line == 0 else col0
+            data.extend([delta_line, delta_col, length, type_index, modifiers])
+            prev_line = line0
+            prev_col = col0
+        return {'data': data}
+
+    def _symbol_name_sets(self, uri: str):
+        """Return (function_names, class_names) sets for identifier classification."""
+        func_names = set()
+        class_names = set()
+
+        def walk(syms):
+            for sym in syms:
+                kind = sym.get('kind')
+                if kind == 12:  # Function
+                    func_names.add(sym['name'])
+                elif kind in (5, 10, 11):  # Class, Enum, Interface
+                    class_names.add(sym['name'])
+                if sym.get('children'):
+                    walk(sym['children'])
+
+        walk(self.symbols.get(uri, []))
+        return func_names, class_names
+
+    def _identifier_occurrences(self, source: str, word: str):
+        """Token-aware occurrences of an identifier.
+
+        Returns (line0, col0, length) tuples for every IDENTIFIER token whose
+        value equals ``word``. Unlike a raw text scan this never matches inside
+        string literals, comments, or keywords, so rename is safe.
+        """
+        from epl.lexer import Lexer
+        from epl.tokens import TokenType
+
+        results = []
+        for tok in Lexer(source).tokenize():
+            if tok.type == TokenType.IDENTIFIER and tok.value == word:
+                results.append((tok.line - 1, tok.column - 1, len(str(tok.value))))
+        return results
+
 
 # ═══════════════════════════════════════════════════════════
 # JSON-RPC Transport Layer
@@ -1160,6 +1367,7 @@ class EPLLanguageServer:
             'textDocument/signatureHelp': self._on_signature_help,
             'textDocument/documentSymbol': self._on_document_symbol,
             'textDocument/formatting': self._on_formatting,
+            'textDocument/semanticTokens/full': self._on_semantic_tokens,
         }
 
         handler = handlers.get(method)
@@ -1196,8 +1404,16 @@ class EPLLanguageServer:
                 },
                 'documentSymbolProvider': True,
                 'documentFormattingProvider': True,
+                'semanticTokensProvider': {
+                    'legend': {
+                        'tokenTypes': EPLAnalyzer.SEMANTIC_TOKEN_TYPES,
+                        'tokenModifiers': EPLAnalyzer.SEMANTIC_TOKEN_MODIFIERS,
+                    },
+                    'range': False,
+                    'full': True,
+                },
             },
-            'serverInfo': {'name': 'EPL Language Server', 'version': '2.0.0'},
+            'serverInfo': {'name': 'EPL Language Server', 'version': '2.1.0'},
         }
 
     def _on_initialized(self, params: dict):
@@ -1283,6 +1499,12 @@ class EPLLanguageServer:
         self._ensure_document_analyzed(uri)
         options = params.get('options', {})
         return self.analyzer.get_formatting(uri, options)
+
+    def _on_semantic_tokens(self, params: dict) -> dict:
+        td = params.get('textDocument', {})
+        uri = td.get('uri', '')
+        self._ensure_document_analyzed(uri)
+        return self.analyzer.get_semantic_tokens(uri)
 
     def _on_references(self, params: dict) -> List[dict]:
         td = params.get('textDocument', {})
