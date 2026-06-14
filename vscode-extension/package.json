@@ -258,8 +258,8 @@
   },
   "scripts": {
     "vscode:prepublish": "echo ready",
-    "package": "npx @vscode/vsce package --no-dependencies",
-    "publish": "npx @vscode/vsce publish --no-dependencies"
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"

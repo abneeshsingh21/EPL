@@ -1,6 +1,15 @@
-node_modules/**
-*.vsix
-package-lock.json
-epl QNA.pdf
 .vscode/**
 .git/**
+*.vsix
+epl QNA.pdf
+# NOTE: node_modules is intentionally NOT ignored — this extension is not
+# bundled, so vsce must include the production dependency (vscode-languageclient)
+# in the .vsix. vsce only packages the production dependency tree, so dev
+# dependencies (@vscode/vsce) are excluded automatically. Trim dev-only cruft
+# from the included prod deps below to keep the package lean:
+node_modules/**/*.md
+node_modules/**/*.ts
+node_modules/**/*.map
+node_modules/**/test/**
+node_modules/**/.github/**
+node_modules/**/docs/**
