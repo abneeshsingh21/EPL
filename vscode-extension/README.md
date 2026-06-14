@@ -5,7 +5,7 @@
 **Full IDE support for the English Programming Language**
 
 [![Version](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
-[![EPL](https://img.shields.io/badge/EPL-v9.5.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
+[![EPL](https://img.shields.io/badge/EPL-v9.6.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
 
 </div>
 
@@ -15,10 +15,12 @@
 
 | Feature | Description |
 |---------|-------------|
-| 🎨 **Syntax Highlighting** | Full tokenization of EPL keywords, strings, numbers, and comments |
+| 🎨 **Semantic Highlighting** | Lexer-accurate token colors from the Language Server (v2) — keywords, functions, classes, types — layered over TextMate so English words are colored only where they're truly keywords, never inside strings or comments |
 | 🔍 **Real-time Diagnostics** | Error detection powered by EPL's Language Server Protocol |
 | 💡 **Code Completion** | 725+ stdlib function signatures with documentation |
 | 📖 **Hover Documentation** | Function signatures, parameter types, and descriptions on hover |
+| ✏️ **Token-aware Rename** | Safe workspace rename (`F2`) that only touches real identifiers — never matches inside strings or comments |
+| 🔗 **Find References** | Token-aware find-all-references across the workspace |
 | ▶️ **Run from Editor** | Execute `.epl` files directly with `Ctrl+Shift+R` |
 | ⚡ **Bytecode VM Backend** | Run with the bytecode VM (`epl vm`) — full interpreter parity since v9.1.0 |
 | 🔧 **Type Checking** | Static type analysis via `epl check` |

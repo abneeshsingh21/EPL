@@ -1,8 +1,8 @@
 {
   "name": "epl-lang",
   "displayName": "EPL — English Programming Language",
-  "description": "Syntax highlighting, real-time diagnostics, auto-completions, hover docs and run/check commands for EPL (.epl files)",
-  "version": "2.4.0",
+  "description": "Semantic highlighting, real-time diagnostics, auto-completions, hover docs, token-aware rename & find-references, and run/check commands for EPL (.epl files)",
+  "version": "2.5.0",
   "publisher": "epl-lang",
   "license": "Apache-2.0",
   "icon": "icon.png",
@@ -77,6 +77,27 @@
         "path": "./syntaxes/epl.tmLanguage.json"
       }
     ],
+    "semanticTokenScopes": [
+      {
+        "language": "epl",
+        "scopes": {
+          "keyword": ["keyword.control.epl"],
+          "variable": ["variable.other.epl"],
+          "function": ["entity.name.function.epl"],
+          "class": ["entity.name.type.class.epl"],
+          "type": ["entity.name.type.epl"],
+          "number": ["constant.numeric.epl"],
+          "string": ["string.quoted.double.epl"],
+          "comment": ["comment.line.epl"],
+          "operator": ["keyword.operator.epl"]
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[epl]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    },
     "snippets": [
       {
         "language": "epl",

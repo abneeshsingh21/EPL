@@ -267,7 +267,7 @@ Releases are managed by the core team. The process:
 
 1. Version bump in `epl/__init__.py`
 2. Update `CHANGELOG.md` with release date
-3. Create a signed Git tag: `git tag -s v9.5.0`
+3. Create a signed Git tag: `git tag -s v9.6.0`
 4. Build and publish to PyPI: `python -m build && twine upload dist/*`
 5. Update documentation site
 

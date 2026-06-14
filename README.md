@@ -49,7 +49,7 @@ Route "/api/users" responds with
 End
 
 Route "/health" responds with
-    Send json Map with status = "healthy" and version = "9.5.0"
+    Send json Map with status = "healthy" and version = "9.6.0"
 End
 ```
 
@@ -426,7 +426,7 @@ Install from the [VS Code Marketplace →](https://marketplace.visualstudio.com/
 
 ## Contributing
 
-We welcome contributions from the community. EPL maintains enterprise-grade code quality standards with automated CI, Ruff formatting, and comprehensive test coverage.
+We welcome contributions from the community. EPL maintains enterprise-grade code quality standards: every change is gated by a blocking CI pipeline — whole-tree `mypy` type-checking, Ruff lint + formatting, and the full test suite (1,700+ tests).
 
 ```bash
 git clone https://github.com/abneeshsingh21/EPL.git

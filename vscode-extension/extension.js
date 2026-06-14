@@ -1,5 +1,9 @@
 // EPL VS Code Extension — LSP Client + Run Commands
-// Connects VS Code to EPL's Language Server for diagnostics, completions, and hover.
+// Connects VS Code to EPL's Language Server (v2) for semantic highlighting,
+// real-time diagnostics, completions, hover docs, signature help, document
+// symbols, formatting, and token-aware rename / find-references.
+// Semantic tokens and all language features are negotiated automatically from
+// the server's advertised capabilities (requires eplang >= 9.6.0).
 
 const vscode = require('vscode');
 
