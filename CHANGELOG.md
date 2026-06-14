@@ -18,9 +18,10 @@ this release strengthens the "maintain" leg with editor-grade semantic
 highlighting and safe, token-aware refactoring, and hardens the runtime by
 running the repo's own toolchain — **mypy** (configured but, until now, never
 actually enforced), **ruff** (bugbear/pyflakes rule sets), and `compileall` —
-across all ~89K LOC of `epl/` and fixing every verified finding. Each bug fix
-ships with a regression test that fails on the old code. Full suite:
-**1,715 passed, 5 skipped, 0 failed**.
+across all ~89K LOC of `epl/` and fixing every verified finding. It also turns
+the previously-ignored lint and type-check CI gates into real, ratcheting gates.
+Each bug fix ships with a regression test that fails on the old code. Full suite:
+**1,719 passed, 5 skipped, 0 failed**.
 
 ### Added
 
@@ -79,6 +80,38 @@ ships with a regression test that fails on the old code. Full suite:
 - `ios_gen.py`, `publisher.py` — removed two useless `if/else` branches whose
   arms were identical (RUF034).
 - `interpreter.py` — removed a dead `results` accumulator in parallel for-each.
+- `packager.py` — native packaging called `compiler.emit_object(path)` which does
+  not exist (`AttributeError`); now writes the bytes returned by
+  `compile_to_object()` to the `.o` file.
+- `type_checker.py` / `type_system.py` — **the type checker crashed on every
+  variadic function.** `node.params` can contain a `RestParameter` node, but the
+  checker did `p[0]`/`len(p)` on it (`TypeError`, swallowed) in three passes
+  (declaration collection, class-method scan, body check). A `_param_name_type()`
+  helper now centralizes the guard; `type_system` no longer mis-registers a rest
+  param under its `repr`.
+- Made return/parameter annotations honest across `lexer.py`, `parser.py`,
+  `errors.py`, `environment.py`, `type_checker.py`, `type_system.py` (`Optional`
+  where `None` is actually returned) — clears the way for the strict type gate.
+
+### Hardening & CI
+
+- **The lint and type-check CI gates were theater — now they're real.** `mypy epl/`
+  exited 1 (191 errors) and `ruff format --check` flagged 48 files, so both gates
+  had been effectively red-and-ignored.
+- `ruff` (pyproject) — un-ignored **B004, B023, F601, F811** and enforce **RUF034**.
+  Each caught a real bug in this release and is now held at **zero violations**, so
+  the bug class cannot silently regrow. Configured `ruff check` is fully green.
+- `ci.yml` — type-check split into a **blocking strict gate** over 8 mypy-clean core
+  modules (`_debug_log`, `tokens`, `ast_nodes`, `errors`, `lexer`, `environment`,
+  `type_checker`, `type_system`) plus a **non-blocking full-tree report**. The
+  strict list ratchets up as more files are cleaned; it never loosens.
+- **34 broad silent `except` swallows** instrumented with
+  `_debug_log.suppressed(site)` — failures are now observable under `EPL_DEBUG`
+  with zero behavior change by default.
+- **42 bound re-raise sites** given explicit `raise … from e` cause chaining
+  (B904), preserving tracebacks across the interpreter/stdlib boundary.
+- Applied `ruff format` repo-wide (canonical single-quote style); 48 files brought
+  into conformance so the format gate passes.
 
 ### Tests
 
@@ -86,11 +119,18 @@ ships with a regression test that fails on the old code. Full suite:
   advertisement, delta-encoding validity, per-kind classification, the
   keyword-inside-string guarantee, token-aware references/rename, and graceful
   degradation on unlexable source.
-- New `tests/test_static_analysis_fixes.py` (9 cases), including anti-regression
+- New `tests/test_static_analysis_fixes.py` (13 cases), including anti-regression
   guards that assert the type checker **actually visits** If/ternary/Match bodies
-  rather than crashing — so a future swallowed-exception regression can't hide.
+  and survives variadic params — so a future swallowed-exception regression can't
+  hide — plus a guard that `_debug_log.suppressed()` stays silent unless `EPL_DEBUG`
+  is set.
+- De-brittled `tests/test_phase4_security.py::test_mcp_cors_default` to be
+  quote-style-agnostic (the formatter's single-quote canonicalization must not mask
+  the real check: CORS default is `null`, never `*`).
 - Updated `tests/test_phase5_tooling.py` to assert the corrected token-aware
   reference semantics and the new server version.
+
+Full suite: **1,719 passed, 5 skipped, 0 failed.**
 
 ---
 
