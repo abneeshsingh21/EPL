@@ -878,12 +878,12 @@ class Interpreter:
                 try:
                     user_input = int(user_input)
                 except ValueError:
-                    raise EPLRuntimeError('Expected integer.', node.line)
+                    raise EPLRuntimeError('Expected integer.', node.line) from None
             elif isinstance(existing, float):
                 try:
                     user_input = float(user_input)
                 except ValueError:
-                    raise EPLRuntimeError('Expected decimal.', node.line)
+                    raise EPLRuntimeError('Expected decimal.', node.line) from None
         env.set_variable(node.variable_name, user_input)
 
     # ─── Control Flow ─────────────────────────────────────
@@ -1034,7 +1034,9 @@ class Interpreter:
                     arg_values = [self._eval(arg, env) for arg in node.arguments]
                     return self._call_callable(val, arg_values, env, node.line)
             hint = _did_you_mean(node.name, list(env.get_all_names()))
-            raise EPLNameError(f'Function "{node.name}" has not been defined.{hint}', node.line)
+            raise EPLNameError(
+                f'Function "{node.name}" has not been defined.{hint}', node.line
+            ) from None
 
         arg_values = [self._eval(arg, env) for arg in node.arguments]
 
@@ -1156,20 +1158,20 @@ class Interpreter:
             try:
                 return int(args[0])
             except (ValueError, TypeError):
-                raise EPLRuntimeError('Cannot convert to integer.', line)
+                raise EPLRuntimeError('Cannot convert to integer.', line) from None
 
         if name == 'to_decimal':
             try:
                 return float(args[0])
             except (ValueError, TypeError):
-                raise EPLRuntimeError('Cannot convert to decimal.', line)
+                raise EPLRuntimeError('Cannot convert to decimal.', line) from None
 
         if name == 'to_number':
             try:
                 value = float(args[0])
                 return int(value) if value.is_integer() else value
             except (ValueError, TypeError):
-                raise EPLRuntimeError('Cannot convert to number.', line)
+                raise EPLRuntimeError('Cannot convert to number.', line) from None
 
         if name == 'to_text':
             return self._format_value(args[0]) if len(args) == 1 else ''
@@ -1524,7 +1526,9 @@ class Interpreter:
                 parent = env.get_variable(node.parent)
             except EPLNameError:
                 hint = _did_you_mean(node.parent, list(env.get_all_names()))
-                raise EPLNameError(f'Parent class "{node.parent}" not found.{hint}', node.line)
+                raise EPLNameError(
+                    f'Parent class "{node.parent}" not found.{hint}', node.line
+                ) from None
             if not isinstance(parent, EPLClass):
                 raise EPLTypeError(f'"{node.parent}" is not a class.', node.line)
 
@@ -1573,7 +1577,9 @@ class Interpreter:
                 parent = env.get_variable(node.parent)
             except EPLNameError:
                 hint = _did_you_mean(node.parent, list(env.get_all_names()))
-                raise EPLNameError(f'Parent class "{node.parent}" not found.{hint}', node.line)
+                raise EPLNameError(
+                    f'Parent class "{node.parent}" not found.{hint}', node.line
+                ) from None
             if not isinstance(parent, EPLClass):
                 raise EPLTypeError(f'"{node.parent}" is not a class.', node.line)
 
@@ -1716,7 +1722,7 @@ class Interpreter:
             klass = env.get_variable(node.class_name)
         except EPLNameError:
             hint = _did_you_mean(node.class_name, list(env.get_all_names()))
-            raise EPLNameError(f'Class "{node.class_name}" not found.{hint}', node.line)
+            raise EPLNameError(f'Class "{node.class_name}" not found.{hint}', node.line) from None
         if not isinstance(klass, EPLClass):
             raise EPLTypeError(f'"{node.class_name}" is not a class.', node.line)
         instance = EPLInstance(klass)
@@ -2232,7 +2238,7 @@ class Interpreter:
                     f'Add it to [python-dependencies] in epl.toml or run '
                     f'"epl pyinstall {pkg_name}" (optionally with a pip requirement).',
                     node.line,
-                )
+                ) from None
 
             if declared_requirement:
                 print(
@@ -2265,13 +2271,13 @@ class Interpreter:
                     f'Python library "{node.library}" not found and auto-install failed. '
                     f'Install manually with: pip install {install_target}',
                     node.line,
-                )
+                ) from None
             except ImportError:
                 raise EPLRuntimeError(
                     f'Package "{install_target}" was installed but "{node.library}" could not be imported. '
                     f'Check the correct import name or update [python-dependencies].',
                     node.line,
-                )
+                ) from None
         wrapped = PythonModule(module, node.library)
         env.define_variable(node.alias or node.library, wrapped)
 
@@ -2328,7 +2334,9 @@ class Interpreter:
             current = env.get_variable(node.name)
         except EPLNameError:
             hint = _did_you_mean(node.name, list(env.get_all_names()))
-            raise EPLNameError(f'Variable "{node.name}" has not been created yet.{hint}', node.line)
+            raise EPLNameError(
+                f'Variable "{node.name}" has not been created yet.{hint}', node.line
+            ) from None
         rhs = self._eval(node.value, env)
         op = node.operator
         if op == '+=':
@@ -2516,7 +2524,7 @@ class Interpreter:
                 hint = _did_you_mean(node.name, list(env.get_all_names()) + list(BUILTINS))
                 raise EPLNameError(
                     f'Variable "{node.name}" has not been created yet.{hint}', node.line
-                )
+                ) from None
 
         # O(1) dispatch table for all other expression types
         handler = self._expr_dispatch.get(type(node))
@@ -2693,12 +2701,12 @@ class Interpreter:
             try:
                 return int(s)
             except (ValueError, TypeError):
-                raise EPLRuntimeError('Cannot convert text to integer.', line)
+                raise EPLRuntimeError('Cannot convert text to integer.', line) from None
         if method == 'to_decimal':
             try:
                 return float(s)
             except (ValueError, TypeError):
-                raise EPLRuntimeError('Cannot convert text to decimal.', line)
+                raise EPLRuntimeError('Cannot convert text to decimal.', line) from None
         if method == 'format':
             # Simple positional format: "Hello {} and {}".format(a, b)
             result = s
@@ -3377,7 +3385,7 @@ class Interpreter:
                 raise EPLRuntimeError('GUI is not available (tkinter not installed).')
             return get_window, create_window
         except ImportError:
-            raise EPLRuntimeError('GUI module not available.')
+            raise EPLRuntimeError('GUI module not available.') from None
 
     def _exec_window_create(self, node: ast.WindowCreate, env: Environment):
         """Window "My App" ... End"""
@@ -3618,7 +3626,7 @@ class Interpreter:
             try:
                 return val.result(timeout=60)
             except _futures.TimeoutError:
-                raise EPLRuntimeError(f'Await timed out for {val.name}.', node.line)
+                raise EPLRuntimeError(f'Await timed out for {val.name}.', node.line) from None
             except Exception as e:
                 raise EPLRuntimeError(f'Async error in {val.name}: {e}', node.line) from e
         # If it's not a future, just return the value (already resolved)
@@ -3730,7 +3738,7 @@ class Interpreter:
         try:
             iface = env.get_variable(iface_name)
         except Exception:
-            raise EPLRuntimeError(f'Interface "{iface_name}" not found.', line)
+            raise EPLRuntimeError(f'Interface "{iface_name}" not found.', line) from None
 
         if not isinstance(iface, dict) or not iface.get('__is_interface__'):
             raise EPLRuntimeError(f'"{iface_name}" is not an interface.', line)
@@ -3780,7 +3788,7 @@ class Interpreter:
         try:
             mod = env.get_variable(node.module_name)
         except Exception:
-            raise EPLRuntimeError(f'Module "{node.module_name}" not found.', node.line)
+            raise EPLRuntimeError(f'Module "{node.module_name}" not found.', node.line) from None
 
         if not isinstance(mod, dict) or not mod.get('__is_module__'):
             raise EPLRuntimeError(f'"{node.module_name}" is not a module.', node.line)

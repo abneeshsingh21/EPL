@@ -87,7 +87,7 @@ def assert_raises(src, error_substr=None):
         raise
     except Exception as e:
         if error_substr and error_substr.lower() not in str(e).lower():
-            raise AssertionError(f'Expected error containing {error_substr!r}, got {e}')
+            raise AssertionError(f'Expected error containing {error_substr!r}, got {e}') from e
 
 
 # ═══════════════════════════════════════════════════════════════

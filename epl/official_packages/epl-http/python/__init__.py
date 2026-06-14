@@ -12,7 +12,7 @@ try:
 except ImportError:
     raise ImportError(
         "epl-http requires the 'requests' library. Install with: pip install requests"
-    )
+    ) from None
 
 
 # ═══════════════════════════════════════════════════════════

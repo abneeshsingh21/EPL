@@ -271,7 +271,9 @@ class ConnectionPool:
                 conn.autocommit = False
                 return conn
             except ImportError:
-                raise RuntimeError('psycopg2 not installed. Run: pip install psycopg2-binary')
+                raise RuntimeError(
+                    'psycopg2 not installed. Run: pip install psycopg2-binary'
+                ) from None
         elif self.dialect == 'mysql':
             try:
                 import mysql.connector  # type: ignore[reportMissingImports]
@@ -281,7 +283,7 @@ class ConnectionPool:
             except ImportError:
                 raise RuntimeError(
                     'mysql-connector not installed. Run: pip install mysql-connector-python'
-                )
+                ) from None
         else:
             raise ValueError(f'Unsupported dialect: {self.dialect}')
 
@@ -320,7 +322,7 @@ class ConnectionPool:
                 conn, ts = self._pool.get(timeout=timeout)
                 return conn
             except queue.Empty:
-                raise RuntimeError('Connection pool exhausted')
+                raise RuntimeError('Connection pool exhausted') from None
 
     def put(self, conn):
         """Return a connection to the pool."""

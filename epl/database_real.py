@@ -108,7 +108,7 @@ class ConnectionPool:
             except ImportError:
                 raise RuntimeError(
                     'PostgreSQL support requires psycopg2. Run: pip install psycopg2-binary'
-                )
+                ) from None
             conn = psycopg2.connect(**self.connect_args)
             conn.autocommit = False
             return conn
@@ -119,7 +119,7 @@ class ConnectionPool:
                 raise RuntimeError(
                     'MySQL support requires mysql-connector-python. '
                     'Run: pip install mysql-connector-python'
-                )
+                ) from None
             conn = mysql.connector.connect(**self.connect_args)
             return conn
         else:

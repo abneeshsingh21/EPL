@@ -143,7 +143,7 @@ class EPLChannel:
         try:
             self._queue.put(value, block=True, timeout=timeout)
         except queue.Full:
-            raise RuntimeError('Channel send timed out')
+            raise RuntimeError('Channel send timed out') from None
 
     def receive(self, timeout: float = None) -> Any:
         try:
@@ -151,7 +151,7 @@ class EPLChannel:
         except queue.Empty:
             if self._closed:
                 return None
-            raise RuntimeError('Channel receive timed out')
+            raise RuntimeError('Channel receive timed out') from None
 
     def try_send(self, value: Any) -> bool:
         if self._closed:

@@ -334,10 +334,12 @@ def assert_raises(fn, error_type=EPLError, msg_substr=None):
         raise AssertionError(f'Expected {error_type.__name__} but no error raised')
     except error_type as e:
         if msg_substr and msg_substr.lower() not in str(e).lower():
-            raise AssertionError(f"Error message '{e}' doesn't contain '{msg_substr}'")
+            raise AssertionError(f"Error message '{e}' doesn't contain '{msg_substr}'") from e
         return True
     except Exception as e:
-        raise AssertionError(f'Expected {error_type.__name__} but got {type(e).__name__}: {e}')
+        raise AssertionError(
+            f'Expected {error_type.__name__} but got {type(e).__name__}: {e}'
+        ) from e
 
 
 def assert_output(src, expected_lines, msg=None):

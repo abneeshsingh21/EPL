@@ -2687,7 +2687,7 @@ class VM:
                 result = val.result(timeout=60)
                 self.stack.append(result)
             except _futures.TimeoutError:
-                raise VMError('Await timed out', inst.line)
+                raise VMError('Await timed out', inst.line) from None
             except Exception as e:
                 raise VMError(f'Async error: {e}', inst.line) from e
         elif hasattr(val, 'result') and callable(val.result):

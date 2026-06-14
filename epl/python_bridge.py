@@ -215,7 +215,7 @@ def resolve_python_module(module_name, line):
         raise EPLRuntimeError(
             f'Cannot find Python module "{module_name}". Looked in: {pkg_python_dir} and sys.path.',
             line,
-        )
+        ) from None
 
 
 def call_python_function(

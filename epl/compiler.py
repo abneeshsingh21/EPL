@@ -934,7 +934,7 @@ class Compiler:
             except FileNotFoundError:
                 raise RuntimeError(
                     'C compiler (gcc or clang) not found. Install gcc or clang to compile.'
-                )
+                ) from None
 
         # Step 6: Link
         exe_path = output_path + ('.exe' if os.name == 'nt' else '')
@@ -1072,7 +1072,7 @@ class Compiler:
         except subprocess.TimeoutExpired:
             raise RuntimeError(
                 f'WASM compilation timed out after 120 seconds.\n  LLVM IR saved to: {ll_path}'
-            )
+            ) from None
 
         raise RuntimeError(
             'No WASM compiler found. Install Emscripten (emcc) or clang with WASM target.\n'

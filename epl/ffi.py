@@ -183,7 +183,7 @@ class FFILibrary:
             try:
                 func = getattr(self._handle, func_name)
             except AttributeError:
-                raise AttributeError(f"Function '{func_name}' not found in {self._path}")
+                raise AttributeError(f"Function '{func_name}' not found in {self._path}") from None
             func.restype = _resolve_type(ret_type)
             func.argtypes = [_resolve_type(t) for t in arg_types]
             self._cache[key] = func

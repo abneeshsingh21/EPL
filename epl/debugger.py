@@ -341,7 +341,7 @@ EPL Debugger Commands:
                 cmd = input('(epl-dbg) ').strip()
             except (EOFError, KeyboardInterrupt):
                 print()
-                raise DebugQuit()
+                raise DebugQuit() from None
 
             if not cmd:
                 continue

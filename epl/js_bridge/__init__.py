@@ -129,7 +129,7 @@ class NodeBridge:
                 kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
             self._process = subprocess.Popen([node_bin, worker_path], **kwargs)
         except OSError as e:
-            raise NodeBridgeError(f'Failed to start Node.js: {e}')
+            raise NodeBridgeError(f'Failed to start Node.js: {e}') from e
 
         # Wait for the "Worker ready" signal on stderr (with timeout)
         ready = threading.Event()
@@ -187,12 +187,12 @@ class NodeBridge:
                 self._process.stdin.write(payload.encode('utf-8'))
                 self._process.stdin.flush()
             except (BrokenPipeError, OSError) as e:
-                raise NodeBridgeError(f'JS bridge pipe broken: {e}')
+                raise NodeBridgeError(f'JS bridge pipe broken: {e}') from e
 
             try:
                 response_line = self._process.stdout.readline()
             except (BrokenPipeError, OSError) as e:
-                raise NodeBridgeError(f'JS bridge pipe broken: {e}')
+                raise NodeBridgeError(f'JS bridge pipe broken: {e}') from e
 
         if not response_line:
             returncode = self._process.poll()
@@ -205,7 +205,7 @@ class NodeBridge:
         try:
             response = json.loads(response_line.decode('utf-8'))
         except json.JSONDecodeError as e:
-            raise NodeBridgeError(f'Invalid JSON from JS bridge: {e}')
+            raise NodeBridgeError(f'Invalid JSON from JS bridge: {e}') from e
 
         if not response.get('ok', False):
             raise NodeBridgeError(response.get('error', 'Unknown JS bridge error'))

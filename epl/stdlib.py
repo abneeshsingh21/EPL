@@ -64,7 +64,7 @@ def _require_module(module_name, pip_name=None, feature_name=None):
                     pass
         feature = feature_name or module_name
         hint = f' Install with: pip install {pip_name}' if pip_name else ''
-        raise EPLRuntimeError(f'{feature} is not available.{hint}', 0)
+        raise EPLRuntimeError(f'{feature} is not available.{hint}', 0) from None
 
 
 def _auto_install(pip_name, display_name=None):
@@ -995,7 +995,12 @@ _linked_lists: dict = {}  # id -> list of nodes (doubly-linked as list)
 _priority_queues: dict = {}  # id -> list of (priority, value) tuples
 _deques: dict = {}  # id -> collections.deque
 _ordered_maps: dict = {}  # id -> OrderedDict
-_test_hooks: dict = {'before_each': None, 'after_each': None, 'describes': [], 'current_group': None}
+_test_hooks: dict = {
+    'before_each': None,
+    'after_each': None,
+    'describes': [],
+    'current_group': None,
+}
 _http_servers: dict = {}  # id -> HTTPServer instance
 _ws_connections: dict = {}  # id -> websocket connection
 _async_processes: dict = {}  # id -> subprocess.Popen
@@ -1652,7 +1657,7 @@ def _exec(command):
     try:
         result = _subprocess.run(cmd_parts, capture_output=True, text=True)
     except FileNotFoundError:
-        raise EPLRuntimeError(f'Command not found: {cmd_parts[0]}', 0)
+        raise EPLRuntimeError(f'Command not found: {cmd_parts[0]}', 0) from None
     return result.returncode
 
 
@@ -1667,7 +1672,7 @@ def _exec_output(command):
     try:
         result = _subprocess.run(cmd_parts, capture_output=True, text=True)
     except FileNotFoundError:
-        raise EPLRuntimeError(f'Command not found: {cmd_parts[0]}', 0)
+        raise EPLRuntimeError(f'Command not found: {cmd_parts[0]}', 0) from None
     return _to_epl_dict(
         {
             'stdout': result.stdout,
@@ -4585,7 +4590,7 @@ def call_stdlib(name, args, line, interpreter=None):
                         'aes_encrypt requires pycryptodome or cryptography package. '
                         'Run: pip install pycryptodome  (or: pip install cryptography)',
                         line,
-                    )
+                    ) from None
             import base64 as _b64
 
             return _b64.b64encode(iv + ct).decode('ascii')
@@ -4633,7 +4638,7 @@ def call_stdlib(name, args, line, interpreter=None):
                         'aes_decrypt requires pycryptodome or cryptography package. '
                         'Run: pip install pycryptodome  (or: pip install cryptography)',
                         line,
-                    )
+                    ) from None
             except (ValueError, KeyError) as e:
                 raise EPLRuntimeError(f'aes_decrypt: decryption failed — {e}', line) from e
             return plaintext.decode('utf-8')
@@ -5617,7 +5622,7 @@ def call_stdlib(name, args, line, interpreter=None):
             except ImportError:
                 raise EPLRuntimeError(
                     'WebSocket support requires: pip install websocket-client', line
-                )
+                ) from None
             ws = websocket.create_connection(str(args[0]))
             wid = f'ws_{_new_id()}'
             _ws_connections[wid] = ws
@@ -5770,11 +5775,15 @@ def _ensure_flask():
         import flask  # type: ignore[import-not-found]
     except ImportError:
         if not _auto_install('flask', 'Flask'):
-            raise EPLRuntimeError('Failed to install Flask. Install manually: pip install flask', 0)
+            raise EPLRuntimeError(
+                'Failed to install Flask. Install manually: pip install flask', 0
+            ) from None
         try:
             import flask  # type: ignore[import-not-found]
         except ImportError:
-            raise EPLRuntimeError('Installed flask but import still failed. Check pip output.', 0)
+            raise EPLRuntimeError(
+                'Installed flask but import still failed. Check pip output.', 0
+            ) from None
     _flask_cache[0] = flask
     return flask
 
@@ -7678,7 +7687,7 @@ def _ensure_tk():
             'tkinter is not available. On Linux: sudo apt install python3-tk. '
             'On macOS: brew install python-tk. On Windows: reinstall Python with tk option.',
             0,
-        )
+        ) from None
     _tk_cache[0] = (tk, ttk, messagebox, filedialog)
     return _tk_cache[0]
 
@@ -7906,7 +7915,7 @@ def _call_gui(name, args, line):
             except ImportError:
                 raise EPLRuntimeError(
                     f'Pillow is required for {ext} images. Install with: pip install Pillow', line
-                )
+                ) from None
         else:
             from tkinter import PhotoImage
 
@@ -8420,14 +8429,18 @@ def _ensure_toga():
         return _toga_cache[0]
     except ImportError:
         if not _auto_install('toga', 'Toga (BeeWare)'):
-            raise EPLRuntimeError('Failed to install Toga. Install manually: pip install toga', 0)
+            raise EPLRuntimeError(
+                'Failed to install Toga. Install manually: pip install toga', 0
+            ) from None
         try:
             import toga  # type: ignore[import-not-found]
 
             _toga_cache[0] = _setup_toga(toga)
             return _toga_cache[0]
         except ImportError:
-            raise EPLRuntimeError('Installed toga but import still failed. Check pip output.', 0)
+            raise EPLRuntimeError(
+                'Installed toga but import still failed. Check pip output.', 0
+            ) from None
 
 
 def _widget_meta_to_compose(meta, indent=2):
@@ -9209,7 +9222,7 @@ def _call_mobile(name, args, line):
                 raise EPLRuntimeError(
                     'Failed to install BeeWare Briefcase. Install manually: pip install briefcase',
                     line,
-                )
+                ) from None
         import subprocess as _sp
 
         try:
@@ -9225,7 +9238,7 @@ def _call_mobile(name, args, line):
         except FileNotFoundError:
             raise EPLRuntimeError(
                 'Python executable not found for briefcase. Check your Python installation.', line
-            )
+            ) from None
 
     if name == 'mobile_style':
         if len(args) < 2:
@@ -9452,11 +9465,13 @@ def _ensure_pygame():
         if not _auto_install('pygame', 'Pygame'):
             raise EPLRuntimeError(
                 'Failed to install Pygame. Install manually: pip install pygame', 0
-            )
+            ) from None
         try:
             import pygame  # type: ignore[import-not-found]
         except ImportError:
-            raise EPLRuntimeError('Installed pygame but import still failed. Check pip output.', 0)
+            raise EPLRuntimeError(
+                'Installed pygame but import still failed. Check pip output.', 0
+            ) from None
     if not pygame.get_init():
         pygame.init()
     _pygame_cache[0] = pygame
@@ -10186,13 +10201,13 @@ def _ensure_sklearn():
         if not _auto_install('scikit-learn', 'scikit-learn'):
             raise EPLRuntimeError(
                 'Failed to install scikit-learn. Install manually: pip install scikit-learn', 0
-            )
+            ) from None
         try:
             import sklearn  # type: ignore[import-not-found]
         except ImportError:
             raise EPLRuntimeError(
                 'Installed scikit-learn but import still failed. Check pip output.', 0
-            )
+            ) from None
     _sklearn_cache[0] = sklearn
     return sklearn
 
@@ -10207,11 +10222,13 @@ def _ensure_joblib():
         if not _auto_install('joblib', 'Joblib'):
             raise EPLRuntimeError(
                 'Failed to install joblib. Install manually: pip install joblib', 0
-            )
+            ) from None
         try:
             import joblib  # type: ignore[import-not-found]
         except ImportError:
-            raise EPLRuntimeError('Installed joblib but import still failed. Check pip output.', 0)
+            raise EPLRuntimeError(
+                'Installed joblib but import still failed. Check pip output.', 0
+            ) from None
     _joblib_cache[0] = joblib
     return joblib
 
@@ -10641,11 +10658,11 @@ def _ensure_torch():
         import torch  # type: ignore[import-not-found]
     except ImportError:
         if not _auto_install('torch', 'PyTorch'):
-            raise EPLRuntimeError('PyTorch not available. Install: pip install torch', 0)
+            raise EPLRuntimeError('PyTorch not available. Install: pip install torch', 0) from None
         try:
             import torch  # type: ignore[import-not-found]
         except ImportError:
-            raise EPLRuntimeError('Install PyTorch manually: pip install torch', 0)
+            raise EPLRuntimeError('Install PyTorch manually: pip install torch', 0) from None
     _torch_cache[0] = torch
     return torch
 
@@ -10658,11 +10675,15 @@ def _ensure_tensorflow():
         import tensorflow as tf  # type: ignore[import-not-found]
     except ImportError:
         if not _auto_install('tensorflow', 'TensorFlow'):
-            raise EPLRuntimeError('TensorFlow not available. Install: pip install tensorflow', 0)
+            raise EPLRuntimeError(
+                'TensorFlow not available. Install: pip install tensorflow', 0
+            ) from None
         try:
             import tensorflow as tf  # type: ignore[import-not-found]
         except ImportError:
-            raise EPLRuntimeError('Install TensorFlow manually: pip install tensorflow', 0)
+            raise EPLRuntimeError(
+                'Install TensorFlow manually: pip install tensorflow', 0
+            ) from None
     _tf_cache[0] = tf
     return tf
 
@@ -11039,11 +11060,13 @@ def _ensure_moderngl():
         import moderngl  # type: ignore[import-not-found]
     except ImportError:
         if not _auto_install('moderngl', 'ModernGL'):
-            raise EPLRuntimeError('ModernGL not available. Install: pip install moderngl', 0)
+            raise EPLRuntimeError(
+                'ModernGL not available. Install: pip install moderngl', 0
+            ) from None
         try:
             import moderngl  # type: ignore[import-not-found]
         except ImportError:
-            raise EPLRuntimeError('Install ModernGL manually: pip install moderngl', 0)
+            raise EPLRuntimeError('Install ModernGL manually: pip install moderngl', 0) from None
     _moderngl_cache[0] = moderngl
     return moderngl
 
@@ -11350,11 +11373,13 @@ def _ensure_pandas():
         if not _auto_install('pandas', 'Pandas'):
             raise EPLRuntimeError(
                 'Failed to install Pandas. Install manually: pip install pandas', 0
-            )
+            ) from None
         try:
             import pandas as pd  # type: ignore[import-not-found]
         except ImportError:
-            raise EPLRuntimeError('Installed pandas but import still failed. Check pip output.', 0)
+            raise EPLRuntimeError(
+                'Installed pandas but import still failed. Check pip output.', 0
+            ) from None
     _pandas_cache[0] = pd
     return pd
 
@@ -11369,13 +11394,13 @@ def _ensure_matplotlib():
         if not _auto_install('matplotlib', 'Matplotlib'):
             raise EPLRuntimeError(
                 'Failed to install Matplotlib. Install manually: pip install matplotlib', 0
-            )
+            ) from None
         try:
             import matplotlib  # type: ignore[import-not-found]
         except ImportError:
             raise EPLRuntimeError(
                 'Installed matplotlib but import still failed. Check pip output.', 0
-            )
+            ) from None
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt  # type: ignore[import-not-found]
 
@@ -11417,7 +11442,7 @@ def _call_ds(name, args, line):
         except UnicodeDecodeError:
             raise EPLRuntimeError(
                 f'CSV file encoding error: {args[0]} — try specifying encoding.', line
-            )
+            ) from None
         except Exception as e:
             raise EPLRuntimeError(f'CSV parse error: {e}', line) from e
         fid = f'df_{_new_id()}'

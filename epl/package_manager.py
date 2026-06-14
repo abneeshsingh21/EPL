@@ -65,7 +65,7 @@ def _file_lock(path, timeout=30):
                     os.rmdir(lock_path)
                 except OSError:
                     pass
-                raise TimeoutError(f'Could not acquire lock on {path} within {timeout}s')
+                raise TimeoutError(f'Could not acquire lock on {path} within {timeout}s') from None
             time.sleep(0.05)
     try:
         yield

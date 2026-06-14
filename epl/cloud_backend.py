@@ -49,7 +49,7 @@ def _ensure_boto3():
                 'Cloud functions require the boto3 package. '
                 'Install with: pip install "eplang[cloud]"  or  pip install boto3',
                 0,
-            )
+            ) from None
 
 
 # ─── Internal client cache ────────────────────────────────

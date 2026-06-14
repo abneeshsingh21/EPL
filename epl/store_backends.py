@@ -401,7 +401,7 @@ class RedisStoreBackend(StoreBackend):
         try:
             import redis
         except ImportError:
-            raise ImportError("Redis backend requires 'redis' package: pip install redis")
+            raise ImportError("Redis backend requires 'redis' package: pip install redis") from None
         self._redis = redis.Redis.from_url(url, decode_responses=True)
         self._prefix = prefix
         # Verify connection
@@ -460,7 +460,7 @@ class RedisSessionBackend(SessionBackend):
         try:
             import redis
         except ImportError:
-            raise ImportError("Redis backend requires 'redis' package: pip install redis")
+            raise ImportError("Redis backend requires 'redis' package: pip install redis") from None
         self._redis = redis.Redis.from_url(url, decode_responses=True)
         self._prefix = prefix
         self._redis.ping()

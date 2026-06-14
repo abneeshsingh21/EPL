@@ -344,7 +344,7 @@ class Channel:
         except queue.Empty:
             if self._closed:
                 return None
-            raise TimeoutError('Channel receive timed out')
+            raise TimeoutError('Channel receive timed out') from None
 
     def try_send(self, value) -> bool:
         """Non-blocking send. Returns True if sent."""

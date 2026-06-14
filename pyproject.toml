@@ -136,7 +136,9 @@ ignore = [
     "B008",  # function call in argument defaults
     "B011",  # assert False
     "B028",  # no explicit stacklevel
-    "B904",  # raise without from in except
+    # B904 (raise-without-from) is enforced — all re-raises chain explicitly
+    # (`from e` to preserve cause, `from None` for deliberate domain-error
+    # replacement). Kept at zero so traceback hygiene cannot regress.
     "C401",  # unnecessary generator set
     "C405",  # unnecessary literal set
     "C414",  # unnecessary double cast
