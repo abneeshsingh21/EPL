@@ -112,7 +112,7 @@ class EPLTask:
         self.name = name
         self._future = future
         self.status = 'running'
-        self._callbacks = []
+        self._callbacks: list = []
 
     @property
     def done(self):

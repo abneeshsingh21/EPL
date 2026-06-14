@@ -54,7 +54,7 @@ def _ensure_boto3():
 
 # ─── Internal client cache ────────────────────────────────
 
-_clients = {}  # service_name -> boto3.client
+_clients: dict = {}  # service_name -> boto3.client
 _client_lock = _threading.Lock()
 _config = {
     'region': _os.environ.get('AWS_DEFAULT_REGION', 'us-east-1'),
@@ -192,7 +192,7 @@ def cloud_s3_write_text(bucket: str, key: str, content: str):
 def cloud_s3_create_bucket(bucket: str):
     """Create a new S3 bucket."""
     s3 = _get_client('s3')
-    create_kwargs = {'Bucket': str(bucket)}
+    create_kwargs: dict = {'Bucket': str(bucket)}
     region = _config['region']
     if region and region != 'us-east-1':
         create_kwargs['CreateBucketConfiguration'] = {'LocationConstraint': region}

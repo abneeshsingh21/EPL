@@ -704,8 +704,8 @@ class EPLTestRunner:
         interp: Interpreter,
         func_name: str,
         suite: TestSuiteResult,
-        setup_func: str,
-        teardown_func: str,
+        setup_func: 'str | None',
+        teardown_func: 'str | None',
     ):
         """Run a single test function with isolation (fresh state per test)."""
         result = TestResult(name=func_name)

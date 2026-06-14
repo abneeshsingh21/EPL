@@ -131,7 +131,7 @@ class EPLChannel:
 
     def __init__(self, capacity: int = 0):
         if capacity <= 0:
-            self._queue = queue.Queue(maxsize=1)  # unbuffered: sync handoff
+            self._queue: queue.Queue = queue.Queue(maxsize=1)  # unbuffered: sync handoff
         else:
             self._queue = queue.Queue(maxsize=capacity)
         self._closed = False

@@ -334,7 +334,7 @@ def generate_ci_for_project(path: str = '.', output_dir: Optional[str] = None) -
     """
     from epl.package_manager import load_manifest
 
-    files = {}
+    files: dict = {}
     if output_dir is None:
         output_dir = os.path.join(path, '.github', 'workflows')
 

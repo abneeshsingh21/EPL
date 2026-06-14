@@ -63,7 +63,7 @@ class JSTranspiler:
                 self.user_functions.add(stmt.name)
                 self.async_functions.add(stmt.name)
         # Emit body
-        body_lines = []
+        body_lines: list = []
         for stmt in program.statements:
             self._emit_stmt(stmt)
         # Build final output with header

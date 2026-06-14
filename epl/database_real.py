@@ -823,7 +823,7 @@ class Model:
         cols['updated_at'] = 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
         self.db.create_table(self.table, cols, if_not_exists=True)
 
-    def create(self, data: dict) -> dict:
+    def create(self, data: dict) -> Optional[dict]:
         """Create a new record."""
         row_id = self.db.insert(self.table, data)
         return self.find(row_id)

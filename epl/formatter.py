@@ -119,7 +119,7 @@ def format_source(
     consecutive_blanks = 0
     # Stack of (block_type, indent_level) for tracking nesting
     # block_type: 'block', 'match', 'when', 'continuer'
-    stack = []
+    stack: list = []
 
     for line in lines:
         stripped = line.strip()

@@ -203,7 +203,7 @@ class SiteGenerator:
     def _build_sidebar(self, active_slug: str) -> str:
         """Build sidebar navigation from registered pages."""
         html = ''
-        sections = {}
+        sections: dict = {}
         for slug, title, section, _ in self.pages:
             sections.setdefault(section, []).append((slug, title))
 
@@ -738,7 +738,7 @@ Print "Chart saved to sales_chart.svg"</code></pre>
         except ImportError:
             BUILTIN_REGISTRY = {}
 
-        categories = {
+        categories: dict = {
             'Core': [],
             'Data': [],
             'Web': [],

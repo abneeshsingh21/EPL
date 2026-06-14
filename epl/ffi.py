@@ -208,7 +208,7 @@ class FFILibrary:
 
 # ─── Public API (called from EPL builtins) ────────────────
 
-_open_libraries = {}
+_open_libraries: dict = {}
 
 
 def _cleanup_libraries():

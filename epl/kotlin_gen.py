@@ -1238,7 +1238,7 @@ class KotlinGenerator:
             }
             return type_map.get(str(node.return_type).lower(), 'Any')
 
-        return_types = set()
+        return_types: set = set()
         self._collect_return_types(node.body, return_types)
         if not return_types:
             return 'Unit'

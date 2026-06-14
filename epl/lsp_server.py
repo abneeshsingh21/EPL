@@ -549,7 +549,7 @@ class EPLAnalyzer:
 
     def _extract_symbols(self, source: str) -> List[dict]:
         """Extract document symbols (functions, classes, variables) from source."""
-        symbols = []
+        symbols: list = []
         try:
             tokens = Lexer(source).tokenize()
             program = Parser(tokens).parse()
@@ -890,7 +890,7 @@ class EPLAnalyzer:
         refs = self.get_references(uri, line, character)
         if not refs:
             return {'changes': {}}
-        changes = {}
+        changes: dict = {}
         for ref in refs:
             ref_uri = ref['uri']
             changes.setdefault(ref_uri, []).append({'range': ref['range'], 'newText': new_name})

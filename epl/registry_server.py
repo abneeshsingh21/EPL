@@ -183,7 +183,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the package registry."""
 
     storage = None  # Set by server
-    auth_tokens = set()  # Set of valid publish tokens
+    auth_tokens: set = set()  # Set of valid publish tokens
 
     def log_message(self, format, *args):
         """Suppress default logging, use structured logging."""
