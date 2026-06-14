@@ -101,21 +101,22 @@ Each bug fix ships with a regression test that fails on the old code. Full suite
 - `ruff` (pyproject) — un-ignored **B004, B023, F601, F811** and enforce **RUF034**.
   Each caught a real bug in this release and is now held at **zero violations**, so
   the bug class cannot silently regrow. Configured `ruff check` is fully green.
-- `ci.yml` + `pyproject.toml` — **whole-tree `mypy epl/` is now BLOCKING.**
-  Type debt was driven from **191 errors → 0 enforced**: 51 of 75 modules pass
-  strict checking (with full import-following), including the **entire core
-  language pipeline** — `lexer`, `parser`, `interpreter`, `vm`, `type_checker`,
-  `type_system`, `stdlib`, plus `errors`, `environment`, `tokens`, `ast_nodes`,
-  `cli`, `repl`, `bytecode_cache`. The 24 modules still carrying debt are listed
-  under `[[tool.mypy.overrides]] ignore_errors` — a **debt ledger that only ever
-  shrinks**: cleaning a module is a one-line deletion that promotes it into the
-  gate.
-- Cleaning these modules to zero surfaced honest fixes: container annotations
-  across `parser`/`interpreter`/`stdlib`; widened `_exec_function_def` to accept
-  `StaticMethodDef`; explicit unions for `user_input`/augmented-assignment
-  `result`; and a **latent bug** — `_exec_use`/`_exec_use_js` passed the optional
-  `node.alias` straight to `define_variable`, which would bind a variable named
-  `None` if a node were built without an alias (now falls back to `node.library`).
+- `ci.yml` + `pyproject.toml` — **whole-tree `mypy epl/` is now BLOCKING with an
+  empty debt ledger.** Type errors were driven from **191 → 0**: *all 75 modules*
+  under `epl/` (excluding `official_packages`) type-check clean, with full
+  import-following. The work was done as a ratchet — a `[[tool.mypy.overrides]]`
+  exemption list that only ever shrank — and that list is now empty, so there are
+  no per-module exemptions left. A new type error fails CI.
+- Cleaning the tree to zero surfaced honest fixes and several **real latent bugs**:
+  the REPL `.vars`/`.type` commands referenced a non-existent Environment API
+  (`.env`/`.values`/`.set` vs the real `.global_env`/`.variables`/`define_variable`)
+  and would have crashed in production; `_exec_use`/`_exec_use_js` could bind a
+  variable literally named `None`; `parallel_each` re-raised a possibly-`None`
+  `future.exception()`; networking socket ops on a closed connection raised raw
+  `AttributeError` instead of a clear `ConnectionError` (new `_require_socket()`
+  guard); `send()` returned `sendall() or len(data)` though `sendall` returns
+  `None`. Plus container annotations, honest `Optional`/union signatures, and two
+  file-handle/loop-variable shadows in `packager`.
 - **34 broad silent `except` swallows** instrumented with
   `_debug_log.suppressed(site)` — failures are now observable under `EPL_DEBUG`
   with zero behavior change by default.
