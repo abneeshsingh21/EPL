@@ -101,15 +101,29 @@ Each bug fix ships with a regression test that fails on the old code. Full suite
 - `ruff` (pyproject) — un-ignored **B004, B023, F601, F811** and enforce **RUF034**.
   Each caught a real bug in this release and is now held at **zero violations**, so
   the bug class cannot silently regrow. Configured `ruff check` is fully green.
-- `ci.yml` — type-check split into a **blocking strict gate** over 8 mypy-clean core
-  modules (`_debug_log`, `tokens`, `ast_nodes`, `errors`, `lexer`, `environment`,
-  `type_checker`, `type_system`) plus a **non-blocking full-tree report**. The
-  strict list ratchets up as more files are cleaned; it never loosens.
+- `ci.yml` + `pyproject.toml` — **whole-tree `mypy epl/` is now BLOCKING.**
+  Type debt was driven from **191 errors → 0 enforced**: 51 of 75 modules pass
+  strict checking (with full import-following), including the **entire core
+  language pipeline** — `lexer`, `parser`, `interpreter`, `vm`, `type_checker`,
+  `type_system`, `stdlib`, plus `errors`, `environment`, `tokens`, `ast_nodes`,
+  `cli`, `repl`, `bytecode_cache`. The 24 modules still carrying debt are listed
+  under `[[tool.mypy.overrides]] ignore_errors` — a **debt ledger that only ever
+  shrinks**: cleaning a module is a one-line deletion that promotes it into the
+  gate.
+- Cleaning these modules to zero surfaced honest fixes: container annotations
+  across `parser`/`interpreter`/`stdlib`; widened `_exec_function_def` to accept
+  `StaticMethodDef`; explicit unions for `user_input`/augmented-assignment
+  `result`; and a **latent bug** — `_exec_use`/`_exec_use_js` passed the optional
+  `node.alias` straight to `define_variable`, which would bind a variable named
+  `None` if a node were built without an alias (now falls back to `node.library`).
 - **34 broad silent `except` swallows** instrumented with
   `_debug_log.suppressed(site)` — failures are now observable under `EPL_DEBUG`
   with zero behavior change by default.
-- **42 bound re-raise sites** given explicit `raise … from e` cause chaining
-  (B904), preserving tracebacks across the interpreter/stdlib boundary.
+- **Exception chaining (B904) enforced tree-wide** and removed from the ignore
+  list. All 116 re-raise sites now chain explicitly: `from e` where the cause is
+  bound and useful (42 + infra sites), `from None` for the 51 EPL-domain
+  translations in `interpreter`/`stdlib` (so Python internals like `int()`'s
+  `ValueError` don't leak into plain-English EPL errors).
 - Applied `ruff format` repo-wide (canonical single-quote style); 48 files brought
   into conformance so the format gate passes.
 
