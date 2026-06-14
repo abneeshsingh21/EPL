@@ -17,7 +17,6 @@ from epl.errors import RuntimeError as EPLRuntimeError
 from epl.interpreter import EPLDict
 from epl.stdlib import _assert_sql_identifier, call_stdlib
 
-
 # ── _assert_sql_identifier (the cross-cutting helper) ─────────────────────
 
 

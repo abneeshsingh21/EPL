@@ -20,7 +20,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from epl.watcher import FileWatcher
 
-
 # ═══════════════════════════════════════════════════════════
 # FileWatcher — Snapshot & Change Detection
 # ═══════════════════════════════════════════════════════════
@@ -249,7 +248,7 @@ class TestHelperFunctions(unittest.TestCase):
         self.assertTrue(callable(_clear_screen))
 
     def test_color_functions(self):
-        from epl.watcher import _green, _red, _cyan, _dim, _bold
+        from epl.watcher import _bold, _cyan, _dim, _green, _red
         # These should return strings regardless
         self.assertIsInstance(_green('test'), str)
         self.assertIsInstance(_red('test'), str)
@@ -285,6 +284,7 @@ class TestWatcherTimeout(unittest.TestCase):
     def test_execute_passes_timeout_to_subprocess(self):
         """_execute(timeout=N) must pass N as subprocess.run(timeout=N)."""
         from unittest import mock
+
         from epl import watcher
 
         with tempfile.NamedTemporaryFile(suffix='.epl', delete=False) as f:
@@ -303,6 +303,7 @@ class TestWatcherTimeout(unittest.TestCase):
     def test_execute_defaults_to_no_timeout(self):
         """Default timeout=None means subprocess.run is called with timeout=None."""
         from unittest import mock
+
         from epl import watcher
 
         with tempfile.NamedTemporaryFile(suffix='.epl', delete=False) as f:
@@ -322,6 +323,7 @@ class TestWatcherTimeout(unittest.TestCase):
     def test_timeout_expired_reports_and_does_not_raise(self):
         """When the subprocess times out, the watcher reports it cleanly."""
         from unittest import mock
+
         from epl import watcher
 
         with tempfile.NamedTemporaryFile(suffix='.epl', delete=False) as f:
@@ -343,6 +345,7 @@ class TestWatcherCliTimeoutParsing(unittest.TestCase):
     def _parse(self, flag_val):
         """Drive the CLI helper and capture the timeout it would forward."""
         from unittest import mock
+
         from epl import cli
 
         captured = {}

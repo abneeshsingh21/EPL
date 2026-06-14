@@ -9,9 +9,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from epl.html_gen import generate_html
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.html_gen import generate_html
 
 
 def _compile(src):

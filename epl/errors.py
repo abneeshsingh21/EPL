@@ -192,7 +192,7 @@ def _get_source_filename():
     return getattr(_source_ctx, 'filename', '<input>')
 
 
-def _format_source_context(line: int, column: int = None, context_lines: int = 2) -> str:
+def _format_source_context(line: 'int | None', column: 'int | None' = None, context_lines: int = 2) -> str:
     """Format a source code snippet showing the error location."""
     source_lines = _get_source_lines()
     if not source_lines or line is None or line < 1:
@@ -233,7 +233,7 @@ class EPLError(Exception):
         self.line = line
         self.column = column
         self.filename = filename or _get_source_filename()
-        self._traceback_frames = []
+        self._traceback_frames: list = []
         self._suggestions = ''  # "did you mean?" text
         super().__init__(self.format_message())
 

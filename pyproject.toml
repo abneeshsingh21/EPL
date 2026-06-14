@@ -119,6 +119,7 @@ select = [
     "I",  # isort
     "C",  # flake8-comprehensions
     "B",  # flake8-bugbear
+    "RUF034",  # useless if-else (both arms identical) — found real bugs, kept at zero
 ]
 ignore = [
     "E501",  # line too long
@@ -128,11 +129,12 @@ ignore = [
     "E741",  # ambiguous variable name
     "W291",  # trailing whitespace
     "W293",  # blank line with whitespace
-    "B004",  # unreliable callable check
+    # NOTE: B004, B023, F601, F811 are deliberately NOT ignored — they each
+    # caught real bugs in the v9.6.0 hardening pass and are now kept at zero
+    # violations so the class cannot silently regrow.
     "B007",  # unused loop control variable
     "B008",  # function call in argument defaults
     "B011",  # assert False
-    "B023",  # function uses loop variable
     "B028",  # no explicit stacklevel
     "B904",  # raise without from in except
     "C401",  # unnecessary generator set
@@ -141,8 +143,6 @@ ignore = [
     "C901",  # too complex
     "E402",  # module import not at top
     "F401",  # unused import (intentional in tests)
-    "F601",  # dict key repeated
-    "F811",  # redefinition of unused name
     "F841",  # unused variable
 ]
 

@@ -712,8 +712,8 @@ class TestIntegration:
     def test_epl_imports_cleanly(self):
         """EPL must import without errors after all fixes."""
         import epl
+        from epl.interpreter import Interpreter
         from epl.lexer import Lexer
         from epl.parser import Parser
-        from epl.interpreter import Interpreter
-        from epl.web import start_server, AsyncEPLServer, EPLHandler
+        from epl.web import AsyncEPLServer, EPLHandler, start_server
         assert True  # If we get here, all imports succeeded

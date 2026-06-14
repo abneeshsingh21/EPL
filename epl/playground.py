@@ -12,8 +12,8 @@ import os
 import subprocess
 import sys
 
-from epl.errors import EPLError
 from epl import _debug_log
+from epl.errors import EPLError
 
 PLAYGROUND_MAX_BODY_BYTES = 1_000_000
 PLAYGROUND_EXEC_TIMEOUT_SECONDS = 10

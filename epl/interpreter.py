@@ -87,6 +87,7 @@ class ExitSignal(Exception):
 # ─── Async Runtime ────────────────────────────────────────
 
 import asyncio as _asyncio
+
 from epl._debug_log import suppressed as _debug_suppressed
 
 # Lazy thread pool — created on first use to avoid wasting threads on import

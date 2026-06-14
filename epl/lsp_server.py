@@ -23,10 +23,10 @@ from typing import Dict, List, Optional, Tuple
 # ─── EPL Imports ────────────────────────────────────────
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from epl import _debug_log
 from epl import ast_nodes as ast
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 # EPL Language Intelligence

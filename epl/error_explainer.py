@@ -663,8 +663,8 @@ def _explain_method_not_found(match, source_line, source_lines):
     method = match.group(1) if match.lastindex else 'the method'
     return (
         f"Method '{method}' does not exist on this object.",
-        f"Check the spelling. Common list methods: push(), pop(), map(), filter(), reduce().\n"
-        f"      Common string methods: split(), trim(), uppercase(), lowercase(), replace().",
+        "Check the spelling. Common list methods: push(), pop(), map(), filter(), reduce().\n"
+        "      Common string methods: split(), trim(), uppercase(), lowercase(), replace().",
         '',
     )
 

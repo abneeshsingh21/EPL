@@ -239,8 +239,8 @@ class TypeChecker:
         self._functions: dict = {}  # {name: (param_types, return_type)}
         self._classes: dict = {}  # {name: {methods, fields, parent, implements}}
         self._interfaces: dict = {}  # {name: [(method_name, params, return_type)]}
-        self._current_function: str = None  # name of function being checked
-        self._current_return_type: EPLType = None  # declared return type of current function
+        self._current_function: 'str | None' = None  # name of function being checked
+        self._current_return_type: 'EPLType | None' = None  # declared return type of current function
         self._var_usage: dict = {}  # {name: {'declared_line': int, 'used': bool}} for unused detection
         self._all_known_names: set = set()  # all known variable/function names for fuzzy matching
 

@@ -8,7 +8,6 @@ to run while actually checking nothing on If/Ternary/Match nodes.
 """
 
 import pytest
-
 from epl import ast_nodes as ast
 from epl import type_checker, type_system
 from epl.lexer import Lexer

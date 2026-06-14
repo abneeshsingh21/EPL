@@ -11,8 +11,8 @@ import os
 import shutil
 from pathlib import Path
 
-from epl import ast_nodes as ast
 from epl import _debug_log
+from epl import ast_nodes as ast
 
 ANDROID_GRADLE_WRAPPER_VERSION = '8.2.1'
 ANDROID_GRADLE_PLUGIN_VERSION = '8.2.0'

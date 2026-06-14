@@ -134,8 +134,8 @@ class TestWSGIAdapter(unittest.TestCase):
             environ = self._make_environ(path='/some-page')
             status_holder = {}
 
-            def start_response(status, headers, exc_info=None):
-                status_holder['status'] = status
+            def start_response(status, headers, exc_info=None, _holder=status_holder):
+                _holder['status'] = status
 
             adapter(environ, start_response)
             results.append(status_holder['status'])

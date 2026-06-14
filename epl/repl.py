@@ -6,6 +6,7 @@ Falls back to plain readline REPL if prompt_toolkit is not installed.
 """
 
 from __future__ import annotations
+
 from epl import _debug_log
 
 # ── Keyword lists ──────────────────────────────────────────────────────────────

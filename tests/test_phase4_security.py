@@ -67,7 +67,8 @@ def check(name, condition, detail=''):
 def test_crypto_no_xor_fallback():
     print('\n=== P4-SEC-1: epl-crypto — no XOR fallback ===')
 
-    import importlib.util, os
+    import importlib.util
+    import os
     pkg_path = os.path.join(
         os.path.dirname(__file__),
         '..', 'epl', 'official_packages', 'epl-crypto', 'python', '__init__.py'
@@ -152,7 +153,8 @@ def test_crypto_no_xor_fallback():
 def test_validator_security():
     print('\n=== P4-SEC-2: epl-validator — SQL sanitization + ReDoS ===')
 
-    import importlib.util, os
+    import importlib.util
+    import os
     pkg_path = os.path.join(
         os.path.dirname(__file__),
         '..', 'epl', 'official_packages', 'epl-validator', 'python', '__init__.py'
@@ -265,7 +267,8 @@ def test_validator_security():
 def test_auth_security():
     print('\n=== P4-SEC-3: epl-auth — MD5 warning, sessions, thread safety ===')
 
-    import importlib.util, os
+    import importlib.util
+    import os
     pkg_path = os.path.join(
         os.path.dirname(__file__),
         '..', 'epl', 'official_packages', 'epl-auth', 'python', '__init__.py'
@@ -435,7 +438,9 @@ def test_auth_security():
 def test_mcp_cors_default():
     print('\n=== P4-SEC-4: mcp_http_server — CORS default ===')
 
-    import importlib.util, os, inspect
+    import importlib.util
+    import inspect
+    import os
 
     src_path = os.path.join(
         os.path.dirname(__file__), '..', 'epl', 'mcp_http_server.py'

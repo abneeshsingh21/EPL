@@ -12,9 +12,9 @@ Uses polling (no external dependencies) for maximum portability.
 """
 
 import os
+import subprocess
 import sys
 import time
-import subprocess
 
 # ═══════════════════════════════════════════════════════════
 #  File Change Detection (polling-based, zero dependencies)

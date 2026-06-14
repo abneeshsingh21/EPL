@@ -46,11 +46,11 @@ from dataclasses import dataclass, field
 from typing import List, Tuple
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from epl import _debug_log
 from epl import ast_nodes as ast
 from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl import _debug_log
 
 # ═══════════════════════════════════════════════════════════
 # Code Coverage Tracker

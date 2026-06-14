@@ -94,7 +94,7 @@ class FunctionType:
 
     param_types: Tuple[EPLType, ...] = ()
     param_names: Tuple[str, ...] = ()
-    return_type: EPLType = None
+    return_type: 'EPLType | None' = None
     is_async: bool = False
     generic_params: Tuple[str, ...] = ()  # <T, K> on the function itself
 
@@ -156,7 +156,7 @@ def make_optional_type(inner: EPLType) -> EPLType:
 
 def make_union_type(*members: EPLType) -> EPLType:
     # Flatten nested unions
-    flat = []
+    flat: list = []
     for m in members:
         if m.kind == TypeKind.UNION:
             flat.extend(m.union_members)
@@ -516,7 +516,7 @@ class TypeChecker:
 
         elif isinstance(node, ast.ConstDeclaration):
             val_type = self._check_expr(node.value, scope) if node.value else T_ANY
-            scope.define_var(node.name, val_type)
+            scope.define_var(node.name, val_type or T_ANY)
 
         elif isinstance(node, ast.PrintStatement):
             self._check_expr(node.expression, scope)
@@ -730,7 +730,10 @@ class TypeChecker:
                 child = scope.child(f'method:{node.name}.{method_node.name}')
                 child.define_var('self', class_type)
                 for p in method_node.params:
-                    pname = p[0] if isinstance(p, tuple) else p
+                    if isinstance(p, ast_mod.RestParameter):
+                        pname = p.name
+                    else:
+                        pname = p[0] if isinstance(p, tuple) else p
                     child.define_var(pname, T_ANY)
                 self._check_body(method_node.body, child)
 

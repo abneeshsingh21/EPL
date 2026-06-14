@@ -24,10 +24,10 @@ class Environment:
     def __init__(self, parent=None, name: str = 'global'):
         self.parent = parent
         self.name = name
-        self.variables = {}
-        self.functions = {}
-        self.modules = {}  # v4.0: registered modules {name: Environment}
-        self.constants = set()  # v4.0: names of read-only bindings
+        self.variables: dict = {}
+        self.functions: dict = {}
+        self.modules: dict = {}  # v4.0: registered modules {name: Environment}
+        self.constants: set = set()  # v4.0: names of read-only bindings
         self._depth = (parent._depth + 1) if parent else 0
 
     def define_variable(self, name: str, value, var_type: str = None):

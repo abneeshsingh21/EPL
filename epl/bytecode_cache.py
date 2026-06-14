@@ -18,6 +18,7 @@ import io
 import pickle
 import struct
 from pathlib import Path
+
 from epl import _debug_log
 
 _MAGIC = b'EPLC'

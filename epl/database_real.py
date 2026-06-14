@@ -22,6 +22,7 @@ import threading
 import time
 from contextlib import contextmanager
 from typing import Optional
+
 from epl import _debug_log
 
 # SQL identifier validation — defense-in-depth for table/column names.

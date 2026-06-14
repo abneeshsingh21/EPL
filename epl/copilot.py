@@ -11,8 +11,8 @@ Usage:
 
 import re
 
-from epl.syntax_reference import get_syntax_sections, get_syntax_text
 from epl import _debug_log
+from epl.syntax_reference import get_syntax_sections, get_syntax_text
 
 # ── Public API ───────────────────────────────────────────
 

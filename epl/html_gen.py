@@ -388,7 +388,8 @@ def _render_element(elem, data_store=None, form_data=None):
         words = str(content).split(' ')
         spans = []
         for i, w in enumerate(words):
-            if not w: continue
+            if not w:
+                continue
             delay = i * 0.1
             spans.append(f'<span class="native-pull-up" style="transition-delay: {delay}s;">{_esc(w)}</span>')
         if asterisk:
@@ -406,7 +407,8 @@ def _render_element(elem, data_store=None, form_data=None):
                 seg_style = getattr(child, 'attributes', {}).get('style', '')
                 words = seg_content.split(' ')
                 for w in words:
-                    if not w: continue
+                    if not w:
+                        continue
                     delay = word_index * 0.1
                     spans.append(f'<span class="native-pull-up {seg_style}" style="transition-delay: {delay}s;">{_esc(w)}</span>')
                     word_index += 1
@@ -426,8 +428,8 @@ def _render_element(elem, data_store=None, form_data=None):
 
 def _resolve_store_templates(text, data_store):
     """Replace $count{collection} and $items{collection} in text."""
-    import re
     import html as _html_mod
+    import re
 
     def replace_count(m):
         coll = m.group(1)

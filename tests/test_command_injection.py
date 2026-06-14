@@ -20,7 +20,6 @@ from epl.package_manager import (
     _validate_npm_version_spec,
 )
 
-
 # ── _normalize_python_requirement (pip flag injection) ─────────────────────
 
 
@@ -107,6 +106,7 @@ class TestEndToEndPipManifest:
 
     def test_poisoned_manifest_does_not_invoke_pip(self, tmp_path):
         import tempfile
+
         from epl import package_manager
 
         manifest_dir = tmp_path / 'proj'

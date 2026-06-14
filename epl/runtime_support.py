@@ -7,12 +7,12 @@ import re
 import sys
 from typing import Optional
 
+from epl._debug_log import suppressed as _debug_suppressed
 from epl.environment import Environment
 from epl.errors import EPLError, set_source_context
 from epl.interpreter import Interpreter
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl._debug_log import suppressed as _debug_suppressed
 
 CROSS_TARGETS = {
     'windows-x64': 'x86_64-pc-windows-msvc',

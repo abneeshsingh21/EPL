@@ -7,6 +7,7 @@ Handles English keywords, multi-word phrases, symbolic operators, and literals.
 from epl.errors import LexerError
 from epl.tokens import KEYWORDS, MULTI_WORD_KEYWORDS, Token, TokenType
 
+
 class Lexer:
     """Tokenizes EPL source code into a list of Tokens."""
 
@@ -17,7 +18,7 @@ class Lexer:
         self.pos = 0
         self.line = 1
         self.column = 1
-        self.tokens = []
+        self.tokens: list = []
 
     def tokenize(self) -> list:
         """Convert entire source into a list of tokens."""

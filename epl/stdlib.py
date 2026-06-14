@@ -33,8 +33,8 @@ import urllib.parse as _urllib_parse
 import urllib.request as _urllib_request
 import uuid as _uuid
 
-from epl.errors import RuntimeError as EPLRuntimeError
 from epl._debug_log import suppressed as _debug_suppressed
+from epl.errors import RuntimeError as EPLRuntimeError
 
 _install_lock = _threading.Lock()
 _module_cache = {}

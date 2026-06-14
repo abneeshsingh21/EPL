@@ -10,8 +10,8 @@ import json
 import sys
 import threading
 
-from epl.errors import EPLError
 from epl import _debug_log
+from epl.errors import EPLError
 
 
 def _safe_error(e):
