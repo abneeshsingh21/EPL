@@ -251,7 +251,11 @@ def _execute(target, flags, test_mode, clear, timeout=None):
 
     # Pass through relevant flags
     for f in flags:
-        if f not in ('--clear', '--test') and not f.startswith('--debounce') and not f.startswith('--timeout'):
+        if (
+            f not in ('--clear', '--test')
+            and not f.startswith('--debounce')
+            and not f.startswith('--timeout')
+        ):
             cmd.append(f)
 
     start = time.time()

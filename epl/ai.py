@@ -89,9 +89,13 @@ def _get_config_path():
         import os
 
         if os.name == 'nt':
-            base = os.environ.get('APPDATA') or os.path.join(os.path.expanduser('~'), 'AppData', 'Roaming')
+            base = os.environ.get('APPDATA') or os.path.join(
+                os.path.expanduser('~'), 'AppData', 'Roaming'
+            )
         else:
-            base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
+            base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(
+                os.path.expanduser('~'), '.config'
+            )
         cfg_dir = os.path.join(base, 'epl')
         try:
             os.makedirs(cfg_dir, exist_ok=True)
@@ -103,7 +107,10 @@ def _get_config_path():
         legacy = os.path.join(os.path.dirname(__file__), '.ai_config.json')
         if os.path.exists(legacy) and not os.path.exists(_CONFIG_PATH):
             try:
-                with open(legacy, 'r', encoding='utf-8') as src, open(_CONFIG_PATH, 'w', encoding='utf-8') as dst:
+                with (
+                    open(legacy, 'r', encoding='utf-8') as src,
+                    open(_CONFIG_PATH, 'w', encoding='utf-8') as dst,
+                ):
                     dst.write(src.read())
                 _chmod_secret(_CONFIG_PATH)
                 os.remove(legacy)
@@ -115,6 +122,7 @@ def _get_config_path():
 def _chmod_secret(path):
     """Best-effort: restrict config file to owner-only read/write."""
     import os
+
     if os.name != 'nt':
         try:
             os.chmod(path, 0o600)

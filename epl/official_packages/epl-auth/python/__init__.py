@@ -157,10 +157,7 @@ def _evict_expired() -> None:
         # Remove buckets whose most-recent timestamp is older than the
         # largest sensible window (1 hour).  Callers that care about
         # shorter windows already prune per-call; this is catch-all.
-        stale_keys = [
-            k for k, ts in _rate_limits.items()
-            if not ts or (now - max(ts)) > 3600
-        ]
+        stale_keys = [k for k, ts in _rate_limits.items() if not ts or (now - max(ts)) > 3600]
         for k in stale_keys:
             del _rate_limits[k]
 
@@ -285,9 +282,10 @@ def md5(data):
         non-security checksums and legacy interoperability.
     """
     import warnings
+
     warnings.warn(
-        "epl-auth md5() is not safe for security purposes. "
-        "Use sha256() for checksums or hash_password() for passwords.",
+        'epl-auth md5() is not safe for security purposes. '
+        'Use sha256() for checksums or hash_password() for passwords.',
         DeprecationWarning,
         stacklevel=2,
     )

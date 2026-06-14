@@ -25,7 +25,9 @@ CROSS_TARGETS = {
 }
 
 
-def _offer_ai_explanation(error_msg, source_code: Optional[str] = None, use_ai: bool = False) -> None:
+def _offer_ai_explanation(
+    error_msg, source_code: Optional[str] = None, use_ai: bool = False
+) -> None:
     """Show rich error explanation using the error_explainer module.
 
     Provides pattern-based diagnostics (always). AI analysis is only used

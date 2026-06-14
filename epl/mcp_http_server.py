@@ -38,50 +38,56 @@ app = Flask(__name__)
 # Default "null": blocks all cross-origin browser requests.
 # Set EPL_MCP_CORS_ORIGIN to your frontend origin for production use.
 # Never use "*" unless the endpoint is intentionally public and unauthenticated.
-CORS_ORIGIN = os.environ.get("EPL_MCP_CORS_ORIGIN", "null")
+CORS_ORIGIN = os.environ.get('EPL_MCP_CORS_ORIGIN', 'null')
 
 
 @app.after_request
 def add_cors_headers(response: Response) -> Response:
-    response.headers["Access-Control-Allow-Origin"] = CORS_ORIGIN
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    response.headers['Access-Control-Allow-Origin'] = CORS_ORIGIN
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return response
 
 
 # ── Health Check ─────────────────────────────────────────────────────
 
-@app.route("/", methods=["GET"])
-@app.route("/health", methods=["GET"])
+
+@app.route('/', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health():
-    return jsonify({
-        "status": "ok",
-        "server": "epl-mcp-server",
-        "version": _get_version(),
-        "tools": len(TOOLS),
-        "transport": "streamable-http",
-    })
+    return jsonify(
+        {
+            'status': 'ok',
+            'server': 'epl-mcp-server',
+            'version': _get_version(),
+            'tools': len(TOOLS),
+            'transport': 'streamable-http',
+        }
+    )
 
 
 # ── MCP Streamable HTTP Endpoint ─────────────────────────────────────
 
-@app.route("/mcp", methods=["POST", "OPTIONS"])
-def mcp_endpoint():
-    if request.method == "OPTIONS":
-        return Response("", status=204)
 
-    content_type = request.content_type or ""
-    if "json" not in content_type:
-        return jsonify({"error": "Content-Type must be application/json"}), 415
+@app.route('/mcp', methods=['POST', 'OPTIONS'])
+def mcp_endpoint():
+    if request.method == 'OPTIONS':
+        return Response('', status=204)
+
+    content_type = request.content_type or ''
+    if 'json' not in content_type:
+        return jsonify({'error': 'Content-Type must be application/json'}), 415
 
     try:
         body = request.get_json(force=True)
     except Exception:
-        return jsonify({
-            "jsonrpc": "2.0",
-            "id": None,
-            "error": {"code": -32700, "message": "Parse error"},
-        }), 400
+        return jsonify(
+            {
+                'jsonrpc': '2.0',
+                'id': None,
+                'error': {'code': -32700, 'message': 'Parse error'},
+            }
+        ), 400
 
     # Handle batch requests (array of JSON-RPC)
     if isinstance(body, list):
@@ -93,7 +99,7 @@ def mcp_endpoint():
         return Response(
             json.dumps(responses),
             status=200,
-            content_type="application/json",
+            content_type='application/json',
         )
 
     # Single JSON-RPC request
@@ -101,66 +107,68 @@ def mcp_endpoint():
 
     if response is None:
         # Notification — no response needed
-        return Response("", status=204)
+        return Response('', status=204)
 
     return Response(
         json.dumps(response),
         status=200,
-        content_type="application/json",
+        content_type='application/json',
     )
 
 
 # ── SSE Endpoint (for streaming-capable clients) ─────────────────────
 
-@app.route("/mcp/sse", methods=["GET"])
+
+@app.route('/mcp/sse', methods=['GET'])
 def mcp_sse():
     """Server-Sent Events endpoint for MCP streaming transport."""
+
     def event_stream():
-        yield "event: endpoint\ndata: /mcp\n\n"
+        yield 'event: endpoint\ndata: /mcp\n\n'
         # Keep connection alive
         while True:
-            yield ": ping\n\n"
+            yield ': ping\n\n'
             time.sleep(30)
 
     return Response(
         event_stream(),
         status=200,
-        content_type="text/event-stream",
+        content_type='text/event-stream',
         headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
         },
     )
 
 
 # ── Server Card (for Smithery auto-discovery) ────────────────────────
 
-@app.route("/.well-known/mcp/server-card.json", methods=["GET"])
+
+@app.route('/.well-known/mcp/server-card.json', methods=['GET'])
 def server_card():
-    return jsonify({
-        "name": "epl-mcp-server",
-        "description": (
-            "MCP Server for EPL (English Programming Language). "
-            "Validate, execute, transpile EPL code, search examples, "
-            "and look up syntax references and error codes."
-        ),
-        "version": _get_version(),
-        "tools": [
-            {"name": t["name"], "description": t["description"]}
-            for t in TOOLS
-        ],
-        "transport": {
-            "type": "streamable-http",
-            "url": "/mcp",
-        },
-    })
+    return jsonify(
+        {
+            'name': 'epl-mcp-server',
+            'description': (
+                'MCP Server for EPL (English Programming Language). '
+                'Validate, execute, transpile EPL code, search examples, '
+                'and look up syntax references and error codes.'
+            ),
+            'version': _get_version(),
+            'tools': [{'name': t['name'], 'description': t['description']} for t in TOOLS],
+            'transport': {
+                'type': 'streamable-http',
+                'url': '/mcp',
+            },
+        }
+    )
 
 
 # ── Entry Point ──────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    print(f"[epl-mcp-http] Starting on http://0.0.0.0:{port}", file=sys.stderr)
-    print("[epl-mcp-http] MCP endpoint: POST /mcp", file=sys.stderr)
-    print("[epl-mcp-http] Health: GET /health", file=sys.stderr)
-    app.run(host="0.0.0.0", port=port, debug=False)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8000))
+    print(f'[epl-mcp-http] Starting on http://0.0.0.0:{port}', file=sys.stderr)
+    print('[epl-mcp-http] MCP endpoint: POST /mcp', file=sys.stderr)
+    print('[epl-mcp-http] Health: GET /health', file=sys.stderr)
+    app.run(host='0.0.0.0', port=port, debug=False)

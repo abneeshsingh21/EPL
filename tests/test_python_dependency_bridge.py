@@ -76,7 +76,9 @@ class TestPythonDependencyBridge(unittest.TestCase):
                 ok = install_python_package('yaml', 'pyyaml>=6', project_path=tmpdir)
 
             self.assertTrue(ok)
-            pip_call.assert_called_once_with([sys.executable, '-m', 'pip', 'install', '--', 'pyyaml>=6'])
+            pip_call.assert_called_once_with(
+                [sys.executable, '-m', 'pip', 'install', '--', 'pyyaml>=6']
+            )
             loaded = load_manifest(tmpdir)
             self.assertEqual(loaded['python-dependencies']['yaml'], 'pyyaml>=6')
 

@@ -76,10 +76,10 @@ class EPLRWLock:
     """
 
     def __init__(self):
-        self._write_lock = threading.Lock()   # exclusive write access
-        self._state_lock = threading.Lock()   # guards counters only
-        self._drain_event = threading.Event() # set when _readers == 0
-        self._drain_event.set()               # initially no readers
+        self._write_lock = threading.Lock()  # exclusive write access
+        self._state_lock = threading.Lock()  # guards counters only
+        self._drain_event = threading.Event()  # set when _readers == 0
+        self._drain_event.set()  # initially no readers
         self._readers = 0
         self._writers_waiting = 0
 

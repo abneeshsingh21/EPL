@@ -80,11 +80,15 @@ def test_keyring_available_keeps_key_out_of_json(monkeypatch):
 
 def test_legacy_plaintext_key_migrates_to_keyring(monkeypatch):
     """A pre-9.2.0 config with api_key in JSON must be migrated, not re-read."""
-    Path(ai._CONFIG_PATH).write_text(json.dumps({
-        'provider': 'groq',
-        'api_key': 'legacy-plaintext-key',
-        'model': None,
-    }))
+    Path(ai._CONFIG_PATH).write_text(
+        json.dumps(
+            {
+                'provider': 'groq',
+                'api_key': 'legacy-plaintext-key',
+                'model': None,
+            }
+        )
+    )
     fake = _FakeKeyring(working=True)
     monkeypatch.setattr(ai, '_try_keyring', lambda: fake)
 
@@ -123,10 +127,14 @@ def test_keyring_read_failure_falls_back_to_legacy(monkeypatch):
     monkeypatch.setattr(fake, 'get_password', boom)
     monkeypatch.setattr(ai, '_try_keyring', lambda: fake)
 
-    Path(ai._CONFIG_PATH).write_text(json.dumps({
-        'provider': 'groq',
-        'api_key': 'fallback-key',
-    }))
+    Path(ai._CONFIG_PATH).write_text(
+        json.dumps(
+            {
+                'provider': 'groq',
+                'api_key': 'fallback-key',
+            }
+        )
+    )
 
     ai._load_config(force=True)
     # Lookup failed, so we fall back to the legacy plaintext value.

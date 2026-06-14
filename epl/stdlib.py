@@ -970,6 +970,8 @@ def _assert_sql_identifier(name, kind='identifier'):
             f'Use parameter placeholders (?) for values.'
         )
     return name
+
+
 _net_tcp_connections = {}  # id -> networking.TCPConnection
 _net_tcp_servers = {}  # id -> networking.TCPServer
 _net_udp_sockets = {}  # id -> networking.UDPSocket
@@ -1101,7 +1103,11 @@ def _http_request(method, url, body=None, headers=None, timeout=30):
             # Try to auto-parse JSON
             parsed_body = resp_body
             ct = resp_headers.get('Content-Type', '')
-            if 'json' in ct.lower() or resp_body.strip().startswith('{') or resp_body.strip().startswith('['):
+            if (
+                'json' in ct.lower()
+                or resp_body.strip().startswith('{')
+                or resp_body.strip().startswith('[')
+            ):
                 try:
                     parsed_body = _json.loads(resp_body)
                     parsed_body = _to_epl(parsed_body)
@@ -2151,12 +2157,14 @@ def call_stdlib(name, args, line, interpreter=None):
             if not args:
                 raise EPLRuntimeError('sha256(text) requires a string argument.', line)
             import hashlib as _hl
+
             return _hl.sha256(str(args[0]).encode('utf-8')).hexdigest()
 
         if name == 'md5':
             if not args:
                 raise EPLRuntimeError('md5(text) requires a string argument.', line)
             import hashlib as _hl
+
             return _hl.md5(str(args[0]).encode('utf-8')).hexdigest()
 
         # ── HTTP ──
@@ -2664,21 +2672,25 @@ def call_stdlib(name, args, line, interpreter=None):
             if not args:
                 raise EPLRuntimeError('thread_run(func, [args]) requires a function.', line)
             import threading
+
             func = args[0]
-            
+
             def _wrap(*a):
                 if interpreter:
                     try:
                         if hasattr(func, '__class__') and func.__class__.__name__ == 'FunctionDef':
-                            interpreter._call_callable(func, list(a), getattr(interpreter, 'global_env', None), 0)
+                            interpreter._call_callable(
+                                func, list(a), getattr(interpreter, 'global_env', None), 0
+                            )
                         else:
                             func(*a)
                     except Exception as e:
                         import traceback
+
                         traceback.print_exc()
-                        print(f"[EPL thread] Error: {e}")
-                        
-            t = threading.Thread(target=_wrap, args=args[1] if len(args)>1 else ())
+                        print(f'[EPL thread] Error: {e}')
+
+            t = threading.Thread(target=_wrap, args=args[1] if len(args) > 1 else ())
             t.daemon = True
             t.start()
             return t
@@ -3964,13 +3976,19 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(f'Unknown thread pool: {pid}', line)
             fn = args[1]
             fn_args = tuple(args[2:])
-            
-            is_epl_func = hasattr(fn, '__class__') and fn.__class__.__name__ in ('FunctionDef', 'EPLLambda', 'AsyncFunctionDef')
+
+            is_epl_func = hasattr(fn, '__class__') and fn.__class__.__name__ in (
+                'FunctionDef',
+                'EPLLambda',
+                'AsyncFunctionDef',
+            )
             if is_epl_func:
                 _interp = interpreter
                 _env = getattr(_interp, 'global_env', None) if _interp else None
+
                 def wrapper(*wargs):
                     return _interp._call_callable(fn, list(wargs), _env, line)
+
                 future = _real_thread_pools[pid].submit(wrapper, *fn_args)
             elif callable(fn):
                 future = _real_thread_pools[pid].submit(fn, *fn_args)
@@ -4808,6 +4826,7 @@ def call_stdlib(name, args, line, interpreter=None):
                 cmd_list = [str(x) for x in raw]
             else:
                 import shlex as _shlex
+
                 cmd_list = _shlex.split(str(raw), posix=(_os.name != 'nt'))
             if not cmd_list:
                 raise EPLRuntimeError('exec_async: empty command.', line)
@@ -4972,7 +4991,11 @@ def call_stdlib(name, args, line, interpreter=None):
         if name == 'from_timestamp':
             if not args:
                 raise EPLRuntimeError('from_timestamp(epoch) requires an epoch number.', line)
-            return _datetime.datetime.fromtimestamp(float(args[0]), _datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
+            return (
+                _datetime.datetime.fromtimestamp(float(args[0]), _datetime.timezone.utc)
+                .isoformat()
+                .replace('+00:00', 'Z')
+            )
         if name == 'week_of_year':
             if not args:
                 raise EPLRuntimeError('week_of_year(date_str) requires a date string.', line)
@@ -5797,7 +5820,11 @@ def _call_web(name, args, line, interpreter=None):
 
         handler = args[2] if len(args) > 2 else None
 
-        is_epl_func = hasattr(handler, '__class__') and handler.__class__.__name__ in ('FunctionDef', 'EPLLambda', 'AsyncFunctionDef')
+        is_epl_func = hasattr(handler, '__class__') and handler.__class__.__name__ in (
+            'FunctionDef',
+            'EPLLambda',
+            'AsyncFunctionDef',
+        )
         if handler is None or not (callable(handler) or is_epl_func):
             raise EPLRuntimeError(
                 f'{name}(app_id, path, handler) requires a callable handler function.', line
@@ -5841,7 +5868,11 @@ def _call_web(name, args, line, interpreter=None):
                 view_func.__name__ = f'epl_view_{_new_id()}'
                 return view_func
 
-            app.add_url_rule(path, view_func=make_view(handler, methods, is_epl_func, _interp, _global_env), methods=methods)
+            app.add_url_rule(
+                path,
+                view_func=make_view(handler, methods, is_epl_func, _interp, _global_env),
+                methods=methods,
+            )
         return path
 
     if name == 'web_start':
@@ -5869,7 +5900,9 @@ def _call_web(name, args, line, interpreter=None):
                     if origin == '*':
                         flask = _ensure_flask()
                         req_origin = flask.request.headers.get('Origin', '*')
-                        response.headers['Access-Control-Allow-Origin'] = req_origin if req_origin else '*'
+                        response.headers['Access-Control-Allow-Origin'] = (
+                            req_origin if req_origin else '*'
+                        )
                     else:
                         response.headers['Access-Control-Allow-Origin'] = origin
                     response.headers['Access-Control-Allow-Methods'] = cfg.get(

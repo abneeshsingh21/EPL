@@ -119,7 +119,7 @@ def test_references_skip_string_and_comment_occurrences():
     src = '\n'.join(
         [
             'Create total = 5',  # line 0: real var, col 7
-            'Print total',       # line 1: real use,  col 6
+            'Print total',  # line 1: real use,  col 6
             'Print "total is big"',  # line 2: inside string — must be ignored
             '# total here too',  # line 3: inside comment — must be ignored
             '',
@@ -154,9 +154,7 @@ def test_rename_only_touches_real_identifiers():
 def test_semantic_tokens_handler_roundtrip():
     server = _server()
     uri = 'file:///rt.epl'
-    server._on_did_open(
-        {'textDocument': {'uri': uri, 'text': 'Create x = 1\nPrint x\n'}}
-    )
+    server._on_did_open({'textDocument': {'uri': uri, 'text': 'Create x = 1\nPrint x\n'}})
     result = server._on_semantic_tokens({'textDocument': {'uri': uri}})
     assert 'data' in result
     assert len(result['data']) % 5 == 0

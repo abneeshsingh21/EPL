@@ -11,8 +11,8 @@ import os as _os
 
 _CRYPTOGRAPHY_INSTALL_HINT = (
     "epl-crypto requires the 'cryptography' package.\n"
-    "Install it with:  pip install cryptography\n"
-    "Then restart your EPL program."
+    'Install it with:  pip install cryptography\n'
+    'Then restart your EPL program.'
 )
 
 # ═══════════════════════════════════════════════════════════

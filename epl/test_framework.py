@@ -374,15 +374,24 @@ class Mock:
 
 class FailFastException(Exception):
     """Raised to stop test execution after the first failure."""
+
     pass
 
 
 class EPLTestRunner:
     """Runs EPL test files and collects results."""
 
-    def __init__(self, verbose=True, color=True, tags=None, junit_xml=None,
-                 fail_fast=False, timeout=None, filter_pattern=None,
-                 coverage_enabled=False):
+    def __init__(
+        self,
+        verbose=True,
+        color=True,
+        tags=None,
+        junit_xml=None,
+        fail_fast=False,
+        timeout=None,
+        filter_pattern=None,
+        coverage_enabled=False,
+    ):
         self.verbose = verbose
         self.color = color and sys.stdout.isatty()
         self.filter_tags = tags or []
@@ -401,7 +410,13 @@ class EPLTestRunner:
         self._unicode = True
         try:
             encoding = getattr(sys.stdout, 'encoding', '') or ''
-            if encoding.lower().replace('-', '') not in ('utf8', 'utf16', 'utf32', 'utf16le', 'utf16be'):
+            if encoding.lower().replace('-', '') not in (
+                'utf8',
+                'utf16',
+                'utf32',
+                'utf16le',
+                'utf16be',
+            ):
                 self._unicode = False
         except Exception:
             self._unicode = False
@@ -437,6 +452,7 @@ class EPLTestRunner:
         if not self.filter_pattern:
             return True
         from fnmatch import fnmatch
+
         pattern = self.filter_pattern
         # Support simple substring match (no wildcards) and glob patterns
         if '*' not in pattern and '?' not in pattern:
@@ -449,7 +465,9 @@ class EPLTestRunner:
         self._total_collected = test_count
         if self.verbose:
             print(f'\n{self._bold("EPL Test Runner")} {self._gray("v2.0")}')
-            print(f'{self._cyan("Collected")} {self._bold(str(test_count))} tests from {self._bold(str(file_count))} files')
+            print(
+                f'{self._cyan("Collected")} {self._bold(str(test_count))} tests from {self._bold(str(file_count))} files'
+            )
             if self.filter_pattern:
                 print(f'{self._gray("Filter:")} {self.filter_pattern}')
             if self.fail_fast:
@@ -658,6 +676,7 @@ class EPLTestRunner:
     def _run_with_timeout(self, func, timeout_seconds):
         """Run a function with a timeout. Returns (result_or_none, timed_out)."""
         import threading
+
         result = [None]
         exception = [None]
         completed = threading.Event()

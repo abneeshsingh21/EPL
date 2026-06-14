@@ -161,6 +161,7 @@ def _run_cmd(cmd):
         argv = list(cmd)
         if os.name == 'nt' and argv:
             import shutil as _shutil
+
             resolved = _shutil.which(argv[0])
             if resolved:
                 argv[0] = resolved

@@ -352,6 +352,7 @@ def _build_route_env(
     def _bridge_session_clear(*args):
         """Clear all session data."""
         from epl.web import get_session_backend
+
         get_session_backend().delete(_sid)
         return None
 
@@ -2010,8 +2011,14 @@ class EPLHandler(BaseHTTPRequestHandler):
                     self._send_html(str(result) if result else '<p>OK</p>')
             except Exception as e:
                 import traceback as _tb
-                _error_logger.error('Route handler error [%s %s]: %s\n%s',
-                                    self.command, self.path, e, _tb.format_exc())
+
+                _error_logger.error(
+                    'Route handler error [%s %s]: %s\n%s',
+                    self.command,
+                    self.path,
+                    e,
+                    _tb.format_exc(),
+                )
                 self._send_error(500, f'Handler error: {e}')
             return
         if response_type == 'page':
@@ -2322,6 +2329,7 @@ class EPLHandler(BaseHTTPRequestHandler):
     def _validate_redirect(location: str) -> str:
         """Block open-redirect: only allow relative paths and same-origin absolute URLs."""
         from urllib.parse import urlparse
+
         loc = (location or '').strip()
         if not loc:
             return '/'
@@ -2556,11 +2564,12 @@ def start_server(app, port=3000, host='127.0.0.1', interpreter=None, threaded=Tr
         workers: Max worker threads (thread pool size)
     """
     import sys as _sys
+
     if not isinstance(host, str) and interpreter is None:
         # Backwards compatibility for start_server(app, 3000, interpreter)
         interpreter = host
         host = '127.0.0.1'
-        
+
     if host == '0.0.0.0':
         print(
             'WARNING: Binding to 0.0.0.0 exposes this server to all network interfaces. '
@@ -2601,6 +2610,7 @@ def start_server(app, port=3000, host='127.0.0.1', interpreter=None, threaded=Tr
     total_routes = len(app.routes) + sum(len(v) for v in app.param_routes.values())
     print('\n  ╔══════════════════════════════════════╗')
     from epl import __version__ as _v
+
     print(f'  ║  EPL Web Server v{_v:<21}║')
     print(f'  ║  {app.name:<36} ║')
     print('  ╠══════════════════════════════════════╣')
@@ -2674,11 +2684,12 @@ class AsyncEPLServer:
 
     def __init__(self, app, port=3000, host='127.0.0.1', interpreter=None, workers=32):
         import sys as _sys
+
         if not isinstance(host, str) and interpreter is None:
             # Backwards compatibility for AsyncEPLServer(app, 3000, interpreter)
             interpreter = host
             host = '127.0.0.1'
-            
+
         if host == '0.0.0.0':
             print(
                 'WARNING: Binding to 0.0.0.0 exposes this server to all network interfaces. '
@@ -2713,6 +2724,7 @@ class AsyncEPLServer:
         total_routes = len(self.app.routes) + sum(len(v) for v in self.app.param_routes.values())
         print('\n  ╔══════════════════════════════════════╗')
         from epl import __version__ as _v
+
         print(f'  ║  EPL Async Web Server v{_v:<15}║')
         print(f'  ║  {self.app.name:<36} ║')
         print('  ╠══════════════════════════════════════╣')

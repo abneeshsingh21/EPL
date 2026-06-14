@@ -72,12 +72,7 @@ def test_vm_random_builtins_work():
 
 def test_type_system_checks_if_without_crashing():
     prog = _parse(
-        'Create x = 5\n'
-        'If x is greater than 3 then\n'
-        '    Print 1\n'
-        'Otherwise\n'
-        '    Print 2\n'
-        'End'
+        'Create x = 5\nIf x is greater than 3 then\n    Print 1\nOtherwise\n    Print 2\nEnd'
     )
     checker = type_system.TypeChecker()
     # Must not raise AttributeError on node.true_body/false_body.
@@ -88,13 +83,7 @@ def test_type_system_checks_if_without_crashing():
 def test_type_system_actually_visits_if_bodies():
     # Proves the checker walks into the branch bodies (it couldn't before,
     # because it crashed accessing the wrong attribute on entry).
-    prog = _parse(
-        'If true then\n'
-        '    Print 1\n'
-        'Otherwise\n'
-        '    Print 2\n'
-        'End'
-    )
+    prog = _parse('If true then\n    Print 1\nOtherwise\n    Print 2\nEnd')
     checker = type_system.TypeChecker()
     visited = []
     original = checker._check_body
@@ -111,13 +100,7 @@ def test_type_system_actually_visits_if_bodies():
 
 def test_type_system_checks_match_without_crashing():
     prog = _parse(
-        'Create x = 1\n'
-        'Match x\n'
-        '    When 1\n'
-        '        Print 1\n'
-        '    Default\n'
-        '        Print 0\n'
-        'End'
+        'Create x = 1\nMatch x\n    When 1\n        Print 1\n    Default\n        Print 0\nEnd'
     )
     checker = type_system.TypeChecker()
     diags = checker.check(prog)  # was: AttributeError on node.clauses
@@ -136,9 +119,7 @@ def test_type_checker_ternary_does_not_crash():
 
 def test_type_checker_ternary_infers_common_type():
     prog = _parse('Create y = 1 if true otherwise 2')
-    ternaries = _find_nodes(
-        prog, lambda n: isinstance(n, ast.TernaryExpression), []
-    )
+    ternaries = _find_nodes(prog, lambda n: isinstance(n, ast.TernaryExpression), [])
     assert len(ternaries) == 1
     checker = type_checker.TypeChecker(strict=False)
     checker.check(prog)
@@ -171,9 +152,10 @@ def test_parser_param_default_ordering_raises_parsererror():
     with pytest.raises(Exception) as exc_info:
         _parse(src)
     # Whatever the exact trigger, it must not be an AttributeError about _error.
-    assert 'attribute' not in str(exc_info.value).lower() or 'ParserError' in type(
-        exc_info.value
-    ).__name__
+    assert (
+        'attribute' not in str(exc_info.value).lower()
+        or 'ParserError' in type(exc_info.value).__name__
+    )
 
 
 # ─── rest/variadic params no longer crash the type checker ──
@@ -195,11 +177,7 @@ def test_type_system_handles_rest_param_function():
 
 def test_type_checker_handles_rest_param_in_class_method():
     prog = _parse(
-        'Class Calc\n'
-        '    Define function add takes rest xs\n'
-        '        Return 0\n'
-        '    End\n'
-        'End'
+        'Class Calc\n    Define function add takes rest xs\n        Return 0\n    End\nEnd'
     )
     # Both declaration-collection and body-check passes must survive.
     warnings = type_checker.TypeChecker(strict=False).check(prog)
@@ -225,4 +203,3 @@ def test_debug_log_suppressed_emits_only_under_env(capsys, monkeypatch):
     except Exception:
         _debug_log.suppressed('demo:test')
     assert 'demo:test' in capsys.readouterr().err  # observable when enabled
-

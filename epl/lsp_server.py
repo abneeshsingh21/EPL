@@ -843,7 +843,7 @@ class EPLAnalyzer:
         for doc_uri, doc_text in self.documents.items():
             try:
                 occurrences = self._identifier_occurrences(doc_text, word)
-                for (line0, col0, length) in occurrences:
+                for line0, col0, length in occurrences:
                     results.append(
                         {
                             'uri': doc_uri,
@@ -1072,15 +1072,15 @@ class EPLAnalyzer:
     # encoded stream back to these names. Keep in sync with the legend sent
     # in the server's `initialize` capabilities.
     SEMANTIC_TOKEN_TYPES = [
-        'keyword',    # 0 — EPL keywords (Create, If, Function, ...)
-        'variable',   # 1 — identifiers not otherwise classified
-        'function',   # 2 — identifiers that name a defined function
-        'class',      # 3 — identifiers that name a defined class/enum/interface
-        'type',       # 4 — built-in type names (Integer, Text, ...)
-        'number',     # 5 — numeric literals
-        'string',     # 6 — string literals
-        'comment',    # 7 — `# ...` and `Note: ...` comments
-        'operator',   # 8 — symbolic / English operators
+        'keyword',  # 0 — EPL keywords (Create, If, Function, ...)
+        'variable',  # 1 — identifiers not otherwise classified
+        'function',  # 2 — identifiers that name a defined function
+        'class',  # 3 — identifiers that name a defined class/enum/interface
+        'type',  # 4 — built-in type names (Integer, Text, ...)
+        'number',  # 5 — numeric literals
+        'string',  # 6 — string literals
+        'comment',  # 7 — `# ...` and `Note: ...` comments
+        'operator',  # 8 — symbolic / English operators
     ]
     SEMANTIC_TOKEN_MODIFIERS = ['declaration']
 
@@ -1192,10 +1192,10 @@ class EPLAnalyzer:
             pass
 
         comments, strings = self._comment_and_string_spans(source)
-        for (line0, col0, length) in comments:
+        for line0, col0, length in comments:
             if length > 0:
                 spans.append((line0, col0, length, 7, 0))
-        for (line0, col0, length) in strings:
+        for line0, col0, length in strings:
             if length > 0:
                 spans.append((line0, col0, length, 6, 0))
 
@@ -1208,7 +1208,7 @@ class EPLAnalyzer:
         data = []
         prev_line = 0
         prev_col = 0
-        for (line0, col0, length, type_index, modifiers) in spans:
+        for line0, col0, length, type_index, modifiers in spans:
             delta_line = line0 - prev_line
             delta_col = col0 - prev_col if delta_line == 0 else col0
             data.extend([delta_line, delta_col, length, type_index, modifiers])

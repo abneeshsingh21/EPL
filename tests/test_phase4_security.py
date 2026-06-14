@@ -14,6 +14,7 @@ sys.path.insert(0, __import__('os').path.join(__import__('os').path.dirname(__fi
 
 # ── Minimal test harness (matches prior phases) ──────────────────────────────
 
+
 class _TrackerState:
     current = None
     total_pass = 0
@@ -43,6 +44,7 @@ def _tracked_test(fn):
             fn()
         finally:
             _finish_tracker()
+
     return wrapper
 
 
@@ -63,15 +65,22 @@ def check(name, condition, detail=''):
 # P4-SEC-1  epl-crypto — no insecure XOR fallback
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @_tracked_test
 def test_crypto_no_xor_fallback():
     print('\n=== P4-SEC-1: epl-crypto — no XOR fallback ===')
 
     import importlib.util
     import os
+
     pkg_path = os.path.join(
         os.path.dirname(__file__),
-        '..', 'epl', 'official_packages', 'epl-crypto', 'python', '__init__.py'
+        '..',
+        'epl',
+        'official_packages',
+        'epl-crypto',
+        'python',
+        '__init__.py',
     )
     spec = importlib.util.spec_from_file_location('_epl_crypto', pkg_path)
     crypto = importlib.util.module_from_spec(spec)
@@ -79,9 +88,12 @@ def test_crypto_no_xor_fallback():
 
     # T1: XOR keyword gone from source
     import inspect
+
     src = inspect.getsource(crypto)
-    check('XOR keyword absent from source', 'XOR' not in src and 'xor' not in src.lower() or
-          'cycle' not in src)
+    check(
+        'XOR keyword absent from source',
+        'XOR' not in src and 'xor' not in src.lower() or 'cycle' not in src,
+    )
 
     # T2: aes_encrypt raises ImportError when cryptography absent (simulate)
     orig = crypto._HAS_CRYPTOGRAPHY
@@ -149,15 +161,22 @@ def test_crypto_no_xor_fallback():
 # P4-SEC-2  epl-validator — SQL sanitization completeness + ReDoS guard
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @_tracked_test
 def test_validator_security():
     print('\n=== P4-SEC-2: epl-validator — SQL sanitization + ReDoS ===')
 
     import importlib.util
     import os
+
     pkg_path = os.path.join(
         os.path.dirname(__file__),
-        '..', 'epl', 'official_packages', 'epl-validator', 'python', '__init__.py'
+        '..',
+        'epl',
+        'official_packages',
+        'epl-validator',
+        'python',
+        '__init__.py',
     )
     spec = importlib.util.spec_from_file_location('_epl_validator', pkg_path)
     v = importlib.util.module_from_spec(spec)
@@ -169,7 +188,7 @@ def test_validator_security():
     check("sanitize_sql escapes '", v.sanitize_sql("O'Brien") == "O''Brien")
 
     # T2: Backslash escaped first (must not double-escape)
-    result = v.sanitize_sql("back\\slash")
+    result = v.sanitize_sql('back\\slash')
     check('sanitize_sql escapes backslash', '\\\\' in result)
 
     # T3: Double-quote escaped
@@ -182,7 +201,7 @@ def test_validator_security():
     check('sanitize_sql escapes ;', '\\;' in v.sanitize_sql('end; DROP TABLE'))
 
     # T6: Double-dash comment escaped
-    result_dd = v.sanitize_sql("-- comment")
+    result_dd = v.sanitize_sql('-- comment')
     check('sanitize_sql escapes --', '\\-\\-' in result_dd)
 
     # T7: Hash comment escaped
@@ -242,8 +261,7 @@ def test_validator_security():
         check('_safe_match returns/times-out quickly on ReDoS', elapsed < 3.0)
     except ValueError as e:
         elapsed = time.monotonic() - start
-        check('_safe_match raised ValueError on ReDoS', elapsed <= 2.0,
-              f'took {elapsed:.2f}s')
+        check('_safe_match raised ValueError on ReDoS', elapsed <= 2.0, f'took {elapsed:.2f}s')
 
     # T17: validate() schema with pattern field uses safe_match
     schema = v.create_schema()
@@ -263,15 +281,22 @@ def test_validator_security():
 # P4-SEC-3  epl-auth — MD5 deprecation, session eviction, thread-safety
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @_tracked_test
 def test_auth_security():
     print('\n=== P4-SEC-3: epl-auth — MD5 warning, sessions, thread safety ===')
 
     import importlib.util
     import os
+
     pkg_path = os.path.join(
         os.path.dirname(__file__),
-        '..', 'epl', 'official_packages', 'epl-auth', 'python', '__init__.py'
+        '..',
+        'epl',
+        'official_packages',
+        'epl-auth',
+        'python',
+        '__init__.py',
     )
     spec = importlib.util.spec_from_file_location('_epl_auth', pkg_path)
     auth = importlib.util.module_from_spec(spec)
@@ -281,6 +306,7 @@ def test_auth_security():
 
     # T1: md5() still returns correct digest (not broken)
     import hashlib
+
     expected = hashlib.md5(b'hello').hexdigest()
     with warnings.catch_warnings(record=True):
         warnings.simplefilter('always')
@@ -297,15 +323,18 @@ def test_auth_security():
     # T3: Warning message mentions security
     if dep_warnings:
         msg = str(dep_warnings[0].message).lower()
-        check('md5 warning mentions security', 'security' in msg or 'safe' in msg or 'broken' in msg)
+        check(
+            'md5 warning mentions security', 'security' in msg or 'safe' in msg or 'broken' in msg
+        )
 
     # T4: sha256() does NOT emit deprecation warnings
     with warnings.catch_warnings(record=True) as w2:
         warnings.simplefilter('always')
         auth.sha256('test')
-    check('sha256 has no deprecation warnings', not any(
-        issubclass(x.category, DeprecationWarning) for x in w2
-    ))
+    check(
+        'sha256 has no deprecation warnings',
+        not any(issubclass(x.category, DeprecationWarning) for x in w2),
+    )
 
     # ── Session eviction ─────────────────────────────────────────────────────
 
@@ -337,6 +366,7 @@ def test_auth_security():
 
     # T10: Concurrent session creation is thread-safe
     import threading
+
     tokens_created = []
     errors = []
 
@@ -370,7 +400,9 @@ def test_auth_security():
 
     # T12: check_rate_limit allows within limit
     auth.reset_rate_limit('test_rl')
-    check('Rate limit allows first 3', all(auth.check_rate_limit('test_rl', 3, 60) for _ in range(3)))
+    check(
+        'Rate limit allows first 3', all(auth.check_rate_limit('test_rl', 3, 60) for _ in range(3))
+    )
 
     # T13: check_rate_limit blocks over limit
     check('Rate limit blocks 4th request', not auth.check_rate_limit('test_rl', 3, 60))
@@ -397,8 +429,11 @@ def test_auth_security():
 
     allowed = sum(1 for r in results if r)
     blocked = sum(1 for r in results if not r)
-    check('Concurrent rate limit: exactly 10 allowed', allowed == 10,
-          f'allowed={allowed} blocked={blocked}')
+    check(
+        'Concurrent rate limit: exactly 10 allowed',
+        allowed == 10,
+        f'allowed={allowed} blocked={blocked}',
+    )
     check('Concurrent rate limit: exactly 10 blocked', blocked == 10)
 
     # ── Password hashing ─────────────────────────────────────────────────────
@@ -434,6 +469,7 @@ def test_auth_security():
 # P4-SEC-4  mcp_http_server — CORS default is not wildcard
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @_tracked_test
 def test_mcp_cors_default():
     print('\n=== P4-SEC-4: mcp_http_server — CORS default ===')
@@ -442,35 +478,43 @@ def test_mcp_cors_default():
     import inspect
     import os
 
-    src_path = os.path.join(
-        os.path.dirname(__file__), '..', 'epl', 'mcp_http_server.py'
-    )
+    src_path = os.path.join(os.path.dirname(__file__), '..', 'epl', 'mcp_http_server.py')
     src = open(src_path, encoding='utf-8').read()
+    # Normalize quote style so assertions are agnostic to ruff's single-quote
+    # formatting (the security intent is the value, not the quote character).
+    src_nq = src.replace('"', "'")
 
     # T1: Default is NOT '*'
-    # The line should be: CORS_ORIGIN = os.environ.get("EPL_MCP_CORS_ORIGIN", "null")
-    check('CORS default is not wildcard *',
-          '"null"' in src and 'get("EPL_MCP_CORS_ORIGIN", "*")' not in src)
+    # The line should be: CORS_ORIGIN = os.environ.get('EPL_MCP_CORS_ORIGIN', 'null')
+    check(
+        'CORS default is not wildcard *',
+        "'null'" in src_nq and "get('EPL_MCP_CORS_ORIGIN', '*')" not in src_nq,
+    )
 
     # T2: Default value is "null" (blocks cross-origin browser requests)
-    check('CORS default is "null"',
-          'get("EPL_MCP_CORS_ORIGIN", "null")' in src)
+    check('CORS default is "null"', "get('EPL_MCP_CORS_ORIGIN', 'null')" in src_nq)
 
     # T3: Module docstring warns about wildcard
-    check('Docstring warns about wildcard risks',
-          'NEVER use "*"' in src or 'never use "*"' in src.lower())
+    check(
+        'Docstring warns about wildcard risks',
+        'NEVER use "*"' in src or 'never use "*"' in src.lower(),
+    )
 
     # T4: Docstring recommends env var for production
-    check('Docstring mentions production env var',
-          'EPL_MCP_CORS_ORIGIN' in src and ('production' in src.lower() or 'https://' in src))
+    check(
+        'Docstring mentions production env var',
+        'EPL_MCP_CORS_ORIGIN' in src and ('production' in src.lower() or 'https://' in src),
+    )
 
     # T5: Test via env var override (simulate)
     import os as _os
+
     original = _os.environ.get('EPL_MCP_CORS_ORIGIN')
     try:
         _os.environ['EPL_MCP_CORS_ORIGIN'] = 'https://myapp.example.com'
         # We can't easily reload the module, but we can confirm the env var logic
         import os as oos
+
         cors = oos.environ.get('EPL_MCP_CORS_ORIGIN', 'null')
         check('EPL_MCP_CORS_ORIGIN env var overridable', cors == 'https://myapp.example.com')
     finally:
@@ -483,13 +527,13 @@ def test_mcp_cors_default():
     check('add_cors_headers function in source', 'add_cors_headers' in src)
 
     # T7: CORS headers are set on responses
-    check('Access-Control-Allow-Origin header set',
-          'Access-Control-Allow-Origin' in src)
+    check('Access-Control-Allow-Origin header set', 'Access-Control-Allow-Origin' in src)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Main
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def main():
     print('=' * 60)
@@ -511,8 +555,9 @@ def main():
 
     total = _TrackerState.total_pass + _TrackerState.total_fail
     print(f'\n{"=" * 60}')
-    print(f'  Results: {_TrackerState.total_pass}/{total} passed, '
-          f'{_TrackerState.total_fail} failed')
+    print(
+        f'  Results: {_TrackerState.total_pass}/{total} passed, {_TrackerState.total_fail} failed'
+    )
     print(f'{"=" * 60}')
     return _TrackerState.total_fail == 0
 

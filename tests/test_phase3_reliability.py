@@ -44,9 +44,11 @@ from epl.hot_reload import HotReloader, _kill_process
 #  1. bytecode_cache — atomic write
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 # Module-level so pickle can resolve it by qualified name.
 class _FakeProgram:
     """Minimal stand-in for an AST Program node used in cache tests."""
+
     stmts = []
 
 
@@ -114,11 +116,13 @@ class TestBytecodeAtomicWrite(unittest.TestCase):
                     save(self._make_program(), src, path)
 
             # Original file must still be intact
-            self.assertEqual(path.read_bytes(), good_data,
-                             'original .eplc must be unchanged after failed save()')
+            self.assertEqual(
+                path.read_bytes(), good_data, 'original .eplc must be unchanged after failed save()'
+            )
             # Temp file must have been cleaned up by the except branch
-            self.assertFalse(tmp_path.exists(),
-                             '.eplc.tmp must be removed after exception in save()')
+            self.assertFalse(
+                tmp_path.exists(), '.eplc.tmp must be removed after exception in save()'
+            )
 
     def test_load_returns_none_for_missing_file(self):
         import tempfile
@@ -165,13 +169,14 @@ class TestEPLIntervalCancellation(unittest.TestCase):
         fired = []
         interval = EPLInterval(0.05, lambda: fired.append(1))
         interval.start()
-        time.sleep(0.18)   # allow ~3 ticks at 50 ms
+        time.sleep(0.18)  # allow ~3 ticks at 50 ms
         interval.stop()
         count_at_stop = len(fired)
         self.assertGreater(count_at_stop, 0, 'callback should have fired at least once')
-        time.sleep(0.15)   # wait 3 more potential ticks
-        self.assertEqual(len(fired), count_at_stop,
-                         'no additional callbacks should fire after stop()')
+        time.sleep(0.15)  # wait 3 more potential ticks
+        self.assertEqual(
+            len(fired), count_at_stop, 'no additional callbacks should fire after stop()'
+        )
 
     def test_stop_clears_task_reference(self):
         interval = EPLInterval(10.0, lambda: None)
@@ -199,8 +204,9 @@ class TestEPLIntervalCancellation(unittest.TestCase):
         interval.stop()
         # With a single loop at 50 ms over 120 ms we expect ~2 firings.
         # If start() was not idempotent we would get ~4.
-        self.assertLessEqual(len(fired), 3,
-                             'double start() must not create duplicate interval loops')
+        self.assertLessEqual(
+            len(fired), 3, 'double start() must not create duplicate interval loops'
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -219,7 +225,7 @@ class TestEPLRWLock(unittest.TestCase):
         at a barrier while holding the lock, so the peak must equal 5.
         """
         lock = EPLRWLock()
-        active = threading.Semaphore(0)   # counts readers currently inside
+        active = threading.Semaphore(0)  # counts readers currently inside
         peak_lock = threading.Lock()
         peak = [0]
         inside_count = [0]
@@ -231,8 +237,8 @@ class TestEPLRWLock(unittest.TestCase):
                     inside_count[0] += 1
                     if inside_count[0] > peak[0]:
                         peak[0] = inside_count[0]
-                active.release()          # signal "I am inside"
-                time.sleep(0.05)          # hold the read lock briefly
+                active.release()  # signal "I am inside"
+                time.sleep(0.05)  # hold the read lock briefly
             finally:
                 with peak_lock:
                     inside_count[0] -= 1
@@ -244,8 +250,7 @@ class TestEPLRWLock(unittest.TestCase):
         for t in threads:
             t.join(timeout=3)
 
-        self.assertEqual(peak[0], 5,
-                         f'Expected 5 concurrent readers but peak was {peak[0]}')
+        self.assertEqual(peak[0], 5, f'Expected 5 concurrent readers but peak was {peak[0]}')
 
     def test_writer_excludes_readers(self):
         """While a writer holds the lock, no reader may be inside."""
@@ -312,8 +317,9 @@ class TestEPLRWLock(unittest.TestCase):
             r.join(timeout=5)
 
         self.assertEqual(errors, [], '\n'.join(errors))
-        self.assertEqual(results, list(range(1, 11)),
-                         'writer must write 1..10 in order without interference')
+        self.assertEqual(
+            results, list(range(1, 11)), 'writer must write 1..10 in order without interference'
+        )
 
     def test_no_deadlock_under_contention(self):
         """Mixed reader/writer threads must all complete within timeout."""
@@ -332,18 +338,18 @@ class TestEPLRWLock(unittest.TestCase):
                 time.sleep(0.002)
                 lock.release_write()
 
-        threads = (
-            [threading.Thread(target=reader) for _ in range(6)]
-            + [threading.Thread(target=writer) for _ in range(3)]
-        )
+        threads = [threading.Thread(target=reader) for _ in range(6)] + [
+            threading.Thread(target=writer) for _ in range(3)
+        ]
         for t in threads:
             t.start()
         for t in threads:
             t.join(timeout=5)
 
         still_alive = [t for t in threads if t.is_alive()]
-        self.assertEqual(still_alive, [],
-                         f'{len(still_alive)} thread(s) still running — possible deadlock')
+        self.assertEqual(
+            still_alive, [], f'{len(still_alive)} thread(s) still running — possible deadlock'
+        )
 
     def test_repr_shows_reader_count(self):
         lock = EPLRWLock()
@@ -368,8 +374,9 @@ class TestEPLRWLock(unittest.TestCase):
         t = threading.Thread(target=_try_write)
         t.start()
         t.join(timeout=1)
-        self.assertTrue(acquired.is_set(),
-                        'writer must acquire lock promptly after all readers exit')
+        self.assertTrue(
+            acquired.is_set(), 'writer must acquire lock promptly after all readers exit'
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -423,16 +430,17 @@ class TestHotReloaderEventSafety(unittest.TestCase):
 
     def test_restart_event_is_threading_event(self):
         reloader = HotReloader()
-        self.assertIsInstance(reloader._restart_event, threading.Event,
-                              '_restart_event must be threading.Event, not a plain bool')
+        self.assertIsInstance(
+            reloader._restart_event,
+            threading.Event,
+            '_restart_event must be threading.Event, not a plain bool',
+        )
 
     def test_on_change_sets_event(self):
         reloader = HotReloader()
-        self.assertFalse(reloader._restart_event.is_set(),
-                         'event must start clear')
+        self.assertFalse(reloader._restart_event.is_set(), 'event must start clear')
         reloader._on_change(['app.py', 'lib.py'])
-        self.assertTrue(reloader._restart_event.is_set(),
-                        '_on_change must set the restart event')
+        self.assertTrue(reloader._restart_event.is_set(), '_on_change must set the restart event')
 
     def test_event_visible_across_threads(self):
         """A thread waiting on the event must wake when _on_change fires."""
@@ -448,8 +456,7 @@ class TestHotReloaderEventSafety(unittest.TestCase):
         time.sleep(0.05)
         reloader._on_change(['server.epl'])
         t.join(timeout=1)
-        self.assertTrue(woke.is_set(),
-                        'waiter thread must wake when _on_change sets the event')
+        self.assertTrue(woke.is_set(), 'waiter thread must wake when _on_change sets the event')
 
     def test_stop_calls_kill_process_on_live_child(self):
         """stop() must attempt to terminate a live child process."""

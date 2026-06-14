@@ -1845,9 +1845,7 @@ def _normalize_python_requirement(import_name, requirement=None):
         return import_name
     # Flag injection: a leading dash, or any whitespace-separated token starting
     # with one. Real pip requirements never need these; reject hard.
-    if requirement.startswith('-') or any(
-        tok.startswith('-') for tok in requirement.split()
-    ):
+    if requirement.startswith('-') or any(tok.startswith('-') for tok in requirement.split()):
         raise ValueError(
             f'Refusing to install Python requirement {requirement!r}: '
             f'requirement strings must not contain flags. '

@@ -507,7 +507,7 @@ class Lexer:
             while self.pos < len(self.source) and self.source[self.pos] not in ('\n', '\r'):
                 self._advance()
 
-            line_text = self.source[line_start:self.pos]
+            line_text = self.source[line_start : self.pos]
 
             # Check if this line is "End" (possibly indented)
             stripped = line_text.strip().lower()

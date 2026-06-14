@@ -683,14 +683,60 @@ class Parser:
 
         # v7.8: Smart keyword suggestion for misspelled words
         import difflib
+
         _statement_keywords = [
-            'Create', 'Make', 'Let', 'Set', 'Print', 'Display', 'Show', 'Say', 'Output',
-            'If', 'While', 'For', 'Repeat', 'Define', 'Declare', 'Function', 'Class',
-            'Return', 'Call', 'Try', 'Catch', 'Match', 'When', 'Import', 'Use',
-            'Write', 'Read', 'Append', 'Break', 'Continue', 'Throw', 'Assert',
-            'Wait', 'Exit', 'Constant', 'Increase', 'Decrease', 'Add', 'Sort',
-            'Reverse', 'Route', 'Start', 'Page', 'Send', 'Window', 'Async',
-            'Otherwise', 'Else', 'End', 'Remember', 'Multiply', 'Divide',
+            'Create',
+            'Make',
+            'Let',
+            'Set',
+            'Print',
+            'Display',
+            'Show',
+            'Say',
+            'Output',
+            'If',
+            'While',
+            'For',
+            'Repeat',
+            'Define',
+            'Declare',
+            'Function',
+            'Class',
+            'Return',
+            'Call',
+            'Try',
+            'Catch',
+            'Match',
+            'When',
+            'Import',
+            'Use',
+            'Write',
+            'Read',
+            'Append',
+            'Break',
+            'Continue',
+            'Throw',
+            'Assert',
+            'Wait',
+            'Exit',
+            'Constant',
+            'Increase',
+            'Decrease',
+            'Add',
+            'Sort',
+            'Reverse',
+            'Route',
+            'Start',
+            'Page',
+            'Send',
+            'Window',
+            'Async',
+            'Otherwise',
+            'Else',
+            'End',
+            'Remember',
+            'Multiply',
+            'Divide',
         ]
         suggestions = difflib.get_close_matches(tok.value, _statement_keywords, n=2, cutoff=0.6)
         if suggestions:
@@ -818,14 +864,60 @@ class Parser:
 
         # v7.8: Smart keyword suggestion for misspelled words
         import difflib
+
         _statement_keywords = [
-            'Create', 'Make', 'Let', 'Set', 'Print', 'Display', 'Show', 'Say', 'Output',
-            'If', 'While', 'For', 'Repeat', 'Define', 'Declare', 'Function', 'Class',
-            'Return', 'Call', 'Try', 'Catch', 'Match', 'When', 'Import', 'Use',
-            'Write', 'Read', 'Append', 'Break', 'Continue', 'Throw', 'Assert',
-            'Wait', 'Exit', 'Constant', 'Increase', 'Decrease', 'Add', 'Sort',
-            'Reverse', 'Route', 'Start', 'Page', 'Send', 'Window', 'Async',
-            'Otherwise', 'Else', 'End', 'Remember', 'Multiply', 'Divide',
+            'Create',
+            'Make',
+            'Let',
+            'Set',
+            'Print',
+            'Display',
+            'Show',
+            'Say',
+            'Output',
+            'If',
+            'While',
+            'For',
+            'Repeat',
+            'Define',
+            'Declare',
+            'Function',
+            'Class',
+            'Return',
+            'Call',
+            'Try',
+            'Catch',
+            'Match',
+            'When',
+            'Import',
+            'Use',
+            'Write',
+            'Read',
+            'Append',
+            'Break',
+            'Continue',
+            'Throw',
+            'Assert',
+            'Wait',
+            'Exit',
+            'Constant',
+            'Increase',
+            'Decrease',
+            'Add',
+            'Sort',
+            'Reverse',
+            'Route',
+            'Start',
+            'Page',
+            'Send',
+            'Window',
+            'Async',
+            'Otherwise',
+            'Else',
+            'End',
+            'Remember',
+            'Multiply',
+            'Divide',
         ]
         suggestions = difflib.get_close_matches(var_name, _statement_keywords, n=2, cutoff=0.6)
         if suggestions:
@@ -2356,9 +2448,7 @@ class Parser:
         if tok.type == TokenType.RAW and self._peek().type == TokenType.HTML_KW:
             self._advance()  # consume RAW
             self._advance()  # consume HTML
-            content = self._expect(
-                TokenType.STRING, 'Expected HTML string after `Raw HTML`'
-            ).value
+            content = self._expect(TokenType.STRING, 'Expected HTML string after `Raw HTML`').value
             self._end_statement()
             return ast.HtmlElement('raw_html', content, line=tok.line)
 
@@ -2483,9 +2573,14 @@ class Parser:
             self._advance()
             content = self._expect(TokenType.STRING, 'Expected WordsPullUp text').value
             attrs = {}
-            if self._match(TokenType.IDENTIFIER) and str(self._current().value).lower() == 'asterisk':
+            if (
+                self._match(TokenType.IDENTIFIER)
+                and str(self._current().value).lower() == 'asterisk'
+            ):
                 self._advance()
-                attrs['asterisk'] = self._expect(TokenType.STRING, 'Expected asterisk value (e.g. "true")').value
+                attrs['asterisk'] = self._expect(
+                    TokenType.STRING, 'Expected asterisk value (e.g. "true")'
+                ).value
             self._end_statement()
             return ast.HtmlElement('words_pull_up', content, attrs, line=tok.line)
 
@@ -2512,9 +2607,13 @@ class Parser:
                     seg_attrs = {}
                     if self._match(TokenType.STYLE):
                         self._advance()
-                        seg_attrs['style'] = self._expect(TokenType.STRING, 'Expected style classes').value
+                        seg_attrs['style'] = self._expect(
+                            TokenType.STRING, 'Expected style classes'
+                        ).value
                     self._end_statement()
-                    children.append(ast.HtmlElement('segment', seg_content, seg_attrs, line=seg_tok.line))
+                    children.append(
+                        ast.HtmlElement('segment', seg_content, seg_attrs, line=seg_tok.line)
+                    )
                 else:
                     self._advance()
                 self._skip_newlines()
@@ -3433,20 +3532,17 @@ class Parser:
         """Try to parse as HTML element first, then fall back to statement."""
         tok = self._current()
         nxt = self._peek()
-        if (
-            tok.type
-            in (
-                TokenType.HEADING,
-                TokenType.SUBHEADING,
-                TokenType.LINK,
-                TokenType.IMAGE,
-                TokenType.BUTTON,
-                TokenType.FORM,
-                TokenType.WORDS_PULL_UP,
-                TokenType.NOISE_OVERLAY,
-                TokenType.BG_NOISE,
-                TokenType.WORDS_PULL_UP_MULTI_STYLE,
-            )
+        if tok.type in (
+            TokenType.HEADING,
+            TokenType.SUBHEADING,
+            TokenType.LINK,
+            TokenType.IMAGE,
+            TokenType.BUTTON,
+            TokenType.FORM,
+            TokenType.WORDS_PULL_UP,
+            TokenType.NOISE_OVERLAY,
+            TokenType.BG_NOISE,
+            TokenType.WORDS_PULL_UP_MULTI_STYLE,
         ):
             return self._parse_html_element()
         if tok.type == TokenType.TYPE_TEXT and nxt and nxt.type == TokenType.STRING:

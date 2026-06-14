@@ -26,6 +26,7 @@ CI_YML = os.path.join(REPO_ROOT, '.github', 'workflows', 'ci.yml')
 
 # ── Minimal test harness ─────────────────────────────────────────────────────
 
+
 class _TrackerState:
     current = None
     total_pass = 0
@@ -55,6 +56,7 @@ def _tracked_test(fn):
             fn()
         finally:
             _finish_tracker()
+
     return wrapper
 
 
@@ -75,6 +77,7 @@ def check(name, condition, detail=''):
 # P5-1  pyproject.toml — required runtime deps
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @_tracked_test
 def test_pyproject_runtime_deps():
     print('\n=== P5-1: pyproject.toml — required runtime dependencies ===')
@@ -82,37 +85,39 @@ def test_pyproject_runtime_deps():
     src = open(PYPROJECT, encoding='utf-8').read()
 
     # T1: [project.dependencies] section exists
-    check('[project.dependencies] section present', 'dependencies = [' in src or
-          'dependencies=\n' in src or
-          re.search(r'^\s*dependencies\s*=\s*\[', src, re.MULTILINE) is not None)
+    check(
+        '[project.dependencies] section present',
+        'dependencies = [' in src
+        or 'dependencies=\n' in src
+        or re.search(r'^\s*dependencies\s*=\s*\[', src, re.MULTILINE) is not None,
+    )
 
     # T2: flask listed as required runtime dep
-    check('flask in [project.dependencies]',
-          bool(re.search(r'dependencies\s*=\s*\[([^\]]*flask[^\]]*)\]', src, re.DOTALL)))
+    check(
+        'flask in [project.dependencies]',
+        bool(re.search(r'dependencies\s*=\s*\[([^\]]*flask[^\]]*)\]', src, re.DOTALL)),
+    )
 
     # T3: requests listed as required runtime dep
-    check('requests in [project.dependencies]',
-          bool(re.search(r'dependencies\s*=\s*\[([^\]]*requests[^\]]*)\]', src, re.DOTALL)))
+    check(
+        'requests in [project.dependencies]',
+        bool(re.search(r'dependencies\s*=\s*\[([^\]]*requests[^\]]*)\]', src, re.DOTALL)),
+    )
 
     # T4: flask has a lower-bound version
-    check('flask has lower-bound (>=3.0)',
-          bool(re.search(r'flask>=\d', src)))
+    check('flask has lower-bound (>=3.0)', bool(re.search(r'flask>=\d', src)))
 
     # T5: flask has an upper-bound version (no open-ended dep)
-    check('flask has upper-bound (<4.0)',
-          bool(re.search(r'flask>=[\d.,]+,<[\d.]+', src)))
+    check('flask has upper-bound (<4.0)', bool(re.search(r'flask>=[\d.,]+,<[\d.]+', src)))
 
     # T6: requests has a lower-bound
-    check('requests has lower-bound (>=2.31)',
-          bool(re.search(r'requests>=\d', src)))
+    check('requests has lower-bound (>=2.31)', bool(re.search(r'requests>=\d', src)))
 
     # T7: requests has an upper-bound
-    check('requests has upper-bound (<3.0)',
-          bool(re.search(r'requests>=[\d.,]+,<[\d.]+', src)))
+    check('requests has upper-bound (<3.0)', bool(re.search(r'requests>=[\d.,]+,<[\d.]+', src)))
 
     # T8: requires-python is >=3.9
-    check('requires-python is >=3.9',
-          'requires-python = ">=3.9"' in src)
+    check('requires-python is >=3.9', 'requires-python = ">=3.9"' in src)
 
     # T9: pyproject parses as valid TOML (stdlib tomllib / tomli fallback)
     try:
@@ -129,10 +134,8 @@ def test_pyproject_runtime_deps():
                 data = tomllib.load(f)
             check('pyproject.toml parses as valid TOML', True)
             deps = data.get('project', {}).get('dependencies', [])
-            check('flask in parsed dependencies',
-                  any('flask' in d for d in deps))
-            check('requests in parsed dependencies',
-                  any('requests' in d for d in deps))
+            check('flask in parsed dependencies', any('flask' in d for d in deps))
+            check('requests in parsed dependencies', any('requests' in d for d in deps))
         except Exception as e:
             check('pyproject.toml parses as valid TOML', False, str(e))
     else:
@@ -144,6 +147,7 @@ def test_pyproject_runtime_deps():
 # P5-2  pyproject.toml — optional dep upper bounds
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 @_tracked_test
 def test_pyproject_optional_upper_bounds():
     print('\n=== P5-2: pyproject.toml — optional dep upper bounds ===')
@@ -151,8 +155,9 @@ def test_pyproject_optional_upper_bounds():
     src = open(PYPROJECT, encoding='utf-8').read()
 
     # Extract the [project.optional-dependencies] block
-    m = re.search(r'\[project\.optional-dependencies\](.*?)(?=^\[|\Z)', src,
-                  re.DOTALL | re.MULTILINE)
+    m = re.search(
+        r'\[project\.optional-dependencies\](.*?)(?=^\[|\Z)', src, re.DOTALL | re.MULTILINE
+    )
     check('[project.optional-dependencies] block found', m is not None)
     if m is None:
         return
@@ -172,21 +177,23 @@ def test_pyproject_optional_upper_bounds():
         if '>=' in spec_no_marker and '<' not in spec_no_marker:
             no_upper.append(spec)
 
-    check('All optional deps have upper-bound caps',
-          len(no_upper) == 0,
-          f'Missing upper bound: {no_upper}')
+    check(
+        'All optional deps have upper-bound caps',
+        len(no_upper) == 0,
+        f'Missing upper bound: {no_upper}',
+    )
 
     # T2: mypy is in dev optional deps
-    check('mypy in [dev] optional deps',
-          bool(re.search(r'dev\s*=\s*\[([^\]]*mypy[^\]]*)\]', src, re.DOTALL)))
+    check(
+        'mypy in [dev] optional deps',
+        bool(re.search(r'dev\s*=\s*\[([^\]]*mypy[^\]]*)\]', src, re.DOTALL)),
+    )
 
     # T3: mypy has a lower-bound
-    check('mypy has lower-bound (>=1.8)',
-          bool(re.search(r'mypy>=\d', src)))
+    check('mypy has lower-bound (>=1.8)', bool(re.search(r'mypy>=\d', src)))
 
     # T4: mypy has an upper-bound
-    check('mypy has upper-bound (<2.0)',
-          bool(re.search(r'mypy>=[\d.,]+,<[\d.]+', src)))
+    check('mypy has upper-bound (<2.0)', bool(re.search(r'mypy>=[\d.,]+,<[\d.]+', src)))
 
     # T5: Spot-check a few key optional packages have upper bounds
     for pkg in ('waitress', 'uvicorn', 'boto3', 'keyring', 'prompt_toolkit', 'pygments'):
@@ -197,6 +204,7 @@ def test_pyproject_optional_upper_bounds():
 # ══════════════════════════════════════════════════════════════════════════════
 # P5-3  ci.yml — Python version matrix
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @_tracked_test
 def test_ci_python_matrix():
@@ -217,30 +225,30 @@ def test_ci_python_matrix():
     check("Python '3.12' in ci.yml matrix", "'3.12'" in src)
 
     # T5: Matrix declares python-version as a list (not single value)
-    matrix_line = re.search(r"python-version:\s*\[([^\]]+)\]", src)
+    matrix_line = re.search(r'python-version:\s*\[([^\]]+)\]', src)
     check('python-version is a list in matrix', matrix_line is not None)
     if matrix_line:
         versions_in_matrix = matrix_line.group(1)
-        check('Matrix has at least 4 Python versions',
-              versions_in_matrix.count("'") >= 8)  # 4 versions × 2 quotes each
+        check(
+            'Matrix has at least 4 Python versions', versions_in_matrix.count("'") >= 8
+        )  # 4 versions × 2 quotes each
 
     # T6: requires-python in pyproject matches the CI minimum
     pyproject_src = open(PYPROJECT, encoding='utf-8').read()
     requires = re.search(r'requires-python\s*=\s*"([^"]+)"', pyproject_src)
     if requires:
         req_str = requires.group(1)
-        check('pyproject requires-python >= 3.9',
-              '3.9' in req_str or '3.8' in req_str)
+        check('pyproject requires-python >= 3.9', '3.9' in req_str or '3.8' in req_str)
         # The CI matrix minimum (3.9) should be consistent with pyproject
         ci_has_39 = "'3.9'" in src
         pyproject_allows_39 = '3.9' in req_str or not req_str.startswith('>=3.1')
-        check('CI minimum matches pyproject requires-python',
-              ci_has_39 and pyproject_allows_39)
+        check('CI minimum matches pyproject requires-python', ci_has_39 and pyproject_allows_39)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # P5-4  ci.yml — mypy / typecheck job
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @_tracked_test
 def test_ci_mypy_job():
@@ -251,8 +259,7 @@ def test_ci_mypy_job():
     # T1: A typecheck or mypy job exists
     has_typecheck_job = bool(re.search(r'^\s*typecheck\s*:', src, re.MULTILINE))
     has_mypy_job = bool(re.search(r'^\s*mypy\s*:', src, re.MULTILINE))
-    check('typecheck or mypy job exists in ci.yml',
-          has_typecheck_job or has_mypy_job)
+    check('typecheck or mypy job exists in ci.yml', has_typecheck_job or has_mypy_job)
 
     # T2: mypy command is invoked
     check('mypy command invoked in ci.yml', 'mypy' in src)
@@ -266,26 +273,30 @@ def test_ci_mypy_job():
     typecheck_idx = src.find('\n  typecheck:')
     if typecheck_idx >= 0:
         # Find the next top-level job after typecheck
-        next_job = re.search(r'\n  \w[\w-]*:\n', src[typecheck_idx + 1:])
+        next_job = re.search(r'\n  \w[\w-]*:\n', src[typecheck_idx + 1 :])
         end_idx = (typecheck_idx + 1 + next_job.start()) if next_job else len(src)
         block = src[typecheck_idx:end_idx]
-        check('typecheck job specifies python-version',
-              'python-version' in block)
+        check('typecheck job specifies python-version', 'python-version' in block)
     else:
         check('typecheck job specifies python-version', False, 'typecheck block not found')
 
     # T5: mypy is installed in the typecheck job
-    check('mypy installed in CI (via pip install or dev extra)',
-          'mypy' in src and ('.[dev]' in src or 'pip install mypy' in src))
+    check(
+        'mypy installed in CI (via pip install or dev extra)',
+        'mypy' in src and ('.[dev]' in src or 'pip install mypy' in src),
+    )
 
     # T6: The job is not skipped (no `if: false`)
-    check('typecheck job is not unconditionally skipped',
-          not bool(re.search(r'typecheck.*?if:\s*false', src, re.DOTALL)))
+    check(
+        'typecheck job is not unconditionally skipped',
+        not bool(re.search(r'typecheck.*?if:\s*false', src, re.DOTALL)),
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # P5-5  ci.yml — security / reliability tests included in whitelist
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @_tracked_test
 def test_ci_security_tests_included():
@@ -304,36 +315,31 @@ def test_ci_security_tests_included():
         check(f'{tf} in ci.yml test whitelist', tf in src)
 
     # T4: test_phase3_reliability.py appears in the stable test run command
-    in_stable_run = bool(re.search(
-        r'Run stable test suite.*?test_phase3_reliability\.py',
-        src, re.DOTALL
-    ))
+    in_stable_run = bool(
+        re.search(r'Run stable test suite.*?test_phase3_reliability\.py', src, re.DOTALL)
+    )
     check('test_phase3_reliability.py in stable run step', in_stable_run)
 
     # T5: test_phase4_security.py appears in the stable test run command
-    in_stable_run2 = bool(re.search(
-        r'Run stable test suite.*?test_phase4_security\.py',
-        src, re.DOTALL
-    ))
+    in_stable_run2 = bool(
+        re.search(r'Run stable test suite.*?test_phase4_security\.py', src, re.DOTALL)
+    )
     check('test_phase4_security.py in stable run step', in_stable_run2)
 
     # T6: security tests also appear in coverage run (Ubuntu 3.12 only)
-    in_coverage = bool(re.search(
-        r'Run coverage.*?test_phase4_security\.py',
-        src, re.DOTALL
-    ))
+    in_coverage = bool(re.search(r'Run coverage.*?test_phase4_security\.py', src, re.DOTALL))
     check('test_phase4_security.py in coverage step', in_coverage)
 
     # T7: Previously excluded files are now present
     # Confirm test_phase3_reliability was NOT already there before Phase 5
     # (we can only confirm it IS there now)
-    check('test_phase3_reliability.py present in ci.yml',
-          'test_phase3_reliability.py' in src)
+    check('test_phase3_reliability.py present in ci.yml', 'test_phase3_reliability.py' in src)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # P5-6  Smoke — pyproject.toml is machine-readable (setuptools dry-run)
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 @_tracked_test
 def test_pyproject_machine_readable():
@@ -366,15 +372,14 @@ def test_pyproject_machine_readable():
         check('dependencies block balanced', inner.count('[') == inner.count(']'))
 
     # T8: All declared classifiers reference Python 3.9+
-    check('Classifier 3.9 present',
-          'Programming Language :: Python :: 3.9' in src)
-    check('Classifier 3.10 present',
-          'Programming Language :: Python :: 3.10' in src)
+    check('Classifier 3.9 present', 'Programming Language :: Python :: 3.9' in src)
+    check('Classifier 3.10 present', 'Programming Language :: Python :: 3.10' in src)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Main
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 def main():
     print('=' * 60)
@@ -398,8 +403,9 @@ def main():
 
     total = _TrackerState.total_pass + _TrackerState.total_fail
     print(f'\n{"=" * 60}')
-    print(f'  Results: {_TrackerState.total_pass}/{total} passed, '
-          f'{_TrackerState.total_fail} failed')
+    print(
+        f'  Results: {_TrackerState.total_pass}/{total} passed, {_TrackerState.total_fail} failed'
+    )
     print(f'{"=" * 60}')
     return _TrackerState.total_fail == 0
 

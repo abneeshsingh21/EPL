@@ -123,18 +123,21 @@ class TestServeDefaults(unittest.TestCase):
         argv = [tmp.name] + extra_args
 
         # Stub out everything beyond arg parsing.
-        with mock.patch.object(main_mod, 'set_source_context'), \
-             mock.patch.object(main_mod, 'Lexer'), \
-             mock.patch.object(main_mod, 'Parser'), \
-             mock.patch.object(main_mod, 'Interpreter') as fake_interp_cls:
-
+        with (
+            mock.patch.object(main_mod, 'set_source_context'),
+            mock.patch.object(main_mod, 'Lexer'),
+            mock.patch.object(main_mod, 'Parser'),
+            mock.patch.object(main_mod, 'Interpreter') as fake_interp_cls,
+        ):
             fake_interp = mock.Mock()
             fake_interp._web_app = mock.Mock()
             fake_interp_cls.return_value = fake_interp
 
-            with mock.patch('epl.store_backends.configure_backends'), \
-                 mock.patch('epl.deploy.serve', side_effect=fake_serve), \
-                 mock.patch('epl.deploy.WSGIAdapter', return_value=mock.Mock()):
+            with (
+                mock.patch('epl.store_backends.configure_backends'),
+                mock.patch('epl.deploy.serve', side_effect=fake_serve),
+                mock.patch('epl.deploy.WSGIAdapter', return_value=mock.Mock()),
+            ):
                 err = io.StringIO()
                 with redirect_stderr(err):
                     try:

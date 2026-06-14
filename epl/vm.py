@@ -2009,7 +2009,9 @@ class VM:
                         frame.ip = handler_ip
                         stack.append(str(e))
                     else:
-                        raise VMError(str(e), inst.line, call_stack=self._capture_call_stack()) from e
+                        raise VMError(
+                            str(e), inst.line, call_stack=self._capture_call_stack()
+                        ) from e
 
     # ─── Opcode handlers ─────────────────────────────────────
 
@@ -2075,7 +2077,9 @@ class VM:
         if b == 0 or b == 0.0:
             raise VMError('Division by zero', inst.line)
         result = a / b
-        self.stack.append(int(result) if isinstance(result, float) and result == int(result) else result)
+        self.stack.append(
+            int(result) if isinstance(result, float) and result == int(result) else result
+        )
 
     def _op_mod(self, inst):
         b, a = self.stack.pop(), self.stack.pop()

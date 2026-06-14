@@ -192,7 +192,9 @@ def _get_source_filename():
     return getattr(_source_ctx, 'filename', '<input>')
 
 
-def _format_source_context(line: 'int | None', column: 'int | None' = None, context_lines: int = 2) -> str:
+def _format_source_context(
+    line: 'int | None', column: 'int | None' = None, context_lines: int = 2
+) -> str:
     """Format a source code snippet showing the error location."""
     source_lines = _get_source_lines()
     if not source_lines or line is None or line < 1:

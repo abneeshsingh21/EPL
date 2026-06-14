@@ -629,12 +629,12 @@ def _explain_type_assign_mismatch(match, source_line, source_lines):
     var_type = match.group(3) if match.lastindex >= 3 else 'declared type'
     return (
         f"You are trying to assign a {value_type} value to variable '{var_name}' "
-        f"which was declared as type {var_type}. Type-checked variables can only "
-        f"hold values of their declared type.",
-        f"Either:\n"
-        f"      1. Convert the value: to_integer(value) or round(value)\n"
+        f'which was declared as type {var_type}. Type-checked variables can only '
+        f'hold values of their declared type.',
+        f'Either:\n'
+        f'      1. Convert the value: to_integer(value) or round(value)\n'
         f"      2. Change the variable type to 'decimal': Create {var_name} as Decimal equal to <value>\n"
-        f"      3. Remove the type annotation: {var_name} = <value>",
+        f'      3. Remove the type annotation: {var_name} = <value>',
         '',
     )
 
@@ -651,10 +651,10 @@ def _explain_file_not_found(match, source_line, source_lines):
     path = match.group(1) if match.lastindex else 'the file'
     return (
         f"The file '{path}' could not be found or opened.",
-        f"Check that the file path is correct and the file exists:\n"
-        f"      If file_exists(\"{path}\") Then\n"
-        f"          Create content equal to file_read(\"{path}\")\n"
-        f"      End",
+        f'Check that the file path is correct and the file exists:\n'
+        f'      If file_exists("{path}") Then\n'
+        f'          Create content equal to file_read("{path}")\n'
+        f'      End',
         '',
     )
 
@@ -663,8 +663,8 @@ def _explain_method_not_found(match, source_line, source_lines):
     method = match.group(1) if match.lastindex else 'the method'
     return (
         f"Method '{method}' does not exist on this object.",
-        "Check the spelling. Common list methods: push(), pop(), map(), filter(), reduce().\n"
-        "      Common string methods: split(), trim(), uppercase(), lowercase(), replace().",
+        'Check the spelling. Common list methods: push(), pop(), map(), filter(), reduce().\n'
+        '      Common string methods: split(), trim(), uppercase(), lowercase(), replace().',
         '',
     )
 
@@ -673,9 +673,9 @@ def _explain_missing_then(match, source_line, source_lines):
     return (
         "An 'If' statement is missing its 'Then' keyword.",
         "Add 'Then' after the condition:\n"
-        "      If age > 18 Then\n"
-        "          Say \"Adult\"\n"
-        "      End",
+        '      If age > 18 Then\n'
+        '          Say "Adult"\n'
+        '      End',
         '',
     )
 
@@ -684,9 +684,9 @@ def _explain_missing_takes(match, source_line, source_lines):
     return (
         "A Function definition with parameters is missing the 'Takes' keyword.",
         "Add 'Takes' before the parameter list:\n"
-        "      Function greet Takes name\n"
-        "          Say \"Hello, \" + name\n"
-        "      End",
+        '      Function greet Takes name\n'
+        '          Say "Hello, " + name\n'
+        '      End',
         '',
     )
 
@@ -959,9 +959,9 @@ _PATTERNS = [
         'explain': lambda m, src, lines: (
             "You may be using '=' (assignment) where you meant '==' (comparison).",
             "In conditions, use '==' to compare:\n"
-            "      If score == 100 Then\n"
-            "          Say \"Perfect!\"\n"
-            "      End",
+            '      If score == 100 Then\n'
+            '          Say "Perfect!"\n'
+            '      End',
             src.replace(' = ', ' == ') if src and ' = ' in src else '',
         ),
     },
@@ -971,8 +971,7 @@ _PATTERNS = [
         'category': 'syntax',
         'explain': lambda m, src, lines: (
             'You may be missing quotes around a text value.',
-            'Wrap text in double quotes:\n'
-            '      Say "Hello, World!"',
+            'Wrap text in double quotes:\n      Say "Hello, World!"',
             '',
         ),
     },
@@ -983,9 +982,9 @@ _PATTERNS = [
         'explain': lambda m, src, lines: (
             "EPL does not use curly braces { } — it uses 'End' to close blocks.",
             "Remove the braces and use 'End' instead:\n"
-            "      If condition Then\n"
-            "          ...\n"
-            "      End",
+            '      If condition Then\n'
+            '          ...\n'
+            '      End',
             '',
         ),
     },
@@ -994,7 +993,7 @@ _PATTERNS = [
         'match': r'unexpected.*semicolon|unexpected.*[;]',
         'category': 'syntax',
         'explain': lambda m, src, lines: (
-            "EPL does not use semicolons — each statement goes on its own line.",
+            'EPL does not use semicolons — each statement goes on its own line.',
             'Remove the semicolon. Each EPL statement is one line.',
             src.replace(';', '') if src else '',
         ),
@@ -1024,10 +1023,8 @@ _PATTERNS = [
         'match': r'unexpected.*parenthes.*(?:if|while)',
         'category': 'syntax',
         'explain': lambda m, src, lines: (
-            "EPL does not require parentheses around conditions.",
-            "Remove the parentheses:\n"
-            "      If age > 18 Then\n"
-            "          (not: If (age > 18) Then)",
+            'EPL does not require parentheses around conditions.',
+            'Remove the parentheses:\n      If age > 18 Then\n          (not: If (age > 18) Then)',
             '',
         ),
     },
@@ -1037,8 +1034,7 @@ _PATTERNS = [
         'category': 'syntax',
         'explain': lambda m, src, lines: (
             "Use '+' to join text values, not commas.",
-            'Concatenate with +:\n'
-            '      Say "Hello, " + name + "!"',
+            'Concatenate with +:\n      Say "Hello, " + name + "!"',
             '',
         ),
     },
@@ -1048,9 +1044,7 @@ _PATTERNS = [
         'category': 'syntax',
         'explain': lambda m, src, lines: (
             "'For Each' loops require the 'In' keyword.",
-            "Use: For Each item In myList\n"
-            "         Say item\n"
-            "     End",
+            'Use: For Each item In myList\n         Say item\n     End',
             '',
         ),
     },
@@ -1060,8 +1054,7 @@ _PATTERNS = [
         'category': 'syntax',
         'explain': lambda m, src, lines: (
             "'Create' statements need 'equal to' to assign a value.",
-            "Use: Create name equal to \"EPL\"\n"
-            "     or: Create count equal to 0",
+            'Use: Create name equal to "EPL"\n     or: Create count equal to 0',
             '',
         ),
     },
@@ -1070,9 +1063,8 @@ _PATTERNS = [
         'match': r'unexpected.*true|unexpected.*false',
         'category': 'syntax',
         'explain': lambda m, src, lines: (
-            "EPL booleans are capitalized: True/False or Yes/No.",
-            "Use: True, False, Yes, No\n"
-            "     (not: true, false)",
+            'EPL booleans are capitalized: True/False or Yes/No.',
+            'Use: True, False, Yes, No\n     (not: true, false)',
             '',
         ),
     },
@@ -1082,9 +1074,7 @@ _PATTERNS = [
         'category': 'syntax',
         'explain': lambda m, src, lines: (
             "'For...from' loops require the 'to' keyword.",
-            "Use: For i from 1 to 10\n"
-            "         Say i\n"
-            "     End",
+            'Use: For i from 1 to 10\n         Say i\n     End',
             '',
         ),
     },
@@ -1228,8 +1218,12 @@ def _get_ai_explanation(error, source: str = None) -> str:
         result = explain_error(error_msg, source_code=source) or ''
 
         # Never show raw API errors to users
-        if result and ('api error' in result.lower() or 'invalid api key' in result.lower()
-                       or '401' in result or '403' in result):
+        if result and (
+            'api error' in result.lower()
+            or 'invalid api key' in result.lower()
+            or '401' in result
+            or '403' in result
+        ):
             return ''
 
         return result

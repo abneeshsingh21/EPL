@@ -42,15 +42,16 @@ def _safe_match(pattern: str, value: str) -> bool:
     if t.is_alive():
         # Thread still running — catastrophic backtracking detected.
         raise ValueError(
-            f"Pattern match timed out after {_PATTERN_TIMEOUT_SECONDS}s. "
-            "The pattern may cause catastrophic backtracking (ReDoS). "
-            "Simplify the pattern or reduce its input."
+            f'Pattern match timed out after {_PATTERN_TIMEOUT_SECONDS}s. '
+            'The pattern may cause catastrophic backtracking (ReDoS). '
+            'Simplify the pattern or reduce its input.'
         )
 
     item = result_q.get_nowait()
     if isinstance(item, Exception):
-        raise ValueError(f"Invalid regex pattern: {item}") from item
+        raise ValueError(f'Invalid regex pattern: {item}') from item
     return bool(item)
+
 
 # ═══════════════════════════════════════════════════════════
 #  Schema Creation & Validation
@@ -311,7 +312,7 @@ def sanitize_sql(val):
       \\r   → \\r    (carriage return)
     """
     s = str(val)
-    s = s.replace('\\', '\\\\')   # must be first
+    s = s.replace('\\', '\\\\')  # must be first
     s = s.replace("'", "''")
     s = s.replace('"', '\\"')
     s = s.replace('`', '\\`')

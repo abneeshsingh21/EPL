@@ -240,15 +240,18 @@ class TestHelperFunctions(unittest.TestCase):
 
     def test_format_time(self):
         from epl.watcher import _format_time
+
         result = _format_time()
         self.assertRegex(result, r'\d{2}:\d{2}:\d{2}')
 
     def test_clear_screen_function_exists(self):
         from epl.watcher import _clear_screen
+
         self.assertTrue(callable(_clear_screen))
 
     def test_color_functions(self):
         from epl.watcher import _bold, _cyan, _dim, _green, _red
+
         # These should return strings regardless
         self.assertIsInstance(_green('test'), str)
         self.assertIsInstance(_red('test'), str)
@@ -267,6 +270,7 @@ class TestRunWatchConfig(unittest.TestCase):
 
     def test_nonexistent_target_returns_error(self):
         from epl.watcher import run_watch
+
         result = run_watch('/nonexistent/file.epl')
         self.assertEqual(result, 1)
 
@@ -380,6 +384,7 @@ class TestWatcherCliTimeoutParsing(unittest.TestCase):
     def test_invalid_timeout_returns_error_code(self):
         """A non-numeric --timeout returns 1 instead of forwarding garbage."""
         from epl import cli
+
         rc = cli._watch(['.'], {'--timeout=banana'})
         self.assertEqual(rc, 1)
 
