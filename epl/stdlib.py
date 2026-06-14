@@ -37,7 +37,7 @@ from epl._debug_log import suppressed as _debug_suppressed
 from epl.errors import RuntimeError as EPLRuntimeError
 
 _install_lock = _threading.Lock()
-_module_cache = {}
+_module_cache: dict = {}
 
 
 def _require_module(module_name, pip_name=None, feature_name=None):
@@ -936,18 +936,18 @@ STDLIB_FUNCTIONS = {
 #  Internal state — DB connections, sockets, timers
 # ═══════════════════════════════════════════════════════════
 
-_db_connections = {}  # name -> sqlite3.Connection
-_db_locks = {}  # conn_id -> threading.RLock
-_open_sockets = {}  # id -> socket
-_timers = {}  # name -> start_time
-_atomic_counters = {}  # name -> [int]
+_db_connections: dict = {}  # name -> sqlite3.Connection
+_db_locks: dict = {}  # conn_id -> threading.RLock
+_open_sockets: dict = {}  # id -> socket
+_timers: dict = {}  # name -> start_time
+_atomic_counters: dict = {}  # name -> [int]
 _next_id = [0]
 _state_lock = _threading.Lock()  # Protects all module-level state dicts
 
 # ── Real module state ──
-_real_db_instances = {}  # name -> database_real.Database
-_real_db_models = {}  # "db:model" -> database_real.Model
-_real_db_txns = {}  # txn_id -> connection (in transaction)
+_real_db_instances: dict = {}  # name -> database_real.Database
+_real_db_models: dict = {}  # "db:model" -> database_real.Model
+_real_db_txns: dict = {}  # txn_id -> connection (in transaction)
 
 # v9.3.0 Phase 5 — SQL injection hardening.
 # Single source of truth for "what is a safe SQL identifier?". The 7 prior
@@ -972,42 +972,42 @@ def _assert_sql_identifier(name, kind='identifier'):
     return name
 
 
-_net_tcp_connections = {}  # id -> networking.TCPConnection
-_net_tcp_servers = {}  # id -> networking.TCPServer
-_net_udp_sockets = {}  # id -> networking.UDPSocket
-_net_http_clients = {}  # id -> networking.HTTPClient
-_real_threads = {}  # id -> concurrency_real.EPLThread
-_real_thread_pools = {}  # id -> concurrency_real.ThreadPool
-_real_mutexes = {}  # id -> concurrency_real.Mutex
-_real_rwlocks = {}  # id -> concurrency_real.RWLock
-_real_semaphores = {}  # id -> concurrency_real.Semaphore
-_real_barriers = {}  # id -> concurrency_real.Barrier
-_real_events = {}  # id -> concurrency_real.Event
-_real_channels = {}  # id -> concurrency_real.Channel
-_real_atomic_ints = {}  # id -> concurrency_real.AtomicInt
-_real_atomic_bools = {}  # id -> concurrency_real.AtomicBool
-_real_waitgroups = {}  # id -> concurrency_real.WaitGroup
-_real_intervals = {}  # id -> concurrency_real.Interval
+_net_tcp_connections: dict = {}  # id -> networking.TCPConnection
+_net_tcp_servers: dict = {}  # id -> networking.TCPServer
+_net_udp_sockets: dict = {}  # id -> networking.UDPSocket
+_net_http_clients: dict = {}  # id -> networking.HTTPClient
+_real_threads: dict = {}  # id -> concurrency_real.EPLThread
+_real_thread_pools: dict = {}  # id -> concurrency_real.ThreadPool
+_real_mutexes: dict = {}  # id -> concurrency_real.Mutex
+_real_rwlocks: dict = {}  # id -> concurrency_real.RWLock
+_real_semaphores: dict = {}  # id -> concurrency_real.Semaphore
+_real_barriers: dict = {}  # id -> concurrency_real.Barrier
+_real_events: dict = {}  # id -> concurrency_real.Event
+_real_channels: dict = {}  # id -> concurrency_real.Channel
+_real_atomic_ints: dict = {}  # id -> concurrency_real.AtomicInt
+_real_atomic_bools: dict = {}  # id -> concurrency_real.AtomicBool
+_real_waitgroups: dict = {}  # id -> concurrency_real.WaitGroup
+_real_intervals: dict = {}  # id -> concurrency_real.Interval
 
 # ── Phase 2 state ──
-_compiled_regexes = {}  # id -> compiled re.Pattern
-_linked_lists = {}  # id -> list of nodes (doubly-linked as list)
-_priority_queues = {}  # id -> list of (priority, value) tuples
-_deques = {}  # id -> collections.deque
-_ordered_maps = {}  # id -> OrderedDict
-_test_hooks = {'before_each': None, 'after_each': None, 'describes': [], 'current_group': None}
-_http_servers = {}  # id -> HTTPServer instance
-_ws_connections = {}  # id -> websocket connection
-_async_processes = {}  # id -> subprocess.Popen
+_compiled_regexes: dict = {}  # id -> compiled re.Pattern
+_linked_lists: dict = {}  # id -> list of nodes (doubly-linked as list)
+_priority_queues: dict = {}  # id -> list of (priority, value) tuples
+_deques: dict = {}  # id -> collections.deque
+_ordered_maps: dict = {}  # id -> OrderedDict
+_test_hooks: dict = {'before_each': None, 'after_each': None, 'describes': [], 'current_group': None}
+_http_servers: dict = {}  # id -> HTTPServer instance
+_ws_connections: dict = {}  # id -> websocket connection
+_async_processes: dict = {}  # id -> subprocess.Popen
 
 # ── Phase 3 state ──
-_ws_servers = {}  # id -> {port, server, clients, rooms, handlers, thread}
-_templates = {}  # name -> template string
-_template_filters = {}  # name -> callable
-_html_components = {}  # name -> template string
-_web_test_clients = {}  # id -> Flask test client
-_web_upload_configs = {}  # app_id -> {folder, max_size}
-_orm_relations = {}  # "db:model" -> {relation_name: {type, target, fk}}
+_ws_servers: dict = {}  # id -> {port, server, clients, rooms, handlers, thread}
+_templates: dict = {}  # name -> template string
+_template_filters: dict = {}  # name -> callable
+_html_components: dict = {}  # name -> template string
+_web_test_clients: dict = {}  # id -> Flask test client
+_web_upload_configs: dict = {}  # app_id -> {folder, max_size}
+_orm_relations: dict = {}  # "db:model" -> {relation_name: {type, target, fk}}
 
 
 def _new_id():
@@ -4141,9 +4141,9 @@ def call_stdlib(name, args, line, interpreter=None):
             return None
         if name == 'real_event_create':
             _conc_real = _require_module('epl.concurrency_real', feature_name='Real Concurrency')
-            e = _conc_real.Event()
+            e_obj = _conc_real.Event()
             eid = f'evt_{_new_id()}'
-            _real_events[eid] = e
+            _real_events[eid] = e_obj
             return eid
         if name == 'real_event_set':
             if not args:
@@ -5752,12 +5752,12 @@ def call_stdlib(name, args, line, interpreter=None):
 # ═══════════════════════════════════════════════════════════
 
 _web_lock = _threading.Lock()  # Thread safety for all web state
-_web_apps = {}  # app_id -> Flask app
-_web_routes = {}  # app_id -> list of registered routes
-_web_cors = {}  # app_id -> CORS config
-_web_error_handlers = {}  # app_id -> {code: handler_fn}
-_web_middleware = {}  # app_id -> [middleware_fns]
-_web_running = {}  # app_id -> {'thread': Thread, 'shutdown': Event}
+_web_apps: dict = {}  # app_id -> Flask app
+_web_routes: dict = {}  # app_id -> list of registered routes
+_web_cors: dict = {}  # app_id -> CORS config
+_web_error_handlers: dict = {}  # app_id -> {code: handler_fn}
+_web_middleware: dict = {}  # app_id -> [middleware_fns]
+_web_running: dict = {}  # app_id -> {'thread': Thread, 'shutdown': Event}
 
 _flask_cache = [None]
 
@@ -7639,10 +7639,10 @@ def _call_api(name, args, line):
 #  Desktop GUI Module (Tkinter-powered)
 # ═══════════════════════════════════════════════════════════
 
-_gui_windows = {}  # window_id -> Tk/Toplevel
-_gui_widgets = {}  # widget_id -> widget
-_gui_vars = {}  # widget_id -> StringVar/IntVar etc.
-_gui_callbacks = {}  # widget_id -> callback
+_gui_windows: dict = {}  # window_id -> Tk/Toplevel
+_gui_widgets: dict = {}  # widget_id -> widget
+_gui_vars: dict = {}  # widget_id -> StringVar/IntVar etc.
+_gui_callbacks: dict = {}  # widget_id -> callback
 
 # Cross-platform font: use TkDefaultFont as the safe fallback
 _GUI_FONT_FAMILY = 'TkDefaultFont'
@@ -8387,11 +8387,11 @@ def _call_gui(name, args, line):
 #  Mobile Builder (BeeWare / Toga)
 # ═══════════════════════════════════════════════════════════
 
-_mobile_apps = {}  # app_id -> {'toga_app': App, 'main_box': Box, ...}
-_mobile_widgets = {}  # widget_id -> toga widget
-_mobile_screens = {}  # screen_name -> toga Box
-_mobile_callbacks = {}  # widget_id -> callback
-_mobile_widget_meta = {}  # widget_id -> {'type': str, ...props}  — for Android export
+_mobile_apps: dict = {}  # app_id -> {'toga_app': App, 'main_box': Box, ...}
+_mobile_widgets: dict = {}  # widget_id -> toga widget
+_mobile_screens: dict = {}  # screen_name -> toga Box
+_mobile_callbacks: dict = {}  # widget_id -> callback
+_mobile_widget_meta: dict = {}  # widget_id -> {'type': str, ...props}  — for Android export
 _toga_cache = [None]
 _pygame_cache = [None]
 _sklearn_cache = [None]
@@ -9436,10 +9436,10 @@ def _call_mobile(name, args, line):
 #  Game Development (Pygame)
 # ═══════════════════════════════════════════════════════════
 
-_game_instances = {}  # game_id -> {...}
-_game_sprites = {}  # sprite_id -> {...}
-_game_sounds = {}  # sound_id -> pygame.mixer.Sound
-_game_callbacks = {}  # game_id -> {'on_update': fn, 'on_key': {key: fn}, 'on_click': fn}
+_game_instances: dict = {}  # game_id -> {...}
+_game_sprites: dict = {}  # sprite_id -> {...}
+_game_sounds: dict = {}  # sound_id -> pygame.mixer.Sound
+_game_callbacks: dict = {}  # game_id -> {'on_update': fn, 'on_key': {key: fn}, 'on_click': fn}
 
 
 def _ensure_pygame():
@@ -10171,9 +10171,9 @@ def _parse_color(val):
 #  ML / AI (scikit-learn wrappers)
 # ═══════════════════════════════════════════════════════════
 
-_ml_models = {}  # model_id -> sklearn model
-_ml_data = {}  # data_id -> dict of arrays
-_ml_model_data = {}  # model_id -> data_id (set during ml_train)
+_ml_models: dict = {}  # model_id -> sklearn model
+_ml_data: dict = {}  # data_id -> dict of arrays
+_ml_model_data: dict = {}  # model_id -> data_id (set during ml_train)
 
 
 def _ensure_sklearn():
@@ -10626,8 +10626,8 @@ def _call_ml(name, args, line):
 #  Deep Learning (PyTorch / TensorFlow)
 # ═══════════════════════════════════════════════════════════
 
-_dl_models = {}  # model_id -> {'framework': 'pytorch'|'tensorflow', 'model': <model>, ...}
-_dl_data = {}  # data_id -> tensors/arrays
+_dl_models: dict = {}  # model_id -> {'framework': 'pytorch'|'tensorflow', 'model': <model>, ...}
+_dl_data: dict = {}  # data_id -> tensors/arrays
 
 _torch_cache = [None]
 _tf_cache = [None]
@@ -11025,8 +11025,8 @@ def _call_dl(name, args, line):
 #  3D Graphics (PyOpenGL / ModernGL)
 # ═══════════════════════════════════════════════════════════
 
-_3d_contexts = {}  # context_id -> {'type': 'moderngl'|'opengl', ...}
-_3d_objects = {}  # object_id -> {'type': 'mesh'|'light'|'camera', ...}
+_3d_contexts: dict = {}  # context_id -> {'type': 'moderngl'|'opengl', ...}
+_3d_objects: dict = {}  # object_id -> {'type': 'mesh'|'light'|'camera', ...}
 
 _moderngl_cache = [None]
 
@@ -11332,8 +11332,8 @@ def _call_3d(name, args, line):
 #  Data Science (Pandas / NumPy / Matplotlib)
 # ═══════════════════════════════════════════════════════════
 
-_ds_frames = {}  # frame_id -> pandas DataFrame
-_ds_groups = {}  # group_id -> DataFrameGroupBy
+_ds_frames: dict = {}  # frame_id -> pandas DataFrame
+_ds_groups: dict = {}  # group_id -> DataFrameGroupBy
 
 
 _pandas_cache = [None]
