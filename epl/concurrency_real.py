@@ -326,7 +326,7 @@ class Channel:
 
     def __init__(self, capacity: int = 0):
         if capacity <= 0:
-            self._queue = queue.Queue()
+            self._queue: queue.Queue = queue.Queue()
         else:
             self._queue = queue.Queue(maxsize=capacity)
         self._closed = False
@@ -520,9 +520,9 @@ class Process:
         self.env = env
         self.shell = shell
         self._process: Optional[subprocess.Popen] = None
-        self._stdout = None
-        self._stderr = None
-        self._exit_code = None
+        self._stdout: Optional[str] = None
+        self._stderr: Optional[str] = None
+        self._exit_code: Optional[int] = None
 
     def start(self):
         """Start the process."""
@@ -541,6 +541,7 @@ class Process:
         """Wait for process to complete and return result."""
         if not self._process:
             self.start()
+        assert self._process is not None
         stdout, stderr = self._process.communicate(timeout=timeout)
         self._stdout = stdout.decode('utf-8', errors='replace')
         self._stderr = stderr.decode('utf-8', errors='replace')
@@ -662,8 +663,9 @@ def parallel_for_each(fn: Callable, items: list, max_workers: int = None):
         concurrent.futures.wait(futures)
         # Raise first exception if any
         for f in futures:
-            if f.exception():
-                raise f.exception()
+            exc = f.exception()
+            if exc is not None:
+                raise exc
 
 
 def parallel_filter(fn: Callable, items: list, max_workers: int = None) -> list:
@@ -685,7 +687,7 @@ def all_settled(*tasks) -> list:
     """Run all tasks, return list of (result, error) tuples in submission order."""
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [executor.submit(task) for task in tasks]
-        results = []
+        results: list = []
         for f in futures:  # preserve submission order
             try:
                 results.append((f.result(), None))

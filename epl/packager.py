@@ -110,9 +110,9 @@ class DependencyScanner:
     def __init__(self, source_file: str):
         self.source_file = os.path.abspath(source_file)
         self.base_dir = os.path.dirname(self.source_file)
-        self.scanned = set()
-        self.dependencies = []
-        self.epl_packages = []
+        self.scanned: set = set()
+        self.dependencies: list = []
+        self.epl_packages: list = []
 
     def scan(self) -> List[str]:
         """Scan the source and all imported files recursively."""
@@ -149,9 +149,9 @@ class DependencyScanner:
                 # Look for package in epl_packages/
                 pkg_dir = os.path.join(self.base_dir, 'epl_packages', pkg)
                 if os.path.isdir(pkg_dir):
-                    for f in os.listdir(pkg_dir):
-                        if f.endswith('.epl'):
-                            self._scan_file(os.path.join(pkg_dir, f))
+                    for fname in os.listdir(pkg_dir):
+                        if fname.endswith('.epl'):
+                            self._scan_file(os.path.join(pkg_dir, fname))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -229,7 +229,7 @@ class PyInstallerPackager:
 
     def __init__(self, config: BuildConfig):
         self.config = config
-        self.temp_dir = None
+        self.temp_dir: 'str | None' = None
 
     def _check_pyinstaller(self) -> bool:
         """Check if PyInstaller is installed."""
@@ -410,7 +410,7 @@ VSVersionInfo(
   ]
 )
 """
-        vi_path = os.path.join(self.temp_dir, 'version_info.txt')
+        vi_path = os.path.join(self.temp_dir or self.config.output_dir, 'version_info.txt')
         with open(vi_path, 'w', encoding='utf-8') as f:
             f.write(vi_content)
         return vi_path
@@ -595,9 +595,9 @@ class NativePackager:
 
             # Cleanup object files
             if self.config.clean:
-                for f in [obj_path, runtime_o]:
-                    if os.path.exists(f):
-                        os.remove(f)
+                for obj_file in [obj_path, runtime_o]:
+                    if os.path.exists(obj_file):
+                        os.remove(obj_file)
 
             if os.path.exists(output):
                 size = os.path.getsize(output)
@@ -702,11 +702,12 @@ def _find_c_compiler() -> Optional[str]:
 
 def _human_size(size_bytes: int) -> str:
     """Convert bytes to human-readable size."""
+    size = float(size_bytes)
     for unit in ['B', 'KB', 'MB', 'GB']:
-        if size_bytes < 1024:
-            return f'{size_bytes:.1f} {unit}'
-        size_bytes /= 1024
-    return f'{size_bytes:.1f} TB'
+        if size < 1024:
+            return f'{size:.1f} {unit}'
+        size /= 1024
+    return f'{size:.1f} TB'
 
 
 def _dir_size(path: str) -> int:
@@ -757,7 +758,7 @@ def package(source_file: str, **kwargs) -> Optional[str]:
     print()
 
     if mode == 'exe':
-        packager = PyInstallerPackager(config)
+        packager: 'PyInstallerPackager | ZipPackager | NativePackager' = PyInstallerPackager(config)
         result = packager.build()
     elif mode == 'zip':
         packager = ZipPackager(config)

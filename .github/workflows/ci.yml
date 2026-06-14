@@ -164,12 +164,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .[dev]
       - name: Type-check (strict, blocking)
-        # Whole-tree mypy is BLOCKING. 51 of 75 modules are enforced — including
-        # the entire core language pipeline (lexer, parser, interpreter, vm,
-        # type checker, stdlib). The 24 modules still carrying type debt are
-        # listed under [[tool.mypy.overrides]] ignore_errors in pyproject.toml;
-        # that list is the debt ledger and only ever shrinks. Clean a module,
-        # delete it from the list, and it joins the gate.
+        # Whole-tree mypy is BLOCKING and the debt ledger is EMPTY: all 75
+        # modules under epl/ (excluding official_packages) type-check clean.
+        # A new type error fails CI — no per-module exemptions remain.
         run: mypy epl/ --ignore-missing-imports --exclude 'epl/official_packages'
 
   security:

@@ -162,15 +162,8 @@ exclude = [
 implicit_optional = true
 ignore_missing_imports = true
 
-# ── Strict type-check ratchet ──────────────────────────────────────────────
-# The whole tree is type-checked and BLOCKING in CI. Modules below still carry
-# type debt and are temporarily exempted; the list only ever shrinks. Remove a
-# module here once `mypy` reports it clean, and it joins the enforced gate.
-# 72 of 75 modules are already enforced (entire core language pipeline included).
-[[tool.mypy.overrides]]
-module = [
-    "epl.concurrency_real",
-    "epl.networking",
-    "epl.packager",
-]
-ignore_errors = true
+# ── Strict type-check gate ─────────────────────────────────────────────────
+# The ENTIRE tree (all 75 modules under epl/, excluding official_packages) is
+# type-checked and BLOCKING in CI — `mypy epl/` reports zero errors. The debt
+# ledger that used to exempt modules here is now empty: there is no type debt
+# left to ratchet down. Keep it that way — a new mypy error fails CI.

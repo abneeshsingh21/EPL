@@ -132,6 +132,12 @@ class TCPConnection:
         self.connected = sock is not None
         self._buffer_size = 65536
 
+    def _require_socket(self) -> socket.socket:
+        """Return the live socket or raise if this connection isn't open."""
+        if self._socket is None:
+            raise ConnectionError('Operation on a closed or unconnected socket.')
+        return self._socket
+
     def connect(self, host: str, port: int, timeout: float = 30.0, use_ssl: bool = False):
         """Connect to a TCP server."""
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -147,7 +153,8 @@ class TCPConnection:
         """Send data (str or bytes)."""
         if isinstance(data, str):
             data = data.encode('utf-8')
-        return self._socket.sendall(data) or len(data)
+        self._require_socket().sendall(data)
+        return len(data)
 
     def send_line(self, text: str):
         """Send a line of text (with newline)."""
@@ -155,18 +162,18 @@ class TCPConnection:
 
     def receive(self, size: int = None) -> str:
         """Receive data as string."""
-        data = self._socket.recv(size or self._buffer_size)
+        data = self._require_socket().recv(size or self._buffer_size)
         return data.decode('utf-8', errors='replace')
 
     def receive_bytes(self, size: int = None) -> bytes:
         """Receive raw bytes."""
-        return self._socket.recv(size or self._buffer_size)
+        return self._require_socket().recv(size or self._buffer_size)
 
     def receive_line(self) -> str:
         """Receive until newline."""
         data = b''
         while True:
-            chunk = self._socket.recv(1)
+            chunk = self._require_socket().recv(1)
             if not chunk or chunk == b'\n':
                 break
             data += chunk
@@ -174,11 +181,11 @@ class TCPConnection:
 
     def receive_all(self, timeout: float = 1.0) -> str:
         """Receive all available data."""
-        self._socket.settimeout(timeout)
+        self._require_socket().settimeout(timeout)
         chunks = []
         try:
             while True:
-                chunk = self._socket.recv(self._buffer_size)
+                chunk = self._require_socket().recv(self._buffer_size)
                 if not chunk:
                     break
                 chunks.append(chunk)
@@ -190,14 +197,14 @@ class TCPConnection:
         """Receive exactly n bytes."""
         data = b''
         while len(data) < size:
-            chunk = self._socket.recv(size - len(data))
+            chunk = self._require_socket().recv(size - len(data))
             if not chunk:
                 raise ConnectionError('Connection closed')
             data += chunk
         return data
 
     def set_timeout(self, seconds: float):
-        self._socket.settimeout(seconds)
+        self._require_socket().settimeout(seconds)
 
     def close(self):
         """Close the connection."""
@@ -284,7 +291,7 @@ class HTTPResponse:
         self.headers = headers
         self.body = body
         self.url = url
-        self._text = None
+        self._text: 'str | None' = None
         self._json = None
 
     @property
@@ -330,7 +337,7 @@ class HTTPClient:
             'Accept': 'application/json, text/html, */*',
         }
         self._cookies: dict = {}
-        self._auth: tuple = None
+        self._auth: 'tuple | None' = None
         self._verify_ssl = True
 
     def set_header(self, key: str, value: str):
@@ -427,7 +434,8 @@ class HTTPClient:
                 body = data.encode('utf-8')
             elif isinstance(data, bytes):
                 body = data
-            req_headers['Content-Length'] = str(len(body))
+            if body is not None:
+                req_headers['Content-Length'] = str(len(body))
 
         # Build request
         req = urllib.request.Request(
