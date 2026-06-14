@@ -640,6 +640,7 @@ class TypeChecker:
 
     def _check_function_def(self, node, scope: TypeScope, is_async: bool = False):
         """Check a function definition and register its signature."""
+        from epl import ast_nodes as ast
 
         param_types = []
         param_names = []
@@ -648,6 +649,10 @@ class TypeChecker:
                 pname = p[0]
                 ptype_name = p[1] if len(p) > 1 else None
                 default = p[2] if len(p) > 2 else None
+            elif isinstance(p, ast.RestParameter):
+                pname = p.name
+                ptype_name = None
+                default = None
             else:
                 pname = p
                 ptype_name = None

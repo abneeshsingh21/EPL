@@ -7,7 +7,6 @@ Handles English keywords, multi-word phrases, symbolic operators, and literals.
 from epl.errors import LexerError
 from epl.tokens import KEYWORDS, MULTI_WORD_KEYWORDS, Token, TokenType
 
-
 class Lexer:
     """Tokenizes EPL source code into a list of Tokens."""
 
@@ -343,7 +342,7 @@ class Lexer:
             'Triple-quoted string not closed before end of file.', start_line, start_col
         )
 
-    def _resolve_escape(self, escape_char: str, start_line: int, start_col: int) -> str:
+    def _resolve_escape(self, escape_char: str, start_line: int, start_col: int) -> 'str | None':
         """Resolve an escape sequence character. Returns the resolved char or None for unknown."""
         simple = {
             'n': '\n',

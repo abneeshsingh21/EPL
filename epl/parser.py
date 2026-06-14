@@ -61,7 +61,7 @@ class Parser:
         while self._current().type == TokenType.NEWLINE:
             self._advance()
 
-    def _optional(self, *types) -> Token:
+    def _optional(self, *types) -> 'Token | None':
         if self._current().type in types:
             return self._advance()
         return None

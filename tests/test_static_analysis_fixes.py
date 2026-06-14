@@ -175,3 +175,55 @@ def test_parser_param_default_ordering_raises_parsererror():
     assert 'attribute' not in str(exc_info.value).lower() or 'ParserError' in type(
         exc_info.value
     ).__name__
+
+
+# ─── rest/variadic params no longer crash the type checker ──
+
+
+def test_type_checker_handles_rest_param_function():
+    # node.params contains a RestParameter object; the checker used to do p[0]
+    # / len(p) on it -> TypeError, swallowed, so variadic fns went unchecked.
+    prog = _parse('Define function sum_all takes rest nums\n    Return 0\nEnd')
+    warnings = type_checker.TypeChecker(strict=False).check(prog)
+    assert isinstance(warnings, list)
+
+
+def test_type_system_handles_rest_param_function():
+    prog = _parse('Define function sum_all takes rest nums\n    Return 0\nEnd')
+    diags = type_system.TypeChecker().check(prog)
+    assert isinstance(diags, list)
+
+
+def test_type_checker_handles_rest_param_in_class_method():
+    prog = _parse(
+        'Class Calc\n'
+        '    Define function add takes rest xs\n'
+        '        Return 0\n'
+        '    End\n'
+        'End'
+    )
+    # Both declaration-collection and body-check passes must survive.
+    warnings = type_checker.TypeChecker(strict=False).check(prog)
+    assert isinstance(warnings, list)
+
+
+# ─── silent-except instrumentation is observable under EPL_DEBUG ─
+
+
+def test_debug_log_suppressed_emits_only_under_env(capsys, monkeypatch):
+    from epl import _debug_log
+
+    monkeypatch.delenv('EPL_DEBUG', raising=False)
+    try:
+        raise ValueError('boom')
+    except Exception:
+        _debug_log.suppressed('demo:test')
+    assert capsys.readouterr().err == ''  # silent by default
+
+    monkeypatch.setenv('EPL_DEBUG', '1')
+    try:
+        raise ValueError('boom2')
+    except Exception:
+        _debug_log.suppressed('demo:test')
+    assert 'demo:test' in capsys.readouterr().err  # observable when enabled
+

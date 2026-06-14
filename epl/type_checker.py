@@ -174,6 +174,19 @@ def parse_type_str(type_str) -> EPLType:
     return T_ANY
 
 
+def _param_name_type(p):
+    """Return (name, EPLType) for a parameter that may be a (name, type, default)
+    tuple or a variadic ``RestParameter`` node. Centralizes the guard so no call
+    site crashes by indexing/len()-ing a RestParameter."""
+    if isinstance(p, ast.RestParameter):
+        return p.name, T_ANY
+    if isinstance(p, (list, tuple)):
+        name = p[0]
+        ptype = parse_type_str(p[1]) if len(p) > 1 and p[1] else T_ANY
+        return name, ptype
+    return p, T_ANY
+
+
 def _normalize_type_name(name: str) -> str:
     """Normalize type names to canonical forms."""
     mapping = {
@@ -265,7 +278,7 @@ class TypeChecker:
                     code='W002',
                 )
 
-    def _fuzzy_suggest(self, name: str) -> str:
+    def _fuzzy_suggest(self, name: str) -> 'str | None':
         """Find the closest known name to suggest 'did you mean?'."""
         candidates = list(self._all_known_names)
         if not candidates:
@@ -281,7 +294,7 @@ class TypeChecker:
         if isinstance(node, ast.FunctionDef):
             param_types = []
             for p in node.params:
-                pt = parse_type_str(p[1]) if len(p) > 1 and p[1] else T_ANY
+                _, pt = _param_name_type(p)
                 param_types.append(pt)
             ret_type = parse_type_str(node.return_type)
             self._functions[node.name] = (param_types, ret_type)
@@ -297,7 +310,7 @@ class TypeChecker:
                 if isinstance(item, ast.FunctionDef):
                     pts = []
                     for p in item.params:
-                        pt = parse_type_str(p[1]) if len(p) > 1 and p[1] else T_ANY
+                        _, pt = _param_name_type(p)
                         pts.append(pt)
                     ret = parse_type_str(item.return_type)
                     class_info['methods'][item.name] = (pts, ret)
@@ -309,7 +322,7 @@ class TypeChecker:
                     fn = item.statement
                     pts = []
                     for p in fn.params:
-                        pt = parse_type_str(p[1]) if len(p) > 1 and p[1] else T_ANY
+                        _, pt = _param_name_type(p)
                         pts.append(pt)
                     ret = parse_type_str(fn.return_type)
                     class_info['methods'][fn.name] = (pts, ret)
@@ -428,8 +441,7 @@ class TypeChecker:
 
         self._push_scope()
         for p in node.params:
-            pname = p[0]
-            ptype = parse_type_str(p[1]) if len(p) > 1 and p[1] else T_ANY
+            pname, ptype = _param_name_type(p)
             self._set_var(pname, ptype)
 
         # Check body and collect return types
@@ -709,7 +721,7 @@ class TypeChecker:
     def _set_var(self, name: str, t: EPLType):
         self._scope_stack[-1][name] = t
 
-    def _get_var(self, name: str) -> EPLType:
+    def _get_var(self, name: str) -> 'EPLType | None':
         for scope in reversed(self._scope_stack):
             if name in scope:
                 return scope[name]
