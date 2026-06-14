@@ -315,7 +315,7 @@ class TestAssertions:
         except Exception as e:
             if error_msg and error_msg not in str(e):
                 msg = message or f'Expected error containing "{error_msg}", got: {e}'
-                raise AssertionError(msg)
+                raise AssertionError(msg) from e
             return True
 
     def expect_match(self, text, pattern, message=''):

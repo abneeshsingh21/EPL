@@ -254,7 +254,7 @@ def ffi_open(library_path):
     try:
         handle = ctypes.CDLL(resolved)
     except OSError as e:
-        raise OSError(f"Cannot load library '{library_path}': {e}")
+        raise OSError(f"Cannot load library '{library_path}': {e}") from e
 
     lib = FFILibrary(handle, resolved)
     _open_libraries[id(lib)] = lib

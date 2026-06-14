@@ -257,9 +257,9 @@ def call_python_function(
             python_module_type=python_module_type,
         )
     except TypeError as e:
-        raise EPLRuntimeError(f'{module_name}.{func_name}() argument error: {e}', line)
+        raise EPLRuntimeError(f'{module_name}.{func_name}() argument error: {e}', line) from e
     except Exception as e:
-        raise EPLRuntimeError(f'Python error in {module_name}.{func_name}(): {e}', line)
+        raise EPLRuntimeError(f'Python error in {module_name}.{func_name}(): {e}', line) from e
 
 
 def call_python_method(
@@ -300,6 +300,6 @@ def call_python_method(
             python_module_type=python_module_type,
         )
     except TypeError as e:
-        raise EPLRuntimeError(f'{py_mod.name}.{method}() argument error: {e}', line)
+        raise EPLRuntimeError(f'{py_mod.name}.{method}() argument error: {e}', line) from e
     except Exception as e:
-        raise EPLRuntimeError(f'Python error in {py_mod.name}.{method}(): {e}', line)
+        raise EPLRuntimeError(f'Python error in {py_mod.name}.{method}(): {e}', line) from e

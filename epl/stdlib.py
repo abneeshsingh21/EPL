@@ -1642,7 +1642,7 @@ def _exec(command):
     try:
         cmd_parts = _shlex.split(str(command))
     except ValueError as e:
-        raise EPLRuntimeError(f'Invalid command syntax: {e}', 0)
+        raise EPLRuntimeError(f'Invalid command syntax: {e}', 0) from e
     try:
         result = _subprocess.run(cmd_parts, capture_output=True, text=True)
     except FileNotFoundError:
@@ -1657,7 +1657,7 @@ def _exec_output(command):
     try:
         cmd_parts = _shlex.split(str(command))
     except ValueError as e:
-        raise EPLRuntimeError(f'Invalid command syntax: {e}', 0)
+        raise EPLRuntimeError(f'Invalid command syntax: {e}', 0) from e
     try:
         result = _subprocess.run(cmd_parts, capture_output=True, text=True)
     except FileNotFoundError:
@@ -2209,21 +2209,21 @@ def call_stdlib(name, args, line, interpreter=None):
             try:
                 return _to_epl(_json.loads(str(args[0])))
             except _json.JSONDecodeError as e:
-                raise EPLRuntimeError(f'json_parse error: {e}', line)
+                raise EPLRuntimeError(f'json_parse error: {e}', line) from e
         if name == 'json_stringify':
             if len(args) < 1:
                 raise EPLRuntimeError('json_stringify(value) requires a value.', line)
             try:
                 return _json.dumps(_from_epl(args[0]))
             except (TypeError, ValueError) as e:
-                raise EPLRuntimeError(f'json_stringify error: {e}', line)
+                raise EPLRuntimeError(f'json_stringify error: {e}', line) from e
         if name == 'json_pretty':
             if len(args) < 1:
                 raise EPLRuntimeError('json_pretty(value) requires a value.', line)
             try:
                 return _json.dumps(_from_epl(args[0]), indent=2)
             except (TypeError, ValueError) as e:
-                raise EPLRuntimeError(f'json_pretty error: {e}', line)
+                raise EPLRuntimeError(f'json_pretty error: {e}', line) from e
 
         # ── Database ──
         if name == 'db_open':
@@ -4617,7 +4617,7 @@ def call_stdlib(name, args, line, interpreter=None):
                         line,
                     )
             except (ValueError, KeyError) as e:
-                raise EPLRuntimeError(f'aes_decrypt: decryption failed — {e}', line)
+                raise EPLRuntimeError(f'aes_decrypt: decryption failed — {e}', line) from e
             return plaintext.decode('utf-8')
         if name == 'pbkdf2_hash':
             if len(args) < 1:
@@ -5721,7 +5721,7 @@ def call_stdlib(name, args, line, interpreter=None):
     except EPLRuntimeError:
         raise  # Re-raise EPL errors as-is
     except Exception as e:
-        raise EPLRuntimeError(f'{name}() error: {e}', line)
+        raise EPLRuntimeError(f'{name}() error: {e}', line) from e
 
 
 # ═══════════════════════════════════════════════════════════
@@ -6543,7 +6543,7 @@ def _call_auth(name, args, line):
                 raise EPLRuntimeError('Invalid Basic auth: expected username:password', line)
             return parts
         except Exception as e:
-            raise EPLRuntimeError(f'Failed to decode Basic auth: {e}', line)
+            raise EPLRuntimeError(f'Failed to decode Basic auth: {e}', line) from e
 
     raise EPLRuntimeError(f'Unknown auth function: {name}', line)
 
@@ -8172,7 +8172,7 @@ def _call_gui(name, args, line):
         try:
             widget.configure(**options)
         except Exception as e:
-            raise EPLRuntimeError(f'Style error: {e}', line)
+            raise EPLRuntimeError(f'Style error: {e}', line) from e
         return None
 
     if name == 'gui_close':
@@ -8587,7 +8587,7 @@ fun {safe_screen}Screen() {{
             screen_code,
         )
     except OSError as e:
-        raise EPLRuntimeError(f'Failed to write Android project files: {e}', line)
+        raise EPLRuntimeError(f'Failed to write Android project files: {e}', line) from e
 
     abs_path = _os.path.abspath(output_dir)
     print(f'[EPL] Android Studio project generated at: {abs_path}', file=_sys.stderr)
@@ -9232,7 +9232,7 @@ def _call_mobile(name, args, line):
             for k, v in options.items():
                 setattr(widget.style, k, v)
         except Exception as e:
-            raise EPLRuntimeError(f'Mobile style error: {e}', line)
+            raise EPLRuntimeError(f'Mobile style error: {e}', line) from e
         return None
 
     if name == 'mobile_navigate':
@@ -9623,7 +9623,7 @@ def _call_game(name, args, line):
         try:
             sound = pygame.mixer.Sound(path)
         except Exception as e:
-            raise EPLRuntimeError(f'game_sound() error: {e}', line)
+            raise EPLRuntimeError(f'game_sound() error: {e}', line) from e
         sid = f'snd_{_new_id()}'
         _game_sounds[sid] = sound
         return sid
@@ -9647,7 +9647,7 @@ def _call_game(name, args, line):
         try:
             pygame.mixer.music.load(path)
         except Exception as e:
-            raise EPLRuntimeError(f'game_music() error: {e}', line)
+            raise EPLRuntimeError(f'game_music() error: {e}', line) from e
         return None
 
     if name == 'game_play_music':
@@ -10356,8 +10356,8 @@ def _call_ml(name, args, line):
             if type(e).__name__ == 'NotFittedError' or 'not fitted' in str(e).lower():
                 raise EPLRuntimeError(
                     f'Model {mid} has not been trained yet. Call ml_train() first.', line
-                )
-            raise EPLRuntimeError(f'ml_predict error: {e}', line)
+                ) from e
+            raise EPLRuntimeError(f'ml_predict error: {e}', line) from e
         return result.tolist() if hasattr(result, 'tolist') else list(result)
 
     if name == 'ml_accuracy':
@@ -10378,8 +10378,8 @@ def _call_ml(name, args, line):
             preds = model.predict(X)
         except Exception as e:
             if 'not fitted' in str(e).lower():
-                raise EPLRuntimeError(f'Model {mid} has not been trained yet.', line)
-            raise EPLRuntimeError(f'ml_accuracy error: {e}', line)
+                raise EPLRuntimeError(f'Model {mid} has not been trained yet.', line) from e
+            raise EPLRuntimeError(f'ml_accuracy error: {e}', line) from e
         # Detect regression vs classification
         from sklearn.base import is_classifier
 
@@ -11386,7 +11386,7 @@ def _call_ds(name, args, line):
                 f'CSV file encoding error: {args[0]} — try specifying encoding.', line
             )
         except Exception as e:
-            raise EPLRuntimeError(f'CSV parse error: {e}', line)
+            raise EPLRuntimeError(f'CSV parse error: {e}', line) from e
         fid = f'df_{_new_id()}'
         _ds_frames[fid] = df
         return fid
@@ -11415,7 +11415,7 @@ def _call_ds(name, args, line):
         try:
             df = pd.read_json(path)
         except Exception as e:
-            raise EPLRuntimeError(f'JSON parse error: {e}', line)
+            raise EPLRuntimeError(f'JSON parse error: {e}', line) from e
         fid = f'df_{_new_id()}'
         _ds_frames[fid] = df
         return fid

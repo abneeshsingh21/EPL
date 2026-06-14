@@ -850,7 +850,7 @@ class Interpreter:
             env.set_variable(node.name, value)
         except EPLNameError as e:
             hint = _did_you_mean(node.name, list(env.get_all_names()))
-            raise EPLNameError(str(e.message) + hint, node.line)
+            raise EPLNameError(str(e.message) + hint, node.line) from e
 
     # ─── Print ────────────────────────────────────────────
 
@@ -1373,7 +1373,7 @@ class Interpreter:
                 result = _json.loads(args[0])
                 return self._python_to_epl(result)
             except Exception as e:
-                raise EPLRuntimeError(f'json_parse error: {e}', line)
+                raise EPLRuntimeError(f'json_parse error: {e}', line) from e
 
         if name == 'json_stringify':
             import json as _json
@@ -1383,7 +1383,7 @@ class Interpreter:
             try:
                 return _json.dumps(self._epl_to_python(args[0]))
             except Exception as e:
-                raise EPLRuntimeError(f'json_stringify error: {e}', line)
+                raise EPLRuntimeError(f'json_stringify error: {e}', line) from e
 
         if name == 'char_code':
             if len(args) == 1 and isinstance(args[0], str) and len(args[0]) == 1:
@@ -1469,7 +1469,7 @@ class Interpreter:
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(content)
         except OSError as e:
-            raise EPLRuntimeError(f'Cannot write to file: {e}', node.line)
+            raise EPLRuntimeError(f'Cannot write to file: {e}', node.line) from e
 
     def _exec_file_append(self, node: ast.FileAppend, env: Environment):
         if self.safe_mode:
@@ -1480,7 +1480,7 @@ class Interpreter:
             with open(filepath, 'a', encoding='utf-8') as f:
                 f.write(content + '\n')
         except OSError as e:
-            raise EPLRuntimeError(f'Cannot append to file: {e}', node.line)
+            raise EPLRuntimeError(f'Cannot append to file: {e}', node.line) from e
 
     def _eval_file_read(self, node: ast.FileRead, env: Environment):
         filepath = self._eval(node.filepath, env)
@@ -1488,7 +1488,7 @@ class Interpreter:
             with open(filepath, 'r', encoding='utf-8') as f:
                 return f.read()
         except OSError as e:
-            raise EPLRuntimeError(f'Cannot read file: {e}', node.line)
+            raise EPLRuntimeError(f'Cannot read file: {e}', node.line) from e
 
     # ─── Classes & OOP ───────────────────────────────────
 
@@ -1964,7 +1964,7 @@ class Interpreter:
             with open(abs_path, 'r', encoding='utf-8') as f:
                 source = f.read()
         except OSError as e:
-            raise EPLRuntimeError(f'Cannot read file "{abs_path}": {e}', line)
+            raise EPLRuntimeError(f'Cannot read file "{abs_path}": {e}', line) from e
         from epl.lexer import Lexer
         from epl.parser import Parser
 
@@ -2248,7 +2248,7 @@ class Interpreter:
                 raise EPLRuntimeError(
                     f'Refusing to install Python library "{node.library}": {exc}',
                     node.line,
-                )
+                ) from exc
             try:
                 verbose = _os.environ.get('EPL_VERBOSE')
                 _subprocess.check_call(
@@ -2289,7 +2289,7 @@ class Interpreter:
             bridge = NodeBridge.get_instance()
             handle = bridge.require(node.library)
         except NodeBridgeError as e:
-            raise EPLRuntimeError(str(e), node.line)
+            raise EPLRuntimeError(str(e), node.line) from e
         wrapped = JSModule(bridge, handle, node.alias or node.library)
         env.define_variable(node.alias, wrapped)
 
@@ -2482,9 +2482,9 @@ class Interpreter:
                 result = func(*[self._unwrap_python_argument(arg) for arg in args])
                 return self._wrap_python_result(result)
             except TypeError as e:
-                raise EPLRuntimeError(f'Argument error: {e}', line)
+                raise EPLRuntimeError(f'Argument error: {e}', line) from e
             except Exception as e:
-                raise EPLRuntimeError(f'Python error: {e}', line)
+                raise EPLRuntimeError(f'Python error: {e}', line) from e
 
         raise EPLTypeError(f'Cannot call {self._type_name(func)}.', line)
 
@@ -3616,7 +3616,7 @@ class Interpreter:
             except _futures.TimeoutError:
                 raise EPLRuntimeError(f'Await timed out for {val.name}.', node.line)
             except Exception as e:
-                raise EPLRuntimeError(f'Async error in {val.name}: {e}', node.line)
+                raise EPLRuntimeError(f'Async error in {val.name}: {e}', node.line) from e
         # If it's not a future, just return the value (already resolved)
         return val
 

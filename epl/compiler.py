@@ -1068,7 +1068,7 @@ class Compiler:
                 f'WASM compilation failed.\n'
                 f'  clang error: {clang_err}\n'
                 f'  LLVM IR saved to: {ll_path}'
-            )
+            ) from e
         except subprocess.TimeoutExpired:
             raise RuntimeError(
                 f'WASM compilation timed out after 120 seconds.\n  LLVM IR saved to: {ll_path}'

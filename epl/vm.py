@@ -2009,7 +2009,7 @@ class VM:
                         frame.ip = handler_ip
                         stack.append(str(e))
                     else:
-                        raise VMError(str(e), inst.line, call_stack=self._capture_call_stack())
+                        raise VMError(str(e), inst.line, call_stack=self._capture_call_stack()) from e
 
     # ─── Opcode handlers ─────────────────────────────────────
 
@@ -2685,7 +2685,7 @@ class VM:
             except _futures.TimeoutError:
                 raise VMError('Await timed out', inst.line)
             except Exception as e:
-                raise VMError(f'Async error: {e}', inst.line)
+                raise VMError(f'Async error: {e}', inst.line) from e
         elif hasattr(val, 'result') and callable(val.result):
             # EPLFuture or similar
             self.stack.append(val.result(timeout=60))
@@ -2716,7 +2716,7 @@ class VM:
             with open(str(path), 'r', encoding='utf-8') as f:
                 self.stack.append(f.read())
         except (OSError, IOError) as e:
-            raise VMError(f'Cannot read file: {e}', inst.line)
+            raise VMError(f'Cannot read file: {e}', inst.line) from e
 
     def _op_super_call(self, inst):
         """Call parent class method."""

@@ -461,7 +461,7 @@ class HTTPClient:
             return HTTPResponse(e.code, resp_headers, resp_body, full_url)
 
         except urllib.error.URLError as e:
-            raise ConnectionError(f'HTTP request failed: {e.reason}')
+            raise ConnectionError(f'HTTP request failed: {e.reason}') from e
 
     def get(self, url: str, params: dict = None, headers: dict = None) -> HTTPResponse:
         return self._make_request('GET', url, params=params, headers=headers)
