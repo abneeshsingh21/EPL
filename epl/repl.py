@@ -179,7 +179,7 @@ try:
     _HAS_PYGMENTS = True
 except ImportError:
     _HAS_PYGMENTS = False
-    EPLLexer = None
+    EPLLexer = None  # type: ignore[assignment,misc]  # pygments absent: class never defined
 
 
 # ── prompt_toolkit REPL ───────────────────────────────────────────────────────

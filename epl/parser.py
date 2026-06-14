@@ -23,7 +23,7 @@ class Parser:
         self.tokens = tokens
         self.pos = 0
         self._depth = 0
-        self.errors = []  # collected parse errors for recovery mode
+        self.errors: list = []  # collected parse errors for recovery mode
         self.max_errors = 20  # stop collecting after this many
 
     # ─── Helpers ──────────────────────────────────────────
@@ -1342,7 +1342,7 @@ class Parser:
 
     def _parse_param_list(self) -> list:
         """Parse function parameters: integer a and text b  OR  a, b = 10"""
-        params = []
+        params: list = []  # holds (name, type, default) tuples and RestParameter nodes
         has_default = False
 
         # "takes nothing" means no parameters

@@ -170,6 +170,8 @@ jobs:
           mypy
           epl/_debug_log.py epl/tokens.py epl/ast_nodes.py epl/errors.py
           epl/lexer.py epl/environment.py epl/type_checker.py epl/type_system.py
+          epl/vm.py epl/parser.py epl/interpreter.py epl/cli.py
+          epl/repl.py epl/bytecode_cache.py
           --ignore-missing-imports --follow-imports=silent
       - name: Type-check full tree (report only)
         # Full-tree type debt is still being paid down; surfaced here for

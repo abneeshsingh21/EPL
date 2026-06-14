@@ -176,7 +176,7 @@ class EPLGenerator:
         except ValueError:
             return cls.DEFAULT_YIELD_TIMEOUT
 
-    _active_generators = []
+    _active_generators: list = []
     _gen_lock = _threading.Lock()
 
     def __init__(self, interpreter, body, env, name='<generator>'):
@@ -428,13 +428,13 @@ class EPLLambda:
 # ─── Deprecation Registry ────────────────────────────────
 
 # Maps deprecated function name → (replacement, version_removed, message)
-DEPRECATED_FUNCTIONS = {
+DEPRECATED_FUNCTIONS: dict = {
     # Example entries — add real deprecations here as functions are superseded:
     # 'old_func': ('new_func', '6.0', 'Use new_func() instead.'),
 }
 
 # Track which deprecation warnings have already been emitted this session
-_deprecation_warned = set()
+_deprecation_warned: set = set()
 
 
 def _check_deprecation(name: str, line: int = None):
@@ -871,7 +871,7 @@ class Interpreter:
 
     def _exec_input(self, node: ast.InputStatement, env: Environment):
         prompt = node.prompt or ''
-        user_input = input(prompt)
+        user_input: 'int | float | str' = input(prompt)
         if env.has_variable(node.variable_name):
             existing = env.get_variable(node.variable_name)
             if isinstance(existing, int):
@@ -1000,7 +1000,7 @@ class Interpreter:
 
     # ─── Functions ────────────────────────────────────────
 
-    def _exec_function_def(self, node: ast.FunctionDef, env: Environment):
+    def _exec_function_def(self, node: 'ast.FunctionDef | ast.StaticMethodDef', env: Environment):
         env.define_function(node.name, node)
 
     def _exec_function_call(self, node: ast.FunctionCall, env: Environment):
@@ -1495,7 +1495,7 @@ class Interpreter:
 
     def _exec_class_def(self, node: ast.ClassDef, env: Environment):
         defaults = {}
-        methods = {}
+        methods: dict = {}
         static_methods = {}
         visibility_map = {}
         for item in node.body:
@@ -1545,7 +1545,7 @@ class Interpreter:
         but not enforced at runtime — EPL uses structural typing.
         """
         defaults = {}
-        methods = {}
+        methods: dict = {}
         static_methods = {}
         visibility_map = {}
         for item in node.body:
@@ -2273,7 +2273,7 @@ class Interpreter:
                     node.line,
                 )
         wrapped = PythonModule(module, node.library)
-        env.define_variable(node.alias, wrapped)
+        env.define_variable(node.alias or node.library, wrapped)
 
     # ─── Use JavaScript ───────────────────────────────────
 
@@ -2293,7 +2293,7 @@ class Interpreter:
         except NodeBridgeError as e:
             raise EPLRuntimeError(str(e), node.line) from e
         wrapped = JSModule(bridge, handle, node.alias or node.library)
-        env.define_variable(node.alias, wrapped)
+        env.define_variable(node.alias or node.library, wrapped)
 
     # ─── Wait ─────────────────────────────────────────────
 
@@ -2333,7 +2333,9 @@ class Interpreter:
         op = node.operator
         if op == '+=':
             if isinstance(current, str) or isinstance(rhs, str):
-                result = str(self._format_value(current)) + str(self._format_value(rhs))
+                result: 'int | float | str' = str(self._format_value(current)) + str(
+                    self._format_value(rhs)
+                )
             elif isinstance(current, list):
                 current.append(rhs)
                 return
@@ -2846,7 +2848,7 @@ class Interpreter:
             return EPLDict(dict(d.data))
         raise EPLRuntimeError(f'Map has no method "{method}".', line)
 
-    _python_call_cache = {}
+    _python_call_cache: dict = {}
 
     def _python_call(self, module_name, func_name, func_args, line):
         """Load a Python backend module and call a function on it."""
