@@ -710,7 +710,7 @@ def _explain_read_only(match, source_line, source_lines):
 
 # ─── Pattern Registry ────────────────────────────────────
 
-_PATTERNS = [
+_PATTERNS: List[dict] = [
     # NameError patterns
     {
         'match': r"undefined variable ['\"]?(\w+)['\"]?",

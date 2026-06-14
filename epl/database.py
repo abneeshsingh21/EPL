@@ -66,7 +66,7 @@ class FieldDef:
     nullable: bool = True
     unique: bool = False
     default: Any = None
-    foreign_key: str = None  # "TableName.column"
+    foreign_key: Optional[str] = None  # "TableName.column"
     auto_increment: bool = False
 
     def sql_type(self, dialect: str = 'sqlite') -> str:
@@ -489,7 +489,7 @@ class QueryBuilder:
     def build(self) -> Tuple[str, list]:
         """Build the SQL query and parameters."""
         sql = f'SELECT {", ".join(self._select_cols)} FROM {self._table}'
-        params = []
+        params: list = []
 
         for join in self._join_clauses:
             sql += f' {join}'
@@ -756,7 +756,7 @@ class Transaction:
 
     def __init__(self, db: Database):
         self.db = db
-        self.conn = None
+        self.conn: Any = None
 
     def __enter__(self):
         self.conn = self.db.pool.get()

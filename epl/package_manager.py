@@ -723,7 +723,7 @@ def _validate_github_repo(repo):
 
 
 # Built-in package registry (works offline)
-BUILTIN_REGISTRY = {
+BUILTIN_REGISTRY: dict = {
     'epl-math': {
         'description': 'Extended math functions for EPL',
         'version': '1.0.0',

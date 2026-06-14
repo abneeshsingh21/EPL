@@ -840,7 +840,7 @@ class Linter:
         nesting_depth = 0
         max_nesting = 0
         declared_vars = set()
-        used_vars = set()
+        used_vars: set = set()
         has_doc = False
 
         for i, line in enumerate(lines, 1):
@@ -1080,7 +1080,7 @@ class Linter:
     def _check_imports(self, lines: List[str], filepath: str) -> List[LintIssue]:
         """Check for duplicate and unused imports."""
         issues = []
-        imports = {}  # name -> line_number
+        imports: dict = {}  # name -> line_number
 
         for i, line in enumerate(lines, 1):
             stripped = line.strip()
@@ -1199,7 +1199,7 @@ class Linter:
 
         for issue in fixable:
             idx = issue.line - 1
-            if 0 <= idx < len(lines):
+            if 0 <= idx < len(lines) and issue.fix is not None:
                 lines[idx] = issue.fix + '\n'
                 fix_count += 1
 
@@ -1217,7 +1217,7 @@ class Linter:
             return '✓ No issues found!'
 
         lines = []
-        by_file = {}
+        by_file: dict = {}
         for iss in issues:
             by_file.setdefault(iss.file, []).append(iss)
 

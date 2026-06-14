@@ -670,7 +670,7 @@ class RegistryConfig:
         self.priority = priority
 
     def to_dict(self) -> dict:
-        d = {'url': self.url}
+        d: dict = {'url': self.url}
         if self.token_env:
             d['token_env'] = self.token_env
         if self.priority:

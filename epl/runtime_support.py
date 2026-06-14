@@ -386,8 +386,8 @@ def compile_file(
 
 def _bare_repl(interpreter: Interpreter) -> None:
     print("  EPL REPL (plain mode) — type 'exit' to quit")
-    history = []
-    session_lines = []
+    history: list = []
+    session_lines: list = []
     while True:
         try:
             line = input('EPL> ')
@@ -492,19 +492,17 @@ def handle_repl_command(cmd: str, history, session_lines, interpreter) -> None:
                 handle.write('\n'.join(session_lines) + '\n')
             print(f'  Session saved to {arg}')
     elif command == '.vars':
-        env = interpreter.env
-        if hasattr(env, 'values'):
-            values = env.values
-            if not values:
-                print('  No variables defined.')
-            else:
-                for name, value in sorted(values.items()):
-                    rendered = repr(value) if not isinstance(value, str) else f'"{value}"'
-                    if len(rendered) > 60:
-                        rendered = rendered[:57] + '...'
-                    print(f'  {name} = {rendered}')
+        env = getattr(interpreter, 'global_env', None)
+        values = getattr(env, 'variables', None)
+        if not values:
+            print('  No variables defined.')
         else:
-            print('  No variables accessible.')
+            for name, slot in sorted(values.items()):
+                value = slot['value'] if isinstance(slot, dict) and 'value' in slot else slot
+                rendered = repr(value) if not isinstance(value, str) else f'"{value}"'
+                if len(rendered) > 60:
+                    rendered = rendered[:57] + '...'
+                print(f'  {name} = {rendered}')
     elif command == '.run':
         if arg:
             run_source(arg, interpreter, '<repl>')
@@ -515,9 +513,10 @@ def handle_repl_command(cmd: str, history, session_lines, interpreter) -> None:
             try:
                 program = Parser(Lexer(f'Print type_of({arg})').tokenize()).parse()
                 temp_interp = Interpreter()
-                if hasattr(interpreter, 'env'):
-                    for name, value in getattr(interpreter.env, 'values', {}).items():
-                        temp_interp.env.set(name, value)
+                src_env = getattr(interpreter, 'global_env', None)
+                if src_env is not None and getattr(src_env, 'variables', None):
+                    for name in src_env.variables:
+                        temp_interp.global_env.define_variable(name, src_env.get_variable(name))
                 temp_interp.execute(program)
                 for line in temp_interp.output_lines:
                     print(f'  {line}')

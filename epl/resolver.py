@@ -315,7 +315,7 @@ class DependencyResolver:
 
     def __init__(self, provider: Optional[VersionProvider] = None, max_iterations: int = 10000):
         if provider is None:
-            self._provider = BuiltinVersionProvider()
+            self._provider: VersionProvider = BuiltinVersionProvider()
         else:
             self._provider = provider
         self._max_iterations = max_iterations
@@ -445,8 +445,8 @@ class DependencyResolver:
         for name, version in resolved.items():
             deps = resolved_deps.get(name, {})
             required_by = []
-            for cs in constraints.get(name, ConstraintSet(name)).constraints:
-                required_by.append(cs.source)
+            for vc in constraints.get(name, ConstraintSet(name)).constraints:
+                required_by.append(vc.source)
             result.add_package(
                 ResolvedPackage(
                     name=name,

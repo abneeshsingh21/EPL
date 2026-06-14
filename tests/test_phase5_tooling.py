@@ -1257,15 +1257,16 @@ def test_lsp_formatting():
 
 def test_repl():
     print('\n=== 5T.15 REPL — Commands ===')
+    # Mock interpreter using the REAL Environment API (.global_env / .variables /
+    # define_variable) so the test validates actual REPL behavior, not a stale shape.
+    from epl.environment import Environment
     from main import _handle_repl_command, count_open_blocks
 
-    # Mock interpreter
     class MockInterp:
         def __init__(self):
-            self.env = type(
-                'Env', (), {'values': {'x': 42, 'name': 'Alice'}, 'set': lambda s, n, v: None}
-            )()
-            self.global_env = self.env
+            self.global_env = Environment(name='global')
+            self.global_env.define_variable('x', 42)
+            self.global_env.define_variable('name', 'Alice')
             self.output_lines = []
             self._constants = set()
             self._imported_files = set()

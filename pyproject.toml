@@ -166,19 +166,11 @@ ignore_missing_imports = true
 # The whole tree is type-checked and BLOCKING in CI. Modules below still carry
 # type debt and are temporarily exempted; the list only ever shrinks. Remove a
 # module here once `mypy` reports it clean, and it joins the enforced gate.
-# 64 of 75 modules are already enforced (entire core language pipeline included).
+# 72 of 75 modules are already enforced (entire core language pipeline included).
 [[tool.mypy.overrides]]
 module = [
     "epl.concurrency_real",
-    "epl.database",
-    "epl.doc_linter",
-    "epl.error_explainer",
     "epl.networking",
-    "epl.package_index",
     "epl.packager",
-    "epl.registry",
-    "epl.resolver",
-    "epl.runtime_support",
-    "epl.web",
 ]
 ignore_errors = true

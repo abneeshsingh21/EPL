@@ -445,7 +445,7 @@ def _resolve_page_def(page_def, interpreter, env):
 
 
 # ─── Middleware Registry ─────────────────────────────────
-_middleware = []  # list of (name, func) pairs
+_middleware: list = []  # list of (name, func) pairs
 
 
 def add_middleware(name, func):
@@ -1536,7 +1536,7 @@ class WebSocketRoom:
 
 
 # Global WebSocket rooms registry
-_ws_rooms = {}
+_ws_rooms: dict = {}
 _ws_rooms_lock = threading.Lock()
 
 
@@ -1640,7 +1640,7 @@ def _handle_websocket_upgrade(handler):
 
 
 # ─── Rate Limiter ────────────────────────────────────────
-_rate_tracker = {}  # ip → [timestamps]
+_rate_tracker: dict = {}  # ip → [timestamps]
 
 
 def _check_rate_limit(ip, limit):
