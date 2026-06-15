@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#triple-strings" },
+    { "include": "#embedded-sql" },
     { "include": "#strings" },
     { "include": "#numbers" },
     { "include": "#keywords-control" },
@@ -53,7 +54,22 @@
           "begin": "\"\"\"",
           "end": "\"\"\"",
           "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.epl" } },
-          "endCaptures": { "0": { "name": "punctuation.definition.string.end.epl" } }
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.epl" } },
+          "contentName": "meta.embedded.block.html",
+          "patterns": [ { "include": "text.html.basic" } ]
+        }
+      ]
+    },
+    "embedded-sql": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.sql.epl",
+          "begin": "\"(?=\\s*(?i:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|REPLACE|WITH|PRAGMA|BEGIN|COMMIT|ROLLBACK|VACUUM|EXPLAIN)\\b)",
+          "end": "\"",
+          "beginCaptures": { "0": { "name": "punctuation.definition.string.begin.epl" } },
+          "endCaptures": { "0": { "name": "punctuation.definition.string.end.epl" } },
+          "contentName": "meta.embedded.inline.sql",
+          "patterns": [ { "include": "source.sql" } ]
         }
       ]
     },

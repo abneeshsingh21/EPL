@@ -36,6 +36,7 @@ public/
 *.o
 *.ll
 *.exe
+screenshot/
 
 # ─── Build Artifacts (generated via CI/CD) ───────────────
 epl.spec

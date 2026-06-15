@@ -16,6 +16,7 @@
 | Feature | Description |
 |---------|-------------|
 | 🎨 **Semantic Highlighting** | Lexer-accurate token colors from the Language Server (v2) — keywords, functions, classes, types — layered over TextMate so English words are colored only where they're truly keywords, never inside strings or comments |
+| 🧩 **Embedded Languages** | Full HTML/CSS/JS highlighting inside triple-quoted strings (`""" … """`) and SQL highlighting inside query strings — so the web markup, styles, scripts, and queries embedded in EPL apps are colored, not flat |
 | 🔍 **Real-time Diagnostics** | Error detection powered by EPL's Language Server Protocol |
 | 💡 **Code Completion** | 725+ stdlib function signatures with documentation |
 | 📖 **Hover Documentation** | Function signatures, parameter types, and descriptions on hover |

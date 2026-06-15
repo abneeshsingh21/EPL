@@ -1,8 +1,8 @@
 {
   "name": "epl-lang",
   "displayName": "EPL — English Programming Language",
-  "description": "Semantic highlighting, real-time diagnostics, auto-completions, hover docs, token-aware rename & find-references, and run/check commands for EPL (.epl files)",
-  "version": "2.5.0",
+  "description": "Embedded HTML/CSS/JS & SQL highlighting, semantic tokens, real-time diagnostics, auto-completions, hover docs, token-aware rename & find-references, and run/check commands for EPL (.epl files)",
+  "version": "2.6.0",
   "publisher": "epl-lang",
   "license": "Apache-2.0",
   "icon": "icon.png",
