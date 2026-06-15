@@ -2516,9 +2516,10 @@ class Parser:
             if self._match(TokenType.TO):
                 self._advance()
                 attrs['href'] = self._expect(TokenType.STRING, 'Expected link URL').value
-            self._collect_inline_attrs(attrs)
+            events = []
+            self._collect_inline_attrs(attrs, events)
             self._end_statement()
-            return ast.HtmlElement('link', content, attrs, line=tok.line)
+            return ast.HtmlElement('link', content, attrs, line=tok.line, events=events)
 
         if tok.type == TokenType.IMAGE:
             self._advance()
@@ -2530,7 +2531,8 @@ class Parser:
             self._advance()
             content = self._expect(TokenType.STRING, 'Expected button text').value
             attrs = {}
-            self._collect_inline_attrs(attrs)
+            events = []
+            self._collect_inline_attrs(attrs, events)
             if self._match(TokenType.DOES):
                 self._advance()
                 # Read the rest of the line as JS action
@@ -2540,7 +2542,7 @@ class Parser:
                     self._advance()
                 attrs['onclick'] = ' '.join(action_parts)
             self._end_statement()
-            return ast.HtmlElement('button', content, attrs, line=tok.line)
+            return ast.HtmlElement('button', content, attrs, line=tok.line, events=events)
 
         if tok.type == TokenType.INPUT:
             self._advance()
@@ -4012,14 +4014,18 @@ class Parser:
             self._current().line,
         )
 
-    def _collect_inline_attrs(self, attrs):
-        """Parse trailing `class`/`id`/`style`/safe attributes on a one-line
-        element (Link, Button) into the flat `attrs` dict. Stops at the end of
-        the statement. `class` values merge; `style` collects a CSS string.
+    def _collect_inline_attrs(self, attrs, events=None):
+        """Parse trailing `class`/`id`/`style`/safe attributes (and inline event
+        sugar) on a one-line element (Link, Button) into the flat `attrs` dict.
+        Stops at the end of the statement. `class` values merge; `style` collects
+        a CSS string. If `events` is given, `on <event> <verb>` appends to it.
         """
         class_names = []
         css_decls = []
         while not self._match(TokenType.NEWLINE, TokenType.EOF, TokenType.DOT):
+            if events is not None and self._match(TokenType.ON):
+                events.append(self._parse_inline_event())
+                continue
             if self._match(TokenType.CLASSNAME):
                 self._advance()
                 if self._match(TokenType.STRING):
@@ -4074,6 +4080,158 @@ class Parser:
                 pairs.append((prop, val))
         return pairs
 
+    # ─── Phase 4: Native event handlers ──────────────────────
+    # Element-level `On <event> ... End` blocks and inline `on <event> <verb>`
+    # sugar compile to CSP-safe generated JS (html_gen), never inline on*.
+    _EVENT_NAMES = frozenset({'click', 'hover', 'reveal'})
+    # Verb word (nested capitalised or inline 3rd-person) → action kind.
+    _EVENT_VERBS = {
+        'add': 'add_class',
+        'adds': 'add_class',
+        'remove': 'remove_class',
+        'removes': 'remove_class',
+        'toggle': 'toggle_class',
+        'toggles': 'toggle_class',
+        'navigate': 'navigate',
+        'navigates': 'navigate',
+        'scroll': 'scroll',
+        'scrolls': 'scroll',
+        'run': 'run',
+        'runs': 'run',
+    }
+    _SELECTOR_ALLOWED = set(
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 #.>[]="\':_-'
+    )
+
+    @staticmethod
+    def _event_class_ok(name):
+        """Validate a single CSS class name."""
+        if not name or not (name[0].isalpha() or name[0] in '-_'):
+            return False
+        return all(c.isalnum() or c in '-_' for c in name)
+
+    def _event_selector_ok(self, sel):
+        """Validate a CSS selector fragment (no braces/markup characters)."""
+        return bool(sel) and all(c in self._SELECTOR_ALLOWED for c in sel)
+
+    @staticmethod
+    def _event_fn_ok(fn):
+        """Validate a JS function identifier for the Run bridge."""
+        if not fn or not (fn[0].isalpha() or fn[0] in '_$'):
+            return False
+        return all(c.isalnum() or c in '_$' for c in fn)
+
+    def _read_event_name(self):
+        """Read and validate the event name after `On`/`on`. Consumes it."""
+        tok = self._current()
+        if tok.type != TokenType.IDENTIFIER:
+            raise ParserError('Expected an event name (click, hover, reveal) after "On".', tok.line)
+        name = str(tok.value).lower()
+        if name not in self._EVENT_NAMES:
+            raise ParserError(f'Unknown event "{name}". Supported: click, hover, reveal.', tok.line)
+        self._advance()
+        return name
+
+    def _read_event_verb(self):
+        """Return the normalized action kind for the current verb token, or None.
+
+        Consumes the verb token only on success. `Add` lexes as ADD_KW; all
+        other verbs (and inline 3rd-person forms) lex as IDENTIFIER.
+        """
+        tok = self._current()
+        if tok.type == TokenType.ADD_KW:
+            word = 'add'
+        elif tok.type == TokenType.IDENTIFIER:
+            word = str(tok.value).lower()
+        else:
+            return None
+        kind = self._EVENT_VERBS.get(word)
+        if kind is None:
+            return None
+        self._advance()
+        return kind
+
+    def _parse_event_action(self):
+        """Parse one action (class op / navigate / scroll / run). EventAction|None.
+
+        Does not consume the trailing newline — the caller's loop handles line
+        ends so this works for both nested blocks and inline single actions.
+        """
+        line = self._current().line
+        kind = self._read_event_verb()
+        if kind is None:
+            return None
+        data = {}
+        if kind in ('add_class', 'remove_class', 'toggle_class'):
+            # Optional `class` keyword (present in nested form, absent inline).
+            cur = self._current()
+            if cur.type == TokenType.CLASS or (
+                cur.type == TokenType.IDENTIFIER and str(cur.value).lower() == 'class'
+            ):
+                self._advance()
+            cls = self._expect(TokenType.STRING, 'Expected a class name string.').value
+            if not self._event_class_ok(cls):
+                raise ParserError(f'Invalid class name "{cls}".', line)
+            data['class'] = cls
+            if self._match(TokenType.ON):  # optional `on "#sel"` target
+                self._advance()
+                sel = self._expect(TokenType.STRING, 'Expected a selector after "on".').value
+                if not self._event_selector_ok(sel):
+                    raise ParserError(f'Invalid selector "{sel}".', line)
+                data['selector'] = sel
+        elif kind == 'navigate':
+            if self._match(TokenType.TO):
+                self._advance()
+            data['url'] = self._expect(
+                TokenType.STRING, 'Expected a URL after "Navigate to".'
+            ).value
+        elif kind == 'scroll':
+            if self._match(TokenType.TO):
+                self._advance()
+            sel = self._expect(TokenType.STRING, 'Expected a selector after "Scroll to".').value
+            if not self._event_selector_ok(sel):
+                raise ParserError(f'Invalid selector "{sel}".', line)
+            data['selector'] = sel
+        elif kind == 'run':
+            fn = self._expect(TokenType.STRING, 'Expected a function name after "Run".').value
+            if not self._event_fn_ok(fn):
+                raise ParserError(f'Invalid function name "{fn}".', line)
+            data['fn'] = fn
+        return ast.EventAction(kind, data, line)
+
+    def _parse_event_handler(self):
+        """Nested `On <event> ... End` block → EventHandler."""
+        line = self._current().line
+        self._advance()  # consume ON
+        event = self._read_event_name()
+        self._end_statement()
+        actions = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            action = self._parse_event_action()
+            if action is None:
+                raise ParserError(
+                    'Unknown action in event block. Use Add/Remove/Toggle class, '
+                    'Navigate to, Scroll to, or Run.',
+                    self._current().line,
+                )
+            actions.append(action)
+        self._expect(TokenType.END, 'Expected "End" to close the "On" event block.')
+        self._end_statement()
+        return ast.EventHandler(event, actions, line)
+
+    def _parse_inline_event(self):
+        """Inline `on <event> <verb> ...` (single action) → EventHandler."""
+        line = self._current().line
+        self._advance()  # consume ON
+        event = self._read_event_name()
+        action = self._parse_event_action()
+        if action is None:
+            raise ParserError('Expected an action after the inline event.', line)
+        return ast.EventHandler(event, [action], line)
+
     def _parse_styled_element(self, tag):
         """Div [with style "name"] [style "css"] [class "cls"] [id "myid"]
         [aria-* "v"] [data-* "v"] [role/target/rel/... "v"] ... End"""
@@ -4084,9 +4242,14 @@ class Parser:
         class_names = []
         attributes = {}
         inline_styles = []
+        events = []
         animate_name = None
 
         while not self._match(TokenType.NEWLINE, TokenType.EOF):
+            # Inline event sugar: `on click toggles "x"` in the element header.
+            if self._match(TokenType.ON):
+                events.append(self._parse_inline_event())
+                continue
             if self._match(TokenType.WITH):
                 self._advance()
                 if self._match(TokenType.STYLE):
@@ -4143,6 +4306,10 @@ class Parser:
             self._skip_newlines()
             if self._match(TokenType.END, TokenType.EOF):
                 break
+            # Nested event block: `On click ... End` as an element child.
+            if self._match(TokenType.ON):
+                events.append(self._parse_event_handler())
+                continue
             child = self._parse_element_or_statement()
             if child:
                 children.append(child)
@@ -4154,7 +4321,7 @@ class Parser:
             attributes['data-animate'] = animate_name
 
         return ast.StyledElement(
-            tag, styles, class_names, attributes, children, inline_styles, line
+            tag, styles, class_names, attributes, children, inline_styles, line, events
         )
 
     def _parse_layout_container(self, layout_type):

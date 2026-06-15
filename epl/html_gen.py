@@ -159,10 +159,18 @@ def generate_html(
     comps = components or {}
 
     batched_elements = _batch_draw_commands(elements)
+    # Phase 4 — assign data-evt ids and build native event JS BEFORE rendering
+    # body, so the selector-hook attribute is present in the emitted markup.
+    events_js = _collect_event_handlers(batched_elements)
     body_html = '\n'.join(
         _render_any_element(e, store, form_data, comps) for e in batched_elements if e
     )
     scripts = '\n'.join(_extract_scripts(e) for e in elements if e)
+    # Combine native event JS + hoisted Script content into one slot so pages
+    # without either add no markup (keeps output byte-stable when unused).
+    scripts_html = (f'<script>{events_js}</script>' if events_js else '') + (
+        f'<script>{scripts}</script>' if scripts else ''
+    )
 
     custom_css = _generate_custom_css(styles or [])
     animation_css = _generate_animation_css(animations or [])
@@ -236,7 +244,7 @@ def generate_html(
     </div>
     {footer_html}
     {native_animations_js}
-    {f'<script>{scripts}</script>' if scripts else ''}
+    {scripts_html}
 </body>
 </html>"""
 
@@ -548,6 +556,93 @@ def _resolve_store_templates(text, data_store):
     text = re.sub(r'\$count\{(\w+)\}', replace_count, text)
     text = re.sub(r'\$items\{(\w+)\}', replace_items, text)
     return text
+
+
+# ─── Phase 4: Native event handlers → CSP-safe generated JS ──────────────────
+
+
+def _event_action_js(action, i):
+    """Render one EventAction to a JS statement. `i` makes locals unique.
+
+    Class/selector/fn names are parse-validated; string values are _esc_js'd
+    and URLs pass through _safe_href. Output is static — no eval/Function.
+    """
+    kind = action.kind
+    data = action.data or {}
+    if kind in ('add_class', 'remove_class', 'toggle_class'):
+        op = {'add_class': 'add', 'remove_class': 'remove', 'toggle_class': 'toggle'}[kind]
+        cls = _esc_js(data.get('class', ''))
+        sel = data.get('selector')
+        if sel:
+            return (
+                f"var t{i}=document.querySelector('{_esc_js(sel)}')||el;"
+                f"t{i}.classList.{op}('{cls}');"
+            )
+        return f"el.classList.{op}('{cls}');"
+    if kind == 'navigate':
+        return f"window.location.href='{_esc_js(_safe_href(data.get('url', '')))}';"
+    if kind == 'scroll':
+        return (
+            f"var s{i}=document.querySelector('{_esc_js(data.get('selector', ''))}');"
+            f"if(s{i})s{i}.scrollIntoView({{behavior:'smooth'}});"
+        )
+    if kind == 'run':
+        fn = data.get('fn', '')  # validated ^[A-Za-z_$][\\w$]*$ at parse
+        return f"if(typeof window.{fn}==='function')window.{fn}(el);"
+    return ''
+
+
+def _event_handler_js(evt_id, handler):
+    """Render one EventHandler to a querySelectorAll().forEach(...) block."""
+    body = ''.join(_event_action_js(a, i) for i, a in enumerate(handler.actions))
+    sel = f'document.querySelectorAll(\'[data-evt="{evt_id}"]\')'
+    if handler.event == 'reveal':
+        # Fires once on scroll-into-view via the shared observer (__ro).
+        return f'{sel}.forEach(function(el){{el.__r=function(){{{body}}};__ro.observe(el);}});'
+    js_event = 'mouseenter' if handler.event == 'hover' else 'click'
+    return (
+        f"{sel}.forEach(function(el){{el.addEventListener('{js_event}',function(){{{body}}});}});"
+    )
+
+
+def _collect_event_handlers(elements):
+    """Pre-pass: assign data-evt ids to elements with events and build their JS.
+
+    Walks the element tree, mutating each event-bearing element's `attributes`
+    with a unique `data-evt` selector hook (rendered via the existing safe-attr
+    path), and returns the combined IIFE JS (or '' if there are no handlers).
+    Must run before body rendering so the data-evt attribute is present.
+    """
+    state = {'next': 0, 'parts': [], 'has_reveal': False}
+
+    def walk(el):
+        events = getattr(el, 'events', None)
+        if events and isinstance(getattr(el, 'attributes', None), dict):
+            state['next'] += 1
+            evt_id = str(state['next'])
+            el.attributes['data-evt'] = evt_id
+            for handler in events:
+                if handler.event == 'reveal':
+                    state['has_reveal'] = True
+                state['parts'].append(_event_handler_js(evt_id, handler))
+        for child in getattr(el, 'children', None) or []:
+            if child is not None:
+                walk(child)
+
+    for el in elements:
+        if el is not None:
+            walk(el)
+
+    if not state['parts']:
+        return ''
+    prelude = ''
+    if state['has_reveal']:
+        prelude = (
+            'var __ro=new IntersectionObserver(function(es){es.forEach(function(en){'
+            'if(en.isIntersecting){if(en.target.__r)en.target.__r();__ro.unobserve(en.target);}'
+            '});},{threshold:0.12});'
+        )
+    return '(function(){' + prelude + ''.join(state['parts']) + '})();'
 
 
 def _extract_scripts(elem):

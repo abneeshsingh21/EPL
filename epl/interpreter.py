@@ -775,6 +775,8 @@ class Interpreter:
                 ast.RawStylesheet,
                 ast.HeadDef,
                 ast.HeadDirective,
+                ast.EventHandler,
+                ast.EventAction,
                 ast.StyledElement,
                 ast.LayoutContainer,
                 ast.ComponentDef,

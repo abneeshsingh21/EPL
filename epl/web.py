@@ -428,7 +428,7 @@ def _resolve_page_element(elem, interpreter, env):
         for key, value in (elem.attributes or {}).items()
     }
     children = [_resolve_page_element(child, interpreter, env) for child in (elem.children or [])]
-    return ast.HtmlElement(elem.tag, content, attrs, children, elem.line)
+    return ast.HtmlElement(elem.tag, content, attrs, children, elem.line, elem.events)
 
 
 def _resolve_page_def(page_def, interpreter, env):

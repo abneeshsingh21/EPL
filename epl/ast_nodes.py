@@ -565,17 +565,50 @@ class HeadDef(ASTNode):
         self.line = line
 
 
+class EventAction(ASTNode):
+    """A single action inside an event handler (Phase 4 native interactivity).
+
+    `kind` ∈ {add_class, remove_class, toggle_class, navigate, scroll, run};
+    `data` carries the parsed fields (class, selector, url, fn). Compiled to
+    CSP-safe generated JS by html_gen — never an inline on* handler.
+    """
+
+    def __init__(self, kind: str, data: dict, line: int = 0):
+        self.kind = kind
+        self.data = data or {}
+        self.line = line
+
+
+class EventHandler(ASTNode):
+    """An `On <event> ... End` block (or inline sugar) attached to an element.
+
+    `event` ∈ {click, hover, reveal}; `actions` is a list of EventAction.
+    """
+
+    def __init__(self, event: str, actions: list, line: int = 0):
+        self.event = event
+        self.actions = actions or []
+        self.line = line
+
+
 class HtmlElement(ASTNode):
     """Heading "text", Text "text", Button "text" does action, etc."""
 
     def __init__(
-        self, tag: str, content=None, attributes: dict = None, children: list = None, line: int = 0
+        self,
+        tag: str,
+        content=None,
+        attributes: dict = None,
+        children: list = None,
+        line: int = 0,
+        events: list = None,
     ):
         self.tag = tag  # 'heading', 'text', 'button', 'input', etc.
         self.content = content  # text content or expression
         self.attributes = attributes or {}
         self.children = children or []
         self.line = line
+        self.events = events or []
 
     def __repr__(self):
         return f'HtmlElement({self.tag})'
@@ -1131,6 +1164,7 @@ class StyledElement(ASTNode):
         children: list = None,
         inline_styles: list = None,
         line: int = 0,
+        events: list = None,
     ):
         self.tag = tag
         self.styles = styles or []
@@ -1139,6 +1173,7 @@ class StyledElement(ASTNode):
         self.children = children or []
         self.inline_styles = inline_styles or []
         self.line = line
+        self.events = events or []
 
 
 class LayoutContainer(ASTNode):
