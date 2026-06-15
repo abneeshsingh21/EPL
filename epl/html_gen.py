@@ -277,6 +277,56 @@ def _safe_href(url):
     return _esc(url)
 
 
+_SAFE_ATTR_NAME_RE = _re.compile(r'^[a-zA-Z][a-zA-Z0-9-]*$')
+
+
+def _is_render_safe_attr(name):
+    """Render-time attribute allowlist (defense in depth; mirrors the parser).
+
+    Blocks inline event handlers (`on*`) and any name with unexpected
+    characters. `class`/`id`/`style` are emitted by dedicated code paths.
+    """
+    if not isinstance(name, str) or not _SAFE_ATTR_NAME_RE.match(name):
+        return False
+    lowered = name.lower()
+    if lowered.startswith('on') or lowered in ('style', 'class'):
+        return False
+    return True
+
+
+def _render_safe_attrs(attributes, skip=()):
+    """Emit `attributes` as escaped HTML attributes, dropping unsafe names.
+
+    `skip` lists keys handled elsewhere (e.g. 'href', 'id', 'data-animate').
+    """
+    if not attributes:
+        return ''
+    skip_set = set(skip)
+    out = []
+    for name, value in attributes.items():
+        if name in skip_set or not _is_render_safe_attr(name):
+            continue
+        out.append(f' {name}="{_esc(value if isinstance(value, str) else str(value))}"')
+    return ''.join(out)
+
+
+def _render_element_attrs(attributes, skip=()):
+    """Emit class/id/style plus generic safe attributes from a flat attrs dict.
+
+    Used by one-line elements (link, button). `skip` lists keys rendered by
+    their own code path (e.g. 'href', 'onclick').
+    """
+    if not attributes:
+        return ''
+    skip_set = set(skip)
+    parts = []
+    for key in ('class', 'id', 'style'):
+        if key in attributes and key not in skip_set:
+            parts.append(f' {key}="{_esc(str(attributes[key]))}"')
+    parts.append(_render_safe_attrs(attributes, skip=skip_set | {'class', 'id', 'style'}))
+    return ''.join(parts)
+
+
 def _render_element(elem, data_store=None, form_data=None):
     """Render a single HtmlElement to HTML."""
     if not isinstance(elem, ast.HtmlElement):
@@ -306,7 +356,8 @@ def _render_element(elem, data_store=None, form_data=None):
 
     if tag == 'link':
         href = attrs.get('href', '#')
-        return f'<a href="{_safe_href(href)}">{_esc(content)}</a>'
+        extra = _render_element_attrs(attrs, skip={'href'})
+        return f'<a href="{_safe_href(href)}"{extra}>{_esc(content)}</a>'
 
     if tag == 'image':
         src = attrs.get('src', '')
@@ -320,7 +371,8 @@ def _render_element(elem, data_store=None, form_data=None):
         ):
             onclick = ''  # Strip unsafe onclick values
         onclick_attr = f' onclick="{_esc(onclick)}"' if onclick else ''
-        return f'<button{onclick_attr}>{_esc(content)}</button>'
+        extra = _render_element_attrs(attrs, skip={'onclick'})
+        return f'<button{onclick_attr}{extra}>{_esc(content)}</button>'
 
     if tag == 'input':
         name = attrs.get('name', '')
@@ -460,11 +512,19 @@ def _resolve_store_templates(text, data_store):
 
 
 def _extract_scripts(elem):
-    """Extract JavaScript from script elements."""
-    if not isinstance(elem, ast.HtmlElement):
-        return ''
-    if elem.tag == 'script' and elem.content:
-        return str(elem.content)
+    """Extract JavaScript from script elements, recursing into children.
+
+    Scripts may be nested inside structural elements (Div/Section/…) or layout
+    containers; their content is hoisted into the page's single <script> block.
+    """
+    if isinstance(elem, ast.HtmlElement):
+        if elem.tag == 'script' and elem.content:
+            return str(elem.content)
+        parts = [_extract_scripts(c) for c in (elem.children or [])]
+        return '\n'.join(p for p in parts if p)
+    if isinstance(elem, (ast.StyledElement, ast.LayoutContainer)):
+        parts = [_extract_scripts(c) for c in (elem.children or [])]
+        return '\n'.join(p for p in parts if p)
     return ''
 
 
@@ -589,12 +649,16 @@ def _render_styled_element(elem, data_store=None, form_data=None, components=Non
         ]
         style_attr = f' style="{"; ".join(style_parts)}"'
 
+    # Generic safe attributes (aria-*, data-*, role, target, …). `id` and the
+    # internal `data-animate` marker are handled above, so skip them here.
+    extra_attr = _render_safe_attrs(elem.attributes, skip={'id', 'data-animate'})
+
     comps = components or {}
     children_html = '\n'.join(
         _render_any_element(c, data_store, form_data, comps) for c in elem.children if c
     )
 
-    return f'<{tag}{class_attr}{id_attr}{style_attr}>\n{children_html}\n</{tag}>'
+    return f'<{tag}{class_attr}{id_attr}{style_attr}{extra_attr}>\n{children_html}\n</{tag}>'
 
 
 def _render_layout_container(elem, data_store=None, form_data=None, components=None):

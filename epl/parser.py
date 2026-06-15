@@ -2503,6 +2503,7 @@ class Parser:
             if self._match(TokenType.TO):
                 self._advance()
                 attrs['href'] = self._expect(TokenType.STRING, 'Expected link URL').value
+            self._collect_inline_attrs(attrs)
             self._end_statement()
             return ast.HtmlElement('link', content, attrs, line=tok.line)
 
@@ -2516,6 +2517,7 @@ class Parser:
             self._advance()
             content = self._expect(TokenType.STRING, 'Expected button text').value
             attrs = {}
+            self._collect_inline_attrs(attrs)
             if self._match(TokenType.DOES):
                 self._advance()
                 # Read the rest of the line as JS action
@@ -3528,22 +3530,50 @@ class Parser:
 
     # ─── v6.0: Style & Layout System ─────────────────────
 
-    def _parse_element_or_statement(self):
-        """Try to parse as HTML element first, then fall back to statement."""
-        tok = self._current()
-        nxt = self._peek()
-        if tok.type in (
+    # Element-starting tokens that `_parse_html_element` fully handles and that
+    # are unambiguous as web elements when nested inside a structural block
+    # (Div/Section/Nav/…). Kept in sync with the dispatch in
+    # `_parse_html_element`; `TYPE_TEXT`/`SAY`/`DISPLAY`/`SHOW` are handled
+    # separately below because they double as statement keywords.
+    _NESTED_ELEMENT_TOKENS = frozenset(
+        {
             TokenType.HEADING,
             TokenType.SUBHEADING,
             TokenType.LINK,
             TokenType.IMAGE,
             TokenType.BUTTON,
+            TokenType.INPUT,
             TokenType.FORM,
+            TokenType.TYPE_LIST,
+            TokenType.SCRIPT,
+            TokenType.PAGE,
             TokenType.WORDS_PULL_UP,
             TokenType.NOISE_OVERLAY,
             TokenType.BG_NOISE,
             TokenType.WORDS_PULL_UP_MULTI_STYLE,
-        ):
+            TokenType.DIV,
+            TokenType.SECTION,
+            TokenType.NAV,
+            TokenType.HEADER_EL,
+            TokenType.FOOTER_EL,
+            TokenType.SPAN,
+            TokenType.ARTICLE,
+            TokenType.ASIDE,
+            TokenType.MAIN_EL,
+            TokenType.CONTAINER,
+            TokenType.FLEX,
+            TokenType.GRID,
+        }
+    )
+
+    def _parse_element_or_statement(self):
+        """Try to parse as HTML element first, then fall back to statement."""
+        tok = self._current()
+        nxt = self._peek()
+        # `Raw HTML "..."` — two-token element, must be checked before the set.
+        if tok.type == TokenType.RAW and nxt and nxt.type == TokenType.HTML_KW:
+            return self._parse_html_element()
+        if tok.type in self._NESTED_ELEMENT_TOKENS:
             return self._parse_html_element()
         if tok.type == TokenType.TYPE_TEXT and nxt and nxt.type == TokenType.STRING:
             return self._parse_html_element()
@@ -3605,14 +3635,144 @@ class Parser:
         self._end_statement()
         return ast.StyleProperty(property_name, value, line)
 
+    # Attribute names allowed on elements via the generic `name "value"` form.
+    # Exact names plus the `aria-*`/`data-*` prefixes (checked separately).
+    # Event handlers (`on*`) and `style`/`class`/`id` are deliberately excluded
+    # — inline JS handlers route through the native event system (a later
+    # phase), and style/class/id have dedicated parsing above.
+    _SAFE_ATTR_NAMES = frozenset(
+        {
+            'role',
+            'target',
+            'rel',
+            'title',
+            'lang',
+            'dir',
+            'tabindex',
+            'download',
+            'hidden',
+            'draggable',
+            'spellcheck',
+            'translate',
+            'itemprop',
+            'itemscope',
+            'itemtype',
+        }
+    )
+
+    def _read_attr_name(self):
+        """Read a (possibly hyphenated) attribute name like `aria-label`.
+
+        Hyphenated names lex as separate tokens (IDENTIFIER `-` IDENTIFIER),
+        so reassemble them here. Returns the lower-cased name, or None if the
+        current token can't start an attribute name. Does not advance on None.
+        """
+        tok = self._current()
+        if tok.type not in (TokenType.IDENTIFIER,) + self._SOFT_KEYWORDS:
+            return None
+        parts = [str(self._advance().value)]
+        while self._match(TokenType.OP_MINUS) and self._peek().type in (
+            (TokenType.IDENTIFIER,) + self._SOFT_KEYWORDS
+        ):
+            self._advance()  # consume '-'
+            parts.append(str(self._advance().value))
+        return '-'.join(parts).lower()
+
+    def _is_safe_attr_name(self, name):
+        """Whether `name` is an allowed generic attribute (no on* handlers)."""
+        if not name or name.startswith('on'):
+            return False
+        if name in ('style', 'class', 'id'):
+            return False  # handled by dedicated parsing
+        return name in self._SAFE_ATTR_NAMES or name.startswith('aria-') or name.startswith('data-')
+
+    def _reject_unsafe_attr(self, name):
+        """Raise a clear error for a disallowed `name "value"` attribute."""
+        if name.startswith('on'):
+            raise ParserError(
+                f'Inline event handler "{name}" is not allowed for security. '
+                f'Use a native event block instead of an on* attribute.',
+                self._current().line,
+            )
+        raise ParserError(
+            f'Unsupported attribute "{name}". Allowed: class, id, style, '
+            f'aria-*, data-*, role, target, rel, title, lang, dir, tabindex, '
+            f'download, hidden, draggable, spellcheck, translate.',
+            self._current().line,
+        )
+
+    def _collect_inline_attrs(self, attrs):
+        """Parse trailing `class`/`id`/`style`/safe attributes on a one-line
+        element (Link, Button) into the flat `attrs` dict. Stops at the end of
+        the statement. `class` values merge; `style` collects a CSS string.
+        """
+        class_names = []
+        css_decls = []
+        while not self._match(TokenType.NEWLINE, TokenType.EOF, TokenType.DOT):
+            if self._match(TokenType.CLASSNAME):
+                self._advance()
+                if self._match(TokenType.STRING):
+                    class_names.append(self._advance().value)
+                continue
+            tok = self._current()
+            if tok.type == TokenType.CLASS or (
+                tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'class'
+            ):
+                self._advance()
+                if self._match(TokenType.STRING):
+                    class_names.append(self._advance().value)
+                continue
+            if tok.type == TokenType.IDENTIFIER and tok.value.lower() == 'id':
+                self._advance()
+                if self._match(TokenType.STRING):
+                    attrs['id'] = self._advance().value
+                continue
+            if self._match(TokenType.STYLE):
+                self._advance()
+                if self._match(TokenType.STRING):
+                    css_decls.append(self._advance().value)
+                continue
+            saved = self.pos
+            attr_name = self._read_attr_name()
+            if attr_name is not None and self._match(TokenType.STRING):
+                if not self._is_safe_attr_name(attr_name):
+                    self._reject_unsafe_attr(attr_name)
+                attrs[attr_name] = self._advance().value
+                continue
+            self.pos = saved
+            break
+
+        if class_names:
+            existing = attrs.get('class')
+            attrs['class'] = (f'{existing} ' if existing else '') + ' '.join(class_names)
+        if css_decls:
+            attrs['style'] = '; '.join(d.strip().rstrip(';').strip() for d in css_decls)
+
+    @staticmethod
+    def _split_inline_css(css):
+        """Split an inline CSS string into (property, value) pairs."""
+        pairs = []
+        for decl in css.split(';'):
+            decl = decl.strip()
+            if not decl or ':' not in decl:
+                continue
+            prop, _, val = decl.partition(':')
+            prop = prop.strip()
+            val = val.strip()
+            if prop and val:
+                pairs.append((prop, val))
+        return pairs
+
     def _parse_styled_element(self, tag):
-        """Div [with style "name"] [class "cls"] [id "myid"] ... End"""
+        """Div [with style "name"] [style "css"] [class "cls"] [id "myid"]
+        [aria-* "v"] [data-* "v"] [role/target/rel/... "v"] ... End"""
         line = self._current().line
         self._advance()  # consume tag keyword
 
         styles = []
         class_names = []
         attributes = {}
+        inline_styles = []
         animate_name = None
 
         while not self._match(TokenType.NEWLINE, TokenType.EOF):
@@ -3622,6 +3782,14 @@ class Parser:
                     self._advance()
                     if self._match(TokenType.STRING):
                         styles.append(self._advance().value)
+                continue
+            # Bare `style "css"` (NOT preceded by `with`) → inline styles.
+            if self._match(TokenType.STYLE):
+                self._advance()
+                if self._match(TokenType.STRING):
+                    css = self._advance().value
+                    for prop, val in self._split_inline_css(css):
+                        inline_styles.append(ast.StyleProperty(prop, val, line))
                 continue
             if self._match(TokenType.CLASSNAME):
                 self._advance()
@@ -3646,6 +3814,15 @@ class Parser:
                 if self._match(TokenType.STRING):
                     animate_name = self._advance().value
                 continue
+            # Generic attribute: `name "value"` (incl. aria-*/data-*).
+            saved = self.pos
+            attr_name = self._read_attr_name()
+            if attr_name is not None and self._match(TokenType.STRING):
+                if not self._is_safe_attr_name(attr_name):
+                    self._reject_unsafe_attr(attr_name)
+                attributes[attr_name] = self._advance().value
+                continue
+            self.pos = saved  # not an attribute at all — stop parsing the header
             break
 
         self._end_statement()
@@ -3665,7 +3842,9 @@ class Parser:
         if animate_name:
             attributes['data-animate'] = animate_name
 
-        return ast.StyledElement(tag, styles, class_names, attributes, children, [], line)
+        return ast.StyledElement(
+            tag, styles, class_names, attributes, children, inline_styles, line
+        )
 
     def _parse_layout_container(self, layout_type):
         """Flex direction "row" gap "16px" align "center" ... End
