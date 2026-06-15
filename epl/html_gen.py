@@ -135,13 +135,20 @@ body { margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, Bli
 
 
 def generate_html(
-    page_def, data_store=None, form_data=None, styles=None, components=None, animations=None
+    page_def,
+    data_store=None,
+    form_data=None,
+    styles=None,
+    components=None,
+    animations=None,
+    stylesheets=None,
 ):
     """Convert a PageDef AST node into a full HTML page string.
 
     styles: list of StyleDef nodes collected from the program
     components: dict of component_name -> ComponentDef
     animations: list of AnimateDef nodes
+    stylesheets: list of RawStylesheet nodes (raw CSS, server-rendered into head)
     """
     title = page_def.title if isinstance(page_def, ast.PageDef) else 'EPL Page'
     elements = page_def.elements if isinstance(page_def, ast.PageDef) else []
@@ -156,9 +163,10 @@ def generate_html(
 
     custom_css = _generate_custom_css(styles or [])
     animation_css = _generate_animation_css(animations or [])
+    raw_css = _collect_raw_stylesheets(stylesheets or [])
     extra_css = ''
-    if custom_css or animation_css:
-        extra_css = f'\n    <style>\n{custom_css}\n{animation_css}\n    </style>'
+    if custom_css or animation_css or raw_css:
+        extra_css = f'\n    <style>\n{custom_css}\n{animation_css}\n{raw_css}\n    </style>'
 
     native_animations_js = """
     <script>
@@ -265,6 +273,22 @@ def _esc_css_value(value):
     return (
         value.replace('{', '').replace('}', '').replace(';', '').replace('<', '').replace('>', '')
     )
+
+
+_CSS_SELECTOR_ALLOWED = set(
+    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .#>+~*[]="\':()_-,'
+)
+
+
+def _esc_css_selector(selector):
+    """Sanitize a descendant/combinator selector fragment.
+
+    Allows the common selector characters but strips block/markup characters
+    (`{ } < >`) so a `Select "..."` value can't break out of its rule.
+    """
+    if not isinstance(selector, str):
+        selector = str(selector)
+    return ''.join(c for c in selector if c in _CSS_SELECTOR_ALLOWED)
 
 
 def _safe_href(url):
@@ -531,20 +555,58 @@ def _extract_scripts(elem):
 # ─── v6.0: Style & Layout Rendering ─────────────────────────
 
 
+def _css_declarations(properties):
+    """Render a list of StyleProperty nodes as indented CSS declarations."""
+    decls = []
+    for prop in properties:
+        value = prop.value
+        if isinstance(value, ast.Literal):
+            value = value.value
+        decls.append(f'    {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};')
+    return '\n'.join(decls)
+
+
 def _generate_custom_css(styles):
-    """Generate CSS from StyleDef AST nodes."""
+    """Generate CSS from StyleDef AST nodes, including nested StyleRule variants
+    (pseudo-states, descendant selectors) and media-query blocks."""
     if not styles:
         return ''
     css_parts = []
     for style_def in styles:
-        props = []
-        for prop in style_def.properties:
-            value = prop.value
-            if isinstance(value, ast.Literal):
-                value = value.value
-            props.append(f'    {_esc_css_ident(prop.property_name)}: {_esc_css_value(value)};')
-        css_parts.append(f'.{_esc_css_ident(style_def.name)} {{\n' + '\n'.join(props) + '\n}')
+        base = _esc_css_ident(style_def.name)
+        css_parts.append(f'.{base} {{\n' + _css_declarations(style_def.properties) + '\n}')
+        for rule in getattr(style_def, 'rules', None) or []:
+            selector = f'.{base}{_esc_css_selector(rule.suffix)}'
+            block = f'{selector} {{\n' + _css_declarations(rule.properties) + '\n}'
+            if rule.media:
+                # Media condition is parser-validated (named breakpoint or a
+                # vetted width); wrap the rule in an @media query.
+                block = f'@media {rule.media} {{\n{block}\n}}'
+            css_parts.append(block)
     return '\n\n'.join(css_parts)
+
+
+def _collect_raw_stylesheets(stylesheets):
+    """Concatenate RawStylesheet bodies for emission into the head <style>.
+
+    The body is a trusted, author-supplied escape hatch (like Raw HTML), but a
+    breakout guard rejects content that could close the <style> element or open
+    a <script>, since the text is emitted as raw stylesheet content.
+    """
+    if not stylesheets:
+        return ''
+    parts = []
+    for sheet in stylesheets:
+        css = sheet.css if isinstance(sheet.css, str) else str(sheet.css)
+        lowered = css.lower()
+        if '</style' in lowered or '<script' in lowered or '</script' in lowered:
+            raise ValueError(
+                'Stylesheet block may not contain "</style>" or "<script>" '
+                '(would break out of the <style> element). Remove it or use a '
+                'Script block for JavaScript.'
+            )
+        parts.append(css)
+    return '\n'.join(parts)
 
 
 def _generate_animation_css(animations):

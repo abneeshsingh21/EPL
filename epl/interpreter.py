@@ -685,6 +685,9 @@ class Interpreter:
             s.name: s for s in program.statements if isinstance(s, ast.ComponentDef)
         }
         self._program_animations = [s for s in program.statements if isinstance(s, ast.AnimateDef)]
+        self._program_stylesheets = [
+            s for s in program.statements if isinstance(s, ast.RawStylesheet)
+        ]
 
         try:
             self._exec_block(program.statements, self.global_env)
@@ -765,6 +768,8 @@ class Interpreter:
                 # v6.0: Style & Layout — handled by web/html generators
                 ast.StyleDef,
                 ast.StyleProperty,
+                ast.StyleRule,
+                ast.RawStylesheet,
                 ast.StyledElement,
                 ast.LayoutContainer,
                 ast.ComponentDef,

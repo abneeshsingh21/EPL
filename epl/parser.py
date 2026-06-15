@@ -613,6 +613,9 @@ class Parser:
         if tok.type == TokenType.STYLE:
             return self._parse_style_def()
 
+        if tok.type == TokenType.STYLESHEET:
+            return self._parse_stylesheet_def()
+
         if tok.type == TokenType.COMPONENT:
             return self._parse_component_def()
 
@@ -3582,11 +3585,120 @@ class Parser:
                 return self._parse_html_element()
         return self._parse_statement()
 
+    # Pseudo-elements get `::`; everything else after `On` is a pseudo-class.
+    _PSEUDO_ELEMENTS = frozenset(
+        {
+            'before',
+            'after',
+            'placeholder',
+            'selection',
+            'first-line',
+            'first-letter',
+            'marker',
+            'backdrop',
+        }
+    )
+    # Named responsive breakpoints → media-query conditions.
+    _NAMED_BREAKPOINTS = {
+        'mobile': '(max-width: 640px)',
+        'tablet': '(max-width: 1024px)',
+        'desktop': '(min-width: 1025px)',
+    }
+
+    @staticmethod
+    def _css_pseudo_ok(name):
+        """Validate a pseudo-state name: lowercase letters and hyphens only."""
+        return (
+            bool(name)
+            and name[0].isalpha()
+            and name == name.lower()
+            and all(c.isalpha() or c == '-' for c in name)
+        )
+
+    @staticmethod
+    def _css_width_ok(width):
+        """Validate a media width like "640px", "40rem", "100%"."""
+        w = width.strip()
+        for unit in ('px', 'rem', 'em', '%', 'vw', 'vh'):
+            if w.endswith(unit):
+                num = w[: -len(unit)]
+                return len(num) > 0 and num.isdigit()
+        return w.isdigit()
+
+    def _parse_style_property_block(self):
+        """Parse CSS property lines until (not consuming) End/EOF."""
+        props = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            prop = self._parse_style_property()
+            if prop:
+                props.append(prop)
+        return props
+
+    def _parse_style_on_block(self):
+        """Parse an `On <pseudo|breakpoint>` block inside a Style, returning a
+        StyleRule. Handles pseudo-classes/elements, named breakpoints, and
+        `On screen below|above "Npx"` explicit media queries."""
+        line = self._current().line
+        self._advance()  # consume ON
+        name = self._read_attr_name()  # reassembles hyphenated names (focus-visible)
+        if not name:
+            raise ParserError('Expected a pseudo-state or breakpoint after "On".', line)
+
+        media = None
+        suffix = ''
+        if name in self._NAMED_BREAKPOINTS:
+            media = self._NAMED_BREAKPOINTS[name]
+        elif name == 'screen':
+            direction = self._read_attr_name()
+            if direction not in ('below', 'above'):
+                raise ParserError('Expected "below" or "above" after "On screen".', line)
+            width_tok = self._expect(
+                TokenType.STRING, 'Expected a width string (e.g. "640px") after On screen.'
+            )
+            if not self._css_width_ok(width_tok.value):
+                raise ParserError(
+                    f'Invalid media width "{width_tok.value}". Use e.g. "640px" or "40rem".',
+                    width_tok.line,
+                )
+            cond = 'max-width' if direction == 'below' else 'min-width'
+            media = f'({cond}: {width_tok.value})'
+        else:
+            if not self._css_pseudo_ok(name):
+                raise ParserError(f'Invalid pseudo-state "{name}" after "On".', line)
+            suffix = ('::' if name in self._PSEUDO_ELEMENTS else ':') + name
+
+        self._end_statement()
+        props = self._parse_style_property_block()
+        self._expect(TokenType.END, 'Expected "End" to close the "On" block.')
+        self._end_statement()
+        return ast.StyleRule(suffix, props, media, line)
+
+    def _parse_style_select_block(self):
+        """Parse a `Select "selector"` descendant block, returning a StyleRule."""
+        line = self._current().line
+        self._advance()  # consume `select` identifier
+        sel_tok = self._expect(TokenType.STRING, 'Expected a selector string after "Select".')
+        self._end_statement()
+        props = self._parse_style_property_block()
+        self._expect(TokenType.END, 'Expected "End" to close the "Select" block.')
+        self._end_statement()
+        return ast.StyleRule(f' {sel_tok.value}', props, None, line)
+
     def _parse_style_def(self):
         """Style "card"
             Background "#fff"
-            Padding "20px"
-            Border radius "12px"
+            On hover
+                Background "#eee"
+            End
+            On mobile
+                Padding "12px"
+            End
+            Select "a"
+                Color "#007DF3"
+            End
         End"""
         line = self._current().line
         self._advance()  # consume STYLE
@@ -3594,17 +3706,45 @@ class Parser:
         self._end_statement()
 
         properties = []
+        rules = []
         while not self._match(TokenType.END, TokenType.EOF):
             self._skip_newlines()
             if self._match(TokenType.END, TokenType.EOF):
                 break
+            tok = self._current()
+            if tok.type == TokenType.ON:
+                rules.append(self._parse_style_on_block())
+                continue
+            if tok.type == TokenType.IDENTIFIER and str(tok.value).lower() == 'select':
+                rules.append(self._parse_style_select_block())
+                continue
             prop = self._parse_style_property()
             if prop:
                 properties.append(prop)
 
         self._expect(TokenType.END, 'Expected "End" to close Style block.')
         self._end_statement()
-        return ast.StyleDef(name_tok.value, properties, line)
+        return ast.StyleDef(name_tok.value, properties, line, rules)
+
+    def _parse_stylesheet_def(self):
+        """Stylesheet ... End — first-class raw-CSS block (server-rendered).
+
+        The lexer captures the body as a single STRING token (like Script).
+        """
+        line = self._current().line
+        self._advance()  # consume STYLESHEET
+        self._skip_newlines()
+        css_parts = []
+        while not self._is_block_end():
+            tok = self._current()
+            if tok.type == TokenType.EOF:
+                break
+            css_parts.append(str(tok.value))
+            self._advance()
+            if self._match(TokenType.NEWLINE):
+                self._advance()
+        self._consume_block_end()
+        return ast.RawStylesheet('\n'.join(css_parts), line)
 
     def _parse_style_property(self):
         """Parse a CSS property line: Background "#fff" or Border radius "12px" """

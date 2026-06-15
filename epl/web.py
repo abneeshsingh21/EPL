@@ -2095,6 +2095,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         styles = [s for s in body if isinstance(s, ast.StyleDef)]
         components = {s.name: s for s in body if isinstance(s, ast.ComponentDef)}
         animations = [s for s in body if isinstance(s, ast.AnimateDef)]
+        stylesheets = [s for s in body if isinstance(s, ast.RawStylesheet)]
 
         # Also collect from the full program if interpreter has them
         if self.interpreter and hasattr(self.interpreter, '_program_styles'):
@@ -2103,6 +2104,8 @@ class EPLHandler(BaseHTTPRequestHandler):
             components = {**self.interpreter._program_components, **components}
         if self.interpreter and hasattr(self.interpreter, '_program_animations'):
             animations = self.interpreter._program_animations + animations
+        if self.interpreter and hasattr(self.interpreter, '_program_stylesheets'):
+            stylesheets = self.interpreter._program_stylesheets + stylesheets
 
         # Build page
         for stmt in body:
@@ -2114,6 +2117,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                     styles=styles,
                     components=components,
                     animations=animations,
+                    stylesheets=stylesheets,
                 )
 
         # If no PageDef, check for elements (including v6.0 styled elements)
@@ -2131,6 +2135,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 styles=styles,
                 components=components,
                 animations=animations,
+                stylesheets=stylesheets,
             )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
@@ -2978,12 +2983,15 @@ class AsyncEPLServer:
         styles = [s for s in body if isinstance(s, ast.StyleDef)]
         components = {s.name: s for s in body if isinstance(s, ast.ComponentDef)}
         animations = [s for s in body if isinstance(s, ast.AnimateDef)]
+        stylesheets = [s for s in body if isinstance(s, ast.RawStylesheet)]
         if self.interpreter and hasattr(self.interpreter, '_program_styles'):
             styles = self.interpreter._program_styles + styles
         if self.interpreter and hasattr(self.interpreter, '_program_components'):
             components = {**self.interpreter._program_components, **components}
         if self.interpreter and hasattr(self.interpreter, '_program_animations'):
             animations = self.interpreter._program_animations + animations
+        if self.interpreter and hasattr(self.interpreter, '_program_stylesheets'):
+            stylesheets = self.interpreter._program_stylesheets + stylesheets
 
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
@@ -2994,6 +3002,7 @@ class AsyncEPLServer:
                     styles=styles,
                     components=components,
                     animations=animations,
+                    stylesheets=stylesheets,
                 )
 
         elements = [
@@ -3010,6 +3019,7 @@ class AsyncEPLServer:
                 styles=styles,
                 components=components,
                 animations=animations,
+                stylesheets=stylesheets,
             )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)

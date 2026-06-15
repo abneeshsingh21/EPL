@@ -118,6 +118,7 @@ class TokenType(Enum):
     PORT = auto()
     DOES = auto()
     SCRIPT = auto()
+    STYLESHEET = auto()
     RESPONDS = auto()
     SHOWS = auto()
     ON = auto()
@@ -457,6 +458,7 @@ KEYWORDS = {
     'port': TokenType.PORT,
     'does': TokenType.DOES,
     'script': TokenType.SCRIPT,
+    'stylesheet': TokenType.STYLESHEET,
     'responds': TokenType.RESPONDS,
     'shows': TokenType.SHOWS,
     'on': TokenType.ON,

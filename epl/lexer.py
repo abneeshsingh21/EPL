@@ -473,8 +473,8 @@ class Lexer:
         # Check if it's a keyword
         if lower_word in KEYWORDS:
             self.tokens.append(Token(KEYWORDS[lower_word], word, self.line, start_col))
-            # Script blocks contain raw JS — capture everything until "End"
-            if KEYWORDS[lower_word] == TokenType.SCRIPT:
+            # Script/Stylesheet blocks contain raw JS/CSS — capture until "End"
+            if KEYWORDS[lower_word] in (TokenType.SCRIPT, TokenType.STYLESHEET):
                 self._read_script_body()
         else:
             self.tokens.append(Token(TokenType.IDENTIFIER, word, self.line, start_col))

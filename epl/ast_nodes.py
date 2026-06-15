@@ -1033,12 +1033,47 @@ class StyleDef(ASTNode):
             Background "#ffffff"
             Border radius "12px"
             Padding "24px"
+            On hover
+                Background "#eeeeee"
+            End
         End
+
+    `rules` holds nested variants (pseudo-states, media queries, descendant
+    selectors) as StyleRule nodes; `properties` is the base declaration block.
     """
 
-    def __init__(self, name: str, properties: list, line: int = 0):
+    def __init__(self, name: str, properties: list, line: int = 0, rules: list = None):
         self.name = name
         self.properties = properties
+        self.rules = rules or []
+        self.line = line
+
+
+class StyleRule(ASTNode):
+    """A nested variant inside a Style block.
+
+    `suffix` is appended to the parent `.name` selector (e.g. ':hover',
+    '::before', ' a'); `media` is a media-query condition string (e.g.
+    '(max-width: 640px)') or None for an unconditional rule.
+    """
+
+    def __init__(self, suffix: str, properties: list, media: str = None, line: int = 0):
+        self.suffix = suffix
+        self.properties = properties
+        self.media = media
+        self.line = line
+
+
+class RawStylesheet(ASTNode):
+    """Stylesheet ... End — a first-class raw-CSS block.
+
+    The body is emitted verbatim into the page's <head> <style> element
+    (server-rendered, not injected via Script). Author-responsible, like
+    `Raw HTML`; a generation-time guard prevents </style> breakout.
+    """
+
+    def __init__(self, css: str, line: int = 0):
+        self.css = css
         self.line = line
 
 
