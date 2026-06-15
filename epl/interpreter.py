@@ -688,6 +688,9 @@ class Interpreter:
         self._program_stylesheets = [
             s for s in program.statements if isinstance(s, ast.RawStylesheet)
         ]
+        self._program_head = [
+            d for s in program.statements if isinstance(s, ast.HeadDef) for d in s.directives
+        ]
 
         try:
             self._exec_block(program.statements, self.global_env)
@@ -770,6 +773,8 @@ class Interpreter:
                 ast.StyleProperty,
                 ast.StyleRule,
                 ast.RawStylesheet,
+                ast.HeadDef,
+                ast.HeadDirective,
                 ast.StyledElement,
                 ast.LayoutContainer,
                 ast.ComponentDef,

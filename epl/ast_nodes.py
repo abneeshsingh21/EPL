@@ -530,11 +530,38 @@ class StartServer(ASTNode):
 
 
 class PageDef(ASTNode):
-    """Page "title" ... End"""
+    """Page "title" ... End
 
-    def __init__(self, title: str, elements: list, line: int = 0):
+    `head_directives` holds optional per-page HeadDirective nodes (SEO/meta
+    overrides scoped to this route); they merge over any site-wide Head block.
+    """
+
+    def __init__(self, title: str, elements: list, line: int = 0, head_directives: list = None):
         self.title = title
         self.elements = elements
+        self.head_directives = head_directives or []
+        self.line = line
+
+
+class HeadDirective(ASTNode):
+    """A single head/SEO directive (Description, Meta, OpenGraph, Font, …).
+
+    `kind` selects the renderer; `data` carries the parsed fields. Kinds:
+    description, meta, theme_color, keywords, author, canonical, favicon,
+    font, link, opengraph, twitter.
+    """
+
+    def __init__(self, kind: str, data: dict, line: int = 0):
+        self.kind = kind
+        self.data = data or {}
+        self.line = line
+
+
+class HeadDef(ASTNode):
+    """Head ... End — a top-level block of site-wide HeadDirective nodes."""
+
+    def __init__(self, directives: list, line: int = 0):
+        self.directives = directives or []
         self.line = line
 
 

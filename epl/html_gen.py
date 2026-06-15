@@ -142,6 +142,7 @@ def generate_html(
     components=None,
     animations=None,
     stylesheets=None,
+    head=None,
 ):
     """Convert a PageDef AST node into a full HTML page string.
 
@@ -149,6 +150,8 @@ def generate_html(
     components: dict of component_name -> ComponentDef
     animations: list of AnimateDef nodes
     stylesheets: list of RawStylesheet nodes (raw CSS, server-rendered into head)
+    head: list of site-wide HeadDirective nodes (SEO/meta/fonts); per-page
+          overrides ride on page_def.head_directives and win over these.
     """
     title = page_def.title if isinstance(page_def, ast.PageDef) else 'EPL Page'
     elements = page_def.elements if isinstance(page_def, ast.PageDef) else []
@@ -205,13 +208,25 @@ def generate_html(
     }[theme]
     theme_css = _theme_css(theme)
 
+    # Phase 3 — server-rendered head/SEO directives. Site-wide `head` merges
+    # with per-page overrides (page wins). A native Font directive supersedes
+    # the legacy _CONFIG font link to avoid emitting two font stylesheets.
+    page_head = (
+        getattr(page_def, 'head_directives', None) if isinstance(page_def, ast.PageDef) else None
+    )
+    merged_head = _merge_head_directives(head or [], page_head or [])
+    head_tags, font_present = _render_head_directives(merged_head)
+    if font_present:
+        font_link = ''
+    head_block = f'\n    {head_tags}' if head_tags else ''
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {color_scheme_meta}
-    <title>{_esc(title)}</title>
+    <title>{_esc(title)}</title>{head_block}
     {font_link}
     <style>{theme_css}\n{STYLES}</style>{extra_css}
 </head>
@@ -607,6 +622,112 @@ def _collect_raw_stylesheets(stylesheets):
             )
         parts.append(css)
     return '\n'.join(parts)
+
+
+_HEAD_LINK_ATTRS = ('rel', 'href', 'as', 'type', 'crossorigin', 'media', 'sizes', 'hreflang')
+_FAVICON_TYPES = {
+    'png': 'image/png',
+    'svg': 'image/svg+xml',
+    'ico': 'image/x-icon',
+    'gif': 'image/gif',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'webp': 'image/webp',
+}
+
+
+def _merge_head_directives(site, page):
+    """Merge site-wide and per-page directives; page overrides win.
+
+    Single-valued kinds (meta-by-name, canonical, favicon, opengraph, twitter)
+    are de-duplicated so a page-level value replaces the site-wide one. Fonts
+    and generic links accumulate (deduped by identity).
+    """
+    merged = []
+    seen = {}
+
+    def key_for(d):
+        if d.kind == 'meta':
+            return ('meta', d.data.get('name', ''))
+        if d.kind in ('canonical', 'favicon', 'opengraph', 'twitter'):
+            return (d.kind,)
+        return None  # font / link accumulate
+
+    for d in list(site or []) + list(page or []):
+        k = key_for(d)
+        if k is None:
+            merged.append(d)
+            continue
+        if k in seen:
+            merged[seen[k]] = d  # page (later) overrides
+        else:
+            seen[k] = len(merged)
+            merged.append(d)
+    return merged
+
+
+def _render_head_directives(directives):
+    """Render HeadDirective nodes to escaped <meta>/<link> tags for <head>.
+
+    Returns (tags_html, font_present). All text is escaped and all URLs pass
+    through _safe_href. Google-Font preconnect links are emitted at most once.
+    """
+    if not directives:
+        return '', False
+    out = []
+    preconnect_done = False
+    font_present = False
+
+    for d in directives:
+        data = d.data or {}
+        if d.kind == 'meta':
+            name = data.get('name', '')
+            if name:
+                out.append(f'<meta name="{_esc(name)}" content="{_esc(data.get("content", ""))}">')
+        elif d.kind == 'canonical':
+            out.append(f'<link rel="canonical" href="{_safe_href(data.get("href", ""))}">')
+        elif d.kind == 'favicon':
+            href = data.get('href', '')
+            ext = href.rsplit('.', 1)[-1].lower() if '.' in href else ''
+            type_attr = f' type="{_FAVICON_TYPES[ext]}"' if ext in _FAVICON_TYPES else ''
+            out.append(f'<link rel="icon"{type_attr} href="{_safe_href(href)}">')
+        elif d.kind == 'font':
+            font_present = True
+            if not preconnect_done:
+                out.append('<link rel="preconnect" href="https://fonts.googleapis.com">')
+                out.append('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>')
+                preconnect_done = True
+            family = str(data.get('family', '')).strip()
+            weights = str(data.get('weights', '400'))
+            fam_param = _esc(family.replace(' ', '+'))
+            wght = _esc(weights)
+            out.append(
+                f'<link rel="stylesheet" '
+                f'href="https://fonts.googleapis.com/css2?family={fam_param}:wght@{wght}&display=swap">'
+            )
+        elif d.kind == 'link':
+            attrs = []
+            for k in _HEAD_LINK_ATTRS:
+                if k not in data:
+                    continue
+                val = data[k]
+                if k == 'href':
+                    attrs.append(f' href="{_safe_href(val)}"')
+                else:
+                    attrs.append(f' {k}="{_esc(val)}"')
+            if attrs:
+                out.append(f'<link{"".join(attrs)}>')
+        elif d.kind == 'opengraph':
+            for k in ('title', 'description', 'type', 'image', 'url', 'site_name'):
+                if k in data:
+                    prop = 'og:site_name' if k == 'site_name' else f'og:{k}'
+                    out.append(f'<meta property="{prop}" content="{_esc(data[k])}">')
+        elif d.kind == 'twitter':
+            for k in ('card', 'title', 'description', 'image', 'site', 'creator'):
+                if k in data:
+                    out.append(f'<meta name="twitter:{k}" content="{_esc(data[k])}">')
+
+    return '\n    '.join(out), font_present
 
 
 def _generate_animation_css(animations):

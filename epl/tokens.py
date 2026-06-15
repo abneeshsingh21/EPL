@@ -119,6 +119,7 @@ class TokenType(Enum):
     DOES = auto()
     SCRIPT = auto()
     STYLESHEET = auto()
+    HEAD = auto()
     RESPONDS = auto()
     SHOWS = auto()
     ON = auto()
@@ -459,6 +460,7 @@ KEYWORDS = {
     'does': TokenType.DOES,
     'script': TokenType.SCRIPT,
     'stylesheet': TokenType.STYLESHEET,
+    'head': TokenType.HEAD,
     'responds': TokenType.RESPONDS,
     'shows': TokenType.SHOWS,
     'on': TokenType.ON,

@@ -441,7 +441,7 @@ def _resolve_page_def(page_def, interpreter, env):
         else page_def.title
     )
     elements = [_resolve_page_element(element, interpreter, env) for element in page_def.elements]
-    return ast.PageDef(title, elements, page_def.line)
+    return ast.PageDef(title, elements, page_def.line, page_def.head_directives)
 
 
 # ─── Middleware Registry ─────────────────────────────────
@@ -2106,6 +2106,7 @@ class EPLHandler(BaseHTTPRequestHandler):
             animations = self.interpreter._program_animations + animations
         if self.interpreter and hasattr(self.interpreter, '_program_stylesheets'):
             stylesheets = self.interpreter._program_stylesheets + stylesheets
+        head = getattr(self.interpreter, '_program_head', []) if self.interpreter else []
 
         # Build page
         for stmt in body:
@@ -2118,6 +2119,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                     components=components,
                     animations=animations,
                     stylesheets=stylesheets,
+                    head=head,
                 )
 
         # If no PageDef, check for elements (including v6.0 styled elements)
@@ -2136,6 +2138,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 components=components,
                 animations=animations,
                 stylesheets=stylesheets,
+                head=head,
             )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
@@ -2992,6 +2995,7 @@ class AsyncEPLServer:
             animations = self.interpreter._program_animations + animations
         if self.interpreter and hasattr(self.interpreter, '_program_stylesheets'):
             stylesheets = self.interpreter._program_stylesheets + stylesheets
+        head = getattr(self.interpreter, '_program_head', []) if self.interpreter else []
 
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
@@ -3003,6 +3007,7 @@ class AsyncEPLServer:
                     components=components,
                     animations=animations,
                     stylesheets=stylesheets,
+                    head=head,
                 )
 
         elements = [
@@ -3020,6 +3025,7 @@ class AsyncEPLServer:
                 components=components,
                 animations=animations,
                 stylesheets=stylesheets,
+                head=head,
             )
 
         return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)

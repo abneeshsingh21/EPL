@@ -616,6 +616,9 @@ class Parser:
         if tok.type == TokenType.STYLESHEET:
             return self._parse_stylesheet_def()
 
+        if tok.type == TokenType.HEAD:
+            return self._parse_head_def()
+
         if tok.type == TokenType.COMPONENT:
             return self._parse_component_def()
 
@@ -2431,14 +2434,21 @@ class Parser:
         self._skip_newlines()
 
         elements = []
+        head_directives = []
         while not self._is_block_end():
+            if self._token_starts_head_directive():
+                directive = self._parse_head_directive()
+                if directive:
+                    head_directives.append(directive)
+                self._skip_newlines()
+                continue
             elem = self._parse_html_element()
             if elem:
                 elements.append(elem)
             self._skip_newlines()
 
         self._consume_block_end()
-        return ast.PageDef(title_tok.value, elements, line)
+        return ast.PageDef(title_tok.value, elements, line, head_directives)
 
     def _parse_html_element(self):
         """Parse a single HTML element inside a Page block."""
@@ -3745,6 +3755,167 @@ class Parser:
                 self._advance()
         self._consume_block_end()
         return ast.RawStylesheet('\n'.join(css_parts), line)
+
+    # ─── Phase 3: Head / SEO directives ──────────────────────
+    # Directive names recognised inside a Head block or as per-Page overrides.
+    _HEAD_DIRECTIVE_NAMES = frozenset(
+        {
+            'description',
+            'keywords',
+            'author',
+            'themecolor',
+            'canonical',
+            'favicon',
+            'font',
+            'opengraph',
+            'twitter',
+            'meta',
+        }
+    )
+
+    def _token_starts_head_directive(self):
+        """Whether the current token begins a head directive (used to collect
+        per-Page overrides without consuming body elements)."""
+        tok = self._current()
+        if (
+            tok.type == TokenType.IDENTIFIER
+            and str(tok.value).lower() in self._HEAD_DIRECTIVE_NAMES
+        ):
+            return True
+        # `Link rel ...`/`Link href ...` is a head link; `Link "text" to ...` is
+        # a body anchor — disambiguate by the token right after LINK.
+        if tok.type == TokenType.LINK:
+            nxt = self._peek()
+            return bool(nxt) and nxt.type != TokenType.STRING
+        return False
+
+    @staticmethod
+    def _font_weights_ok(weights):
+        """Validate a font-weights spec like "400;500;700"."""
+        return bool(weights) and all(c.isdigit() or c == ';' for c in weights)
+
+    @staticmethod
+    def _meta_name_ok(name):
+        """Validate a generic <meta name> — letters/digits and : _ - only."""
+        return bool(name) and name[0].isalpha() and all(c.isalnum() or c in ':_-' for c in name)
+
+    def _read_kv_pairs(self, allowed=None):
+        """Read trailing `key "value"` pairs on a directive line into a dict.
+
+        Keys are reassembled (hyphenated) identifiers; values are STRING.
+        Stops at NEWLINE/EOF/DOT. If `allowed` is given, unknown keys raise.
+        """
+        pairs = {}
+        while not self._match(TokenType.NEWLINE, TokenType.EOF, TokenType.DOT):
+            saved = self.pos
+            key = self._read_attr_name()
+            if key is None or not self._match(TokenType.STRING):
+                self.pos = saved
+                break
+            value = self._advance().value
+            if allowed is not None and key not in allowed:
+                raise ParserError(
+                    f'Unknown option "{key}". Allowed: {", ".join(sorted(allowed))}.',
+                    self._current().line,
+                )
+            pairs[key] = value
+        return pairs
+
+    def _parse_head_directive(self):
+        """Parse one head/SEO directive line into a HeadDirective, or None."""
+        tok = self._current()
+        line = tok.line
+
+        if tok.type == TokenType.LINK:
+            self._advance()
+            attrs = self._read_kv_pairs(
+                allowed={'rel', 'href', 'as', 'type', 'crossorigin', 'media', 'sizes', 'hreflang'}
+            )
+            self._end_statement()
+            return ast.HeadDirective('link', attrs, line)
+
+        name = str(tok.value).lower()
+        self._advance()
+
+        # Simple single-string name=content meta directives.
+        _SIMPLE = {
+            'description': ('meta_name', 'description'),
+            'keywords': ('meta_name', 'keywords'),
+            'author': ('meta_name', 'author'),
+            'themecolor': ('meta_name', 'theme-color'),
+        }
+        if name in _SIMPLE:
+            value = self._expect(TokenType.STRING, f'Expected a string after "{tok.value}".').value
+            self._end_statement()
+            _, meta_name = _SIMPLE[name]
+            return ast.HeadDirective('meta', {'name': meta_name, 'content': value}, line)
+
+        if name == 'canonical':
+            url = self._expect(TokenType.STRING, 'Expected a URL after "Canonical".').value
+            self._end_statement()
+            return ast.HeadDirective('canonical', {'href': url}, line)
+
+        if name == 'favicon':
+            url = self._expect(TokenType.STRING, 'Expected a URL after "Favicon".').value
+            self._end_statement()
+            return ast.HeadDirective('favicon', {'href': url}, line)
+
+        if name == 'font':
+            family = self._expect(TokenType.STRING, 'Expected a font family after "Font".').value
+            attrs = self._read_kv_pairs(allowed={'weights'})
+            weights = attrs.get('weights', '400')
+            if not self._font_weights_ok(weights):
+                raise ParserError(
+                    f'Invalid font weights "{weights}". Use e.g. "400;500;700".', line
+                )
+            self._end_statement()
+            return ast.HeadDirective('font', {'family': family, 'weights': weights}, line)
+
+        if name == 'opengraph':
+            attrs = self._read_kv_pairs(
+                allowed={'title', 'description', 'type', 'image', 'url', 'site_name'}
+            )
+            self._end_statement()
+            return ast.HeadDirective('opengraph', attrs, line)
+
+        if name == 'twitter':
+            attrs = self._read_kv_pairs(
+                allowed={'card', 'title', 'description', 'image', 'site', 'creator'}
+            )
+            self._end_statement()
+            return ast.HeadDirective('twitter', attrs, line)
+
+        if name == 'meta':
+            meta_name = self._expect(TokenType.STRING, 'Expected meta name after "Meta".').value
+            content = self._expect(TokenType.STRING, 'Expected meta content after the name.').value
+            if not self._meta_name_ok(meta_name):
+                raise ParserError(f'Invalid meta name "{meta_name}".', line)
+            self._end_statement()
+            return ast.HeadDirective('meta', {'name': meta_name, 'content': content}, line)
+
+        # Unknown directive — skip the line defensively.
+        self._end_statement()
+        return None
+
+    def _parse_head_def(self):
+        """Head ... End — a block of site-wide SEO/meta directives."""
+        line = self._current().line
+        self._advance()  # consume HEAD
+        self._end_statement()
+        self._skip_newlines()
+
+        directives = []
+        while not self._match(TokenType.END, TokenType.EOF):
+            self._skip_newlines()
+            if self._match(TokenType.END, TokenType.EOF):
+                break
+            directive = self._parse_head_directive()
+            if directive:
+                directives.append(directive)
+
+        self._expect(TokenType.END, 'Expected "End" to close Head block.')
+        self._end_statement()
+        return ast.HeadDef(directives, line)
 
     def _parse_style_property(self):
         """Parse a CSS property line: Background "#fff" or Border radius "12px" """

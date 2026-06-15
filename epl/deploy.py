@@ -325,6 +325,7 @@ class WSGIAdapter:
             animations = self.interpreter._program_animations + animations
         if self.interpreter and hasattr(self.interpreter, '_program_stylesheets'):
             stylesheets = self.interpreter._program_stylesheets + stylesheets
+        head = getattr(self.interpreter, '_program_head', []) if self.interpreter else []
 
         for stmt in body:
             if isinstance(stmt, ast.PageDef):
@@ -337,6 +338,7 @@ class WSGIAdapter:
                     components=components,
                     animations=animations,
                     stylesheets=stylesheets,
+                    head=head,
                 )
 
         elements = [
@@ -354,6 +356,7 @@ class WSGIAdapter:
                 components=components,
                 animations=animations,
                 stylesheets=stylesheets,
+                head=head,
             )
         return self._generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
 
