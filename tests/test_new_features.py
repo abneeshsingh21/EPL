@@ -1,6 +1,7 @@
 """Tests for new EPL features: stdlib, default params, interpolation, multi-line strings."""
 
 import os
+import platform
 import subprocess
 import sys
 
@@ -182,7 +183,14 @@ def run_suite():
     test('path_basename', 'Print path_basename("/home/user/file.txt").', ['file.txt'])
 
     print('\n=== Standard Library: OS ===')
-    test_contains('platform', 'Create p equal to platform().\nPrint p.os.', 'Windows')
+    # platform().os mirrors Python's platform.system(), so assert against the
+    # actual host OS (Windows/Linux/Darwin) rather than hardcoding one — the
+    # test must pass on every CI matrix OS.
+    test_contains(
+        'platform',
+        'Create p equal to platform().\nPrint p.os.',
+        platform.system(),
+    )
 
     test_contains('cwd', 'Print cwd().', 'EPL')
 
