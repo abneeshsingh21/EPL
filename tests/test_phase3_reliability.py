@@ -196,17 +196,23 @@ class TestEPLIntervalCancellation(unittest.TestCase):
         interval.stop()  # second stop must not raise
 
     def test_start_is_idempotent(self):
-        fired = []
-        interval = EPLInterval(0.05, lambda: fired.append(1))
+        # Verify idempotency STRUCTURALLY (the second start() creates no new
+        # loop task) rather than by counting firings over a sleep — the latter
+        # is timing-fragile and flakes on slow/loaded CI runners (a single
+        # correct loop can still fire 4x under scheduler jitter).
+        interval = EPLInterval(0.05, lambda: None)
         interval.start()
+        first_task = interval._task
+        self.assertIsNotNone(first_task, 'start() must create an interval task')
         interval.start()  # calling twice must not create a second loop
-        time.sleep(0.12)
-        interval.stop()
-        # With a single loop at 50 ms over 120 ms we expect ~2 firings.
-        # If start() was not idempotent we would get ~4.
-        self.assertLessEqual(
-            len(fired), 3, 'double start() must not create duplicate interval loops'
-        )
+        try:
+            self.assertIs(
+                interval._task,
+                first_task,
+                'double start() must not create a duplicate interval loop',
+            )
+        finally:
+            interval.stop()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
