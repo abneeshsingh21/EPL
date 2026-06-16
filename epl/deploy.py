@@ -936,7 +936,6 @@ def _run_waitress(wsgi_app, host, port, workers):
         port=port,
         threads=workers,
         channel_timeout=120,
-        map_size=100000,
         url_scheme='http',
     )
 
