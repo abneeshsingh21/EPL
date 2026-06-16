@@ -24,6 +24,10 @@ jobs:
   test:
     needs: lint
     runs-on: ${{ matrix.os }}
+    # Python UTF-8 mode so open() defaults to UTF-8 on every OS (Windows' cp1252
+    # default otherwise breaks reads of UTF-8-generated files).
+    env:
+      PYTHONUTF8: '1'
     strategy:
       fail-fast: false
       matrix:

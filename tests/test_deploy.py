@@ -805,14 +805,14 @@ class TestDeployGenerate(unittest.TestCase):
         # Check Nginx has SSL
         nginx_files = [f for f in files if 'nginx' in f]
         self.assertTrue(len(nginx_files) > 0)
-        with open(nginx_files[0], 'r') as f:
+        with open(nginx_files[0], 'r', encoding='utf-8') as f:
             content = f.read()
         self.assertIn('ssl_certificate', content)
 
     def test_generate_custom_port(self):
         """Deploy respects custom port."""
         files = deploy_generate('gunicorn', output_dir=self.tmpdir, port=9500)
-        with open(files[0], 'r') as f:
+        with open(files[0], 'r', encoding='utf-8') as f:
             content = f.read()
         self.assertIn('9500', content)
 

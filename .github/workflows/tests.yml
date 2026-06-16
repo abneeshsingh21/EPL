@@ -12,6 +12,11 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    # Python UTF-8 mode: make open() default to UTF-8 on every OS so tests that
+    # read UTF-8-generated files (e.g. nginx configs with box-drawing chars)
+    # don't hit Windows' cp1252 default and UnicodeDecodeError.
+    env:
+      PYTHONUTF8: '1'
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
