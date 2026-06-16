@@ -324,7 +324,7 @@ Route "/" shows
             Div class "hero-badge reveal dly-1"
                 Span class "ping"
                 End
-                Text "English Programming Language · v9.6.0"
+                Text "English Programming Language · v9.7.0"
             End
             Div class "hero-h reveal dly-1"
                 Text "Write code the way you think. "

@@ -10,6 +10,71 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.7.0] — 2026-06-16
+
+**Native web DSL** — a six-phase effort to make EPL's web layer express
+styling, structure, head/SEO, and interactivity as *first-class language
+features* instead of raw CSS/JS/meta injected through the `Script` escape hatch.
+The flagship site (`landing_page/src/main.epl`) is migrated onto the new
+features as proof: it now authors structure, content, styling (page-scoped
+`Stylesheet`), and head/SEO natively, leaving only genuinely imperative motion
+JS (a canvas particle engine, scroll/tilt) in the sanctioned hatch. Every phase
+stays mypy-clean and ruff-clean and ships regression tests; the native event
+and CSP layers are additionally **verified in a real browser** (puppeteer),
+including under a strict CSP with an enforced negative control.
+
+### Added
+
+- **Structure (Phase 1):** `List`/`Raw HTML`/`Script` and structural/layout tags
+  now nest correctly inside `Div`/`Section`/etc. (a parser whitelist bug);
+  inline `style "…"`; safe attributes (`aria-*`, `data-*`, `role`, `target`,
+  `rel`, `title`, …); `Link`/`Button` accept `class`/`id`/`style`/attrs. Inline
+  `on*` handlers are rejected at parse time.
+- **Native CSS (Phase 2):** `Style` blocks gain nested rules — `On hover`/`On
+  focus-visible` → `:pseudo-class`, `On before`/`after`/… → `::pseudo-element`,
+  `On mobile|tablet|desktop` and `On screen below|above "Npx"` → `@media`,
+  `Select "sel"` → descendant — plus a first-class `Stylesheet … End` raw-CSS
+  block, all server-rendered into `<head>` with a `</style>`/`<script>` breakout
+  guard.
+- **Semantic head / SEO (Phase 3):** top-level `Head … End` block + per-`Page`
+  overrides — `Description`, `Keywords`, `Author`, `ThemeColor`, `Canonical`,
+  `Favicon` (auto `type`), `Font "…" weights "…"` (Google Fonts, preconnect
+  once), generic `Link`, `OpenGraph`, `Twitter`, `Meta` — server-rendered so
+  metadata is visible to crawlers/social scrapers without JS.
+- **Native interactivity (Phase 4):** element-level `On click/hover/reveal`
+  blocks and inline `on … toggles/adds/navigates/…` sugar compile to
+  **generated, CSP-safe JS** (`addEventListener`/`IntersectionObserver`, never
+  inline `on*`). Verbs: `Add`/`Remove`/`Toggle class [on "#sel"]`, `Navigate
+  to`, `Scroll to`, and a `Run "fn"` bridge to `Script`-defined code.
+- **Strict CSP (Phase 5):** opt-in via `epl serve --csp` (or
+  `configure_page(csp=True)`) — a per-response nonce is added to every generated
+  `<script>` and the `Content-Security-Policy` header becomes `script-src 'self'
+  'nonce-…'`, so the generated JS runs under a strict policy with no
+  `'unsafe-inline'` for scripts.
+- **Page-scoped CSS (Phase 6):** a `Stylesheet`/`Style` block nested inside a
+  `Page` renders only on that route (after site-wide CSS), enabling distinct
+  per-route stylesheets without shipping every route's CSS on every page.
+
+### Changed
+
+- `landing_page/src/main.epl` — SEO/meta/favicon/fonts migrated from
+  `createElement('meta'/'link')` injection to a native `Head` block + per-page
+  directives; per-route CSS migrated from `createElement('style')` injection to
+  page-scoped `Stylesheet` blocks. Server-rendered, isolated per route, browser-
+  verified pixel-identical with KYC content intact.
+
+### Fixed
+
+- Production `epl serve` (`deploy.py` WSGI adapter) was rendering pages with **no
+  custom styles/components/animations** — `Style`/`Stylesheet` CSS silently never
+  reached served pages in production mode. Now threaded through.
+- `web.py` route resolution (`_resolve_page_def`/`_resolve_page_element`) dropped
+  newly-added `PageDef`/`HtmlElement` fields (head directives, events, page-scoped
+  stylesheets) when cloning nodes for a request, so those features vanished on
+  resolved routes. All clone sites now carry every field.
+
+---
+
 ## [9.6.0] — 2026-06-13
 
 Language Server Protocol **v2** plus a static-analysis bug-fix batch. EPL's

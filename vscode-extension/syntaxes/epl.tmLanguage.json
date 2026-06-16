@@ -192,6 +192,18 @@
         {
           "name": "support.class.web.epl",
           "match": "\\b(WebApp|Route|Page|Start|Heading|SubHeading|Text|Link|Image|Button|Form|Send|Redirect|Store|Fetch|Delete|Script|Json|Port)\\b"
+        },
+        {
+          "name": "support.class.web.epl",
+          "match": "\\b(Stylesheet|Head|Div|Section|Nav|Header|Footer|Span|Article|Aside|Main|Container|Select)\\b"
+        },
+        {
+          "name": "support.type.web.head.epl",
+          "match": "\\b(Description|Keywords|Author|ThemeColor|Canonical|Favicon|Font|OpenGraph|Twitter|Meta)\\b"
+        },
+        {
+          "name": "keyword.control.web.event.epl",
+          "match": "\\b(On|Toggle|Navigate|Scroll|Run)\\b"
         }
       ]
     },

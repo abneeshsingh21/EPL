@@ -351,6 +351,25 @@ class EPLAnalyzer:
         'Start',
         'Route',
         'Port',
+        # v9.7.0 native web DSL
+        'Page',
+        'Div',
+        'Section',
+        'Style',
+        'Stylesheet',
+        'Head',
+        'On',
+        'Select',
+        'Description',
+        'Favicon',
+        'Font',
+        'OpenGraph',
+        'Twitter',
+        'Meta',
+        'Navigate',
+        'Toggle',
+        'Scroll',
+        'Run',
     ]
 
     # Method completions for common types
