@@ -618,6 +618,13 @@ def test_all_ast_nodes_handled():
         'DrawCommand',
         # v5.3: JS Bridge (handled by interpreter and JS transpiler, not LLVM)
         'UseJSStatement',
+        # v9.7.0: native web DSL (handled by parser/html_gen, not LLVM)
+        'StyleRule',
+        'RawStylesheet',
+        'HeadDef',
+        'HeadDirective',
+        'EventHandler',
+        'EventAction',
     }
     # Structural/helper nodes not dispatched directly
     structural_nodes = {

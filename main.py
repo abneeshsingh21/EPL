@@ -10,22 +10,26 @@ import os
 import sys
 
 # ── Re-exports expected by the test suite ──────────────────────────────
-from epl.errors import set_source_context  # noqa: F401
+from epl.errors import (
+    EPLError,  # noqa: F401
+    set_source_context,  # noqa: F401
+)
 from epl.interpreter import Interpreter  # noqa: F401
 from epl.lexer import Lexer  # noqa: F401
 from epl.parser import Parser  # noqa: F401
-from epl.runtime_support import CROSS_TARGETS, compile_file  # noqa: F401
+from epl.runtime_support import (  # noqa: F401
+    CROSS_TARGETS,
+    compile_file,
+    count_open_blocks,  # noqa: F401
+)
 from epl.runtime_support import handle_repl_command as _handle_repl_command  # noqa: F401
-from epl.runtime_support import count_open_blocks  # noqa: F401
-
+from epl.runtime_support import run_repl as _shared_run_repl  # noqa: F401
 
 # ── Convenience generators (test_phase6 & test_tier4) ───────────────────
 
 
 def _compile_to_wasm(filepath: str, opt_level: int = 2) -> bool:
     """Legacy compatibility stub for WASM compilation."""
-    from epl.runtime_support import compile_file
-
     return compile_file(filepath, opt_level=opt_level, target='wasm32')
 
 
