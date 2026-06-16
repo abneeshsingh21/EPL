@@ -10245,8 +10245,13 @@ def _call_ml(name, args, line):
             raise EPLRuntimeError(
                 'ml_load_data(source) requires a data source (path or name).', line
             )
-        _ensure_sklearn()
         source = str(args[0])
+        # Reject path traversal BEFORE installing scikit-learn, so the security
+        # check fails fast (and runs on hosts without sklearn).
+        if source.endswith('.csv'):
+            if '..' in _os.path.normpath(source).split(_os.sep):
+                raise EPLRuntimeError(f'Path traversal not allowed: {source}', line)
+        _ensure_sklearn()
         from sklearn import datasets
 
         builtin = {
