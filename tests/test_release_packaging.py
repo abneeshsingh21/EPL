@@ -116,7 +116,11 @@ class TestReleasePackaging(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix='epl_release_script_dist_') as dist_tmp:
             with tempfile.TemporaryDirectory(prefix='epl_release_script_root_') as root_tmp:
-                wheel_path = Path(dist_tmp) / 'epl-0.0.0-py3-none-any.whl'
+                # The script resolve()s the dist dir before globbing the wheel,
+                # so build the expected path the same way — otherwise a symlinked
+                # temp dir (e.g. macOS /var -> /private/var on CI) makes the
+                # recorded install arg differ from this and has_tail() misses.
+                wheel_path = Path(dist_tmp).resolve() / 'epl-0.0.0-py3-none-any.whl'
                 wheel_path.write_bytes(b'wheel-bytes')
                 root = Path(root_tmp)
                 executed: list[tuple[list[str], Path]] = []
@@ -164,7 +168,11 @@ class TestReleasePackaging(unittest.TestCase):
 
         with tempfile.TemporaryDirectory(prefix='epl_release_script_dist_') as dist_tmp:
             with tempfile.TemporaryDirectory(prefix='epl_release_script_root_') as root_tmp:
-                wheel_path = Path(dist_tmp) / 'epl-0.0.0-py3-none-any.whl'
+                # The script resolve()s the dist dir before globbing the wheel,
+                # so build the expected path the same way — otherwise a symlinked
+                # temp dir (e.g. macOS /var -> /private/var on CI) makes the
+                # recorded install arg differ from this and has_tail() misses.
+                wheel_path = Path(dist_tmp).resolve() / 'epl-0.0.0-py3-none-any.whl'
                 wheel_path.write_bytes(b'wheel-bytes')
                 root = Path(root_tmp)
                 executed: list[list[str]] = []
