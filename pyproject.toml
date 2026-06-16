@@ -33,7 +33,7 @@ classifiers = [
 [project.optional-dependencies]
 llvm = ["llvmlite>=0.42.0,<1.0"]
 ai = ["openai>=1.0.0,<2.0"]
-secure = ["keyring>=24.0.0,<26.0"]
+secure = ["keyring>=24.0.0,<26.0", "cryptography>=42.0,<47.0"]
 server = [
     "waitress>=2.1.0,<4.0",
     "uvicorn>=0.30.0,<1.0",
