@@ -927,7 +927,7 @@ def _resolve_server_apps(app_or_wsgi, interpreter=None):
 
 
 def _run_waitress(wsgi_app, host, port, workers):
-    import waitress
+    import waitress  # type: ignore[import-untyped,import-not-found]
 
     _banner('Waitress', host, port, workers)
     waitress.serve(

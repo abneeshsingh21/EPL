@@ -48,7 +48,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .[dev,cloud]
+          pip install -e .[dev,cloud,llvm]
           pip install pytest-cov
 
       - name: Run stable test suite

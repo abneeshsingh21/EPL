@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install EPL
-        run: pip install -e ".[dev]" 2>/dev/null || pip install -e .
+        run: pip install -e ".[dev,llvm]" 2>/dev/null || pip install -e ".[dev]" 2>/dev/null || pip install -e .
       - name: Run tests
         run: python -m pytest tests/ -x --tb=short -q
       - name: Verify CLI

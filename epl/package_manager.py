@@ -1105,11 +1105,39 @@ def _hash_distribution(dist):
     return h.hexdigest()
 
 
+def _packages_distributions():
+    """Return a {import_name: [distribution, ...]} map, Python 3.9-safe.
+
+    ``importlib.metadata.packages_distributions`` only exists on 3.10+; on 3.9
+    we rebuild the map from each distribution's ``top_level.txt`` / RECORD so
+    the Python dependency bridge works across the project's whole support range.
+    """
+    fn = getattr(importlib_metadata, 'packages_distributions', None)
+    if fn is not None:
+        return fn()
+    mapping: dict = {}
+    for dist in importlib_metadata.distributions():
+        dist_name = dist.metadata['Name']
+        if not dist_name:
+            continue
+        top_level = dist.read_text('top_level.txt')
+        if top_level:
+            names = [line.strip() for line in top_level.splitlines() if line.strip()]
+        else:
+            # Fall back to top-level package dirs recorded in RECORD.
+            names = sorted(
+                {f.parts[0] for f in (dist.files or []) if f.suffix == '.py' and len(f.parts) > 1}
+            )
+        for name in names:
+            mapping.setdefault(name, []).append(dist_name)
+    return mapping
+
+
 def _resolve_installed_python_package(import_name, requirement=None):
     """Resolve an installed Python bridge package into lockfile metadata."""
     candidates = []
     base_import = str(import_name).split('.', 1)[0]
-    packages_map = importlib_metadata.packages_distributions()
+    packages_map = _packages_distributions()
     candidates.extend(packages_map.get(import_name, []))
     if base_import != import_name:
         candidates.extend(packages_map.get(base_import, []))
