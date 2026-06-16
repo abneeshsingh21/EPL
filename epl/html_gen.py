@@ -221,9 +221,18 @@ def generate_html(
         f'<script>{scripts}</script>' if scripts else ''
     )
 
-    custom_css = _generate_custom_css(styles or [])
+    # Page-scoped CSS (Phase 6): a Page's own Style/Stylesheet blocks render
+    # only on this route, appended AFTER site-wide CSS so they win the cascade.
+    page_styles = getattr(page_def, 'styles', None) if isinstance(page_def, ast.PageDef) else None
+    page_sheets = (
+        getattr(page_def, 'stylesheets', None) if isinstance(page_def, ast.PageDef) else None
+    )
+    merged_styles = (styles or []) + (page_styles or [])
+    merged_sheets = (stylesheets or []) + (page_sheets or [])
+
+    custom_css = _generate_custom_css(merged_styles)
     animation_css = _generate_animation_css(animations or [])
-    raw_css = _collect_raw_stylesheets(stylesheets or [])
+    raw_css = _collect_raw_stylesheets(merged_sheets)
     extra_css = ''
     if custom_css or animation_css or raw_css:
         extra_css = f'\n    <style>\n{custom_css}\n{animation_css}\n{raw_css}\n    </style>'

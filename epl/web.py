@@ -441,7 +441,14 @@ def _resolve_page_def(page_def, interpreter, env):
         else page_def.title
     )
     elements = [_resolve_page_element(element, interpreter, env) for element in page_def.elements]
-    return ast.PageDef(title, elements, page_def.line, page_def.head_directives)
+    return ast.PageDef(
+        title,
+        elements,
+        page_def.line,
+        page_def.head_directives,
+        page_def.stylesheets,
+        page_def.styles,
+    )
 
 
 # ─── Middleware Registry ─────────────────────────────────

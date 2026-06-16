@@ -534,12 +534,25 @@ class PageDef(ASTNode):
 
     `head_directives` holds optional per-page HeadDirective nodes (SEO/meta
     overrides scoped to this route); they merge over any site-wide Head block.
+    `stylesheets`/`styles` hold optional page-scoped CSS (RawStylesheet/StyleDef
+    nodes nested in the Page) that render ONLY on this route, after any
+    site-wide CSS — so per-route CSS no longer needs a Script escape hatch.
     """
 
-    def __init__(self, title: str, elements: list, line: int = 0, head_directives: list = None):
+    def __init__(
+        self,
+        title: str,
+        elements: list,
+        line: int = 0,
+        head_directives: list = None,
+        stylesheets: list = None,
+        styles: list = None,
+    ):
         self.title = title
         self.elements = elements
         self.head_directives = head_directives or []
+        self.stylesheets = stylesheets or []
+        self.styles = styles or []
         self.line = line
 
 

@@ -2435,11 +2435,23 @@ class Parser:
 
         elements = []
         head_directives = []
+        stylesheets = []
+        styles = []
         while not self._is_block_end():
             if self._token_starts_head_directive():
                 directive = self._parse_head_directive()
                 if directive:
                     head_directives.append(directive)
+                self._skip_newlines()
+                continue
+            # Page-scoped CSS: a `Stylesheet`/`Style` block nested in a Page
+            # renders only on this route (after any site-wide CSS).
+            if self._match(TokenType.STYLESHEET):
+                stylesheets.append(self._parse_stylesheet_def())
+                self._skip_newlines()
+                continue
+            if self._match(TokenType.STYLE):
+                styles.append(self._parse_style_def())
                 self._skip_newlines()
                 continue
             elem = self._parse_html_element()
@@ -2448,7 +2460,7 @@ class Parser:
             self._skip_newlines()
 
         self._consume_block_end()
-        return ast.PageDef(title_tok.value, elements, line, head_directives)
+        return ast.PageDef(title_tok.value, elements, line, head_directives, stylesheets, styles)
 
     def _parse_html_element(self):
         """Parse a single HTML element inside a Page block."""
