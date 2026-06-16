@@ -1830,17 +1830,26 @@ def main():
         'positive dimensions',
     )
 
-    # 11b. game_rect rejects non-positive w/h
+    # 11b. game_rect rejects non-positive w/h.
+    # Seed a fake game instance directly so the w/h validation runs WITHOUT
+    # pygame (game_create needs it) — keeps the check exercised on CI hosts.
+    def _seed_fake_game(gid='g'):
+        stdlib = __import__('epl.stdlib', fromlist=['_game_instances'])
+        stdlib._game_instances[gid] = {'screen': None, 'sprites': [], 'running': False}
+        return gid
+
+    _seed_fake_game('g')
     run_error_case(
         'game_rect rejects zero width',
-        'g = game_create("test")\ngame_rect(g, 0, 0, 0, 10)',
+        'game_rect("g", 0, 0, 0, 10)',
         'positive width and height',
     )
 
     # 11c. game_circle rejects non-positive radius
+    _seed_fake_game('g')
     run_error_case(
         'game_circle rejects zero radius',
-        'g = game_create("test")\ngame_circle(g, 0, 0, 0)',
+        'game_circle("g", 0, 0, 0)',
         'positive radius',
     )
 

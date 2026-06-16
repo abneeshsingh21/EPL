@@ -25,10 +25,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install EPL
+        shell: bash
         run: pip install -e ".[dev,llvm]" 2>/dev/null || pip install -e ".[dev]" 2>/dev/null || pip install -e .
       - name: Run tests
+        shell: bash
         run: python -m pytest tests/ -x --tb=short -q
       - name: Verify CLI
+        shell: bash
         run: |
           epl --version
           echo 'Say "Hello from CI"' > test_ci.epl

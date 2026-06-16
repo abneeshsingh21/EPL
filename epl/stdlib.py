@@ -9484,14 +9484,16 @@ def _call_game(name, args, line):
     if name == 'game_create':
         if not args:
             raise EPLRuntimeError('game_create(title[, width, height]) requires title.', line)
-        pygame = _ensure_pygame()
         title = str(args[0])
         width = int(args[1]) if len(args) > 1 else 800
         height = int(args[2]) if len(args) > 2 else 600
+        # Validate args BEFORE installing pygame, so bad input fails fast (and
+        # without a heavy optional-dep install) on any host.
         if width < 1 or height < 1:
             raise EPLRuntimeError(
                 f'game_create requires positive dimensions (got {width}x{height}).', line
             )
+        pygame = _ensure_pygame()
         screen = pygame.display.set_mode((width, height))
         pygame.display.set_caption(title)
         gid = f'game_{_new_id()}'
@@ -9573,16 +9575,17 @@ def _call_game(name, args, line):
             raise EPLRuntimeError(
                 'game_rect(game_id, x, y, w, h[, color]) requires game_id, x, y, w, h.', line
             )
-        pygame = _ensure_pygame()
         gid = str(args[0])
         if gid not in _game_instances:
             raise EPLRuntimeError(f'Unknown game: {gid}', line)
         x, y = float(args[1]), float(args[2])
         w, h = float(args[3]), float(args[4])
+        # Validate before installing pygame (fail fast, no heavy install).
         if w <= 0 or h <= 0:
             raise EPLRuntimeError(
                 f'game_rect requires positive width and height (got {w}x{h}).', line
             )
+        pygame = _ensure_pygame()
         color = _parse_color(args[5]) if len(args) > 5 else (255, 255, 255)
         sid = f'rect_{_new_id()}'
         _game_sprites[sid] = {
@@ -9604,14 +9607,15 @@ def _call_game(name, args, line):
             raise EPLRuntimeError(
                 'game_circle(game_id, x, y, radius[, color]) requires game_id, x, y, radius.', line
             )
-        pygame = _ensure_pygame()
         gid = str(args[0])
         if gid not in _game_instances:
             raise EPLRuntimeError(f'Unknown game: {gid}', line)
         x, y = float(args[1]), float(args[2])
         r = float(args[3])
+        # Validate before installing pygame (fail fast, no heavy install).
         if r <= 0:
             raise EPLRuntimeError(f'game_circle requires positive radius (got {r}).', line)
+        pygame = _ensure_pygame()
         color = _parse_color(args[4]) if len(args) > 4 else (255, 255, 255)
         sid = f'circ_{_new_id()}'
         _game_sprites[sid] = {
