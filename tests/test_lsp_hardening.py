@@ -13,7 +13,12 @@ def _server(*, debounce=0.0, timeout=1.0):
 
 
 def test_lsp_did_change_is_debounced(monkeypatch):
-    server = _server(debounce=0.02)
+    # Use a long debounce so NO timer fires during the rapid-change loop, then
+    # flush once explicitly. This proves debouncing structurally (5 changes →
+    # 1 analysis of the final text) without a sleep race — a short debounce
+    # flakes on loaded CI runners where loop iterations outlast the window.
+    uri = 'file:///rapid.epl'
+    server = _server(debounce=60.0)
     calls = {'count': 0}
     original = server.analyzer.analyze_text
 
@@ -26,15 +31,19 @@ def test_lsp_did_change_is_debounced(monkeypatch):
     for index in range(5):
         server._on_did_change(
             {
-                'textDocument': {'uri': 'file:///rapid.epl'},
+                'textDocument': {'uri': uri},
                 'contentChanges': [{'text': f'Print {index}'}],
             }
         )
 
-    time.sleep(0.08)
+    # No analysis should have run yet — all 5 changes are still pending.
+    assert calls['count'] == 0
+    assert server.analyzer.documents[uri] == 'Print 4'
 
-    assert server.analyzer.documents['file:///rapid.epl'] == 'Print 4'
+    # Flush the single pending update; exactly one analysis of the latest text.
+    server._flush_document_update(uri)
     assert calls['count'] == 1
+    assert server.analyzer.documents[uri] == 'Print 4'
 
 
 def test_lsp_completion_flushes_pending_update():
