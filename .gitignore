@@ -146,7 +146,11 @@ fuzz_out*
 # ─── Removed Directories (legacy/demo) ──────────────────
 ios_demo_ios/
 epl_packages/
-packages/
+# Ignore packages/ contents (installed-package cache) but KEEP the
+# reference-hello-lib fixture the reference-apps test suite needs. Use
+# packages/* (not packages/) so git can still descend to re-include it.
+packages/*
+!packages/reference-hello-lib/
 plans/
 functions/
 

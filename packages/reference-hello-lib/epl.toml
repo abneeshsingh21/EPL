@@ -1,0 +1,9 @@
+[project]
+name = "reference-hello-lib"
+version = "1.0.0"
+description = "Reference EPL library package for pack/install validation"
+author = "EPL Team"
+entry = "src/main.epl"
+
+[scripts]
+build = "epl package src/main.epl"
