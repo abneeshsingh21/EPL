@@ -334,4 +334,4 @@ End
 with open('landing_page/src/main.epl', 'w', encoding='utf-8') as f:
     f.write(epl_code)
 
-print("Generated native main.epl successfully.")
+print('Generated native main.epl successfully.')
