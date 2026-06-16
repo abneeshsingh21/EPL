@@ -208,6 +208,7 @@ HELP = f"""\
   --reload         Enable hot-reload
   --store TYPE     Store backend: memory|sqlite|redis
   --session TYPE   Session backend: memory|sqlite|redis
+  --csp            Strict Content-Security-Policy (nonce every generated script)
 
 {_bold('Android Options:')}
   --build          Build APK after generating project (requires Android SDK)
@@ -2534,6 +2535,7 @@ def _serve(args):
     store_backend = 'memory'
     session_backend = 'memory'
     engine = 'auto'
+    csp_mode = False
 
     i = 1
     while i < len(args):
@@ -2579,6 +2581,10 @@ def _serve(args):
         if arg == '--observability':
             i += 1
             continue
+        if arg == '--csp':
+            csp_mode = True
+            i += 1
+            continue
         print(f'{_red("Error:")} Unknown serve option: {arg}')
         return 1
 
@@ -2588,6 +2594,14 @@ def _serve(args):
         from epl.store_backends import configure_backends
 
         configure_backends(store=store_backend, session=session_backend)
+
+        if csp_mode:
+            # Phase 5 — strict CSP: nonce every generated <script> + send the
+            # matching `script-src 'self' 'nonce-…'` policy header.
+            from epl.html_gen import configure_page
+
+            configure_page(csp=True)
+            print(f'  {_green("✓")} Strict CSP enabled (per-response script nonce)')
 
         if dev_mode:
             # Development mode: use built-in threaded server with hot-reload

@@ -4,6 +4,7 @@ Converts PageDef and HtmlElement AST nodes into styled HTML.
 """
 
 import re
+import secrets
 
 from epl import ast_nodes as ast
 
@@ -15,6 +16,7 @@ _CONFIG = {
     'footer': None,  # str | None.  None = omit footer entirely.
     'fonts': 'system',  # 'system' (default) | 'cdn'  (cdn = legacy Google Fonts)
     'theme': 'auto',  # v9.3.0 Phase 4: 'light' | 'dark' | 'auto' (follows OS)
+    'csp': False,  # Phase 5: opt-in strict CSP with per-response script nonce.
 }
 
 # v9.3.0 Phase 4 — palette tokens shipped as CSS variables. Apps reference
@@ -71,7 +73,7 @@ def _theme_css(theme):
     )
 
 
-def configure_page(footer=None, fonts=None, theme=None):
+def configure_page(footer=None, fonts=None, theme=None, csp=None):
     """Configure page-level rendering options.
 
     Args:
@@ -82,6 +84,10 @@ def configure_page(footer=None, fonts=None, theme=None):
                 Sets the `color-scheme` meta + the built-in CSS variable palette
                 (`--bg`, `--fg`, `--muted`, `--accent`, `--surface`, `--border`,
                 `--danger`).
+        csp:    True enables strict Content-Security-Policy mode (Phase 5):
+                every generated <script> gets a per-response nonce and the
+                response-header CSP becomes `script-src 'self' 'nonce-…'`.
+                Default False keeps output byte-identical.
 
     Setting `footer` to the empty string also omits the footer.
     """
@@ -95,6 +101,8 @@ def configure_page(footer=None, fonts=None, theme=None):
         if theme not in ('light', 'dark', 'auto'):
             raise ValueError(f"theme must be 'light', 'dark', or 'auto', got {theme!r}")
         _CONFIG['theme'] = theme
+    if csp is not None:
+        _CONFIG['csp'] = bool(csp)
 
 
 def reset_config():
@@ -102,6 +110,44 @@ def reset_config():
     _CONFIG['footer'] = None
     _CONFIG['fonts'] = 'system'
     _CONFIG['theme'] = 'auto'
+    _CONFIG['csp'] = False
+
+
+# ─── Phase 5: Content-Security-Policy / script nonce ─────────
+
+
+def new_nonce():
+    """Return a fresh per-response script nonce when CSP mode is on, else None.
+
+    Uses a CSPRNG; the value is URL-safe base64 (A–Z a–z 0–9 _ -) so it is safe
+    verbatim in both an HTML attribute and a CSP `'nonce-…'` source.
+    """
+    return secrets.token_urlsafe(16) if _CONFIG['csp'] else None
+
+
+def build_csp_header(nonce=None):
+    """Single source of truth for the Content-Security-Policy value.
+
+    With `nonce`, `script-src` authorizes the generated inline scripts via
+    `'nonce-…'`. Without it, returns the exact policy used before Phase 5 so
+    behaviour is unchanged when CSP mode is off.
+    """
+    script_src = "'self'" if not nonce else f"'self' 'nonce-{nonce}'"
+    return (
+        f"default-src 'self'; script-src {script_src}; "
+        "style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'"
+    )
+
+
+def _add_nonce_to_scripts(html, nonce):
+    """Add `nonce="…"` to every generated <script> tag that lacks one.
+
+    A nonce on a <script> tag authorizes it under CSP3 regardless of `src`, so
+    this covers native-animation, event, hoisted-Script, and canvas/3D CDN
+    scripts uniformly without threading the nonce into each renderer. The
+    negative lookahead prevents double-adding.
+    """
+    return re.sub(r'<script(?![^>]*\bnonce=)', f'<script nonce="{nonce}"', html)
 
 
 # Modern Premium CSS - Professional Component Design
@@ -143,6 +189,7 @@ def generate_html(
     animations=None,
     stylesheets=None,
     head=None,
+    nonce=None,
 ):
     """Convert a PageDef AST node into a full HTML page string.
 
@@ -152,6 +199,8 @@ def generate_html(
     stylesheets: list of RawStylesheet nodes (raw CSS, server-rendered into head)
     head: list of site-wide HeadDirective nodes (SEO/meta/fonts); per-page
           overrides ride on page_def.head_directives and win over these.
+    nonce: Phase 5 — when set, every generated <script> is tagged with this
+           CSP nonce. Default None keeps output byte-identical.
     """
     title = page_def.title if isinstance(page_def, ast.PageDef) else 'EPL Page'
     elements = page_def.elements if isinstance(page_def, ast.PageDef) else []
@@ -228,7 +277,7 @@ def generate_html(
         font_link = ''
     head_block = f'\n    {head_tags}' if head_tags else ''
 
-    return f"""<!DOCTYPE html>
+    html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -247,6 +296,9 @@ def generate_html(
     {scripts_html}
 </body>
 </html>"""
+    if nonce:
+        html = _add_nonce_to_scripts(html, nonce)
+    return html
 
 
 def _esc(text):

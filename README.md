@@ -12,6 +12,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
 [![Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=flat-square&logo=github&color=e3b341)](https://github.com/abneeshsingh21/EPL/stargazers)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/abneeshsingh21)
 
 <br/>
 
@@ -97,6 +98,20 @@ epl deploy aws app.epl               # AWS ECS
 ```
 
 EPL supports WSGI (Waitress, Gunicorn) and ASGI (Uvicorn, Hypercorn) deployment through generated adapters and the `epl serve` runtime.
+
+### Security, CSP & the escape hatch
+
+The web DSL renders structure, styling (`Style`/`Stylesheet`), head/SEO (`Head`), and interactivity (`On click/hover/reveal`) as **native, server-rendered** output — no client-side injection. Event handlers compile to a generated `<script>` (never inline `on*` attributes).
+
+For the imperative cases the DSL doesn't model — a canvas particle engine, custom `requestAnimationFrame` loops, third-party widgets — `Script`, `Raw HTML`, and `Stylesheet` are the **sanctioned, author-responsible escape hatches** (the canvas particle engine on the EPL site itself lives in a `Script` block by design). Their bodies are emitted verbatim, with breakout guards on `Stylesheet`.
+
+Run under a strict Content-Security-Policy with `--csp`:
+
+```bash
+epl serve app.epl --csp
+```
+
+This generates a fresh per-response nonce, tags every generated `<script>` with it, and sends `Content-Security-Policy: … script-src 'self' 'nonce-…' …` — so the generated JS runs under a strict policy with no `'unsafe-inline'` for scripts. (Programmatic equivalent: `configure_page(csp=True)`.)
 
 ---
 
@@ -472,6 +487,20 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the full list of contributors.
 - [GitHub Discussions](https://github.com/abneeshsingh21/EPL/discussions) — Questions, ideas, and project showcase
 - [Issue Tracker](https://github.com/abneeshsingh21/EPL/issues) — Bug reports and feature requests
 - [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/) — Browse and publish EPL packages
+
+---
+
+## Sponsor
+
+EPL is built and maintained by [Abneesh Singh](https://github.com/abneeshsingh21) as an independent open-source project. If EPL is useful to you — in education, prototyping, or production — consider sponsoring its development:
+
+<div align="center">
+
+**[❤️ Sponsor on GitHub](https://github.com/sponsors/abneeshsingh21)**
+
+</div>
+
+Your sponsorship directly funds: new language features, official packages, documentation, VS Code extension updates, and security patches.
 
 ---
 

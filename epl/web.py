@@ -30,7 +30,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
 from epl import ast_nodes as ast
-from epl.html_gen import generate_html
+from epl.html_gen import build_csp_header, generate_html, new_nonce
 
 # ─── Structured Logger ───────────────────────────────────
 _access_logger = logging.getLogger('epl.web.access')
@@ -2048,6 +2048,9 @@ class EPLHandler(BaseHTTPRequestHandler):
 
     def _build_page(self, body, form_data=None, params=None):
         """Build HTML from route body statements."""
+        # Phase 5 — fresh CSP nonce per response (None when CSP mode is off);
+        # stashed on self so _send_html can reference it in the policy header.
+        self._csp_nonce = new_nonce()
         route_env = _build_route_env(
             self.interpreter,
             self.command,
@@ -2120,6 +2123,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                     animations=animations,
                     stylesheets=stylesheets,
                     head=head,
+                    nonce=self._csp_nonce,
                 )
 
         # If no PageDef, check for elements (including v6.0 styled elements)
@@ -2139,9 +2143,12 @@ class EPLHandler(BaseHTTPRequestHandler):
                 animations=animations,
                 stylesheets=stylesheets,
                 head=head,
+                nonce=self._csp_nonce,
             )
 
-        return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
+        return generate_html(
+            ast.PageDef('EPL Page', []), data_store=_data_store, nonce=self._csp_nonce
+        )
 
     def _execute_stores(self, body, form_data=None, route_env=None):
         """Execute Store and Delete statements in route body."""
@@ -2311,7 +2318,7 @@ class EPLHandler(BaseHTTPRequestHandler):
         self._add_security_headers()
         self.send_header(
             'Content-Security-Policy',
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'",
+            build_csp_header(getattr(self, '_csp_nonce', None)),
         )
         self.end_headers()
         self.wfile.write(compressed)
@@ -2973,6 +2980,8 @@ class AsyncEPLServer:
 
     def _build_page_sync(self, body, form_data, params):
         """Synchronous page building (mirror of EPLHandler._build_page)."""
+        # Phase 5 — tag generated scripts with a CSP nonce when CSP mode is on.
+        self._csp_nonce = new_nonce()
         for stmt in body:
             if isinstance(stmt, ast.StoreStatement):
                 self._exec_store_sync(stmt, form_data)
@@ -3008,6 +3017,7 @@ class AsyncEPLServer:
                     animations=animations,
                     stylesheets=stylesheets,
                     head=head,
+                    nonce=self._csp_nonce,
                 )
 
         elements = [
@@ -3026,9 +3036,12 @@ class AsyncEPLServer:
                 animations=animations,
                 stylesheets=stylesheets,
                 head=head,
+                nonce=self._csp_nonce,
             )
 
-        return generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
+        return generate_html(
+            ast.PageDef('EPL Page', []), data_store=_data_store, nonce=self._csp_nonce
+        )
 
     def _build_json_sync(self, body, params):
         """Synchronous JSON building."""

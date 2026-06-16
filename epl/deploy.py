@@ -61,10 +61,12 @@ class WSGIAdapter:
             _execute_route_block,
             _resolve_page_def,
             _resolve_page_element,
+            build_csp_header,
             db_store_add,
             db_store_get,
             db_store_remove,
             generate_html,
+            new_nonce,
             store_add,
             store_get,
             store_remove,
@@ -79,6 +81,8 @@ class WSGIAdapter:
         self._db_store_remove = db_store_remove
         self._check_rate_limit = _check_rate_limit
         self._generate_html = generate_html
+        self._build_csp_header = build_csp_header
+        self._new_nonce = new_nonce
         self._Request = Request
         self._Response = Response
         self._build_route_env = _build_route_env
@@ -280,6 +284,9 @@ class WSGIAdapter:
         from epl import ast_nodes as ast
         from epl.web import _data_store
 
+        # Phase 5 — fresh CSP nonce per response (None when CSP mode is off);
+        # stashed on self so the response builder adds the matching policy.
+        self._csp_nonce = self._new_nonce()
         route_env = self._build_route_env(
             self.interpreter,
             method,
@@ -339,6 +346,7 @@ class WSGIAdapter:
                     animations=animations,
                     stylesheets=stylesheets,
                     head=head,
+                    nonce=self._csp_nonce,
                 )
 
         elements = [
@@ -357,8 +365,11 @@ class WSGIAdapter:
                 animations=animations,
                 stylesheets=stylesheets,
                 head=head,
+                nonce=self._csp_nonce,
             )
-        return self._generate_html(ast.PageDef('EPL Page', []), data_store=_data_store)
+        return self._generate_html(
+            ast.PageDef('EPL Page', []), data_store=_data_store, nonce=self._csp_nonce
+        )
 
     def _build_json(self, body, form_data, params, method, path, headers, session_id):
         """Build JSON response."""
@@ -563,6 +574,11 @@ class WSGIAdapter:
             ('Content-Type', 'text/html; charset=utf-8'),
             ('Content-Length', str(len(body))),
         ] + self._security_headers()
+        # Phase 5 — emit a strict CSP only in CSP mode (a nonce was generated for
+        # this response); off by default so existing output is unchanged.
+        nonce = getattr(self, '_csp_nonce', None)
+        if nonce:
+            headers.append(('Content-Security-Policy', self._build_csp_header(nonce)))
         start_response(status_text, headers)
         return [body]
 
