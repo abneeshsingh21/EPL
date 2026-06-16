@@ -259,6 +259,10 @@ Route "/" shows
 
                 /* closing cta */
                 .cta{text-align:center;padding:clamp(96px,14vw,180px) var(--gut);position:relative;overflow:hidden;isolation:isolate}
+                /* dotted grid, faded to the centre (Antigravity finale backdrop) */
+                .cta::before{content:'';position:absolute;inset:0;z-index:0;background-image:radial-gradient(rgba(17,17,19,.08) 1.1px, transparent 1.1px);background-size:26px 26px;-webkit-mask-image:radial-gradient(ellipse 72% 64% at 50% 44%, transparent 0%, transparent 30%, black 88%);mask-image:radial-gradient(ellipse 72% 64% at 50% 44%, transparent 0%, transparent 30%, black 88%);pointer-events:none}
+                /* soft blue-violet bloom behind the headline */
+                .cta::after{content:'';position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);width:min(940px,92%);height:560px;z-index:0;background:radial-gradient(ellipse at center, rgba(46,160,255,.18), rgba(124,92,255,.11) 42%, transparent 72%);filter:blur(18px);pointer-events:none}
                 .cta-h{font-family:var(--display);font-size:clamp(2.7rem,7.4vw,6rem);line-height:1.02;letter-spacing:-.035em;font-weight:500;position:relative;z-index:2}
                 .cta-h .serif,.cta-h .g{color:var(--muted);font-weight:500}
                 .cta-sub{margin:26px auto 40px;max-width:44ch;font-size:1.12rem;color:var(--paper-dim);line-height:1.6;position:relative;z-index:2}
