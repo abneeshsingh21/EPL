@@ -979,7 +979,9 @@ print(module._force_interpret())
                     exit_code = cli_main(['test'])
 
                 self.assertEqual(exit_code, 0, stdout.getvalue())
-                self.assertIn('Test Results', stdout.getvalue())
+                # The native runner's branded header proves the `test` command
+                # dispatched to it (not a generic/legacy path).
+                self.assertIn('EPL Test Runner', stdout.getvalue())
                 self.assertIn('passed', stdout.getvalue())
             finally:
                 os.chdir(old_cwd)

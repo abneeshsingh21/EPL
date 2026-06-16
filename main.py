@@ -21,26 +21,32 @@ from epl.runtime_support import count_open_blocks  # noqa: F401
 
 # ── Convenience generators (test_phase6 & test_tier4) ───────────────────
 
+
 def _compile_to_wasm(filepath: str, opt_level: int = 2) -> bool:
     """Legacy compatibility stub for WASM compilation."""
     from epl.runtime_support import compile_file
+
     return compile_file(filepath, opt_level=opt_level, target='wasm32')
+
 
 def generate_desktop(program, output_dir, app_name='EPLApp'):
     """Generate a desktop (Jetpack Compose) project."""
     from epl.desktop import generate_desktop_project
+
     return generate_desktop_project(program, output_dir, app_name=app_name)
 
 
 def generate_web(program, output_dir, app_name='EPLWeb', mode='js'):
     """Generate a web project (JS, WASM, or Kotlin/JS)."""
     from epl.wasm_web import generate_web_project
+
     return generate_web_project(program, output_dir, app_name=app_name, mode=mode)
 
 
 def generate_android(program, output_dir, app_name='EPLApp'):
     """Generate an Android project."""
     from epl.kotlin_gen import generate_android_project
+
     return generate_android_project(program, output_dir)
 
 
@@ -63,6 +69,7 @@ def transpile_micropython(filepath, target='esp32'):
     source = _read_source(filepath)
     try:
         from epl.micropython_transpiler import transpile_to_micropython
+
         program = _parse_source(source)
         mpy = transpile_to_micropython(program, target=target)
         out = os.path.splitext(os.path.basename(filepath))[0] + f'_{target}_mpy.py'
@@ -76,8 +83,10 @@ def transpile_micropython(filepath, target='esp32'):
 def run_benchmark(filepath, runs=5, warmup=1):
     source = _read_source(filepath)
     import time as _time
+
     try:
         from epl.vm import compile_and_run
+
         for _ in range(warmup):
             compile_and_run(source)
         times = []
@@ -93,6 +102,7 @@ def run_benchmark(filepath, runs=5, warmup=1):
 def run_profiler(filepath, extra_args):
     source = _read_source(filepath)
     import time as _time
+
     trace_file = None
     top_n = 20
     i = 0
@@ -108,6 +118,7 @@ def run_profiler(filepath, extra_args):
 
     try:
         from epl.profiler import get_profiler
+
         profiler = get_profiler()
         profiler.reset()
         profiler.enable()
@@ -134,6 +145,7 @@ def run_profiler(filepath, extra_args):
 
 
 # ── Serve command (test_correctness_hardening) ─────────────────────────
+
 
 def _run_serve_command(argv):
     """Parse --host / --port / --workers flags and start the EPL web server.
@@ -198,22 +210,40 @@ def _run_serve_command(argv):
     wsgi_app = None
     if hasattr(interp, '_web_app') and interp._web_app:
         from epl.deploy import WSGIAdapter
+
         wsgi_app = WSGIAdapter(interp._web_app, interp)
 
     from epl.deploy import serve as deploy_serve
+
     deploy_serve(wsgi_app, host=host, port=port, workers=workers)
 
 
 # ── Main entry point ──────────────────────────────────────────────────
 
-def main():
-    """Delegate to the authoritative CLI dispatcher."""
+
+def _force_interpret():
+    """Check if --interpret flag was passed (evaluated lazily, not at import)."""
+    return '--interpret' in sys.argv
+
+
+def legacy_main(argv=None):
+    """Legacy command dispatcher retained while commands move into epl.cli."""
     from epl.cli import cli_main
-    cli_main()
+
+    return cli_main(list(sys.argv[1:] if argv is None else argv))
+
+
+def main(argv=None):
+    """Authoritative source-checkout entry point backed by epl.cli."""
+    from epl.cli import cli_main
+
+    return cli_main(argv)
 
 
 if __name__ == '__main__':
     main()
+
+
 def run_repl():
     """Compatibility wrapper over the shared EPL runtime implementation."""
     _shared_run_repl()
@@ -383,4 +413,3 @@ def run_lsp_server():
     except Exception as e:
         print(f'LSP Error: {e}', file=sys.stderr)
         sys.exit(1)
-
