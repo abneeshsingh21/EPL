@@ -1700,19 +1700,59 @@ def _cpu_count():
 
 
 def _memory_usage():
-    """Get current process memory usage in MB."""
+    """Get current process memory usage in MB.
+
+    Uses ``resource`` on Unix; on Windows (no ``resource`` module) prefers
+    psutil, then falls back to the Win32 ``GetProcessMemoryInfo`` API via
+    ctypes so a real figure is returned even without any optional dependency.
+    """
     try:
         import resource
 
         return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
     except ImportError:
-        # Windows
+        # Windows: no `resource` module.
         try:
             import psutil
 
             return psutil.Process().memory_info().rss / (1024 * 1024)
         except ImportError:
-            return -1
+            pass
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class _PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                _fields_ = [
+                    ('cb', wintypes.DWORD),
+                    ('PageFaultCount', wintypes.DWORD),
+                    ('PeakWorkingSetSize', ctypes.c_size_t),
+                    ('WorkingSetSize', ctypes.c_size_t),
+                    ('QuotaPeakPagedPoolUsage', ctypes.c_size_t),
+                    ('QuotaPagedPoolUsage', ctypes.c_size_t),
+                    ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t),
+                    ('QuotaNonPagedPoolUsage', ctypes.c_size_t),
+                    ('PagefileUsage', ctypes.c_size_t),
+                    ('PeakPagefileUsage', ctypes.c_size_t),
+                ]
+
+            counters = _PROCESS_MEMORY_COUNTERS()
+            counters.cb = ctypes.sizeof(_PROCESS_MEMORY_COUNTERS)
+            kernel32 = ctypes.windll.kernel32
+            # Without an explicit HANDLE restype the pseudo-handle is truncated
+            # to a 32-bit int and the call fails — pin the signatures.
+            kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+            get_mem_info = ctypes.windll.psapi.GetProcessMemoryInfo
+            get_mem_info.argtypes = [
+                wintypes.HANDLE,
+                ctypes.POINTER(_PROCESS_MEMORY_COUNTERS),
+                wintypes.DWORD,
+            ]
+            if get_mem_info(kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+                return counters.WorkingSetSize / (1024 * 1024)
+        except (ImportError, AttributeError, OSError):
+            pass
+        return -1
 
 
 def _cwd():
