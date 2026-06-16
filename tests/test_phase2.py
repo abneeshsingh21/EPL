@@ -1570,10 +1570,25 @@ def main():
 
     run_case('android_project generates screen composables', _test_android_project_screens)
 
-    # Test android_project bad package name
+    # Test android_project bad package name.
+    # Seed a fake mobile app directly so the package-name validation is
+    # exercised WITHOUT needing Toga (mobile_create) — otherwise this fails on
+    # CI hosts where Toga can't be installed, before validation is ever reached.
+    def _seed_fake_mobile_app(app_id='test'):
+        stdlib = __import__('epl.stdlib', fromlist=['_mobile_apps'])
+        stdlib._mobile_apps[app_id] = {
+            'title': 'TestApp',
+            'screens': {},
+            'current_screen': None,
+            'main_box': None,
+            'toga_app': None,
+        }
+        return app_id
+
+    _seed_fake_mobile_app('test')
     run_error_case(
         'android_project rejects invalid package name',
-        'app = mobile_create("test")\nandroid_project(app, "output", "INVALID")',
+        'android_project("test", "output", "INVALID")',
         'Invalid package name',
     )
 
@@ -1712,10 +1727,12 @@ def main():
 
     run_case('safe_title digit prefix produces valid identifier', _test_safe_title_digit_prefix)
 
-    # 10h. Path traversal blocked in android_project
+    # 10h. Path traversal blocked in android_project.
+    # Reuse the seeded fake app (no Toga needed) so this runs on every CI host.
+    _seed_fake_mobile_app('travapp')
     run_error_case(
         'android_project blocks path traversal',
-        'app = mobile_create("test")\nandroid_project(app, "../../../etc/evil")',
+        'android_project("travapp", "../../../etc/evil")',
         'Path traversal',
     )
 

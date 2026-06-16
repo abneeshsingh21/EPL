@@ -856,8 +856,12 @@ class Compiler:
         target = llvm.Target.from_default_triple()
         tm = target.create_target_machine(opt=self.opt_level, reloc='pic', codemodel='default')
 
-        # Apply LLVM optimization passes via the new pass manager
-        if self.opt_level > 0:
+        # Apply LLVM optimization passes via the new pass manager.
+        # PipelineTuningOptions + create_pass_builder landed in llvmlite 0.42;
+        # on older builds (e.g. the 0.41 pip resolves for some Python 3.9
+        # environments) the new API is absent — degrade to an unoptimized but
+        # valid object rather than crashing.
+        if self.opt_level > 0 and hasattr(llvm, 'PipelineTuningOptions'):
             pto = llvm.PipelineTuningOptions()
             pto.speed_level = self.opt_level
             pto.size_level = 0  # optimize for speed, not size
