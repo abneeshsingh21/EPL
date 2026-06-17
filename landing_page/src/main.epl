@@ -348,7 +348,7 @@ Route "/" shows
             Div class "nav-links"
                 Link "Overview" to "#manifesto"
                 Link "Syntax" to "#syntax"
-                Link "Playground" to "https://abneeshsingh21.github.io/EPL/playground"
+                Link "Playground" to "https://epl-playground.azurewebsites.net"
                 Link "Targets" to "#targets"
                 Link "Ecosystem" to "#ecosystem"
             End
@@ -1049,7 +1049,7 @@ Route "/" shows
                 Div class "foot-col"
                     Heading "Product"
                     Link "Documentation" to "https://abneeshsingh21.github.io/EPL/"
-                    Link "Playground" to "https://abneeshsingh21.github.io/EPL/playground"
+                    Link "Playground" to "https://epl-playground.azurewebsites.net"
                     Link "Packages" to "https://abneeshsingh21.github.io/epl-packages-index/"
                     Link "Changelog" to "https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md"
                 End
