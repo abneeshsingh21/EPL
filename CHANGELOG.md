@@ -10,6 +10,18 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Watch mode on Windows multi-drive setups:** `epl watch` no longer crashes
+  with `ValueError: path is on mount 'C:', start on mount 'D:'` when the watched
+  file and the current directory live on different drives. The display path now
+  degrades gracefully to an absolute path via a new `_safe_relpath()` helper
+  (the value is only ever shown to the user, never used for resolution).
+
+---
+
 ## [9.7.0] — 2026-06-16
 
 **Native web DSL** — a six-phase effort to make EPL's web layer express

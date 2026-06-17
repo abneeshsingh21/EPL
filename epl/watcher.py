@@ -157,6 +157,19 @@ def _format_time():
     return time.strftime('%H:%M:%S')
 
 
+def _safe_relpath(path):
+    """os.path.relpath, but tolerant of cross-drive paths on Windows.
+
+    relpath raises ValueError when the target and cwd live on different mounts
+    (e.g. a temp file on C: while the project is on D:). The result is only ever
+    used for display, so fall back to the absolute path in that case.
+    """
+    try:
+        return os.path.relpath(path)
+    except ValueError:
+        return os.path.abspath(path)
+
+
 def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300, timeout=None):
     """Run the watch loop for a file or directory.
 
@@ -187,7 +200,7 @@ def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300,
     else:
         watch_paths = [target]
 
-    display_target = os.path.relpath(target)
+    display_target = _safe_relpath(target)
     mode_label = 'test' if test_mode else 'run'
 
     # Print banner
@@ -208,7 +221,7 @@ def run_watch(target, flags=None, test_mode=False, clear=False, debounce_ms=300,
     def on_change(changes):
         changed_files = []
         for filepath, change_type in changes:
-            rel = os.path.relpath(filepath)
+            rel = _safe_relpath(filepath)
             changed_files.append(f'{rel} ({change_type})')
 
         if clear:
@@ -240,7 +253,7 @@ def _execute(target, flags, test_mode, clear, timeout=None):
         _clear_screen()
 
     timestamp = _format_time()
-    rel_target = os.path.relpath(target)
+    rel_target = _safe_relpath(target)
 
     if test_mode:
         print(f'\n  {_dim(timestamp)} {_cyan("Running tests:")} {rel_target}')
