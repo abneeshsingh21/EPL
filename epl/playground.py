@@ -11,6 +11,8 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time as _time
 
 from epl import _debug_log
 from epl.errors import EPLError
@@ -18,6 +20,63 @@ from epl.errors import EPLError
 PLAYGROUND_MAX_BODY_BYTES = 1_000_000
 PLAYGROUND_EXEC_TIMEOUT_SECONDS = 10
 _PLAYGROUND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# ── Public-exposure safeguards ───────────────────────────
+# These protect a publicly-hosted playground (e.g. Azure App Service F1, whose
+# free tier has a 60 CPU-min/day quota) from accidental or deliberate abuse.
+# They are deliberately conservative; legitimate interactive use stays well
+# under them. All limits are per-process and reset on restart.
+PLAYGROUND_RATE_LIMIT_WINDOW_SECONDS = 60
+PLAYGROUND_RATE_LIMIT_MAX_REQUESTS = 40  # expensive POSTs per client per window
+PLAYGROUND_MAX_CONCURRENT_EXECUTIONS = 4  # simultaneous code-execution subprocesses
+
+
+class _RateLimiter:
+    """Thread-safe sliding-window rate limiter keyed by client identity."""
+
+    def __init__(self, max_requests: int, window_seconds: float):
+        self._max = max_requests
+        self._window = window_seconds
+        self._hits: dict = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> bool:
+        now = _time.monotonic()
+        with self._lock:
+            hits = [t for t in self._hits.get(key, ()) if now - t < self._window]
+            if len(hits) >= self._max:
+                self._hits[key] = hits
+                return False
+            hits.append(now)
+            self._hits[key] = hits
+            # Opportunistic cleanup so the map can't grow without bound.
+            if len(self._hits) > 4096:
+                self._hits = {
+                    k: v for k, v in self._hits.items() if v and now - v[-1] < self._window
+                }
+            return True
+
+
+_RATE_LIMITER = _RateLimiter(
+    PLAYGROUND_RATE_LIMIT_MAX_REQUESTS, PLAYGROUND_RATE_LIMIT_WINDOW_SECONDS
+)
+# Caps concurrent execution subprocesses so a burst can't exhaust CPU/RAM.
+_EXEC_SEMAPHORE = threading.BoundedSemaphore(PLAYGROUND_MAX_CONCURRENT_EXECUTIONS)
+
+
+def _resolve_bind(host=None, port=None):
+    """Resolve the (host, port) the playground server should listen on.
+
+    Local default is 127.0.0.1:8080 (unchanged for `epl playground`). Cloud
+    hosts such as Azure App Service inject the listen port via PORT /
+    WEBSITES_PORT and require binding all interfaces, which `--host 0.0.0.0`
+    (or EPL_PLAYGROUND_HOST) selects.
+    """
+    resolved_host = host or os.environ.get('EPL_PLAYGROUND_HOST') or '127.0.0.1'
+    if port is None:
+        env_port = os.environ.get('PORT') or os.environ.get('WEBSITES_PORT')
+        port = int(env_port) if env_port else 8080
+    return resolved_host, int(port)
 
 
 def _safe_error(e):
@@ -35,9 +94,16 @@ def _safe_error(e):
 # ── Public API ───────────────────────────────────────────
 
 
-def start_playground(port: int = 8080, open_browser: bool = True):
-    """Start the EPL Web Playground server."""
+def start_playground(port: int = None, open_browser: bool = True, host: str = None):
+    """Start the EPL Web Playground server.
+
+    host/port default to 127.0.0.1:8080 for local use, or are taken from the
+    environment (EPL_PLAYGROUND_HOST, PORT/WEBSITES_PORT) when not given — see
+    _resolve_bind. Pass host='0.0.0.0' to expose the server publicly.
+    """
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    host, port = _resolve_bind(host, port)
 
     class PlaygroundHandler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -78,7 +144,25 @@ def start_playground(port: int = 8080, open_browser: bool = True):
         def _serve_syntax(self):
             self._json_response(200, _get_syntax_reference())
 
+        def _client_key(self):
+            # Behind App Service / a reverse proxy the real client is the first
+            # hop of X-Forwarded-For; fall back to the socket peer locally.
+            forwarded = self.headers.get('X-Forwarded-For')
+            if forwarded:
+                return forwarded.split(',')[0].strip()
+            return self.client_address[0]
+
+        def _rate_limited(self):
+            if not _RATE_LIMITER.allow(self._client_key()):
+                self._json_response(
+                    429, {'error': 'Rate limit exceeded. Please slow down and retry shortly.'}
+                )
+                return True
+            return False
+
         def _run_code(self):
+            if self._rate_limited():
+                return
             length = int(self.headers.get('Content-Length', 0))
             if length > PLAYGROUND_MAX_BODY_BYTES:
                 self._json_response(400, {'error': 'Code too large (max 1MB)'})
@@ -97,6 +181,8 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             self._json_response(200, result)
 
         def _transpile_code(self):
+            if self._rate_limited():
+                return
             length = int(self.headers.get('Content-Length', 0))
             if length > PLAYGROUND_MAX_BODY_BYTES:
                 self._json_response(400, {'error': 'Code too large (max 1MB)'})
@@ -116,6 +202,8 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             self._json_response(200, result)
 
         def _assist_code(self):
+            if self._rate_limited():
+                return
             length = int(self.headers.get('Content-Length', 0))
             if length > PLAYGROUND_MAX_BODY_BYTES:
                 self._json_response(400, {'error': 'Request too large (max 1MB)'})
@@ -148,15 +236,17 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             self.end_headers()
             self.wfile.write(encoded)
 
-    server = ThreadingHTTPServer(('127.0.0.1', port), PlaygroundHandler)
-    print(f'  EPL Web Playground running at http://127.0.0.1:{port}')
+    server = ThreadingHTTPServer((host, port), PlaygroundHandler)
+    # 0.0.0.0 means "all interfaces" — the reachable address is localhost.
+    display_host = '127.0.0.1' if host in ('0.0.0.0', '') else host
+    print(f'  EPL Web Playground running at http://{display_host}:{port}')
     print('  Press Ctrl+C to stop')
 
     if open_browser:
         try:
             import webbrowser
 
-            webbrowser.open(f'http://127.0.0.1:{port}')
+            webbrowser.open(f'http://{display_host}:{port}')
         except Exception:
             _debug_log.suppressed('playground:152')
 
@@ -223,6 +313,9 @@ def _execute_epl(code: str) -> dict:
     if not code.strip():
         return {'output': '', 'error': None}
 
+    # Bound concurrent executions so a burst can't exhaust the host's CPU/RAM.
+    if not _EXEC_SEMAPHORE.acquire(timeout=PLAYGROUND_EXEC_TIMEOUT_SECONDS + 2):
+        return {'output': '', 'error': 'Server busy — too many programs running. Retry shortly.'}
     try:
         completed = subprocess.run(
             [sys.executable, '-m', 'epl.playground', '--worker-run'],
@@ -240,6 +333,8 @@ def _execute_epl(code: str) -> dict:
         }
     except Exception as exc:
         return {'output': '', 'error': _safe_error(exc)}
+    finally:
+        _EXEC_SEMAPHORE.release()
 
     if not completed.stdout.strip():
         return {'output': '', 'error': 'Internal error'}
