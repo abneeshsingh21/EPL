@@ -126,6 +126,18 @@ def start_playground(port: int = None, open_browser: bool = True, host: str = No
             else:
                 self.send_error(404)
 
+        def do_OPTIONS(self):
+            # CORS preflight: lets the flagship site embed the playground and
+            # call the API cross-origin (see _json_response for the allow-origin
+            # header on the actual responses).
+            self.send_response(204)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.send_header('Access-Control-Max-Age', '86400')
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+
         def _serve_html(self):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -229,6 +241,9 @@ def start_playground(port: int = None, open_browser: bool = True, host: str = No
             encoded = json.dumps(data).encode('utf-8')
             self.send_response(status)
             self.send_header('Content-Type', 'application/json')
+            # Public, rate-limited, safe_mode demo API — allow any origin so the
+            # flagship site's embedded playground can run code cross-origin.
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('X-Frame-Options', 'DENY')
             self.send_header('Cache-Control', 'no-store')

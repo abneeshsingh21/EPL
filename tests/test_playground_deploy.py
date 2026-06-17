@@ -7,10 +7,40 @@ defaults.
 """
 
 import os
+import socket
+import threading
+import time
+import urllib.request
 
 import pytest
 
 from epl import playground as pg
+
+
+def _free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture
+def live_server():
+    """Start the real playground server headless on an ephemeral port."""
+    port = _free_port()
+    thread = threading.Thread(
+        target=pg.start_playground,
+        kwargs={'port': port, 'host': '127.0.0.1', 'open_browser': False},
+        daemon=True,
+    )
+    thread.start()
+    base = f'http://127.0.0.1:{port}'
+    for _ in range(50):  # wait up to ~5s for the socket to accept
+        try:
+            urllib.request.urlopen(base + '/api/examples', timeout=1).read()
+            break
+        except Exception:
+            time.sleep(0.1)
+    yield base
 
 
 @pytest.fixture(autouse=True)
@@ -66,3 +96,24 @@ def test_rate_limiter_is_per_client():
 def test_concurrency_cap_is_bounded():
     # The execution semaphore must be a hard ceiling on simultaneous runs.
     assert pg._EXEC_SEMAPHORE._value == pg.PLAYGROUND_MAX_CONCURRENT_EXECUTIONS
+
+
+def test_run_response_sends_cors_header(live_server):
+    # The embedded site playground calls this cross-origin; the allow-origin
+    # header must be present on the actual API response.
+    req = urllib.request.Request(
+        live_server + '/api/run',
+        data=b'{"code": "Print \\"hi\\""}',
+        headers={'Content-Type': 'application/json'},
+        method='POST',
+    )
+    resp = urllib.request.urlopen(req, timeout=30)
+    assert resp.headers.get('Access-Control-Allow-Origin') == '*'
+
+
+def test_options_preflight_allows_cross_origin(live_server):
+    req = urllib.request.Request(live_server + '/api/run', method='OPTIONS')
+    resp = urllib.request.urlopen(req, timeout=10)
+    assert resp.status == 204
+    assert resp.headers.get('Access-Control-Allow-Origin') == '*'
+    assert 'POST' in resp.headers.get('Access-Control-Allow-Methods', '')
