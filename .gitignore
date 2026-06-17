@@ -107,6 +107,13 @@ temp/
 *.tmp
 _tmp_*.py
 _tmp_*.epl
+test_tmp.*
+
+# ─── Editor backups & generated previews ────────────────
+*.bak
+*.bak[0-9]
+*.orig
+/preview*.html
 
 # ─── Local Automation Scripts ───────────────────────────
 run_background.bat
