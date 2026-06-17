@@ -504,10 +504,13 @@ body{
 .out-err{color:var(--red); white-space:pre-wrap; word-break:break-word}
 .out-ok{color:var(--green)}
 .out-hint{color:var(--faint); font-style:italic}
+/* NOTE: visibility is owned solely by .view-pane / .view-pane.active below.
+   Do NOT add display:none to these #id rules — an id selector (1,0,0) outranks
+   .view-pane.active (0,2,0), so the pane would stay hidden after switchView(). */
 #transpiled{flex:1; min-height:0; overflow:auto; padding:16px 18px;
     font-family:var(--mono); font-size:13px; line-height:1.62; color:var(--code);
-    white-space:pre-wrap; word-break:break-word; display:none}
-#assistant{flex:1; min-height:0; overflow:auto; padding:14px; display:none}
+    white-space:pre-wrap; word-break:break-word}
+#assistant{flex:1; min-height:0; overflow:auto; padding:14px}
 .view-pane{display:none}
 .view-pane.active{display:flex; flex-direction:column}
 
