@@ -194,6 +194,42 @@ Route "/" shows
                 .cline{display:flex;flex-wrap:nowrap;align-items:baseline;min-height:1.65em}
                 .c-kw{color:#C4B5FD}.c-fn{color:#93C5FD}.c-str{color:#FCD34D}.c-id{color:var(--d-paper)}.c-dim{color:var(--d-paper-faint)}
 
+                /* ── Embedded live playground ── reuses the dark .code island look */
+                .pg-shell{max-width:1000px;margin:0 auto}
+                .pg-code{--ink:var(--d-ink);--ink-2:var(--d-ink-2);--paper:var(--d-paper);
+                    --paper-dim:var(--d-paper-dim);--paper-faint:var(--d-paper-faint);
+                    --line:var(--d-line);--line-soft:var(--d-line-soft)}
+                .pg-run{margin-left:auto;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+                    font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.02em;
+                    color:#fff;padding:7px 16px;border-radius:8px;border:0;
+                    background:linear-gradient(135deg,var(--accent),#7C5CFF);
+                    box-shadow:0 6px 18px -8px rgba(0,125,243,.7);transition:transform .2s var(--ease),opacity .2s,box-shadow .3s}
+                .pg-run::before{content:'\25B6';font-size:9px;transform:translateY(.5px)}
+                .pg-run:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(0,125,243,.8)}
+                .pg-run:active{transform:translateY(0)}
+                .pg-run[aria-busy="true"]{pointer-events:none;opacity:.6}
+                .pg-run[aria-busy="true"]::before{content:'';width:11px;height:11px;border-radius:50%;
+                    border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:pg-spin .7s linear infinite}
+                @keyframes pg-spin{to{transform:rotate(360deg)}}
+                .pg-editor{display:block;width:100%;border:0;outline:0;resize:vertical;tab-size:2;
+                    min-height:230px;background:transparent;color:var(--d-paper);
+                    padding:24px 26px;font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:1.65;
+                    caret-color:var(--accent)}
+                .pg-editor::placeholder{color:var(--d-paper-faint)}
+                .pg-out-wrap{border-top:1px solid var(--d-line-soft);background:rgba(0,0,0,.22)}
+                .pg-out-head{display:flex;align-items:center;gap:8px;padding:11px 26px;
+                    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.18em;
+                    text-transform:uppercase;color:var(--d-paper-faint)}
+                .pg-out-head .pg-status{margin-left:auto;text-transform:none;letter-spacing:0;font-size:11.5px;color:var(--d-paper-dim)}
+                .pg-out{margin:0;padding:6px 26px 24px;min-height:42px;max-height:320px;overflow:auto;
+                    font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;
+                    color:var(--d-paper);white-space:pre-wrap;word-break:break-word}
+                .pg-out.empty{color:var(--d-paper-faint)}
+                .pg-out.err{color:#FF9AAB}
+                .pg-foot{margin-top:18px;text-align:center;font-size:13px;color:var(--paper-dim)}
+                .pg-foot a{color:var(--accent)}
+                .pg-foot a:hover{text-decoration:underline}
+
                 /* pillars */
                 .pillar{display:grid;grid-template-columns:84px 1fr 170px;gap:34px;align-items:start;
                     padding:44px 24px;border-top:1px solid var(--line);position:relative;border-radius:16px;
@@ -348,7 +384,7 @@ Route "/" shows
             Div class "nav-links"
                 Link "Overview" to "#manifesto"
                 Link "Syntax" to "#syntax"
-                Link "Playground" to "https://epl-playground.azurewebsites.net"
+                Link "Playground" to "#playground"
                 Link "Targets" to "#targets"
                 Link "Ecosystem" to "#ecosystem"
             End
@@ -970,6 +1006,50 @@ Route "/" shows
             End
         End
 
+        Note: ── Playground (live, embedded) ────────────────────────────
+        Section class "section" id "playground"
+            Div class "wrap"
+                Div class "sec-head"
+                    Div class "eyebrow reveal"
+                        Text "Try it now"
+                    End
+                    Div class "sec-h reveal dly-1"
+                        Text "Run EPL "
+                        Span class "g"
+                            Text "right here."
+                        End
+                    End
+                    Div class "split-p reveal dly-2"
+                        Text "No install. Edit the program and press Run — it executes on the live EPL engine and streams the output back. Press Cmd/Ctrl+Enter to run."
+                    End
+                End
+                Div class "pg-shell glow reveal dly-2"
+                    Div class "code pg-code"
+                        Div class "code-bar"
+                            Span class "dot"
+                            End
+                            Span class "dot"
+                            End
+                            Span class "dot"
+                            End
+                            Span class "code-file"
+                                Text "playground.epl"
+                            End
+                            Div class "pg-run" id "pg-run"
+                                Text "Run"
+                            End
+                        End
+                        Div id "pg-mount"
+                        End
+                    End
+                    Div class "pg-foot reveal dly-3"
+                        Text "Powered by the live EPL playground. "
+                        Link "Open the full playground" to "https://epl-playground.azurewebsites.net"
+                    End
+                End
+            End
+        End
+
         Note: ── Install ──────────────────────────────────────────────────
         Section class "section" id "install"
             Div class "wrap split"
@@ -1271,6 +1351,81 @@ Route "/" shows
                         setTimeout(function () { btn.textContent = prev; }, 1600);
                     });
                 });
+
+                // ── Embedded live playground: editor + Run + output, against the Azure API ──
+                (function setupPlayground() {
+                    var mount = document.getElementById('pg-mount');
+                    var run = document.getElementById('pg-run');
+                    if (!mount || !run) return;
+                    var API = 'https://epl-playground.azurewebsites.net/api/run';
+                    var SEED = [
+                        'Create greeting = "Hello, EPL"',
+                        'Say greeting',
+                        '',
+                        'Say "Squares from 1 to 5:"',
+                        'For i from 1 to 5',
+                        '    Say i + " squared is " + (i * i)',
+                        'End'
+                    ].join('\n');
+
+                    var ed = document.createElement('textarea');
+                    ed.className = 'pg-editor';
+                    ed.setAttribute('spellcheck', 'false');
+                    ed.setAttribute('aria-label', 'EPL code editor');
+                    ed.value = SEED;
+                    mount.appendChild(ed);
+
+                    var outWrap = document.createElement('div');
+                    outWrap.className = 'pg-out-wrap';
+                    var head = document.createElement('div');
+                    head.className = 'pg-out-head';
+                    head.innerHTML = '<span>Output</span><span class="pg-status"></span>';
+                    var out = document.createElement('pre');
+                    out.className = 'pg-out empty';
+                    out.textContent = 'Press Run to execute.';
+                    outWrap.appendChild(head);
+                    outWrap.appendChild(out);
+                    mount.appendChild(outWrap);
+                    var status = head.querySelector('.pg-status');
+
+                    var busy = false;
+                    function setOut(text, isErr) {
+                        out.classList.remove('empty');
+                        out.classList.toggle('err', !!isErr);
+                        out.textContent = text;
+                    }
+                    function execute() {
+                        if (busy) return;
+                        var code = ed.value;
+                        if (!code.trim()) { setOut('Write some EPL first, then press Run.', false); return; }
+                        busy = true;
+                        run.setAttribute('aria-busy', 'true');
+                        status.textContent = '';
+                        var warm = setTimeout(function () {
+                            status.textContent = 'Warming up the server… first run can take ~20s';
+                        }, 1500);
+                        fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify({ code: code }) })
+                            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                            .then(function (res) {
+                                var d = res.d || {};
+                                if (d.error) { setOut(d.error, true); }
+                                else { setOut((d.output != null && d.output !== '') ? d.output : '(no output)', false); }
+                            })
+                            .catch(function () {
+                                setOut('Could not reach the playground server. It may be waking up — try again in a moment, or open the full playground.', true);
+                            })
+                            .then(function () {
+                                clearTimeout(warm);
+                                status.textContent = '';
+                                busy = false;
+                                run.removeAttribute('aria-busy');
+                            });
+                    }
+                    run.addEventListener('click', execute);
+                    ed.addEventListener('keydown', function (e) {
+                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); execute(); }
+                    });
+                })();
             })();
         End
     End
