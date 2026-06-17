@@ -348,6 +348,7 @@ Route "/" shows
             Div class "nav-links"
                 Link "Overview" to "#manifesto"
                 Link "Syntax" to "#syntax"
+                Link "Playground" to "https://abneeshsingh21.github.io/EPL/playground"
                 Link "Targets" to "#targets"
                 Link "Ecosystem" to "#ecosystem"
             End

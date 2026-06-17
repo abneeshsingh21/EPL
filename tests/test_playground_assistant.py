@@ -67,8 +67,9 @@ def test_playground_assistant_uses_syntax_aware_generation():
 
 def test_playground_html_exposes_assistant_ui():
     assert '/api/assist' in _PLAYGROUND_HTML
-    assert 'Real EPL Syntax' in _PLAYGROUND_HTML
-    assert 'Apply To Editor' in _PLAYGROUND_HTML
+    assert 'EPL syntax' in _PLAYGROUND_HTML
+    assert 'Apply to editor' in _PLAYGROUND_HTML
+    assert 'syntaxGuide' in _PLAYGROUND_HTML
 
 
 def test_docs_playground_routes_only_to_explicit_ai_providers():
