@@ -1,8 +1,7 @@
 """Regression coverage for the playground assistant and syntax-aware copilot."""
 
-from pathlib import Path
-
 import re
+from pathlib import Path
 
 from epl.copilot import _convert_set_to_create, analyze_code, assist_request
 from epl.lexer import Lexer

@@ -13,7 +13,6 @@ import time
 import urllib.request
 
 import pytest
-
 from epl import playground as pg
 
 

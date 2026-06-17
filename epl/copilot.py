@@ -194,9 +194,11 @@ def _validate_generated_code(code: str, description: str):
 
     safe_fallback, _ = _convert_set_to_create(_fallback(description.lower(), description.strip()))
     fallback_analysis = analyze_code(safe_fallback)
-    notes = set_notes + repair_notes + [
-        'Fell back to a safe starter because the first draft did not parse cleanly.'
-    ]
+    notes = (
+        set_notes
+        + repair_notes
+        + ['Fell back to a safe starter because the first draft did not parse cleanly.']
+    )
     return safe_fallback, fallback_analysis, notes
 
 
@@ -226,7 +228,7 @@ def _convert_set_to_create(code: str):
     if not converted:
         return code, []
     return '\n'.join(out), [
-        "Converted `set X to ...` into EPL `Create X = ...` so variables are defined."
+        'Converted `set X to ...` into EPL `Create X = ...` so variables are defined.'
     ]
 
 

@@ -86,8 +86,10 @@ def _safe_error(e):
     # `ask`/input reads stdin, which the sandboxed playground runs at EOF.
     # Surface a clear message instead of a meaningless "Internal error".
     if isinstance(e, EOFError):
-        return ('This program asks for interactive input (e.g. "ask"), which the '
-                'playground cannot provide. Try a non-interactive example.')
+        return (
+            'This program asks for interactive input (e.g. "ask"), which the '
+            'playground cannot provide. Try a non-interactive example.'
+        )
     return 'Internal error'
 
 
