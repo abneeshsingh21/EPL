@@ -22,7 +22,14 @@ _PLAYGROUND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 def _safe_error(e):
     """Return error message, sanitizing non-EPL exceptions."""
-    return str(e) if isinstance(e, EPLError) else 'Internal error'
+    if isinstance(e, EPLError):
+        return str(e)
+    # `ask`/input reads stdin, which the sandboxed playground runs at EOF.
+    # Surface a clear message instead of a meaningless "Internal error".
+    if isinstance(e, EOFError):
+        return ('This program asks for interactive input (e.g. "ask"), which the '
+                'playground cannot provide. Try a non-interactive example.')
+    return 'Internal error'
 
 
 # ── Public API ───────────────────────────────────────────
