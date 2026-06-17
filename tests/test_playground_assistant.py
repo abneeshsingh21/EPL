@@ -1,11 +1,17 @@
 """Regression coverage for the playground assistant and syntax-aware copilot."""
 
+import re
 from pathlib import Path
 
-from epl.copilot import analyze_code, assist_request
+from epl.copilot import _convert_set_to_create, analyze_code, assist_request
 from epl.lexer import Lexer
 from epl.parser import Parser
-from epl.playground import _PLAYGROUND_HTML, _assist_playground, _get_syntax_reference
+from epl.playground import (
+    _PLAYGROUND_HTML,
+    _assist_playground,
+    _get_syntax_reference,
+    _safe_error,
+)
 from epl.syntax_reference import get_syntax_sections
 
 
@@ -56,6 +62,38 @@ def test_assist_request_repairs_common_else_syntax():
     _assert_parses(result['code'])
 
 
+def test_convert_set_to_create_rewrites_initialization():
+    src = 'set counter to 0\nrepeat 3 times\n    set counter to counter + 1\nend\n'
+    converted, notes = _convert_set_to_create(src)
+
+    assert 'Create counter = 0' in converted
+    assert 'Create counter = counter + 1' in converted
+    assert not re.search(r'^\s*set\b', converted, re.IGNORECASE | re.MULTILINE)
+    assert notes  # a human-readable repair note is recorded
+
+
+def test_convert_set_to_create_preserves_value_starting_with_to():
+    # The value `to_integer(guess)` must survive — only the first ` to ` delimits.
+    converted, _ = _convert_set_to_create('set guess to to_integer(guess)\n')
+    assert 'Create guess = to_integer(guess)' in converted
+
+
+def test_generated_loop_code_defines_variables_with_create():
+    # Regression: the assistant used to emit `set X to` which crashes at runtime
+    # with a NameError because EPL's `set` only reassigns existing variables.
+    result = assist_request('loops counting with a counter', mode='generate')
+
+    assert result['syntax_ok'] is True
+    assert not re.search(r'^\s*set\b', result['code'], re.IGNORECASE | re.MULTILINE)
+    _assert_parses(result['code'])
+
+
+def test_safe_error_explains_interactive_input():
+    message = _safe_error(EOFError('EOF when reading a line'))
+    assert 'interactive input' in message
+    assert message != 'Internal error'
+
+
 def test_playground_assistant_uses_syntax_aware_generation():
     result = _assist_playground('creative frontend landing page', mode='generate')
 
@@ -67,8 +105,9 @@ def test_playground_assistant_uses_syntax_aware_generation():
 
 def test_playground_html_exposes_assistant_ui():
     assert '/api/assist' in _PLAYGROUND_HTML
-    assert 'Real EPL Syntax' in _PLAYGROUND_HTML
-    assert 'Apply To Editor' in _PLAYGROUND_HTML
+    assert 'EPL syntax' in _PLAYGROUND_HTML
+    assert 'Apply to editor' in _PLAYGROUND_HTML
+    assert 'syntaxGuide' in _PLAYGROUND_HTML
 
 
 def test_docs_playground_routes_only_to_explicit_ai_providers():

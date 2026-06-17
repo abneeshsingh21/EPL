@@ -261,6 +261,41 @@ class TestHelperFunctions(unittest.TestCase):
 
 
 # ═══════════════════════════════════════════════════════════
+# Cross-drive display path — _safe_relpath
+# os.path.relpath raises ValueError on Windows when the target
+# and cwd live on different drives (e.g. a temp file on C: while
+# the project is on D:). That used to crash `epl watch`; the
+# display path must degrade to the absolute path instead.
+# ═══════════════════════════════════════════════════════════
+
+
+class TestSafeRelpath(unittest.TestCase):
+    """Tests for _safe_relpath cross-drive tolerance."""
+
+    def test_normal_path_matches_relpath(self):
+        from epl.watcher import _safe_relpath
+
+        # For a path under cwd, behaves exactly like os.path.relpath.
+        path = os.path.join(os.getcwd(), 'sub', 'file.epl')
+        self.assertEqual(_safe_relpath(path), os.path.relpath(path))
+
+    def test_cross_drive_falls_back_to_abspath(self):
+        from unittest import mock
+
+        from epl import watcher
+
+        target = r'C:\elsewhere\main.epl'
+        # Simulate the Windows cross-drive failure on any platform.
+        with mock.patch.object(
+            watcher.os.path, 'relpath', side_effect=ValueError('different drive')
+        ):
+            result = watcher._safe_relpath(target)
+
+        # Must not raise, and must return a usable absolute path.
+        self.assertEqual(result, os.path.abspath(target))
+
+
+# ═══════════════════════════════════════════════════════════
 # run_watch Configuration
 # ═══════════════════════════════════════════════════════════
 

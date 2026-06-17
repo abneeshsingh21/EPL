@@ -11,6 +11,8 @@ import json
 import os
 import subprocess
 import sys
+import threading
+import time as _time
 
 from epl import _debug_log
 from epl.errors import EPLError
@@ -19,18 +21,91 @@ PLAYGROUND_MAX_BODY_BYTES = 1_000_000
 PLAYGROUND_EXEC_TIMEOUT_SECONDS = 10
 _PLAYGROUND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
+# ── Public-exposure safeguards ───────────────────────────
+# These protect a publicly-hosted playground (e.g. Azure App Service F1, whose
+# free tier has a 60 CPU-min/day quota) from accidental or deliberate abuse.
+# They are deliberately conservative; legitimate interactive use stays well
+# under them. All limits are per-process and reset on restart.
+PLAYGROUND_RATE_LIMIT_WINDOW_SECONDS = 60
+PLAYGROUND_RATE_LIMIT_MAX_REQUESTS = 40  # expensive POSTs per client per window
+PLAYGROUND_MAX_CONCURRENT_EXECUTIONS = 4  # simultaneous code-execution subprocesses
+
+
+class _RateLimiter:
+    """Thread-safe sliding-window rate limiter keyed by client identity."""
+
+    def __init__(self, max_requests: int, window_seconds: float):
+        self._max = max_requests
+        self._window = window_seconds
+        self._hits: dict = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str) -> bool:
+        now = _time.monotonic()
+        with self._lock:
+            hits = [t for t in self._hits.get(key, ()) if now - t < self._window]
+            if len(hits) >= self._max:
+                self._hits[key] = hits
+                return False
+            hits.append(now)
+            self._hits[key] = hits
+            # Opportunistic cleanup so the map can't grow without bound.
+            if len(self._hits) > 4096:
+                self._hits = {
+                    k: v for k, v in self._hits.items() if v and now - v[-1] < self._window
+                }
+            return True
+
+
+_RATE_LIMITER = _RateLimiter(
+    PLAYGROUND_RATE_LIMIT_MAX_REQUESTS, PLAYGROUND_RATE_LIMIT_WINDOW_SECONDS
+)
+# Caps concurrent execution subprocesses so a burst can't exhaust CPU/RAM.
+_EXEC_SEMAPHORE = threading.BoundedSemaphore(PLAYGROUND_MAX_CONCURRENT_EXECUTIONS)
+
+
+def _resolve_bind(host=None, port=None):
+    """Resolve the (host, port) the playground server should listen on.
+
+    Local default is 127.0.0.1:8080 (unchanged for `epl playground`). Cloud
+    hosts such as Azure App Service inject the listen port via PORT /
+    WEBSITES_PORT and require binding all interfaces, which `--host 0.0.0.0`
+    (or EPL_PLAYGROUND_HOST) selects.
+    """
+    resolved_host = host or os.environ.get('EPL_PLAYGROUND_HOST') or '127.0.0.1'
+    if port is None:
+        env_port = os.environ.get('PORT') or os.environ.get('WEBSITES_PORT')
+        port = int(env_port) if env_port else 8080
+    return resolved_host, int(port)
+
 
 def _safe_error(e):
     """Return error message, sanitizing non-EPL exceptions."""
-    return str(e) if isinstance(e, EPLError) else 'Internal error'
+    if isinstance(e, EPLError):
+        return str(e)
+    # `ask`/input reads stdin, which the sandboxed playground runs at EOF.
+    # Surface a clear message instead of a meaningless "Internal error".
+    if isinstance(e, EOFError):
+        return (
+            'This program asks for interactive input (e.g. "ask"), which the '
+            'playground cannot provide. Try a non-interactive example.'
+        )
+    return 'Internal error'
 
 
 # ── Public API ───────────────────────────────────────────
 
 
-def start_playground(port: int = 8080, open_browser: bool = True):
-    """Start the EPL Web Playground server."""
+def start_playground(port: int = None, open_browser: bool = True, host: str = None):
+    """Start the EPL Web Playground server.
+
+    host/port default to 127.0.0.1:8080 for local use, or are taken from the
+    environment (EPL_PLAYGROUND_HOST, PORT/WEBSITES_PORT) when not given — see
+    _resolve_bind. Pass host='0.0.0.0' to expose the server publicly.
+    """
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    host, port = _resolve_bind(host, port)
 
     class PlaygroundHandler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -53,6 +128,18 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             else:
                 self.send_error(404)
 
+        def do_OPTIONS(self):
+            # CORS preflight: lets the flagship site embed the playground and
+            # call the API cross-origin (see _json_response for the allow-origin
+            # header on the actual responses).
+            self.send_response(204)
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+            self.send_header('Access-Control-Max-Age', '86400')
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+
         def _serve_html(self):
             self.send_response(200)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
@@ -71,7 +158,25 @@ def start_playground(port: int = 8080, open_browser: bool = True):
         def _serve_syntax(self):
             self._json_response(200, _get_syntax_reference())
 
+        def _client_key(self):
+            # Behind App Service / a reverse proxy the real client is the first
+            # hop of X-Forwarded-For; fall back to the socket peer locally.
+            forwarded = self.headers.get('X-Forwarded-For')
+            if forwarded:
+                return forwarded.split(',')[0].strip()
+            return self.client_address[0]
+
+        def _rate_limited(self):
+            if not _RATE_LIMITER.allow(self._client_key()):
+                self._json_response(
+                    429, {'error': 'Rate limit exceeded. Please slow down and retry shortly.'}
+                )
+                return True
+            return False
+
         def _run_code(self):
+            if self._rate_limited():
+                return
             length = int(self.headers.get('Content-Length', 0))
             if length > PLAYGROUND_MAX_BODY_BYTES:
                 self._json_response(400, {'error': 'Code too large (max 1MB)'})
@@ -90,6 +195,8 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             self._json_response(200, result)
 
         def _transpile_code(self):
+            if self._rate_limited():
+                return
             length = int(self.headers.get('Content-Length', 0))
             if length > PLAYGROUND_MAX_BODY_BYTES:
                 self._json_response(400, {'error': 'Code too large (max 1MB)'})
@@ -109,6 +216,8 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             self._json_response(200, result)
 
         def _assist_code(self):
+            if self._rate_limited():
+                return
             length = int(self.headers.get('Content-Length', 0))
             if length > PLAYGROUND_MAX_BODY_BYTES:
                 self._json_response(400, {'error': 'Request too large (max 1MB)'})
@@ -134,6 +243,9 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             encoded = json.dumps(data).encode('utf-8')
             self.send_response(status)
             self.send_header('Content-Type', 'application/json')
+            # Public, rate-limited, safe_mode demo API — allow any origin so the
+            # flagship site's embedded playground can run code cross-origin.
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('X-Content-Type-Options', 'nosniff')
             self.send_header('X-Frame-Options', 'DENY')
             self.send_header('Cache-Control', 'no-store')
@@ -141,15 +253,17 @@ def start_playground(port: int = 8080, open_browser: bool = True):
             self.end_headers()
             self.wfile.write(encoded)
 
-    server = ThreadingHTTPServer(('127.0.0.1', port), PlaygroundHandler)
-    print(f'  EPL Web Playground running at http://127.0.0.1:{port}')
+    server = ThreadingHTTPServer((host, port), PlaygroundHandler)
+    # 0.0.0.0 means "all interfaces" — the reachable address is localhost.
+    display_host = '127.0.0.1' if host in ('0.0.0.0', '') else host
+    print(f'  EPL Web Playground running at http://{display_host}:{port}')
     print('  Press Ctrl+C to stop')
 
     if open_browser:
         try:
             import webbrowser
 
-            webbrowser.open(f'http://127.0.0.1:{port}')
+            webbrowser.open(f'http://{display_host}:{port}')
         except Exception:
             _debug_log.suppressed('playground:152')
 
@@ -216,6 +330,9 @@ def _execute_epl(code: str) -> dict:
     if not code.strip():
         return {'output': '', 'error': None}
 
+    # Bound concurrent executions so a burst can't exhaust the host's CPU/RAM.
+    if not _EXEC_SEMAPHORE.acquire(timeout=PLAYGROUND_EXEC_TIMEOUT_SECONDS + 2):
+        return {'output': '', 'error': 'Server busy — too many programs running. Retry shortly.'}
     try:
         completed = subprocess.run(
             [sys.executable, '-m', 'epl.playground', '--worker-run'],
@@ -233,6 +350,8 @@ def _execute_epl(code: str) -> dict:
         }
     except Exception as exc:
         return {'output': '', 'error': _safe_error(exc)}
+    finally:
+        _EXEC_SEMAPHORE.release()
 
     if not completed.stdout.strip():
         return {'output': '', 'error': 'Internal error'}
@@ -343,738 +462,545 @@ def _get_examples() -> list:
 
 # ── HTML Template ────────────────────────────────────────
 
-_PLAYGROUND_HTML = r"""<!DOCTYPE html>
+_PLAYGROUND_HTML = r"""
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EPL Playground</title>
+<meta name="color-scheme" content="light">
+<title>EPL Playground — Run English Programming Language in your browser</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23007DF3'/%3E%3Cstop offset='1' stop-color='%237C5CFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='url(%23g)'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='16' font-weight='700' fill='white' text-anchor='middle'%3EE%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Write and run EPL — the English Programming Language — in your browser. Sandboxed, instant, no install.">
+<meta property="og:title" content="EPL Playground">
+<meta property="og:description" content="Run English Programming Language in your browser — sandboxed and instant.">
+<meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "@codemirror/state": "https://esm.sh/@codemirror/state@6.4.1",
+    "@codemirror/view": "https://esm.sh/@codemirror/view@6.26.3?external=@codemirror/state",
+    "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.5.0?external=@codemirror/state,@codemirror/view",
+    "@codemirror/language": "https://esm.sh/@codemirror/language@6.10.1?external=@codemirror/state,@codemirror/view",
+    "@codemirror/autocomplete": "https://esm.sh/@codemirror/autocomplete@6.16.0?external=@codemirror/state,@codemirror/view,@codemirror/language",
+    "@codemirror/theme-one-dark": "https://esm.sh/@codemirror/theme-one-dark@6.1.2?external=@codemirror/state,@codemirror/view,@codemirror/language"
+  }
+}
+</script>
 <style>
-:root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --border: #30363d;
-    --text: #c9d1d9;
-    --text-dim: #8b949e;
-    --accent: #58a6ff;
-    --accent-hover: #79c0ff;
-    --green: #3fb950;
-    --red: #f85149;
-    --orange: #d29922;
-    --purple: #bc8cff;
-    --font-mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    --radius: 8px;
+:root{
+    --bg:#ffffff; --chrome:rgba(255,255,255,.82);
+    --ink:#111113; --dim:#5f6066; --faint:#8a8b92;
+    --line:rgba(17,17,19,.1); --line-soft:rgba(17,17,19,.06);
+    --panel:#0d0f14; --panel-2:#0a0c10; --panel-line:rgba(255,255,255,.09);
+    --code:#e6e7ea; --code-dim:#9aa0aa;
+    --accent:#007DF3; --green:#21C7A8; --red:#FF5C7A; --amber:#FF9F45; --violet:#7C5CFF;
+    --display:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono','Cascadia Code','Fira Code',Consolas,monospace;
+    --ease:cubic-bezier(.16,1,.3,1);
 }
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-    font-family: var(--font-sans);
-    background: var(--bg);
-    color: var(--text);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+    font-family:var(--sans); background:var(--bg); color:var(--ink);
+    height:100vh; display:flex; flex-direction:column; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
 }
 
-/* Header */
-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 20px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
+/* ── Top nav ───────────────────────────────────────────── */
+.pg-nav{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:18px; padding:14px clamp(16px,3vw,30px);
+    background:var(--chrome); backdrop-filter:saturate(160%) blur(16px);
+    border-bottom:1px solid var(--line-soft); flex-shrink:0; z-index:5;
 }
-header .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.pg-brand{display:flex; align-items:center; gap:12px; min-width:0}
+.pg-mark{
+    font-family:var(--display); font-weight:800; font-size:20px; letter-spacing:-.03em;
+    background:linear-gradient(135deg,#007DF3,#7C5CFF); -webkit-background-clip:text;
+    background-clip:text; -webkit-text-fill-color:transparent;
 }
-header .logo h1 {
-    font-size: 1.2em;
-    font-weight: 700;
-    color: var(--accent);
+.pg-brand .sep{width:1px; height:20px; background:var(--line)}
+.pg-title{font-family:var(--display); font-weight:600; font-size:15.5px; letter-spacing:-.01em}
+.pg-badge{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; color:var(--dim);
+    border:1px solid var(--line); border-radius:999px; padding:3px 10px; white-space:nowrap;
 }
-header .logo span {
-    font-size: 0.8em;
-    color: var(--text-dim);
-    background: var(--bg);
-    padding: 2px 8px;
-    border-radius: 12px;
+.pg-tools{display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end}
+.pg-select, .pg-btn{
+    font-family:var(--sans); font-size:13.5px; font-weight:500;
+    border:1px solid var(--line); border-radius:10px; background:#fff; color:var(--ink);
+    padding:9px 14px; cursor:pointer; transition:all .2s var(--ease); outline:none;
 }
-header .actions {
-    display: flex;
-    gap: 8px;
+.pg-select:hover, .pg-btn:hover{border-color:var(--ink); transform:translateY(-1px)}
+.pg-select{padding-right:30px; appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235f6066' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center;
+}
+.pg-btn-ghost{background:transparent}
+.pg-btn-primary{
+    background:var(--ink); color:#fff; border-color:var(--ink); font-weight:600;
+    display:inline-flex; align-items:center; gap:9px;
+}
+.pg-btn-primary:hover{background:#000; color:#fff}
+.pg-btn-primary kbd{
+    font-family:var(--mono); font-size:10.5px; background:rgba(255,255,255,.16);
+    padding:2px 6px; border-radius:5px; color:#e6e7ea;
+}
+.pg-btn:disabled{opacity:.5; cursor:default; transform:none}
+
+/* ── Stage ─────────────────────────────────────────────── */
+.pg-stage{
+    position:relative; flex:1; display:flex; min-height:0;
+    padding:clamp(14px,2vw,26px); gap:clamp(14px,2vw,22px);
+    background:
+        radial-gradient(circle at 1px 1px, rgba(17,17,19,.05) 1px, transparent 1px);
+    background-size:24px 24px;
+}
+.pg-stage::before{
+    content:''; position:absolute; left:50%; top:54%; transform:translate(-50%,-50%);
+    width:min(1100px,94%); height:64%; z-index:0;
+    background:radial-gradient(ellipse at center, rgba(46,160,255,.13), rgba(124,92,255,.09) 45%, transparent 72%);
+    filter:blur(34px); pointer-events:none;
+}
+.pg-pane{
+    position:relative; z-index:1; display:flex; flex-direction:column; min-width:0;
+    background:var(--panel); border:1px solid var(--panel-line); border-radius:16px;
+    overflow:hidden; box-shadow:0 40px 90px -50px rgba(17,17,19,.5);
+}
+.pg-pane::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:2px; z-index:3;
+    background:linear-gradient(90deg,#2EA0FF,#7C5CFF,#FF5C7A,#FF9F45,#FFD23F,#21C7A8);
+    opacity:0; transition:opacity .45s var(--ease);
+}
+.pg-pane:focus-within::before{opacity:.9}
+.pg-editor{flex:1.05}
+.pg-output{flex:.95}
+.pane-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:11px 16px; background:var(--panel-2); border-bottom:1px solid var(--panel-line);
+    flex-shrink:0;
+}
+.pane-bar .file{
+    display:flex; align-items:center; gap:9px;
+    font-family:var(--mono); font-size:12.5px; color:var(--code-dim);
+}
+.pane-bar .dots{display:flex; gap:6px}
+.pane-bar .dots i{width:11px; height:11px; border-radius:50%; background:rgba(255,255,255,.13)}
+.pane-meta{font-family:var(--mono); font-size:11.5px; color:var(--faint)}
+
+/* tabs */
+.tabs{display:flex; gap:3px}
+.tab{
+    font-size:12.5px; font-weight:500; color:var(--code-dim);
+    padding:5px 12px; border-radius:8px; cursor:pointer; transition:all .15s; user-select:none;
+}
+.tab:hover{background:rgba(255,255,255,.06); color:var(--code)}
+.tab.active{background:rgba(46,160,255,.16); color:#7db8ff}
+
+/* editor */
+#editorHost{flex:1; min-height:0; overflow:hidden; background:var(--panel)}
+.cm-editor{height:100%; background:transparent !important}
+.cm-editor.cm-focused{outline:none !important}
+.cm-scroller{font-family:var(--mono) !important; font-size:13.5px; line-height:1.7}
+.cm-gutters{background:transparent !important; border-right:1px solid var(--panel-line) !important; color:var(--faint) !important}
+#fallbackEditor{
+    flex:1; width:100%; padding:16px 18px; border:none; outline:none; resize:none;
+    font-family:var(--mono); font-size:13.5px; line-height:1.7; tab-size:4;
+    background:var(--panel); color:var(--code);
 }
 
-/* Buttons */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 16px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.85em;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.btn:hover { border-color: var(--accent); color: var(--accent); }
-.btn-primary {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-    font-weight: 600;
-}
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-success { background: #238636; color: #fff; border-color: #238636; }
-.btn-success:hover { background: #2ea043; }
-.btn kbd {
-    background: rgba(255,255,255,0.1);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 0.85em;
-}
+/* output console */
+.console{flex:1; min-height:0; overflow:auto; padding:16px 18px;
+    font-family:var(--mono); font-size:13px; line-height:1.62; color:var(--code)}
+.console::-webkit-scrollbar, #editorHost ::-webkit-scrollbar{width:10px; height:10px}
+.console::-webkit-scrollbar-thumb, #editorHost ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12); border-radius:8px}
+.out-line{white-space:pre-wrap; word-break:break-word}
+.out-err{color:var(--red); white-space:pre-wrap; word-break:break-word}
+.out-ok{color:var(--green)}
+.out-hint{color:var(--faint); font-style:italic}
+/* NOTE: visibility is owned solely by .view-pane / .view-pane.active below.
+   Do NOT add display:none to these #id rules — an id selector (1,0,0) outranks
+   .view-pane.active (0,2,0), so the pane would stay hidden after switchView(). */
+#transpiled{flex:1; min-height:0; overflow:auto; padding:16px 18px;
+    font-family:var(--mono); font-size:13px; line-height:1.62; color:var(--code);
+    white-space:pre-wrap; word-break:break-word}
+#assistant{flex:1; min-height:0; overflow:auto; padding:14px}
+.view-pane{display:none}
+.view-pane.active{display:flex; flex-direction:column}
 
-/* Main layout */
-main {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-}
+/* assistant */
+.as-stack{display:flex; flex-direction:column; gap:12px}
+.as-card{border:1px solid var(--panel-line); border-radius:12px; background:var(--panel-2); padding:13px 14px}
+.as-card h4{font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--faint); margin-bottom:9px; font-family:var(--mono)}
+.as-card p, .as-card li, .as-card pre{font-family:var(--mono); font-size:12px; line-height:1.6; color:var(--code)}
+#assistantPrompt{width:100%; min-height:78px; resize:vertical; padding:10px 12px;
+    border:1px solid var(--panel-line); border-radius:9px; background:var(--panel); color:var(--code);
+    font-family:var(--mono); font-size:12.5px; outline:none}
+#assistantPrompt:focus{border-color:var(--accent)}
+.as-actions{display:flex; flex-wrap:wrap; gap:7px; margin-top:10px}
+.as-btn{font-size:12px; font-weight:500; padding:7px 12px; border-radius:8px;
+    border:1px solid var(--panel-line); background:var(--panel); color:var(--code); cursor:pointer; transition:all .15s}
+.as-btn:hover{border-color:var(--accent); color:#7db8ff}
+.as-btn.primary{background:var(--accent); color:#fff; border-color:var(--accent)}
+.as-reply, .as-code{white-space:pre-wrap; word-break:break-word}
+.as-diags{display:flex; flex-direction:column; gap:6px}
+.as-diag{border-left:3px solid var(--panel-line); padding-left:10px}
+.as-diag.error{border-left-color:var(--red)}
+.as-diag.warning{border-left-color:var(--amber)}
+.as-diag.info, .as-diag.hint{border-left-color:var(--accent)}
+.as-diag strong{display:block; margin-bottom:2px}
+.syntax-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:9px}
+.syntax-section{border:1px solid var(--panel-line); border-radius:9px; background:var(--panel); padding:10px}
+.syntax-section h5{font-size:12px; color:#7db8ff; margin-bottom:4px; font-family:var(--mono)}
+.syntax-section p{font-family:var(--sans); font-size:11.5px; color:var(--code-dim); margin-bottom:6px}
+.syntax-section code{display:block; white-space:pre-wrap; color:var(--code); font-family:var(--mono); font-size:11px}
 
-/* Panel */
-.panel {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
+/* status bar */
+.pg-status{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:8px clamp(16px,3vw,30px); background:var(--chrome);
+    border-top:1px solid var(--line-soft); font-size:12px; color:var(--dim); flex-shrink:0;
+    backdrop-filter:saturate(160%) blur(16px);
 }
-.panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 14px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    font-size: 0.82em;
-    color: var(--text-dim);
-    flex-shrink: 0;
-}
-.panel-header .tabs {
-    display: flex;
-    gap: 2px;
-}
-.tab {
-    padding: 4px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.tab:hover { background: rgba(255,255,255,0.05); }
-.tab.active { background: var(--accent); color: #fff; }
+.st-left{display:flex; align-items:center; gap:9px}
+.dot{width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0}
+.dot.running{background:var(--amber); animation:pulse 1s infinite}
+.dot.error{background:var(--red)}
+.dot.ready{background:var(--green)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.st-right{font-family:var(--mono); font-size:11px; color:var(--faint); display:flex; align-items:center; gap:14px}
 
-/* Divider */
-.divider {
-    width: 3px;
-    background: var(--border);
-    cursor: col-resize;
-    flex-shrink: 0;
-    transition: background 0.15s;
+/* responsive */
+@media(max-width:860px){
+    .pg-stage{flex-direction:column}
+    .pg-title{display:none}
 }
-.divider:hover, .divider.active { background: var(--accent); }
-
-/* Editor */
-#editor {
-    flex: 1;
-    padding: 14px;
-    font-family: var(--font-mono);
-    font-size: 14px;
-    line-height: 1.6;
-    color: var(--text);
-    background: var(--bg);
-    border: none;
-    resize: none;
-    outline: none;
-    tab-size: 4;
-    overflow: auto;
-}
-#editor::placeholder { color: var(--text-dim); }
-
-/* Output */
-#output {
-    flex: 1;
-    padding: 14px;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.5;
-    background: var(--bg);
-    overflow: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-.output-line { margin: 1px 0; }
-.output-error { color: var(--red); }
-.output-success { color: var(--green); }
-.output-info { color: var(--text-dim); font-style: italic; }
-
-/* Transpiled output */
-#transpiled {
-    flex: 1;
-    padding: 14px;
-    font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.5;
-    background: var(--bg);
-    overflow: auto;
-    white-space: pre-wrap;
-    display: none;
-}
-
-/* Assistant */
-#assistant {
-    flex: 1;
-    padding: 14px;
-    background: var(--bg);
-    overflow: auto;
-    display: none;
-}
-.assistant-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    min-height: 100%;
-}
-.assistant-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    padding: 12px;
-}
-.assistant-card h4 {
-    font-size: 0.82em;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-}
-.assistant-card p,
-.assistant-card li,
-.assistant-card pre,
-.assistant-card textarea {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.6;
-}
-.assistant-card textarea {
-    width: 100%;
-    min-height: 88px;
-    resize: vertical;
-    padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    color: var(--text);
-    outline: none;
-}
-.assistant-card textarea:focus { border-color: var(--accent); }
-.assistant-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 10px;
-}
-.assistant-actions .btn { font-size: 0.8em; }
-.assistant-reply {
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-.assistant-diagnostics {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-.assistant-diagnostic {
-    border-left: 3px solid var(--border);
-    padding-left: 10px;
-}
-.assistant-diagnostic.error { border-left-color: var(--red); }
-.assistant-diagnostic.warning { border-left-color: var(--orange); }
-.assistant-diagnostic.info,
-.assistant-diagnostic.hint { border-left-color: var(--accent); }
-.assistant-diagnostic strong {
-    display: block;
-    margin-bottom: 2px;
-}
-.assistant-code {
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-.syntax-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
-}
-.syntax-section {
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: rgba(255,255,255,0.02);
-    padding: 10px;
-}
-.syntax-section h5 {
-    font-size: 0.82em;
-    color: var(--accent);
-    margin-bottom: 4px;
-}
-.syntax-section p {
-    font-family: var(--font-sans);
-    font-size: 0.78em;
-    color: var(--text-dim);
-    margin-bottom: 6px;
-}
-.syntax-section code {
-    display: block;
-    white-space: pre-wrap;
-    color: var(--text);
-    font-family: var(--font-mono);
-    font-size: 11px;
-}
-
-/* Sidebar */
-.sidebar {
-    width: 240px;
-    background: var(--surface);
-    border-left: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-}
-.sidebar h3 {
-    padding: 12px 14px 6px;
-    font-size: 0.78em;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-dim);
-}
-.example-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0 6px 10px;
-}
-.example-item {
-    padding: 8px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85em;
-    transition: all 0.1s;
-}
-.example-item:hover { background: rgba(255,255,255,0.06); }
-.example-item.active { background: rgba(88,166,255,0.15); color: var(--accent); }
-
-/* Status bar */
-.statusbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 14px;
-    background: var(--surface);
-    border-top: 1px solid var(--border);
-    font-size: 0.75em;
-    color: var(--text-dim);
-    flex-shrink: 0;
-}
-.status-dot {
-    display: inline-block;
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    margin-right: 6px;
-}
-.status-dot.ready { background: var(--green); }
-.status-dot.running { background: var(--orange); animation: pulse 1s infinite; }
-.status-dot.error { background: var(--red); }
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-/* Responsive */
-@media (max-width: 768px) {
-    main { flex-direction: column; }
-    .sidebar { width: 100%; max-height: 140px; border-left: 0; border-top: 1px solid var(--border); }
-    .divider { width: 100%; height: 3px; cursor: row-resize; }
+@media(max-width:560px){
+    .pg-badge, .pg-btn-primary kbd{display:none}
+    .pg-tools{gap:7px}
 }
 </style>
 </head>
 <body>
 
-<header>
-    <div class="logo">
-        <h1>EPL Playground</h1>
-        <span>English Programming Language</span>
+<nav class="pg-nav">
+    <div class="pg-brand">
+        <span class="pg-mark">EPL</span>
+        <span class="sep"></span>
+        <span class="pg-title">Playground</span>
+        <span class="pg-badge" id="verBadge">safe sandbox</span>
     </div>
-    <div class="actions">
-        <button class="btn" onclick="clearOutput()" title="Clear output">Clear</button>
-        <button class="btn" onclick="switchTab('assistant')" title="Open syntax-aware assistant">Assist</button>
-        <select class="btn" id="transpileTarget" title="Transpile target">
+    <div class="pg-tools">
+        <select class="pg-select" id="exampleSelect" title="Load an example" aria-label="Load an example">
+            <option value="">Examples…</option>
+        </select>
+        <select class="pg-select" id="transpileTarget" title="Transpile target" aria-label="Transpile target">
             <option value="python">Python</option>
             <option value="javascript">JavaScript</option>
         </select>
-        <button class="btn" onclick="transpileCode()" title="Transpile code">Transpile</button>
-        <button class="btn btn-primary" onclick="runCode()" title="Run code (Ctrl+Enter)">
-            Run <kbd>Ctrl+Enter</kbd>
+        <button class="pg-btn pg-btn-ghost" onclick="transpileCode()" title="Transpile code">Transpile</button>
+        <button class="pg-btn pg-btn-ghost" onclick="switchView('assistant')" title="Open the syntax-aware assistant">Assistant</button>
+        <button class="pg-btn pg-btn-ghost" onclick="clearConsole()" title="Clear the console">Clear</button>
+        <button class="pg-btn pg-btn-primary" id="runBtn" onclick="runCode()" title="Run (Ctrl/Cmd+Enter)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            Run <kbd>⌘↵</kbd>
         </button>
     </div>
-</header>
+</nav>
 
-<main>
-    <!-- Editor Panel -->
-    <div class="panel" id="editorPanel" style="flex: 1;">
-        <div class="panel-header">
-            <span>editor.epl</span>
-            <span id="lineInfo">Ln 1, Col 1</span>
+<main class="pg-stage">
+    <section class="pg-pane pg-editor">
+        <div class="pane-bar">
+            <span class="file"><span class="dots"><i></i><i></i><i></i></span> main.epl</span>
+            <span class="pane-meta" id="lineInfo">Ln 1, Col 1</span>
         </div>
-        <textarea id="editor" spellcheck="false" placeholder="Write your EPL code here...
+        <div id="editorHost"></div>
+    </section>
 
-Example:
-  display &quot;Hello, World!&quot;
-  set name to &quot;Alice&quot;
-  display &quot;Welcome, &quot; + name"></textarea>
-    </div>
-
-    <!-- Divider -->
-    <div class="divider" id="divider"></div>
-
-    <!-- Output Panel -->
-    <div class="panel" id="outputPanel" style="flex: 1;">
-        <div class="panel-header">
+    <section class="pg-pane pg-output">
+        <div class="pane-bar">
             <div class="tabs">
-                <div class="tab active" data-tab="output" onclick="switchTab('output')">Output</div>
-                <div class="tab" data-tab="transpiled" onclick="switchTab('transpiled')">Transpiled</div>
-                <div class="tab" data-tab="assistant" onclick="switchTab('assistant')">Assistant</div>
+                <div class="tab active" data-view="output" onclick="switchView('output')">Output</div>
+                <div class="tab" data-view="transpiled" onclick="switchView('transpiled')">Transpiled</div>
+                <div class="tab" data-view="assistant" onclick="switchView('assistant')">Assistant</div>
             </div>
-            <span id="execTime"></span>
+            <span class="pane-meta" id="execTime"></span>
         </div>
-        <div id="output"><span class="output-info">Press Run or Ctrl+Enter to execute your code.</span></div>
-        <div id="transpiled"></div>
-        <div id="assistant">
-            <div class="assistant-stack">
-                <div class="assistant-card">
-                    <h4>Assistant Prompt</h4>
-                    <textarea id="assistantPrompt" spellcheck="false" placeholder="Ask for help, for example: build a chatbot API, explain this code, fix this syntax, improve this route..."></textarea>
-                    <div class="assistant-actions">
-                        <button class="btn btn-primary" onclick="askAssistant('generate')">Generate</button>
-                        <button class="btn" onclick="askAssistant('fix')">Fix</button>
-                        <button class="btn" onclick="askAssistant('explain')">Explain</button>
-                        <button class="btn" onclick="askAssistant('improve')">Improve</button>
-                        <button class="btn" id="applyAssistantBtn" onclick="applyAssistantCode()" style="display:none;">Apply To Editor</button>
+
+        <div class="console view-pane active" id="output"><span class="out-hint">Press Run (or ⌘/Ctrl + Enter) to execute your EPL.</span></div>
+        <pre id="transpiled" class="view-pane"></pre>
+
+        <div id="assistant" class="view-pane">
+            <div class="as-stack">
+                <div class="as-card">
+                    <h4>Ask the assistant</h4>
+                    <textarea id="assistantPrompt" spellcheck="false" placeholder="e.g. build a chatbot API, explain this code, fix this syntax, improve this route…"></textarea>
+                    <div class="as-actions">
+                        <button class="as-btn primary" onclick="askAssistant('generate')">Generate</button>
+                        <button class="as-btn" onclick="askAssistant('fix')">Fix</button>
+                        <button class="as-btn" onclick="askAssistant('explain')">Explain</button>
+                        <button class="as-btn" onclick="askAssistant('improve')">Improve</button>
+                        <button class="as-btn" id="applyAssistantBtn" onclick="applyAssistantCode()" style="display:none">Apply to editor</button>
                     </div>
                 </div>
-                <div class="assistant-card">
-                    <h4>Assistant Reply</h4>
-                    <div id="assistantReply" class="assistant-reply">The assistant uses the real EPL parser and syntax guide, then checks generated code before returning it.</div>
-                </div>
-                <div class="assistant-card">
-                    <h4>Suggested Code</h4>
-                    <pre id="assistantCode" class="assistant-code">No suggestion yet.</pre>
-                </div>
-                <div class="assistant-card">
-                    <h4>Diagnostics</h4>
-                    <div id="assistantDiagnostics" class="assistant-diagnostics"><span class="output-info">Diagnostics will appear here.</span></div>
-                </div>
-                <div class="assistant-card">
-                    <h4>Real EPL Syntax</h4>
-                    <div id="syntaxGuide" class="syntax-grid"></div>
-                </div>
+                <div class="as-card"><h4>Reply</h4><div id="assistantReply" class="as-reply">The assistant uses the real EPL parser and syntax guide, then checks generated code before returning it.</div></div>
+                <div class="as-card"><h4>Suggested code</h4><pre id="assistantCode" class="as-code">No suggestion yet.</pre></div>
+                <div class="as-card"><h4>Diagnostics</h4><div id="assistantDiagnostics" class="as-diags"><span class="out-hint">Diagnostics will appear here.</span></div></div>
+                <div class="as-card"><h4>EPL syntax</h4><div id="syntaxGuide" class="syntax-grid"></div></div>
             </div>
         </div>
-    </div>
-
-    <!-- Examples Sidebar -->
-    <div class="sidebar" id="sidebar">
-        <h3>Examples</h3>
-        <div class="example-list" id="exampleList"></div>
-    </div>
+    </section>
 </main>
 
-<div class="statusbar">
-    <span><span class="status-dot ready" id="statusDot"></span><span id="statusText">Ready</span></span>
-    <span>EPL Playground &bull; Safe Mode</span>
-</div>
+<footer class="pg-status">
+    <span class="st-left"><span class="dot ready" id="statusDot"></span><span id="statusText">Ready</span></span>
+    <span class="st-right"><span>English Programming Language</span><span>Safe Mode · 10s limit</span></span>
+</footer>
 
-<script>
-const editor = document.getElementById('editor');
+<script type="module">
+import {EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, dropCursor} from "@codemirror/view";
+import {EditorState} from "@codemirror/state";
+import {defaultKeymap, history, historyKeymap, indentWithTab} from "@codemirror/commands";
+import {StreamLanguage, syntaxHighlighting, defaultHighlightStyle, bracketMatching, indentOnInput} from "@codemirror/language";
+import {closeBrackets} from "@codemirror/autocomplete";
+import {oneDark} from "@codemirror/theme-one-dark";
+
+window.__cmReady = (async () => {
+    // Lightweight EPL highlighter
+    const KW = new Set(("create webapp app route page section div span nav header footer heading text link button image list item form input field label end if else elif while for each in repeat times function define return set to let print display show shows send json responds with called import use class new true false null and or not is equals then do try catch throw break continue of as from match when stylesheet script meta font favicon note segment style query map get post put delete handler module export const var").split(" "));
+    const eplLang = StreamLanguage.define({
+        token(stream){
+            if(stream.match(/^Note:.*/)) return "comment";
+            if(stream.sol() && stream.match(/^#.*/)) return "comment";
+            if(stream.match(/^"(?:[^"\\]|\\.)*"?/)) return "string";
+            if(stream.match(/^'(?:[^'\\]|\\.)*'?/)) return "string";
+            if(stream.match(/^-?\d+(?:\.\d+)?/)) return "number";
+            if(stream.match(/^[A-Za-z_][\w-]*/)){
+                const w = stream.current().toLowerCase();
+                if(KW.has(w)) return "keyword";
+                if(/^[A-Z]/.test(stream.current())) return "typeName";
+                return "variableName";
+            }
+            stream.next();
+            return null;
+        }
+    });
+    const lineInfoEl = document.getElementById('lineInfo');
+    const updateListener = EditorView.updateListener.of(v => {
+        if(v.selectionSet || v.docChanged){
+            const head = v.state.selection.main.head;
+            const line = v.state.doc.lineAt(head);
+            lineInfoEl.textContent = `Ln ${line.number}, Col ${head - line.from + 1}`;
+        }
+    });
+    const runKeys = keymap.of([{ key: "Mod-Enter", preventDefault: true, run(){ window.runCode && window.runCode(); return true; } }]);
+    const theme = EditorView.theme({
+        "&": { color: "#e6e7ea", backgroundColor: "transparent" },
+        ".cm-content": { caretColor: "#2EA0FF", padding: "14px 0" },
+        ".cm-cursor": { borderLeftColor: "#2EA0FF" },
+        ".cm-activeLine": { backgroundColor: "rgba(255,255,255,.035)" },
+        ".cm-activeLineGutter": { backgroundColor: "rgba(255,255,255,.04)" },
+        ".cm-gutters": { backgroundColor: "transparent", border: "none", color: "#8a8b92" },
+        ".cm-line": { padding: "0 16px" }
+    }, { dark: true });
+
+    const view = new EditorView({
+        state: EditorState.create({
+            doc: 'Print "Hello from EPL"\n',
+            extensions: [
+                lineNumbers(), highlightActiveLineGutter(), history(), drawSelection(), dropCursor(),
+                indentOnInput(), bracketMatching(), closeBrackets(), highlightActiveLine(),
+                syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+                eplLang, oneDark, theme, updateListener, runKeys,
+                keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab])
+            ]
+        }),
+        parent: document.getElementById('editorHost')
+    });
+    window.__cmView = view;
+    return view;
+})().catch(err => { console.warn('CodeMirror failed, using fallback editor:', err); window.__cmView = null; return null; });
+</script>
+
+<script type="module">
+// ── Editor abstraction (CodeMirror with textarea fallback) ──
+let cmView = null;
+let fallbackTA = null;
+
+function getCode(){
+    if(cmView) return cmView.state.doc.toString();
+    if(fallbackTA) return fallbackTA.value;
+    return '';
+}
+function setCode(text){
+    if(cmView){ cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: text } }); cmView.focus(); }
+    else if(fallbackTA){ fallbackTA.value = text; updateLineInfoTA(); }
+}
+
+function mountFallback(initial){
+    const host = document.getElementById('editorHost');
+    host.innerHTML = '';
+    fallbackTA = document.createElement('textarea');
+    fallbackTA.id = 'fallbackEditor';
+    fallbackTA.spellcheck = false;
+    fallbackTA.value = initial || 'Print "Hello from EPL"\n';
+    host.appendChild(fallbackTA);
+    fallbackTA.addEventListener('keydown', e => {
+        if(e.key === 'Tab'){ e.preventDefault(); const s=fallbackTA.selectionStart, en=fallbackTA.selectionEnd;
+            fallbackTA.value = fallbackTA.value.slice(0,s)+'    '+fallbackTA.value.slice(en); fallbackTA.selectionStart=fallbackTA.selectionEnd=s+4; }
+        if(e.key === 'Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); runCode(); }
+    });
+    fallbackTA.addEventListener('keyup', updateLineInfoTA);
+    fallbackTA.addEventListener('click', updateLineInfoTA);
+}
+function updateLineInfoTA(){
+    if(!fallbackTA) return;
+    const pos = fallbackTA.selectionStart;
+    const lines = fallbackTA.value.substring(0,pos).split('\n');
+    document.getElementById('lineInfo').textContent = `Ln ${lines.length}, Col ${lines[lines.length-1].length+1}`;
+}
+
+// element refs
 const output = document.getElementById('output');
 const transpiled = document.getElementById('transpiled');
-const assistant = document.getElementById('assistant');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const execTime = document.getElementById('execTime');
+const runBtn = document.getElementById('runBtn');
 const assistantPrompt = document.getElementById('assistantPrompt');
 const assistantReply = document.getElementById('assistantReply');
 const assistantCode = document.getElementById('assistantCode');
 const assistantDiagnostics = document.getElementById('assistantDiagnostics');
 const applyAssistantBtn = document.getElementById('applyAssistantBtn');
-
 let latestAssistantCode = '';
+let examplesCache = [];
 
-assistantPrompt.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
-        askAssistant('auto');
-    }
-});
+function setStatus(state, text){ statusDot.className = 'dot ' + state; statusText.textContent = text; }
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// Update line/col info
-editor.addEventListener('keyup', updateLineInfo);
-editor.addEventListener('click', updateLineInfo);
-
-function updateLineInfo() {
-    const pos = editor.selectionStart;
-    const text = editor.value.substring(0, pos);
-    const lines = text.split('\n');
-    document.getElementById('lineInfo').textContent =
-        `Ln ${lines.length}, Col ${lines[lines.length-1].length + 1}`;
+function switchView(view){
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === view));
+    document.querySelectorAll('.view-pane').forEach(p => p.classList.remove('active'));
+    const el = document.getElementById(view);
+    if(el) el.classList.add('active');
 }
 
-// Tab key support
-editor.addEventListener('keydown', function(e) {
-    if (e.key === 'Tab') {
-        e.preventDefault();
-        const start = this.selectionStart;
-        const end = this.selectionEnd;
-        this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
-        this.selectionStart = this.selectionEnd = start + 4;
-    }
-    if (e.key === 'Enter' && e.ctrlKey) {
-        e.preventDefault();
-        runCode();
-    }
-});
-
-// Run code
-async function runCode() {
-    const code = editor.value.trim();
-    if (!code) return;
-
-    setStatus('running', 'Running...');
-    output.innerHTML = '';
-    switchTab('output');
+async function runCode(){
+    const code = getCode().trim();
+    if(!code){ return; }
+    setStatus('running','Running…'); runBtn.disabled = true;
+    output.innerHTML = ''; switchView('output');
     const start = performance.now();
-
-    try {
-        const res = await fetch('/api/run', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code })
-        });
+    try{
+        const res = await fetch('/api/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
         const data = await res.json();
-        const elapsed = ((performance.now() - start) / 1000).toFixed(2);
-        execTime.textContent = `${elapsed}s`;
-
-        if (data.output) {
-            const escaped = escapeHtml(data.output);
-            output.innerHTML = escaped.split('\n')
-                .map(l => `<div class="output-line">${l}</div>`).join('');
-        }
-        if (data.error) {
-            output.innerHTML += `<div class="output-error">${escapeHtml(data.error)}</div>`;
-            setStatus('error', 'Error');
-        } else {
-            setStatus('ready', 'Done');
-        }
-    } catch (err) {
-        output.innerHTML = `<div class="output-error">Connection error: ${escapeHtml(err.message)}</div>`;
-        setStatus('error', 'Error');
-    }
+        execTime.textContent = ((performance.now()-start)/1000).toFixed(2) + 's';
+        let html = '';
+        if(data.output){ html += escapeHtml(data.output).split('\n').map(l => `<div class="out-line">${l}</div>`).join(''); }
+        if(data.error){ html += `<div class="out-err">${escapeHtml(data.error)}</div>`; setStatus('error','Error'); }
+        else { setStatus('ready','Done'); if(!data.output) html = '<span class="out-ok">Program finished with no output.</span>'; }
+        output.innerHTML = html;
+    }catch(err){
+        output.innerHTML = `<div class="out-err">Connection error: ${escapeHtml(err.message)}</div>`;
+        setStatus('error','Error');
+    }finally{ runBtn.disabled = false; }
 }
 
-// Transpile code
-async function transpileCode() {
-    const code = editor.value.trim();
-    if (!code) return;
-
+async function transpileCode(){
+    const code = getCode().trim();
+    if(!code) return;
     const target = document.getElementById('transpileTarget').value;
-    switchTab('transpiled');
-
-    try {
-        const res = await fetch('/api/transpile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, target })
-        });
+    switchView('transpiled');
+    transpiled.textContent = 'Transpiling…';
+    try{
+        const res = await fetch('/api/transpile', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code, target }) });
         const data = await res.json();
-        if (data.error) {
-            transpiled.innerHTML = `<span class="output-error">${escapeHtml(data.error)}</span>`;
-        } else {
-            transpiled.textContent = data.code;
-        }
-    } catch (err) {
-        transpiled.innerHTML = `<span class="output-error">${escapeHtml(err.message)}</span>`;
-    }
+        if(data.error){ transpiled.innerHTML = `<span class="out-err">${escapeHtml(data.error)}</span>`; }
+        else { transpiled.textContent = data.code || '(no output)'; }
+    }catch(err){ transpiled.innerHTML = `<span class="out-err">${escapeHtml(err.message)}</span>`; }
 }
 
-async function askAssistant(mode = 'auto') {
+async function askAssistant(mode='auto'){
     const message = assistantPrompt.value.trim();
-    const code = editor.value;
-    if (!message && !code.trim()) return;
-
-    switchTab('assistant');
-    setStatus('running', 'Assistant...');
-    assistantReply.textContent = 'Thinking with the real EPL syntax guide...';
+    const code = getCode();
+    if(!message && !code.trim()) return;
+    switchView('assistant'); setStatus('running','Assistant…');
+    assistantReply.textContent = 'Thinking with the real EPL syntax guide…';
     assistantCode.textContent = 'No suggestion yet.';
-    assistantDiagnostics.innerHTML = '<span class="output-info">Analyzing...</span>';
-    applyAssistantBtn.style.display = 'none';
-    latestAssistantCode = '';
-
-    try {
-        const res = await fetch('/api/assist', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, code, mode })
-        });
+    assistantDiagnostics.innerHTML = '<span class="out-hint">Analyzing…</span>';
+    applyAssistantBtn.style.display = 'none'; latestAssistantCode = '';
+    try{
+        const res = await fetch('/api/assist', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ message, code, mode }) });
         const data = await res.json();
-
         assistantReply.textContent = data.reply || 'No reply returned.';
         latestAssistantCode = data.code || '';
         assistantCode.textContent = latestAssistantCode || 'No code suggestion returned.';
         applyAssistantBtn.style.display = latestAssistantCode ? 'inline-flex' : 'none';
         renderDiagnostics(data.diagnostics || []);
         renderSyntaxGuide(data.syntax_sections || []);
-        setStatus(data.syntax_ok === false ? 'error' : 'ready', data.syntax_ok === false ? 'Needs Review' : 'Assistant Ready');
-    } catch (err) {
+        setStatus(data.syntax_ok === false ? 'error' : 'ready', data.syntax_ok === false ? 'Needs review' : 'Assistant ready');
+    }catch(err){
         assistantReply.textContent = 'Assistant error: ' + err.message;
-        assistantDiagnostics.innerHTML = `<div class="assistant-diagnostic error"><strong>Request failed</strong>${escapeHtml(err.message)}</div>`;
-        setStatus('error', 'Assistant Error');
+        assistantDiagnostics.innerHTML = `<div class="as-diag error"><strong>Request failed</strong>${escapeHtml(err.message)}</div>`;
+        setStatus('error','Assistant error');
     }
 }
-
-function applyAssistantCode() {
-    if (!latestAssistantCode) return;
-    editor.value = latestAssistantCode;
-    updateLineInfo();
-    setStatus('ready', 'Suggestion Applied');
-}
-
-function renderDiagnostics(diagnostics) {
-    if (!diagnostics.length) {
-        assistantDiagnostics.innerHTML = '<span class="output-success">No syntax issues found.</span>';
-        return;
-    }
-    assistantDiagnostics.innerHTML = diagnostics.map(diag => {
-        const level = escapeHtml(diag.level || 'info');
-        const line = diag.line ? `Line ${diag.line}` : 'General';
-        const code = diag.code ? ` (${escapeHtml(String(diag.code))})` : '';
-        return `<div class="assistant-diagnostic ${level}"><strong>${line}${code}</strong>${escapeHtml(diag.message || '')}</div>`;
+function applyAssistantCode(){ if(!latestAssistantCode) return; setCode(latestAssistantCode); setStatus('ready','Suggestion applied'); }
+function renderDiagnostics(d){
+    if(!d.length){ assistantDiagnostics.innerHTML = '<span class="out-ok">No syntax issues found.</span>'; return; }
+    assistantDiagnostics.innerHTML = d.map(x => {
+        const level = escapeHtml(x.level || 'info');
+        const line = x.line ? `Line ${x.line}` : 'General';
+        const code = x.code ? ` (${escapeHtml(String(x.code))})` : '';
+        return `<div class="as-diag ${level}"><strong>${line}${code}</strong>${escapeHtml(x.message || '')}</div>`;
     }).join('');
 }
-
-function renderSyntaxGuide(sections) {
-    const syntaxGuide = document.getElementById('syntaxGuide');
-    if (!sections.length) {
-        syntaxGuide.innerHTML = '<span class="output-info">Syntax guidance will appear here.</span>';
-        return;
-    }
-    syntaxGuide.innerHTML = sections.map(section => {
-        const examples = (section.examples || []).slice(0, 2).map(example => `<code>${escapeHtml(example)}</code>`).join('');
-        return `<div class="syntax-section"><h5>${escapeHtml(section.title || '')}</h5><p>${escapeHtml(section.summary || '')}</p>${examples}</div>`;
+function renderSyntaxGuide(sections){
+    const g = document.getElementById('syntaxGuide');
+    if(!sections.length){ g.innerHTML = '<span class="out-hint">Syntax guidance will appear here.</span>'; return; }
+    g.innerHTML = sections.map(s => {
+        const ex = (s.examples || []).slice(0,2).map(e => `<code>${escapeHtml(e)}</code>`).join('');
+        return `<div class="syntax-section"><h5>${escapeHtml(s.title || '')}</h5><p>${escapeHtml(s.summary || '')}</p>${ex}</div>`;
     }).join('');
 }
+function clearConsole(){ output.innerHTML = '<span class="out-hint">Console cleared.</span>'; transpiled.textContent=''; execTime.textContent=''; switchView('output'); setStatus('ready','Ready'); }
 
-function clearOutput() {
-    output.innerHTML = '<span class="output-info">Output cleared.</span>';
-    transpiled.textContent = '';
-    execTime.textContent = '';
-    setStatus('ready', 'Ready');
-}
+// expose for inline handlers + the module script
+window.runCode = runCode; window.transpileCode = transpileCode; window.switchView = switchView;
+window.askAssistant = askAssistant; window.applyAssistantCode = applyAssistantCode; window.clearConsole = clearConsole;
 
-function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    output.style.display = tab === 'output' ? 'block' : 'none';
-    transpiled.style.display = tab === 'transpiled' ? 'block' : 'none';
-    assistant.style.display = tab === 'assistant' ? 'block' : 'none';
-}
-
-function setStatus(state, text) {
-    statusDot.className = 'status-dot ' + state;
-    statusText.textContent = text;
-}
-
-function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// Load examples
-async function loadExamples() {
-    try {
+// ── Examples ──
+async function loadExamples(){
+    try{
         const res = await fetch('/api/examples');
-        const examples = await res.json();
-        const list = document.getElementById('exampleList');
-        examples.forEach((ex, i) => {
-            const div = document.createElement('div');
-            div.className = 'example-item';
-            div.textContent = ex.name;
-            div.onclick = () => {
-                editor.value = ex.code;
-                document.querySelectorAll('.example-item').forEach(e => e.classList.remove('active'));
-                div.classList.add('active');
-                updateLineInfo();
-            };
-            list.appendChild(div);
-        });
-    } catch (e) {
-        console.error('Failed to load examples:', e);
-    }
+        examplesCache = await res.json();
+        const sel = document.getElementById('exampleSelect');
+        examplesCache.forEach((ex,i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = ex.name; sel.appendChild(o); });
+        sel.addEventListener('change', () => { const i = sel.value; if(i === '') return; const ex = examplesCache[Number(i)]; if(ex){ setCode(ex.code); } });
+        // seed editor with the first example for an immediately-runnable default
+        if(examplesCache[0] && examplesCache[0].code){ setCode(examplesCache[0].code); }
+    }catch(e){ console.error('Failed to load examples:', e); }
+}
+async function loadSyntaxGuide(){
+    try{ const res = await fetch('/api/syntax'); const data = await res.json(); renderSyntaxGuide((data && data.sections) || []); }
+    catch(e){ console.error('Failed to load syntax guide:', e); }
 }
 
-async function loadSyntaxGuide() {
-    try {
-        const res = await fetch('/api/syntax');
-        const data = await res.json();
-        renderSyntaxGuide((data && data.sections) || []);
-    } catch (e) {
-        console.error('Failed to load syntax guide:', e);
-    }
-}
-
-// Resizable divider
-const divider = document.getElementById('divider');
-const editorPanel = document.getElementById('editorPanel');
-const outputPanel = document.getElementById('outputPanel');
-let isDragging = false;
-
-divider.addEventListener('mousedown', e => {
-    isDragging = true;
-    divider.classList.add('active');
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-});
-
-document.addEventListener('mousemove', e => {
-    if (!isDragging) return;
-    const main = document.querySelector('main');
-    const rect = main.getBoundingClientRect();
-    const sidebar = document.getElementById('sidebar');
-    const sidebarW = sidebar.getBoundingClientRect().width;
-    const available = rect.width - sidebarW - 3; // divider width
-    const offset = e.clientX - rect.left;
-    const ratio = Math.max(0.2, Math.min(0.8, offset / available));
-    editorPanel.style.flex = ratio.toString();
-    outputPanel.style.flex = (1 - ratio).toString();
-});
-
-document.addEventListener('mouseup', () => {
-    if (isDragging) {
-        isDragging = false;
-        divider.classList.remove('active');
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-    }
-});
-
-// Init
-loadExamples();
-loadSyntaxGuide();
+// ── Boot: wait for CodeMirror (or fall back), then wire data ──
+(async function boot(){
+    let view = null;
+    if(window.__cmReady){ try { view = await window.__cmReady; } catch(e){ view = null; } }
+    cmView = view || (window.__cmView || null);
+    if(!cmView){ mountFallback('Print "Hello from EPL"\n'); }
+    await loadExamples();
+    loadSyntaxGuide();
+    setStatus('ready','Ready');
+})();
 </script>
 </body>
 </html>

@@ -175,28 +175,70 @@ def _detect_assist_mode(message: str, code: str, mode: str) -> str:
 
 def _validate_generated_code(code: str, description: str):
     candidate = _normalize_code_block(code)
+    # Always normalize `set X to V` -> `Create X = V`. This must run even when the
+    # draft parses cleanly: `set X to` is valid syntax but fails at RUNTIME with a
+    # NameError unless X was already created, and analyze_code() only lexes/parses/
+    # type-checks (it never executes), so the parse-failure repair path below would
+    # never catch it. Converting to Create is safe — in EPL, Create both defines and
+    # reassigns (verified), so reassignments stay correct too.
+    candidate, set_notes = _convert_set_to_create(candidate)
     analysis = analyze_code(candidate)
     if analysis['syntax_ok']:
-        return candidate, analysis, []
+        return candidate, analysis, set_notes
 
     repaired, repair_notes = _repair_common_syntax_mistakes(candidate)
     if repaired != candidate:
         repaired_analysis = analyze_code(repaired)
         if repaired_analysis['syntax_ok']:
-            return repaired, repaired_analysis, repair_notes
+            return repaired, repaired_analysis, set_notes + repair_notes
 
-    safe_fallback = _fallback(description.lower(), description.strip())
+    safe_fallback, _ = _convert_set_to_create(_fallback(description.lower(), description.strip()))
     fallback_analysis = analyze_code(safe_fallback)
-    notes = repair_notes + [
-        'Fell back to a safe starter because the first draft did not parse cleanly.'
-    ]
+    notes = (
+        set_notes
+        + repair_notes
+        + ['Fell back to a safe starter because the first draft did not parse cleanly.']
+    )
     return safe_fallback, fallback_analysis, notes
+
+
+# `set NAME to EXPR` at the start of a line (NAME is a single identifier).
+# The first `\s+to\s+` after the identifier bounds the value, so a value that
+# itself begins with `to_integer(...)` is preserved intact.
+_SET_TO_RE = re.compile(r'^(\s*)[Ss]et\s+([A-Za-z_]\w*)\s+to\s+(.+?)\s*$')
+
+
+def _convert_set_to_create(code: str):
+    """Rewrite `set X to V` statements into EPL's `Create X = V`.
+
+    EPL has no `set ... to` definition form: `Set X to` only reassigns an
+    already-created variable, so generated templates that initialise with it
+    crash at runtime. `Create` both defines and reassigns, so converting every
+    occurrence is safe for first-use and reassignment alike.
+    """
+    converted = False
+    out = []
+    for line in code.splitlines():
+        m = _SET_TO_RE.match(line)
+        if m:
+            out.append(f'{m.group(1)}Create {m.group(2)} = {m.group(3)}')
+            converted = True
+        else:
+            out.append(line)
+    if not converted:
+        return code, []
+    return '\n'.join(out), [
+        'Converted `set X to ...` into EPL `Create X = ...` so variables are defined.'
+    ]
 
 
 def _repair_common_syntax_mistakes(code: str):
     repaired = _normalize_code_block(code)
     notes = []
     original = repaired
+
+    repaired, set_notes = _convert_set_to_create(repaired)
+    notes.extend(set_notes)
 
     if repaired.startswith('//'):
         repaired = '\n'.join(

@@ -700,7 +700,10 @@ print(module._force_interpret())
             exit_code = cli_main(['playground', '--port', '8088'])
 
         self.assertEqual(exit_code, 0)
-        start_playground.assert_called_once_with(port=8088)
+        # The playground server gained host/open_browser params; the CLI forwards
+        # the parsed port and the safe defaults (bind-local host=None resolves to
+        # 127.0.0.1, browser auto-open on for the local dev command).
+        start_playground.assert_called_once_with(port=8088, host=None, open_browser=True)
 
     def test_notebook_command_uses_direct_server_via_authoritative_cli(self):
         with (

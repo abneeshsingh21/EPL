@@ -12,7 +12,8 @@ Head
     Meta "color-scheme" "light"
     Meta "robots" "index,follow"
     Favicon "data:image/png;base64,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"
-    Font "Inter" weights "400;500;600;700;800"
+    Font "Plus Jakarta Sans" weights "400;500;600;700;800"
+    Font "Inter" weights "400;500;600;700"
     Font "JetBrains Mono" weights "400;500;700"
 End
 
@@ -37,6 +38,8 @@ Route "/" shows
                     --d-paper-dim:rgba(242,242,244,.62); --d-paper-faint:rgba(242,242,244,.4);
                     --d-line:rgba(242,242,244,.13); --d-line-soft:rgba(242,242,244,.08);
                     --gut:clamp(20px,5vw,72px); --ease:cubic-bezier(.16,1,.3,1);
+                    /* display face — geometric, airy: the Antigravity headline signature */
+                    --display:'Plus Jakarta Sans','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
                     --logo:url("data:image/png;base64,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");
                 }
                 *{box-sizing:border-box}
@@ -71,7 +74,7 @@ Route "/" shows
                 .serif{font-weight:600}
                 .section{padding:clamp(86px,11vw,156px) 0;position:relative;z-index:2}
                 .sec-head{margin-bottom:clamp(40px,6vw,72px)}
-                .sec-h{font-size:clamp(2rem,4.4vw,3.4rem);line-height:1.04;letter-spacing:-.035em;margin:18px 0 0;font-weight:700}
+                .sec-h{font-family:var(--display);font-size:clamp(2.1rem,4.8vw,3.7rem);line-height:1.04;letter-spacing:-.03em;margin:18px 0 0;font-weight:600}
 
                 /* reveal system */
                 .reveal{opacity:0;transform:translateY(22px);
@@ -91,8 +94,8 @@ Route "/" shows
                 .nav.scrolled{padding:12px var(--gut);background:rgba(255,255,255,.82);
                     backdrop-filter:saturate(160%) blur(16px);border-bottom:1px solid var(--line-soft)}
                 .nav.hidden{transform:translateY(-104%)}
-                .nav-brand a{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:20px;
-                    letter-spacing:-.03em;color:var(--paper)}
+                .nav-brand a{display:inline-flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:20px;
+                    letter-spacing:-.02em;color:var(--paper)}
                 .nav-brand a::before{content:'';width:26px;height:28px;
                     background:var(--logo) center/contain no-repeat}
                 .nav-links{display:flex;align-items:center;gap:34px}
@@ -116,20 +119,20 @@ Route "/" shows
                 .hero-grain{display:none}
                 .hero > *:not(.orbital){position:relative;z-index:2}
                 .hero-eyebrow{margin-bottom:30px}
-                .hero-lockup{display:inline-flex;align-items:center;gap:13px;font-weight:800;
-                    font-size:clamp(22px,3vw,30px);letter-spacing:-.03em;margin-bottom:24px;color:var(--paper)}
+                .hero-lockup{display:inline-flex;align-items:center;gap:13px;font-family:var(--display);font-weight:700;
+                    font-size:clamp(22px,3vw,30px);letter-spacing:-.02em;margin-bottom:24px;color:var(--paper)}
                 .hero-lockup::before{content:'';width:clamp(30px,4vw,40px);height:clamp(34px,4.6vw,46px);
                     background:var(--logo) center/contain no-repeat}
                 .hero-badge{display:inline-flex;align-items:center;gap:9px;font-family:'JetBrains Mono',monospace;
                     font-size:12px;color:var(--paper-dim);background:var(--ink);border:1px solid var(--line);
                     padding:7px 15px;border-radius:999px;box-shadow:0 2px 10px -4px rgba(17,17,19,.08)}
                 .hero-badge p{display:inline}
-                .hero-h{font-weight:800;font-size:clamp(2.7rem,7vw,5.6rem);line-height:.98;letter-spacing:-.045em;
-                    margin:0;max-width:16ch;color:var(--paper)}
+                .hero-h{font-family:var(--display);font-weight:500;font-size:clamp(2.9rem,7.6vw,6.2rem);line-height:1;letter-spacing:-.035em;
+                    margin:0;max-width:17ch;color:var(--paper)}
                 .hero-h .g{color:var(--muted)}
                 .hero-asterisk{color:var(--c3);font-weight:400}
-                .hero-sub{margin:30px auto 0;max-width:54ch;font-size:clamp(1.05rem,1.5vw,1.3rem);
-                    line-height:1.6;color:var(--paper-dim)}
+                .hero-sub{margin:32px auto 0;max-width:56ch;font-size:clamp(1.08rem,1.5vw,1.35rem);
+                    line-height:1.6;color:var(--paper-dim);font-weight:400}
                 .btn-row{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:40px}
                 .btn-row a{display:inline-flex;align-items:center;gap:10px;font-weight:600;font-size:15.5px;
                     padding:15px 26px;border-radius:999px;will-change:transform;
@@ -149,7 +152,7 @@ Route "/" shows
                     border-top:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;z-index:2}
                 .stat{padding:clamp(36px,5vw,60px) 28px;border-left:1px solid var(--line-soft);text-align:center}
                 .stat:first-child{border-left:none}
-                .stat-num{font-weight:800;font-size:clamp(2.4rem,5vw,3.6rem);letter-spacing:-.04em;line-height:1;
+                .stat-num{font-family:var(--display);font-weight:600;font-size:clamp(2.5rem,5.2vw,3.8rem);letter-spacing:-.035em;line-height:1;
                     color:var(--paper);font-variant-numeric:tabular-nums}
                 .stat-label{margin-top:13px;font-size:13.5px;color:var(--paper-dim);line-height:1.45}
                 @media(max-width:780px){.stats{grid-template-columns:1fr 1fr}
@@ -157,8 +160,8 @@ Route "/" shows
 
                 /* manifesto */
                 .manifesto{max-width:1000px}
-                .lead{font-size:clamp(1.8rem,4vw,3.1rem);line-height:1.24;letter-spacing:-.025em;color:var(--paper);font-weight:700}
-                .lead .italic-serif{color:var(--muted);font-weight:700}
+                .lead{font-family:var(--display);font-size:clamp(1.85rem,4.2vw,3.2rem);line-height:1.22;letter-spacing:-.025em;color:var(--paper);font-weight:500}
+                .lead .italic-serif{color:var(--muted);font-weight:500}
 
                 /* split + code */
                 .split{display:grid;grid-template-columns:.82fr 1.18fr;gap:clamp(40px,6vw,92px);align-items:center}
@@ -170,6 +173,12 @@ Route "/" shows
                 .split-list .li p{display:inline}
                 @media(max-width:820px){.split{grid-template-columns:1fr;gap:38px}}
 
+                /* aurora glow — soft rainbow bleed behind product cards (Antigravity signature).
+                   Must sit on a NON-clipping wrapper (the card itself uses overflow:hidden). */
+                .glow{position:relative;isolation:isolate}
+                .glow::before{content:'';position:absolute;inset:-24% -20% -30%;z-index:-1;border-radius:44px;background:conic-gradient(from 210deg at 50% 48%, #2EA0FF, #7C5CFF, #FF5C7A, #FF9F45, #FFD23F, #21C7A8, #2EA0FF);filter:blur(70px) saturate(116%);opacity:.66;transition:opacity .6s var(--ease)}
+                .glow:hover::before{opacity:.86}
+
                 .code{background:var(--d-ink);border:1px solid var(--line);
                     border-radius:18px;overflow:hidden;box-shadow:0 40px 100px -50px rgba(17,17,19,.4);position:relative}
                 .code::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;z-index:1;
@@ -178,10 +187,48 @@ Route "/" shows
                 .dot{width:11px;height:11px;border-radius:50%;background:var(--line)}.dot p{display:none}
                 .code-file{margin-left:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--paper-faint)}
                 .code-file p{display:inline}
-                .code-body{padding:26px 28px;font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:1.95;overflow-x:auto}
-                .code-body p{display:inline;margin:0}
-                .cline{display:block;white-space:pre;min-height:1.95em}
+                .code-body{padding:26px 28px;font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:1.65;overflow-x:auto}
+                /* flex row drops the inter-<span> whitespace the generator emits;
+                   white-space:pre on the <p> keeps code indentation intact. */
+                .code-body p{display:inline;margin:0;white-space:pre}
+                .cline{display:flex;flex-wrap:nowrap;align-items:baseline;min-height:1.65em}
                 .c-kw{color:#C4B5FD}.c-fn{color:#93C5FD}.c-str{color:#FCD34D}.c-id{color:var(--d-paper)}.c-dim{color:var(--d-paper-faint)}
+
+                /* ── Embedded live playground ── reuses the dark .code island look */
+                .pg-shell{max-width:1000px;margin:0 auto}
+                .pg-code{--ink:var(--d-ink);--ink-2:var(--d-ink-2);--paper:var(--d-paper);
+                    --paper-dim:var(--d-paper-dim);--paper-faint:var(--d-paper-faint);
+                    --line:var(--d-line);--line-soft:var(--d-line-soft)}
+                .pg-run{margin-left:auto;display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+                    font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.02em;
+                    color:#fff;padding:7px 16px;border-radius:8px;border:0;
+                    background:linear-gradient(135deg,var(--accent),#7C5CFF);
+                    box-shadow:0 6px 18px -8px rgba(0,125,243,.7);transition:transform .2s var(--ease),opacity .2s,box-shadow .3s}
+                .pg-run::before{content:'\25B6';font-size:9px;transform:translateY(.5px)}
+                .pg-run:hover{transform:translateY(-1px);box-shadow:0 10px 24px -8px rgba(0,125,243,.8)}
+                .pg-run:active{transform:translateY(0)}
+                .pg-run[aria-busy="true"]{pointer-events:none;opacity:.6}
+                .pg-run[aria-busy="true"]::before{content:'';width:11px;height:11px;border-radius:50%;
+                    border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:pg-spin .7s linear infinite}
+                @keyframes pg-spin{to{transform:rotate(360deg)}}
+                .pg-editor{display:block;width:100%;border:0;outline:0;resize:vertical;tab-size:2;
+                    min-height:230px;background:transparent;color:var(--d-paper);
+                    padding:24px 26px;font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:1.65;
+                    caret-color:var(--accent)}
+                .pg-editor::placeholder{color:var(--d-paper-faint)}
+                .pg-out-wrap{border-top:1px solid var(--d-line-soft);background:rgba(0,0,0,.22)}
+                .pg-out-head{display:flex;align-items:center;gap:8px;padding:11px 26px;
+                    font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.18em;
+                    text-transform:uppercase;color:var(--d-paper-faint)}
+                .pg-out-head .pg-status{margin-left:auto;text-transform:none;letter-spacing:0;font-size:11.5px;color:var(--d-paper-dim)}
+                .pg-out{margin:0;padding:6px 26px 24px;min-height:42px;max-height:320px;overflow:auto;
+                    font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.6;
+                    color:var(--d-paper);white-space:pre-wrap;word-break:break-word}
+                .pg-out.empty{color:var(--d-paper-faint)}
+                .pg-out.err{color:#FF9AAB}
+                .pg-foot{margin-top:18px;text-align:center;font-size:13px;color:var(--paper-dim)}
+                .pg-foot a{color:var(--accent)}
+                .pg-foot a:hover{text-decoration:underline}
 
                 /* pillars */
                 .pillar{display:grid;grid-template-columns:84px 1fr 170px;gap:34px;align-items:start;
@@ -190,16 +237,41 @@ Route "/" shows
                 .pillar::before{content:'';position:absolute;inset:0;border-radius:16px;pointer-events:none;opacity:0;
                     transition:opacity .35s;background:radial-gradient(440px circle at var(--mx,-200px) var(--my,-200px),var(--accent-soft),transparent 60%)}
                 .pillar:hover::before{opacity:1}
+                .pillar:hover{background:linear-gradient(90deg, var(--accent-soft), transparent 42%)}
                 .pillar:hover .pillar-title{color:var(--accent)}
-                .pillar-idx{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--paper-faint);padding-top:7px}
+                .pillar:hover .pillar-idx{opacity:1;transform:translateX(2px)}
+                .pillar-idx{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;padding-top:4px;background:linear-gradient(155deg, var(--accent), #7C5CFF);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;opacity:.5;transition:opacity .35s var(--ease),transform .35s var(--ease)}
                 .pillar-idx p{display:inline}
-                .pillar-title{font-size:clamp(1.5rem,2.6vw,2.05rem);letter-spacing:-.025em;line-height:1.1;
-                    transition:color .3s;margin-bottom:15px;font-weight:700}
+                .pillar-title{font-family:var(--display);font-size:clamp(1.55rem,2.7vw,2.1rem);letter-spacing:-.02em;line-height:1.1;
+                    transition:color .3s;margin-bottom:15px;font-weight:600}
                 .pillar-desc{font-size:1.02rem;line-height:1.66;color:var(--paper-dim);max-width:56ch}
                 .pillar-meta{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;
                     text-transform:uppercase;color:var(--paper-faint);text-align:right;padding-top:11px}
                 .pillar-meta p{display:inline}
                 @media(max-width:820px){.pillar{grid-template-columns:50px 1fr;gap:20px;padding:36px 16px}.pillar-meta{display:none}}
+
+                /* audience personas — gradient icon tiles, per-persona accent, pill badges */
+                .audience-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:8px}
+                .audience-card{--ac:#2EA0FF;background:var(--ink-2);border:1px solid var(--line);border-radius:22px;padding:34px 32px 30px;position:relative;overflow:hidden;isolation:isolate;transition:transform .35s var(--ease),border-color .4s,box-shadow .4s}
+                .audience-card:nth-child(1){--ac:#2EA0FF}
+                .audience-card:nth-child(2){--ac:#7C5CFF}
+                .audience-card:nth-child(3){--ac:#FF5C7A}
+                .audience-card:nth-child(4){--ac:#21C7A8}
+                .audience-card::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(420px circle at var(--mx,-200px) var(--my,-200px), color-mix(in srgb, var(--ac) 15%, transparent), transparent 60%)}
+                .audience-card::after{content:'';position:absolute;left:0;right:0;top:0;height:2px;z-index:1;opacity:0;transition:opacity .4s;background:linear-gradient(90deg, transparent, var(--ac), transparent)}
+                .audience-card:hover{transform:translateY(-5px);border-color:color-mix(in srgb, var(--ac) 44%, var(--line));box-shadow:0 32px 70px -44px var(--ac)}
+                .audience-card:hover::before{opacity:1}
+                .audience-card:hover::after{opacity:.9}
+                .audience-icon{width:56px;height:56px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;line-height:1;margin-bottom:22px;border-radius:15px;border:1px solid color-mix(in srgb, var(--ac) 32%, var(--line));background:linear-gradient(150deg, color-mix(in srgb, var(--ac) 18%, var(--ink-2)), var(--ink-2));box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+                .audience-icon p{display:inline}
+                .audience-title{font-family:var(--display);font-size:1.34rem;font-weight:600;letter-spacing:-.02em;margin-bottom:12px;color:var(--paper)}
+                .audience-title p{display:inline}
+                .audience-desc{font-size:.96rem;line-height:1.66;color:var(--paper-dim);max-width:44ch}
+                .audience-desc p{display:inline}
+                .audience-tag{display:inline-flex;align-items:center;gap:8px;margin-top:22px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ac);background:color-mix(in srgb, var(--ac) 9%, transparent);border:1px solid color-mix(in srgb, var(--ac) 24%, transparent);padding:7px 13px;border-radius:999px}
+                .audience-tag::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ac)}
+                .audience-tag p{display:inline}
+                @media(max-width:760px){.audience-grid{grid-template-columns:1fr}}
 
                 /* targets bento grid */
                 .targets{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;perspective:1200px}
@@ -248,15 +320,19 @@ Route "/" shows
 
                 /* closing cta */
                 .cta{text-align:center;padding:clamp(96px,14vw,180px) var(--gut);position:relative;overflow:hidden;isolation:isolate}
-                .cta-h{font-size:clamp(2.6rem,7vw,5.6rem);line-height:1.02;letter-spacing:-.045em;font-weight:800;position:relative;z-index:2}
-                .cta-h .serif,.cta-h .g{color:var(--muted);font-weight:800}
+                /* dotted grid, faded to the centre (Antigravity finale backdrop) */
+                .cta::before{content:'';position:absolute;inset:0;z-index:0;background-image:radial-gradient(rgba(17,17,19,.08) 1.1px, transparent 1.1px);background-size:26px 26px;-webkit-mask-image:radial-gradient(ellipse 72% 64% at 50% 44%, transparent 0%, transparent 30%, black 88%);mask-image:radial-gradient(ellipse 72% 64% at 50% 44%, transparent 0%, transparent 30%, black 88%);pointer-events:none}
+                /* soft blue-violet bloom behind the headline */
+                .cta::after{content:'';position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);width:min(940px,92%);height:560px;z-index:0;background:radial-gradient(ellipse at center, rgba(46,160,255,.18), rgba(124,92,255,.11) 42%, transparent 72%);filter:blur(18px);pointer-events:none}
+                .cta-h{font-family:var(--display);font-size:clamp(2.7rem,7.4vw,6rem);line-height:1.02;letter-spacing:-.035em;font-weight:500;position:relative;z-index:2}
+                .cta-h .serif,.cta-h .g{color:var(--muted);font-weight:500}
                 .cta-sub{margin:26px auto 40px;max-width:44ch;font-size:1.12rem;color:var(--paper-dim);line-height:1.6;position:relative;z-index:2}
                 .cta-actions{justify-content:center;position:relative;z-index:2}
 
                 /* footer */
                 .foot{border-top:1px solid var(--line);padding:78px var(--gut) 0;position:relative;z-index:2;overflow:hidden}
                 .foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:42px;max-width:1200px;margin:0 auto}
-                .foot-mark{font-weight:800;font-size:26px;letter-spacing:-.04em;display:inline-flex;align-items:center;gap:11px}
+                .foot-mark{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.02em;display:inline-flex;align-items:center;gap:11px}
                 .foot-mark::before{content:'';width:30px;height:34px;
                     background:var(--logo) center/contain no-repeat}
                 .foot-mark p{display:inline}
@@ -273,7 +349,7 @@ Route "/" shows
                 .foot-legal a{color:var(--paper-faint);transition:color .2s}
                 .foot-legal a:hover{color:var(--paper)}
                 /* giant full-bleed wordmark (Antigravity footer signature) */
-                .foot-giant{margin-top:34px;text-align:center;line-height:.78;font-weight:800;letter-spacing:-.05em;
+                .foot-giant{margin-top:34px;text-align:center;line-height:.78;font-family:var(--display);font-weight:700;letter-spacing:-.04em;
                     font-size:clamp(5rem,27vw,24rem);color:var(--paper);
                     background:linear-gradient(180deg,var(--paper) 0%,var(--paper) 55%,rgba(17,17,19,.06) 130%);
                     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
@@ -308,6 +384,7 @@ Route "/" shows
             Div class "nav-links"
                 Link "Overview" to "#manifesto"
                 Link "Syntax" to "#syntax"
+                Link "Playground" to "#playground"
                 Link "Targets" to "#targets"
                 Link "Ecosystem" to "#ecosystem"
             End
@@ -429,7 +506,7 @@ Route "/" shows
                         End
                     End
                 End
-                Div class "split-right reveal dly-2"
+                Div class "split-right glow reveal dly-2"
                     Div class "code"
                         Div class "code-bar"
                             Span class "dot"
@@ -850,6 +927,129 @@ Route "/" shows
             End
         End
 
+        Note: ── Audience (personas) ──────────────────────────────────────
+        Section class "section" id "audience"
+            Div class "wrap"
+                Div class "sec-head"
+                    Div class "eyebrow reveal"
+                        Text "Built for everyone"
+                    End
+                    Div class "sec-h reveal dly-1"
+                        Text "From classrooms "
+                        Span class "g"
+                            Text "to production."
+                        End
+                    End
+                End
+
+                Div class "audience-grid"
+                    Div class "audience-card spot reveal"
+                        Div class "audience-icon"
+                            Text "🎓"
+                        End
+                        Div class "audience-title"
+                            Text "Students & Beginners"
+                        End
+                        Div class "audience-desc"
+                            Text "No semicolons. No curly braces. No cryptic symbols. EPL reads like the pseudocode you already write on whiteboards — but it actually runs, compiles, and ships to eight targets."
+                        End
+                        Div class "audience-tag"
+                            Text "Zero-friction onboarding"
+                        End
+                    End
+
+                    Div class "audience-card spot reveal dly-1"
+                        Div class "audience-icon"
+                            Text "👩‍🏫"
+                        End
+                        Div class "audience-title"
+                            Text "Educators & Institutions"
+                        End
+                        Div class "audience-desc"
+                            Text "Teach algorithms, data structures, and systems design without losing half the semester to syntax. Students write working code on day one, and the same code compiles to native binaries for capstone projects."
+                        End
+                        Div class "audience-tag"
+                            Text "Curriculum-ready"
+                        End
+                    End
+
+                    Div class "audience-card spot reveal dly-2"
+                        Div class "audience-icon"
+                            Text "🛠️"
+                        End
+                        Div class "audience-title"
+                            Text "Professional Developers"
+                        End
+                        Div class "audience-desc"
+                            Text "Prototype in minutes, iterate with a REPL, then ship to any target — server, browser, mobile, or embedded. A full language server, gradual type checker, and 22-package ecosystem back you in production."
+                        End
+                        Div class "audience-tag"
+                            Text "Production-grade tooling"
+                        End
+                    End
+
+                    Div class "audience-card spot reveal dly-3"
+                        Div class "audience-icon"
+                            Text "🤖"
+                        End
+                        Div class "audience-title"
+                            Text "AI & Automation"
+                        End
+                        Div class "audience-desc"
+                            Text "LLMs generate EPL with fewer hallucinations than brace-heavy languages. Plain-English syntax means AI-written code is human-readable by default — no post-processing, no style guide enforcement."
+                        End
+                        Div class "audience-tag"
+                            Text "AI-native syntax"
+                        End
+                    End
+                End
+            End
+        End
+
+        Note: ── Playground (live, embedded) ────────────────────────────
+        Section class "section" id "playground"
+            Div class "wrap"
+                Div class "sec-head"
+                    Div class "eyebrow reveal"
+                        Text "Try it now"
+                    End
+                    Div class "sec-h reveal dly-1"
+                        Text "Run EPL "
+                        Span class "g"
+                            Text "right here."
+                        End
+                    End
+                    Div class "split-p reveal dly-2"
+                        Text "No install. Edit the program and press Run — it executes on the live EPL engine and streams the output back. Press Cmd/Ctrl+Enter to run."
+                    End
+                End
+                Div class "pg-shell glow reveal dly-2"
+                    Div class "code pg-code"
+                        Div class "code-bar"
+                            Span class "dot"
+                            End
+                            Span class "dot"
+                            End
+                            Span class "dot"
+                            End
+                            Span class "code-file"
+                                Text "playground.epl"
+                            End
+                            Div class "pg-run" id "pg-run"
+                                Text "Run"
+                            End
+                        End
+                        Div id "pg-mount"
+                        End
+                    End
+                    Div class "pg-foot reveal dly-3"
+                        Text "Powered by the live EPL playground. "
+                        Link "Open the full playground" to "https://epl-playground.azurewebsites.net"
+                    End
+                End
+            End
+        End
+
         Note: ── Install ──────────────────────────────────────────────────
         Section class "section" id "install"
             Div class "wrap split"
@@ -867,7 +1067,7 @@ Route "/" shows
                         Text "One dependency. No build step, no config. Scaffold a project and the dev server is already wired."
                     End
                 End
-                Div class "split-right reveal dly-2"
+                Div class "split-right glow reveal dly-2"
                     Div class "term"
                         Div class "term-cmd"
                             Span class "sig"
@@ -929,7 +1129,7 @@ Route "/" shows
                 Div class "foot-col"
                     Heading "Product"
                     Link "Documentation" to "https://abneeshsingh21.github.io/EPL/"
-                    Link "Playground" to "https://abneeshsingh21.github.io/EPL/playground"
+                    Link "Playground" to "https://epl-playground.azurewebsites.net"
                     Link "Packages" to "https://abneeshsingh21.github.io/epl-packages-index/"
                     Link "Changelog" to "https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md"
                 End
@@ -1040,32 +1240,36 @@ Route "/" shows
                     var dpr = Math.min(window.devicePixelRatio || 1, 2);
                     var W = 0, H = 0, cx = 0, cy = 0;
                     var mouse = { x: 0.5, y: 0.46, has: false };
-                    var COLORS = ['#007DF3', '#2EA0FF', '#5BB8FF', '#0A52C0', '#1E88FF', '#0E1A32'];
-                    var ARMS = 3;
-                    var N = window.innerWidth < 720 ? 150 : 300;
+                    // Antigravity-style multicolour confetti: blue-led brand palette
+                    // plus festive accent hues, scattered broadly and floating gently.
+                    var COLORS = ['#007DF3', '#2EA0FF', '#5BB8FF', '#1E88FF', '#7C5CFF',
+                                  '#B14EFF', '#FF5C7A', '#FF9F45', '#FFD23F', '#21C7A8'];
+                    var N = window.innerWidth < 720 ? 110 : 230;
                     var parts = [];
-                    for (var k = 0; k < N; k++) {
-                        var arm = k % ARMS;
-                        var rr = Math.pow(Math.random(), 0.62);          // bias slightly outward
-                        var radius = 0.1 + rr * 0.52;                     // annulus keeps the centre clear for the headline
-                        var ang = rr * 4.6 + arm * (Math.PI * 2 / ARMS) + (Math.random() - 0.5) * 0.55; // spiral winding
-                        parts.push({
-                            radius: radius,
-                            ang: ang,
-                            spin: 0.05 + (1 - radius) * 0.13,             // differential rotation → vortex swirl
-                            size: 1.3 + Math.random() * 2.0,
-                            len: 3 + Math.random() * 6,                   // dash length (Antigravity-style ticks)
+                    function spawnDash() {
+                        // radial bias: keep the dead-centre clear for the headline, densest mid-field
+                        return {
+                            rr: 0.13 + Math.pow(Math.random(), 0.55) * 0.74, // normalised radius (0.13..0.87)
+                            ang: Math.random() * Math.PI * 2,
+                            rot: Math.random() * Math.PI,                     // dash orientation
+                            drift: (Math.random() - 0.5) * 0.9,              // slow per-dash angular drift
+                            rise: 0.5 + Math.random() * 1.3,                  // breathing speed
+                            spin: (Math.random() - 0.5) * 0.4,               // own slow rotation
+                            size: 1.5 + Math.random() * 1.7,                  // thickness
+                            len: 4 + Math.random() * 9,                       // dash length
                             col: COLORS[(Math.random() * COLORS.length) | 0],
-                            alpha: 0.45 + Math.random() * 0.5,
-                            tw: Math.random() * 6.283
-                        });
+                            alpha: 0.32 + Math.random() * 0.5,
+                            tw: Math.random() * 6.283,
+                            tws: 0.6 + Math.random() * 1.3                    // twinkle speed
+                        };
                     }
+                    for (var k = 0; k < N; k++) parts.push(spawnDash());
                     function resize() {
                         W = heroHost.clientWidth; H = heroHost.clientHeight;
                         cv.width = W * dpr; cv.height = H * dpr;
                         cv.style.width = W + 'px'; cv.style.height = H + 'px';
                         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                        cx = W * 0.5; cy = H * 0.46;
+                        cx = W * 0.5; cy = H * 0.5;
                     }
                     resize();
                     window.addEventListener('resize', resize);
@@ -1077,28 +1281,31 @@ Route "/" shows
                     });
                     var t = 0;
                     function draw() {
-                        var base = Math.max(W, H) * 0.62;
+                        var maxR = Math.hypot(W, H) * 0.52;
                         ctx.clearRect(0, 0, W, H);
-                        var px = mouse.has ? (mouse.x - 0.5) * 44 : 0;
-                        var py = mouse.has ? (mouse.y - 0.46) * 38 : 0;
+                        var px = mouse.has ? (mouse.x - 0.5) * 52 : 0;
+                        var py = mouse.has ? (mouse.y - 0.5) * 52 : 0;
                         for (var k = 0; k < parts.length; k++) {
                             var p = parts[k];
-                            var a = p.ang + t * p.spin;
-                            var rad = p.radius * base;
-                            var depth = 1 - p.radius;
+                            var a = p.ang + t * p.drift * 0.12;                 // slow individual drift
+                            var breathe = 1 + 0.055 * Math.sin(t * p.rise + p.tw); // gentle radial float
+                            var rad = p.rr * maxR * breathe;
+                            var depth = p.rr;                                   // outer dashes parallax more
                             var x = cx + Math.cos(a) * rad + px * depth;
-                            var y = cy + Math.sin(a) * rad * 0.92 + py * depth;
-                            var tw = 0.5 + 0.5 * Math.sin(t * 1.3 + p.tw);
+                            var y = cy + Math.sin(a) * rad + py * depth;
+                            var tw = 0.4 + 0.6 * Math.sin(t * p.tws + p.tw);    // twinkle
                             ctx.save();
                             ctx.translate(x, y);
-                            ctx.rotate(a + Math.PI / 2);
+                            ctx.rotate(p.rot + t * p.spin * 0.5);
                             ctx.globalAlpha = p.alpha * tw;
                             ctx.fillStyle = p.col;
-                            ctx.fillRect(-p.size / 2, -p.len / 2, p.size, p.len);
+                            var w = p.size, h = p.len;
+                            if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, w / 2); ctx.fill(); }
+                            else ctx.fillRect(-w / 2, -h / 2, w, h);
                             ctx.restore();
                         }
                         ctx.globalAlpha = 1;
-                        t += 0.0045;
+                        t += 0.006;
                         requestAnimationFrame(draw);
                     }
                     requestAnimationFrame(draw);
@@ -1144,6 +1351,81 @@ Route "/" shows
                         setTimeout(function () { btn.textContent = prev; }, 1600);
                     });
                 });
+
+                // ── Embedded live playground: editor + Run + output, against the Azure API ──
+                (function setupPlayground() {
+                    var mount = document.getElementById('pg-mount');
+                    var run = document.getElementById('pg-run');
+                    if (!mount || !run) return;
+                    var API = 'https://epl-playground.azurewebsites.net/api/run';
+                    var SEED = [
+                        'Create greeting = "Hello, EPL"',
+                        'Say greeting',
+                        '',
+                        'Say "Squares from 1 to 5:"',
+                        'For i from 1 to 5',
+                        '    Say i + " squared is " + (i * i)',
+                        'End'
+                    ].join('\n');
+
+                    var ed = document.createElement('textarea');
+                    ed.className = 'pg-editor';
+                    ed.setAttribute('spellcheck', 'false');
+                    ed.setAttribute('aria-label', 'EPL code editor');
+                    ed.value = SEED;
+                    mount.appendChild(ed);
+
+                    var outWrap = document.createElement('div');
+                    outWrap.className = 'pg-out-wrap';
+                    var head = document.createElement('div');
+                    head.className = 'pg-out-head';
+                    head.innerHTML = '<span>Output</span><span class="pg-status"></span>';
+                    var out = document.createElement('pre');
+                    out.className = 'pg-out empty';
+                    out.textContent = 'Press Run to execute.';
+                    outWrap.appendChild(head);
+                    outWrap.appendChild(out);
+                    mount.appendChild(outWrap);
+                    var status = head.querySelector('.pg-status');
+
+                    var busy = false;
+                    function setOut(text, isErr) {
+                        out.classList.remove('empty');
+                        out.classList.toggle('err', !!isErr);
+                        out.textContent = text;
+                    }
+                    function execute() {
+                        if (busy) return;
+                        var code = ed.value;
+                        if (!code.trim()) { setOut('Write some EPL first, then press Run.', false); return; }
+                        busy = true;
+                        run.setAttribute('aria-busy', 'true');
+                        status.textContent = '';
+                        var warm = setTimeout(function () {
+                            status.textContent = 'Warming up the server… first run can take ~20s';
+                        }, 1500);
+                        fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' }, body: JSON.stringify({ code: code }) })
+                            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                            .then(function (res) {
+                                var d = res.d || {};
+                                if (d.error) { setOut(d.error, true); }
+                                else { setOut((d.output != null && d.output !== '') ? d.output : '(no output)', false); }
+                            })
+                            .catch(function () {
+                                setOut('Could not reach the playground server. It may be waking up — try again in a moment, or open the full playground.', true);
+                            })
+                            .then(function () {
+                                clearTimeout(warm);
+                                status.textContent = '';
+                                busy = false;
+                                run.removeAttribute('aria-busy');
+                            });
+                    }
+                    run.addEventListener('click', execute);
+                    ed.addEventListener('keydown', function (e) {
+                        if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); execute(); }
+                    });
+                })();
             })();
         End
     End

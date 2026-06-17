@@ -3838,17 +3838,27 @@ def _site(args):
 def _playground(args):
     from epl.playground import start_playground
 
-    port = 8080
+    port = None  # None -> resolved from PORT/WEBSITES_PORT env, else 8080
+    host = None  # None -> resolved from EPL_PLAYGROUND_HOST env, else 127.0.0.1
+    open_browser = True
     i = 0
     while i < len(args):
         if args[i] == '--port' and i + 1 < len(args):
             port = int(args[i + 1])
             i += 2
             continue
+        if args[i] == '--host' and i + 1 < len(args):
+            host = args[i + 1]
+            i += 2
+            continue
+        if args[i] in ('--no-browser', '--headless'):
+            open_browser = False
+            i += 1
+            continue
         print(f'{_red("Error:")} Unknown playground option: {args[i]}')
         return 1
 
-    start_playground(port=port)
+    start_playground(port=port, host=host, open_browser=open_browser)
     return 0
 
 
