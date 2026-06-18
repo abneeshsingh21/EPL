@@ -1,53 +1,32 @@
 # =============================================================================
 # .gitattributes — EPL Language (Main Repository)
 # =============================================================================
-# PURPOSE: Ensure GitHub Linguist correctly attributes all EPL source files
-#          in this repo to the EPL language, and excludes Python infrastructure
-#          (interpreter, compiler, stdlib, tooling) from the language bar.
-#
-# RATIONALE: The primary artifact of this repo IS the EPL language runtime,
-#            which happens to be implemented in Python. Without these overrides,
-#            Linguist would report "Python 100%" — accurate about the impl
-#            language, but misleading about what the repo *is*.
-#
-# LAYERS:
-#   1. All .epl sample/example/test files → counted as EPL
-#   2. All .py interpreter/compiler files → vendored (excluded from bar)
-#   3. Generated, docs, and config files  → excluded from bar
+# STRATEGY: Map .epl → Python as a temporary fallback (gives real highlighting)
+# and vendor ONLY pure build/CI tooling. The core Python implementation files
+# (epl/*.py) are intentionally left as Python — they ARE the primary source of
+# this repo and should appear in the language bar alongside the EPL samples.
 # =============================================================================
 
 # ── EPL source and sample files ───────────────────────────────────────────────
-*.epl                       linguist-language=EPL
-*.epl                       linguist-detectable=true
+# Temporary fallback until github-linguist/linguist officially adds EPL.
+*.epl   linguist-language=Python
+*.epl   linguist-detectable=true
 
-# ── Python implementation files — vendored (this repo *is* EPL, not Python) ──
-# The Python files are the implementation vehicle, not the primary language.
-epl/**/*.py                 linguist-vendored=true
-*.py                        linguist-vendored=true
+# ── Build / CI tooling — vendor these (not primary source) ───────────────────
+# Landing page build helpers
+landing_page/build_static.py        linguist-vendored=true
+landing_page/deploy.py              linguist-vendored=true
+assets/make_og.py                   linguist-vendored=true
 
-# ── Tests — mark as documentation so they don't skew the bar ─────────────────
-tests/**                    linguist-documentation=true
+# Generated output
+landing_page/dist/**                linguist-generated=true
 
-# ── VS Code extension — vendored (tooling, not primary source) ────────────────
-vscode-extension/**         linguist-vendored=true
+# GitHub Actions and CI
+.github/**                          linguist-vendored=true
 
-# ── Official packages — these are EPL packages, keep .epl files counted ───────
-official_packages/**/*.epl  linguist-language=EPL
-official_packages/**/*.epl  linguist-detectable=true
-official_packages/**/*.py   linguist-vendored=true
+# VS Code extension (tooling, not language source)
+vscode-extension/**                 linguist-vendored=true
 
-# ── Landing page — EPL source counts; generated dist/ excluded ────────────────
-landing_page/src/**/*.epl   linguist-language=EPL
-landing_page/src/**/*.epl   linguist-detectable=true
-landing_page/dist/**        linguist-generated=true
-landing_page/**/*.py        linguist-vendored=true
-
-# ── CI / GitHub Actions ───────────────────────────────────────────────────────
-.github/**                  linguist-vendored=true
-
-# ── Documentation, config, requirements ──────────────────────────────────────
-*.md                        linguist-documentation=true
-*.txt                       linguist-documentation=true
-*.toml                      linguist-documentation=true
-*.yml                       linguist-vendored=true
-*.yaml                      linguist-vendored=true
+# ── Documentation ─────────────────────────────────────────────────────────────
+docs/**                             linguist-documentation=true
+*.md                                linguist-documentation=true
