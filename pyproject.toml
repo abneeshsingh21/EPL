@@ -75,8 +75,11 @@ include-package-data = true
 py-modules = ["main"]
 
 [tool.setuptools.packages.find]
-include = ["epl*"]
-exclude = ["epl._internal*", "dist*", "build*", "tests*"]
+# Match the `epl` package and its subpackages only. The previous `epl*` glob
+# also matched the separate `epl-website` repo when checked out alongside,
+# leaking website files into the wheel.
+include = ["epl", "epl.*"]
+exclude = ["epl._internal*", "dist*", "build*", "tests*", "epl-website*", "landing_page*"]
 
 [tool.setuptools.package-data]
 epl = [
