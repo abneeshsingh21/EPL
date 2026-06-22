@@ -430,9 +430,13 @@ class RedisStoreBackend(StoreBackend):
         try:
             self._redis.lset(key, index, sentinel)
             self._redis.lrem(key, 1, sentinel)
-        except Exception:
-            # The list shrank out from under us between llen and lset; the
-            # target is already gone, so there's nothing to remove.
+        except Exception as exc:
+            # Only swallow the specific "index out of range" race — the list
+            # shrank between our llen() check and the lset(), so the target is
+            # already gone. Anything else (connection drop, timeout, …) is a real
+            # failure and must propagate rather than be silently lost.
+            if 'out of range' not in str(exc).lower():
+                raise
             _debug_log.suppressed('store_backends:redis_remove_race')
 
     def store_clear(self, collection):

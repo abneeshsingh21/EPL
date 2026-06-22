@@ -245,7 +245,10 @@ class EPLWSGIApp:
 
         # Static files
         if self.static_dir and path.startswith(self.static_prefix):
-            return self._serve_static(path, environ, start_response)
+            static_body = self._serve_static(path, environ, start_response)
+            # HEAD on a static file: keep the headers (incl. Content-Length that
+            # _serve_static already sent) but drop the body, like every other route.
+            return [b''] if method == 'HEAD' else static_body
 
         # Route matching
         handler, params = self._match_route(method, path)

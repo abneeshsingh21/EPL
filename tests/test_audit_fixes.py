@@ -79,6 +79,28 @@ class TestWSGIHeadAndErrors(unittest.TestCase):
         self.assertIn('200', cap['status'])
         self.assertEqual(body, b'hello world')
 
+    def test_head_on_static_file_has_no_body(self):
+        """Bug 1: static files return early, so HEAD must be stripped there too."""
+        import tempfile
+
+        from epl.wsgi import EPLWSGIApp
+
+        app = EPLWSGIApp()
+        static_dir = tempfile.mkdtemp()
+        content = b'static-body-content'
+        with open(Path(static_dir) / 'hello.txt', 'wb') as fh:
+            fh.write(content)
+        app.serve_static(static_dir, prefix='/static/')
+
+        cap, body = _drive(app, _environ('HEAD', '/static/hello.txt'))
+        self.assertIn('200', cap['status'])
+        self.assertEqual(body, b'')
+        self.assertEqual(cap['headers']['Content-Length'], str(len(content)))
+
+        # Control: GET on the same static file still returns the body.
+        _, get_body = _drive(app, _environ('GET', '/static/hello.txt'))
+        self.assertEqual(get_body, content)
+
     def test_500_does_not_leak_exception_text(self):
         """Bug 2: a handler crash must not surface the exception to the client."""
         from epl.wsgi import EPLWSGIApp
@@ -205,12 +227,27 @@ class _FakeRedis:
         return removed
 
 
-def _redis_backend():
+class _LsetRaisingRedis(_FakeRedis):
+    """A fake whose lset always raises — exercises the post-guard failure path.
+
+    Used to simulate a list that shrank between our llen() check and the lset()
+    (the concurrent-shrink race), and to prove real Redis errors propagate.
+    """
+
+    def __init__(self, error):
+        super().__init__()
+        self._error = error
+
+    def lset(self, key, index, value):
+        raise self._error
+
+
+def _redis_backend(client=None):
     """A RedisStoreBackend wired to a fake client, bypassing the live connection."""
     from epl.store_backends import RedisStoreBackend
 
     backend = object.__new__(RedisStoreBackend)
-    backend._redis = _FakeRedis()
+    backend._redis = client or _FakeRedis()
     backend._prefix = 'epl:store:'
     return backend
 
@@ -235,6 +272,24 @@ class TestRedisStoreRemoveContract(unittest.TestCase):
         backend.store_add('items', 'a')
         backend.store_remove('items', -1)
         self.assertEqual(backend.store_get('items'), ['a'])
+
+    def test_remove_tolerates_concurrent_shrink(self):
+        """Bug 4: index passes the llen guard but the list shrank before lset.
+
+        The 'index out of range' error from that race is swallowed as a no-op,
+        not propagated, so a concurrent delete can't crash the request.
+        """
+        backend = _redis_backend(_LsetRaisingRedis(Exception('ERR index out of range')))
+        backend.store_add('items', 'a')  # llen() -> 1, so index 0 passes the guard
+        backend.store_remove('items', 0)  # lset() then raises out-of-range; must not crash
+        self.assertEqual(backend.store_get('items'), ['a'])
+
+    def test_remove_reraises_real_redis_errors(self):
+        """Bug 4 follow-up: non-race failures (connection/timeout) must propagate."""
+        backend = _redis_backend(_LsetRaisingRedis(ConnectionError('Connection refused')))
+        backend.store_add('items', 'a')
+        with self.assertRaises(ConnectionError):
+            backend.store_remove('items', 0)
 
 
 # ═══════════════════════════════════════════════════════════
