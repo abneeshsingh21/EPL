@@ -27,6 +27,20 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **Top-level variables are visible inside functions under the bytecode VM:** a
+  variable created at module level (e.g. `db = connect(...)`) was stored as a
+  local of the implicit main function, but functions looked it up as a global —
+  so they couldn't see it (it read as undefined). Top-level variables — including
+  `for each` / `for` loop variables — are now globals, matching the interpreter,
+  so a loop variable and a later `Create` of the same name share one binding.
+- **Unannotated variables are no longer locked to an inferred type:** the
+  interpreter inferred a type from the first value (`total = 0` → integer) and
+  then rejected accumulating a decimal into it — surprising for a dynamically
+  typed language, and stricter than the VM. Only an *explicit* annotation
+  (`Create x as integer`) now constrains later assignments.
+- **Caught errors carry the right category under the VM:** a caught value now
+  reads `EPL Name Error …` / `EPL Type Error …` as appropriate, instead of
+  always `EPL Runtime Error …`, matching the interpreter.
 - **Reading an undeclared variable is now an error under the bytecode VM:** it
   silently evaluated to `nothing`, so a typo (`score` for `Score`) produced
   wrong output instead of an error. It now raises *"Variable … has not been

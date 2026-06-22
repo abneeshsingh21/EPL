@@ -263,6 +263,13 @@ class TestVMErrorHandling(unittest.TestCase):
         with self.assertRaises(VMError):
             run_vm('Print score')
 
+    def test_caught_undefined_variable_has_name_category(self):
+        vm = run_vm('Try\n  Print score\nCatch e\n  Print e\nEnd')
+        self.assertEqual(
+            vm.output_lines,
+            ['EPL Name Error on line 2: Variable "score" has not been created yet.'],
+        )
+
     def test_catch_variable_binds_thrown_value(self):
         vm = run_vm('Try\n  Throw "boom"\nCatch err\n  Print err\nEnd')
         self.assertEqual(vm.output_lines, ['EPL Runtime Error on line 2: boom'])
@@ -284,6 +291,38 @@ class TestVMErrorHandling(unittest.TestCase):
         self.assertEqual(
             vm.output_lines, ['caught: EPL Runtime Error on line 3: negative!']
         )
+
+
+class TestVMTopLevelScope(unittest.TestCase):
+    """Top-level variables are globals visible inside functions (matching the
+    interpreter), and a loop variable shares the one top-level binding.
+    """
+
+    def test_function_reads_top_level_variable(self):
+        vm = run_vm(
+            'config = "prod"\n'
+            'Function where\n'
+            '    Return "running in " + config\n'
+            'End\n'
+            'Print where()'
+        )
+        self.assertEqual(vm.output_lines, ['running in prod'])
+
+    def test_loop_var_and_create_same_name_consistent(self):
+        # `amount` is a foreach var, then re-Created in an indexed loop; both
+        # must refer to the same top-level binding (regression: indexed reads
+        # returned the stale foreach value).
+        vm = run_vm(
+            'amounts = [10, 20, 30]\n'
+            'For each amount in amounts\n'
+            '    Print amount\n'
+            'End\n'
+            'For i from 0 to 2\n'
+            '    Create amount equal to amounts[i]\n'
+            '    Print amount\n'
+            'End'
+        )
+        self.assertEqual(vm.output_lines, ['10', '20', '30', '10', '20', '30'])
 
 
 class TestVMStackHygiene(unittest.TestCase):

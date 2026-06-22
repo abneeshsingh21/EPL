@@ -191,10 +191,13 @@ class CallFrame:
 class VMError(Exception):
     """Runtime error in the VM."""
 
-    def __init__(self, message, line=0, call_stack=None):
+    def __init__(self, message, line=0, call_stack=None, category='Runtime'):
         self.message = message
         self.line = line
         self.call_stack = list(call_stack or [])
+        # Error category ('Runtime', 'Name', 'Type', 'Index', 'Value', ...) so a
+        # caught value reads like the interpreter ("EPL Name Error on line N: …").
+        self.category = category
         super().__init__(self._format_message())
 
     def _format_message(self):
@@ -694,6 +697,30 @@ class BytecodeCompiler:
             }
         return None
 
+    def _at_top_level(self):
+        """True when compiling module top-level code (not inside a function or
+        method body). Top-level variables are globals visible to functions,
+        matching the interpreter."""
+        return len(self.locals_stack) == 1
+
+    def _store_named(self, name):
+        """Emit a store to a user variable, honoring top-level-global scoping:
+        globals at module level, locals inside a function/method. Used by
+        declarations and loop variables so they bind in one consistent place."""
+        if self._at_top_level():
+            self._emit(Op.STORE_GLOBAL, name)
+        else:
+            self._emit(Op.STORE_VAR, self._declare_local(name))
+
+    def _load_named(self, name):
+        """Emit a load of a user variable, mirroring _store_named's scoping."""
+        if not self._at_top_level():
+            idx = self._resolve_local(name)
+            if idx is not None:
+                self._emit(Op.LOAD_VAR, idx)
+                return
+        self._emit(Op.LOAD_GLOBAL, name)
+
     def _resolve_method_prop(self, name):
         """Return the local index of `this` if `name` is an instance field
         accessed inside a method body (and not shadowed by a local/param);
@@ -930,8 +957,9 @@ class BytecodeCompiler:
             self._emit(Op.SET_ATTR, node.name)
             return
         self._compile_expr(node.value)
-        idx = self._declare_local(node.name)
-        self._emit(Op.STORE_VAR, idx)
+        # Top-level variables are globals so functions can read them (matching
+        # the interpreter). Inside a function/method they are locals.
+        self._store_named(node.name)
 
     def _compile_assignment(self, node):
         idx = self._resolve_local(node.name)
@@ -1052,17 +1080,17 @@ class BytecodeCompiler:
         end_val = node.end if hasattr(node, 'end') else node.range_end
         step_val = getattr(node, 'step', None)
 
-        # Initialize counter
+        # Initialize counter (global at top level so it's visible like the
+        # interpreter; local inside a function).
         self._compile_expr(start_val)
         var_name = node.var_name if hasattr(node, 'var_name') else node.variable
-        var_idx = self._declare_local(var_name)
-        self._emit(Op.STORE_VAR, var_idx)
+        self._store_named(var_name)
 
         loop_start = len(self.instructions)
         self.loop_stack.append({'continue': loop_start, 'breaks': []})
 
         # Check condition: var <= end
-        self._emit(Op.LOAD_VAR, var_idx)
+        self._load_named(var_name)
         self._compile_expr(end_val)
         self._emit(Op.LTE)
         exit_jump = self._emit_jump(Op.JUMP_IF_FALSE)
@@ -1072,13 +1100,13 @@ class BytecodeCompiler:
             self._compile_stmt(stmt)
 
         # Increment
-        self._emit(Op.LOAD_VAR, var_idx)
+        self._load_named(var_name)
         if step_val:
             self._compile_expr(step_val)
         else:
             self._emit(Op.LOAD_CONST, self._add_const(1))
         self._emit(Op.ADD)
-        self._emit(Op.STORE_VAR, var_idx)
+        self._store_named(var_name)
 
         self._emit(Op.LOOP_BACK, loop_start)
         self._patch_jump(exit_jump)
@@ -1092,13 +1120,14 @@ class BytecodeCompiler:
         self._compile_expr(node.iterable)
         self._emit(Op.GET_ITER)
 
-        var_idx = self._declare_local(node.var_name)
         loop_start = len(self.instructions)
         self.loop_stack.append({'continue': loop_start, 'breaks': []})
 
         exit_jump = self._emit(Op.FOR_ITER, -1)
 
-        self._emit(Op.STORE_VAR, var_idx)
+        # Bind the loop variable (global at top level, local in a function) so
+        # it's the same binding as any Create of that name in the same scope.
+        self._store_named(node.var_name)
 
         for stmt in node.body:
             self._compile_stmt(stmt)
@@ -2159,7 +2188,10 @@ class VM:
                         frame.ip = handler_ip
                         # Bind a caught value in the interpreter's format so a
                         # `Catch e` block sees the same string across backends.
-                        stack.append(f'EPL Runtime Error on line {e.line}: {e.message}')
+                        stack.append(
+                            f'EPL {getattr(e, "category", "Runtime")} Error '
+                            f'on line {e.line}: {e.message}'
+                        )
                     else:
                         e.with_call_stack(self._capture_call_stack())
                         raise
@@ -2203,7 +2235,11 @@ class VM:
         else:
             # Reading an undeclared variable is an error (matches the
             # interpreter) — catches typos instead of silently yielding nothing.
-            raise VMError(f'Variable "{name}" has not been created yet.', inst.line)
+            raise VMError(
+                f'Variable "{name}" has not been created yet.',
+                inst.line,
+                category='Name',
+            )
 
     def _op_store_global(self, inst):
         self.globals[inst.arg] = self.stack.pop()

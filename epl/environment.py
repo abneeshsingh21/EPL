@@ -31,10 +31,17 @@ class Environment:
         self._depth = (parent._depth + 1) if parent else 0
 
     def define_variable(self, name: str, value, var_type: str = None):
-        """Define a new variable in the current scope."""
+        """Define a new variable in the current scope.
+
+        Only an EXPLICIT type annotation (`Create x as integer`) binds a type
+        that later assignments must satisfy. An unannotated `total = 0` stays
+        untyped, so accumulating a decimal into it is allowed — EPL is
+        dynamically typed, and inferring+locking a type here surprised users
+        (and diverged from the bytecode VM, which never enforced it).
+        """
         self.variables[name] = {
             'value': value,
-            'type': var_type or self._infer_type(value),
+            'type': var_type,
         }
 
     def define_constant(self, name: str, value, var_type: str = None):
