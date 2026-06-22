@@ -43,11 +43,16 @@ class WSGIAdapter:
         # Then: gunicorn wsgi:application -w 4 -b 0.0.0.0:8000
     """
 
-    def __init__(self, app, interpreter=None, static_url='/static', static_dir=None):
+    def __init__(
+        self, app, interpreter=None, static_url='/static', static_dir=None, trust_proxy=False
+    ):
         self.app = app
         self.interpreter = interpreter
         self.static_url = static_url.rstrip('/')
         self.static_dir = static_dir or app.static_dir
+        # Only honor client-supplied X-Forwarded-For when we know a trusted
+        # reverse proxy sets it; otherwise it is spoofable (see __call__).
+        self.trust_proxy = trust_proxy
         self._import_web()
 
     def _import_web(self):
@@ -91,7 +96,23 @@ class WSGIAdapter:
         self._resolve_page_element = _resolve_page_element
 
     def __call__(self, environ, start_response):
-        """WSGI entry point — translate environ to Request, route, return Response."""
+        """WSGI entry point.
+
+        HEAD is handled as GET (RFC 9110 §9.3.2) with the body stripped: route
+        as GET so HEAD on a GET route doesn't 404, keep every header (including
+        Content-Length), and return an empty body.
+        """
+        if environ.get('REQUEST_METHOD', 'GET') != 'HEAD':
+            return self._handle(environ, start_response)
+        environ = dict(environ)
+        environ['REQUEST_METHOD'] = 'GET'
+        body = self._handle(environ, start_response)
+        if hasattr(body, 'close'):
+            body.close()
+        return [b'']
+
+    def _handle(self, environ, start_response):
+        """Translate environ to Request, route, and return the Response body."""
         import html as _html_mod
 
         method = environ.get('REQUEST_METHOD', 'GET')
@@ -123,10 +144,13 @@ class WSGIAdapter:
             body_raw = environ['wsgi.input'].read(content_length)
 
         client_ip = environ.get('REMOTE_ADDR', '0.0.0.0')
-        # Trust X-Forwarded-For behind reverse proxy
-        forwarded = headers.get('X-Forwarded-For', '')
-        if forwarded:
-            client_ip = forwarded.split(',')[0].strip()
+        # X-Forwarded-For is client-controlled and trivially spoofable, so it is
+        # only trusted when explicitly told we sit behind a reverse proxy that
+        # sets it. Otherwise rate limiting keys off the real REMOTE_ADDR.
+        if self.trust_proxy:
+            forwarded = headers.get('X-Forwarded-For', '')
+            if forwarded:
+                client_ip = forwarded.split(',')[0].strip()
 
         # Health check (fast path)
         clean_path = path.split('?')[0]
@@ -653,10 +677,10 @@ class ASGIAdapter:
         # Then: uvicorn asgi:application --host 0.0.0.0 --port 8000 --workers 4
     """
 
-    def __init__(self, app, interpreter=None):
+    def __init__(self, app, interpreter=None, trust_proxy=False):
         self.app = app
         self.interpreter = interpreter
-        self._wsgi = WSGIAdapter(app, interpreter)
+        self._wsgi = WSGIAdapter(app, interpreter, trust_proxy=trust_proxy)
         self._executor = ThreadPoolExecutor(max_workers=32)
 
     async def __call__(self, scope, receive, send):

@@ -12,8 +12,34 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Security
+
+- **WSGI 500 page no longer leaks exception text:** `epl.wsgi.EPLWSGIApp`
+  rendered the raw exception into the 500 response body, exposing internal
+  details and allowing reflected HTML if the message contained user-controlled
+  text. It now logs the full error server-side and returns a generic page; an
+  opt-in `app.debug = True` shows the (HTML-escaped) error for local dev only.
+- **`X-Forwarded-For` is no longer trusted by default:** the deploy WSGI adapter
+  keyed rate limiting off the first `X-Forwarded-For` hop, which any client can
+  spoof to evade limits. It now uses `REMOTE_ADDR` unless constructed with
+  `WSGIAdapter(app, trust_proxy=True)` (also threaded through `ASGIAdapter`),
+  signalling that a trusted reverse proxy sets the header.
+
 ### Fixed
 
+- **HEAD requests are handled correctly across the web adapters:** a `HEAD`
+  request on a registered `GET` route returned `404` (`epl.wsgi.EPLWSGIApp`,
+  `epl.deploy.WSGIAdapter`), and the built-in server wrote a body in violation
+  of RFC 9110. `HEAD` now routes as `GET`, keeps identical headers (including
+  `Content-Length`), and sends no body.
+- **Redis store backend matches Memory/SQLite remove semantics:** an
+  out-of-range index passed to `RedisStoreBackend.store_remove()` raised
+  (`lset` errors on a bad index) instead of being ignored, breaking backend
+  interchangeability and crashing on races. Invalid indexes are now silently
+  ignored, and a concurrent shrink between `llen` and `lset` is handled.
+- **Static build scripts reject a missing `--out` value:** `build_static.py
+  --out` (and the website `build.py`) crashed with `IndexError` when `--out`
+  had no argument; they now print a clear error and exit with status `2`.
 - **Watch mode on Windows multi-drive setups:** `epl watch` no longer crashes
   with `ValueError: path is on mount 'C:', start on mount 'D:'` when the watched
   file and the current directory live on different drives. The display path now
