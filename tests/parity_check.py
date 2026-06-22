@@ -9,7 +9,7 @@ import os
 import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Patterns that make a program unsuitable for headless parity diffing.
 SKIP_TOKENS = (
