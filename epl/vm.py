@@ -14,10 +14,14 @@ Stack-based execution with call frames and local variable slots
 
 import math
 import operator
+import re as _re
 import time
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from typing import Any, Optional
+
+# String interpolation: ${expr} or $name (matches interpreter & compiler)
+_TEMPLATE_RE = _re.compile(r'\$\{([^}]+)\}|\$([a-zA-Z_][a-zA-Z0-9_]*)')
 
 # ─── Opcodes ──────────────────────────────────────────────────
 
@@ -1360,8 +1364,10 @@ class BytecodeCompiler:
 
         elif isinstance(node, ast.Literal) and isinstance(node.value, str):
             val = node.value
-            # Handle interpolation: look for {expr} in string
-            if '{' in val and '}' in val:
+            # Handle interpolation: EPL uses $name and ${expr} (matching the
+            # interpreter and LLVM compiler). A bare '$' that isn't a valid
+            # template falls through to a plain string constant.
+            if '$' in val and _TEMPLATE_RE.search(val):
                 self._compile_interpolated_string(val)
             else:
                 self._emit(Op.LOAD_CONST, self._add_const(val))
@@ -1479,28 +1485,62 @@ class BytecodeCompiler:
             self._emit(Op.LOAD_CONST, self._add_const(None))
 
     def _compile_interpolated_string(self, template):
-        """Compile a string with {expr} interpolation."""
-        import re
+        """Compile a string with $name / ${expr} interpolation.
 
-        parts = re.split(r'\{([^}]+)\}', template)
+        Matches the interpreter and LLVM compiler: $name does a variable
+        lookup (local or global), and ${expr} parses and compiles a full
+        expression. Each dynamic part is stringified before concatenation.
+        """
         count = 0
-        for i, part in enumerate(parts):
-            if i % 2 == 0:
-                # Static string part
-                if part:
-                    self._emit(Op.LOAD_CONST, self._add_const(part))
-                    count += 1
-            else:
-                # Expression part - compile as variable lookup
-                self._emit(Op.LOAD_GLOBAL, part.strip())
-                self._emit(Op.CALL_BUILTIN, ('to_string', 1))
+        last_end = 0
+        for match in _TEMPLATE_RE.finditer(template):
+            # Static text preceding this match
+            static = template[last_end:match.start()]
+            if static:
+                self._emit(Op.LOAD_CONST, self._add_const(static))
                 count += 1
+            last_end = match.end()
+
+            expr_text = match.group(1)   # ${expression}
+            var_name = match.group(2)    # $variable
+            if expr_text is not None:
+                self._compile_template_expr(expr_text)
+            else:
+                idx = self._resolve_local(var_name)
+                if idx is not None:
+                    self._emit(Op.LOAD_VAR, idx)
+                else:
+                    self._emit(Op.LOAD_GLOBAL, var_name)
+            count += 1
+
+        # Trailing static text
+        tail = template[last_end:]
+        if tail:
+            self._emit(Op.LOAD_CONST, self._add_const(tail))
+            count += 1
+
+        # STR_INTERP stringifies each part with _format_value (the same
+        # formatter PRINT uses) and concatenates, so the result is always a
+        # string and matches the interpreter/compiler output exactly. Always
+        # emit it (even for a single dynamic part) to guarantee a string.
         if count == 0:
             self._emit(Op.LOAD_CONST, self._add_const(''))
-        elif count == 1:
-            pass  # Already on stack
         else:
             self._emit(Op.STR_INTERP, count)
+
+    def _compile_template_expr(self, expr_text):
+        """Parse and compile a ${...} template expression to bytecode."""
+        try:
+            from epl.lexer import Lexer
+            from epl.parser import Parser
+
+            tokens = Lexer(expr_text).tokenize()
+            expr_node = Parser(tokens)._parse_expression()
+            self._compile_expr(expr_node)
+        except Exception:
+            # On parse failure, leave the original placeholder text intact,
+            # mirroring the interpreter's leave-as-is behaviour.
+            self._emit(Op.LOAD_CONST, self._add_const('${' + expr_text + '}'))
 
     def _compile_binary(self, node):
         from epl import ast_nodes as ast_mod
@@ -2148,7 +2188,10 @@ class VM:
         for _ in range(count):
             parts.append(self.stack.pop())
         parts.reverse()
-        self.stack.append(''.join(str(p) for p in parts))
+        # Use _format_value (the PRINT formatter) so interpolated values render
+        # with EPL semantics (true/false, none, ints for whole floats) rather
+        # than Python repr.
+        self.stack.append(''.join(self._format_value(p) for p in parts))
 
     # Control flow
     def _op_jump(self, inst):

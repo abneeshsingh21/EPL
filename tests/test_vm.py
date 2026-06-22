@@ -85,6 +85,56 @@ class TestVMBasicOps(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['hi', 'hi', 'hi'])
 
 
+class TestVMStringInterpolation(unittest.TestCase):
+    """$name / ${expr} interpolation must match the interpreter & compiler.
+
+    Regression guard: the VM previously keyed off bare ``{expr}`` and did a
+    naive global load, so EPL's documented ``$name``/``${expr}`` syntax printed
+    literally under the default ``epl run`` (VM) path.
+    """
+
+    def test_simple_variable(self):
+        vm = run_vm('name = "World"\nPrint "Hello, $name!"')
+        self.assertEqual(vm.output_lines, ['Hello, World!'])
+
+    def test_expression_braces(self):
+        vm = run_vm('Print "Sum: ${1 + 2}"')
+        self.assertEqual(vm.output_lines, ['Sum: 3'])
+
+    def test_mixed_variable_and_expression(self):
+        vm = run_vm('x = 10\ny = 5\nPrint "$x and ${x * y}"')
+        self.assertEqual(vm.output_lines, ['10 and 50'])
+
+    def test_local_variable_in_function(self):
+        vm = run_vm(
+            'Function greet takes who\n'
+            '    Print "Hi $who"\n'
+            'End\n'
+            'greet("Sam")'
+        )
+        self.assertEqual(vm.output_lines, ['Hi Sam'])
+
+    def test_dollar_followed_by_digit_is_literal(self):
+        # "$5" is not a valid template (digits can't start an identifier).
+        vm = run_vm('Print "cost is $5 today"')
+        self.assertEqual(vm.output_lines, ['cost is $5 today'])
+
+    def test_no_interpolation_plain_string(self):
+        vm = run_vm('Print "just a plain string"')
+        self.assertEqual(vm.output_lines, ['just a plain string'])
+
+    def test_interpolated_value_uses_epl_formatting(self):
+        # Booleans/floats must render with EPL semantics (true, whole-float as
+        # int) — not Python repr (True, 4.0) — matching the interpreter.
+        vm = run_vm('flag = true\nratio = 4.0\nPrint "$flag and $ratio"')
+        self.assertEqual(vm.output_lines, ['true and 4'])
+
+    def test_single_dynamic_part_is_stringified(self):
+        # A lone "$flag" must still become the string "true", not the bool.
+        vm = run_vm('flag = true\nPrint "$flag"')
+        self.assertEqual(vm.output_lines, ['true'])
+
+
 class TestVMConstantFolding(unittest.TestCase):
     """Test that constant folding works correctly."""
 

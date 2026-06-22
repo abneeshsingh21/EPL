@@ -27,6 +27,19 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **String interpolation now works under the default `epl run` (bytecode VM):**
+  EPL's documented `$name` and `${expr}` interpolation was implemented by the
+  interpreter and the LLVM compiler but **not** the bytecode VM — and the VM is
+  what `epl run` uses by default. The VM keyed off bare `{expr}` (not EPL
+  syntax) and only did a naive global load, so `Say "Hello, $name!"` printed
+  literally and `${1 + 2}` never evaluated. The VM now uses the same
+  `$name`/`${expr}` template grammar, resolves locals before globals, and
+  compiles full expressions inside `${…}`. Output is now identical across the
+  interpreter, VM, and compiler. Six regression tests added in `tests/test_vm.py`.
+- **`epl vm` no longer prints every line twice:** the VM streams output live as
+  it executes, but the `vm` CLI command then re-printed the collected
+  `output_lines`, duplicating all program output. The redundant re-print was
+  removed (the default `run` path was already correct).
 - **HEAD requests are handled correctly across the web adapters:** a `HEAD`
   request on a registered `GET` route returned `404` (`epl.wsgi.EPLWSGIApp`,
   `epl.deploy.WSGIAdapter`), and the built-in server wrote a body in violation
