@@ -169,3 +169,9 @@ functions/
 # ─── Agent chat exports (may contain pasted secrets) ────
 chat_export.*
 *chat_export*
+
+# ─── Website (lives in its own repo: epl-website) ───────
+# The standalone site repo is sometimes checked out nested inside this
+# working tree. Ignore it here so it never shows as clutter or gets
+# accidentally committed into the core language repo.
+epl-website/

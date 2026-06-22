@@ -7,18 +7,13 @@ regress:
   2. The standalone WSGI 500 page echoed the raw exception text.
   3. The deploy adapter trusted spoofable ``X-Forwarded-For`` for rate limiting.
   4. The Redis store backend crashed on out-of-range / racy removals.
-  6. The static build scripts crashed with ``IndexError`` on a missing ``--out``.
 """
 
 from __future__ import annotations
 
 import io
-import subprocess
-import sys
 import unittest
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def _environ(method='GET', path='/', headers=None, body=b''):
@@ -290,26 +285,6 @@ class TestRedisStoreRemoveContract(unittest.TestCase):
         backend.store_add('items', 'a')
         with self.assertRaises(ConnectionError):
             backend.store_remove('items', 0)
-
-
-# ═══════════════════════════════════════════════════════════
-# Bug 6 — static build script rejects a missing --out value
-# ═══════════════════════════════════════════════════════════
-
-
-class TestBuildScriptArgs(unittest.TestCase):
-    def test_build_static_out_without_value_exits_cleanly(self):
-        """Bug 6: `--out` with no argument fails with exit 2, not an IndexError."""
-        script = ROOT / 'landing_page' / 'build_static.py'
-        proc = subprocess.run(
-            [sys.executable, str(script), '--out'],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        self.assertEqual(proc.returncode, 2)
-        self.assertIn('--out requires', proc.stderr)
-        self.assertNotIn('IndexError', proc.stderr)
 
 
 if __name__ == '__main__':

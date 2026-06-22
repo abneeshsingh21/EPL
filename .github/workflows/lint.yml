@@ -20,10 +20,9 @@ jobs:
       - name: Install Ruff
         run: pip install ruff
         
-      # Scope to the shipped package + its tests. The landing page
-      # (landing_page/) is the website, maintained in its own repo
-      # (abneeshsingh21/epl-website); it is not part of the core EPL
-      # package and must not gate core CI. Matches ci.yml's scope.
+      # Scope to the shipped package + its tests. The website lives in
+      # its own repo (abneeshsingh21/epl-website); it is not part of the
+      # core EPL package and must not gate core CI. Matches ci.yml's scope.
       - name: Run Ruff Format Check
         run: ruff format --check epl/ tests/
 

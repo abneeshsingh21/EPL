@@ -13,13 +13,7 @@
 *.epl   linguist-detectable=true
 
 # ── Build / CI tooling — vendor these (not primary source) ───────────────────
-# Landing page build helpers
-landing_page/build_static.py        linguist-vendored=true
-landing_page/deploy.py              linguist-vendored=true
-assets/make_og.py                   linguist-vendored=true
-
-# Generated output
-landing_page/dist/**                linguist-generated=true
+# (The website lives in its own repo — `epl-website` — not here.)
 
 # GitHub Actions and CI
 .github/**                          linguist-vendored=true
