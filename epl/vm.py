@@ -691,10 +691,7 @@ class BytecodeCompiler:
         if isinstance(val, ast.ListLiteral):
             return [self._eval_const_default(e) for e in val.elements]
         if isinstance(val, ast.DictLiteral):
-            return {
-                self._eval_const_default(k): self._eval_const_default(v)
-                for k, v in val.pairs
-            }
+            return {self._eval_const_default(k): self._eval_const_default(v) for k, v in val.pairs}
         return None
 
     def _at_top_level(self):
@@ -996,11 +993,11 @@ class BytecodeCompiler:
 
         if this_idx is not None:
             # Instance field: build [obj, obj.field <op> value] then SET_ATTR.
-            self._emit(Op.LOAD_VAR, this_idx)   # obj (for the eventual store)
+            self._emit(Op.LOAD_VAR, this_idx)  # obj (for the eventual store)
             self._emit(Op.LOAD_VAR, this_idx)
             self._emit(Op.GET_ATTR, node.name)  # current value
             self._compile_expr(node.value)
-            self._emit(vm_op)                   # new value
+            self._emit(vm_op)  # new value
             self._emit(Op.SET_ATTR, node.name)
             return
 
@@ -1313,9 +1310,7 @@ class BytecodeCompiler:
         # Pre-pass: collect ALL property names first, so a method body can
         # reference fields declared after it in source order (implicit-`this`).
         members = node.body if isinstance(node.body, list) else []
-        prop_names = {
-            m.name for m in members if isinstance(m, ast.VarDeclaration)
-        }
+        prop_names = {m.name for m in members if isinstance(m, ast.VarDeclaration)}
         prev_props = self._current_method_props
         self._current_method_props = prop_names
 
@@ -1407,10 +1402,7 @@ class BytecodeCompiler:
         self._patch_jump(handler_jump)
         # Store the caught error into the catch variable. The AST attribute is
         # `error_var` (TryCatch / TryCatchFinally); older shapes used catch_var.
-        catch_var = (
-            getattr(node, 'error_var', None)
-            or getattr(node, 'catch_var', None)
-        )
+        catch_var = getattr(node, 'error_var', None) or getattr(node, 'catch_var', None)
         if catch_var:
             idx = self._declare_local(catch_var)
             self._emit(Op.STORE_VAR, idx)
@@ -1569,9 +1561,7 @@ class BytecodeCompiler:
                 Op.LOAD_CONST, self._add_const(None)
             )
             step = getattr(node, 'step', None)
-            self._compile_expr(step) if step else self._emit(
-                Op.LOAD_CONST, self._add_const(None)
-            )
+            self._compile_expr(step) if step else self._emit(Op.LOAD_CONST, self._add_const(None))
             self._emit(Op.SLICE)
 
         elif hasattr(ast, 'TypeCast') and isinstance(node, ast.TypeCast):
@@ -1625,14 +1615,14 @@ class BytecodeCompiler:
         last_end = 0
         for match in _TEMPLATE_RE.finditer(template):
             # Static text preceding this match
-            static = template[last_end:match.start()]
+            static = template[last_end : match.start()]
             if static:
                 self._emit(Op.LOAD_CONST, self._add_const(static))
                 count += 1
             last_end = match.end()
 
-            expr_text = match.group(1)   # ${expression}
-            var_name = match.group(2)    # $variable
+            expr_text = match.group(1)  # ${expression}
+            var_name = match.group(2)  # $variable
             if expr_text is not None:
                 self._compile_template_expr(expr_text)
             else:

@@ -171,13 +171,7 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['HI', 'hi'])
 
     def test_list_sort_reverse_mutate_in_place(self):
-        vm = run_vm(
-            'nums = [3, 1, 2]\n'
-            'nums.sort()\n'
-            'Print nums\n'
-            'nums.reverse()\n'
-            'Print nums'
-        )
+        vm = run_vm('nums = [3, 1, 2]\nnums.sort()\nPrint nums\nnums.reverse()\nPrint nums')
         self.assertEqual(vm.output_lines, ['[1, 2, 3]', '[3, 2, 1]'])
 
     def test_concat_formats_bool_lowercase(self):
@@ -215,9 +209,7 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
 
     def test_slice_with_step(self):
         vm = run_vm(
-            'n = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]\n'
-            'Print n[0:10:2]\n'
-            'Print n[1:10:3]'
+            'n = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]\nPrint n[0:10:2]\nPrint n[1:10:3]'
         )
         self.assertEqual(vm.output_lines, ['[10, 30, 50, 70, 90]', '[20, 50, 80]'])
 
@@ -251,9 +243,7 @@ class TestVMErrorHandling(unittest.TestCase):
 
     def test_catch_variable_binds_runtime_error(self):
         vm = run_vm('Try\n  x = 10 / 0\nCatch e\n  Print e\nEnd')
-        self.assertEqual(
-            vm.output_lines, ['EPL Runtime Error on line 2: Cannot divide by zero.']
-        )
+        self.assertEqual(vm.output_lines, ['EPL Runtime Error on line 2: Cannot divide by zero.'])
 
     def test_reading_undefined_variable_errors(self):
         # Catches typos: an undeclared variable read raises (like the
@@ -288,9 +278,7 @@ class TestVMErrorHandling(unittest.TestCase):
             '    Print "caught: " + e\n'
             'End'
         )
-        self.assertEqual(
-            vm.output_lines, ['caught: EPL Runtime Error on line 3: negative!']
-        )
+        self.assertEqual(vm.output_lines, ['caught: EPL Runtime Error on line 3: negative!'])
 
 
 class TestVMTopLevelScope(unittest.TestCase):
@@ -300,11 +288,7 @@ class TestVMTopLevelScope(unittest.TestCase):
 
     def test_function_reads_top_level_variable(self):
         vm = run_vm(
-            'config = "prod"\n'
-            'Function where\n'
-            '    Return "running in " + config\n'
-            'End\n'
-            'Print where()'
+            'config = "prod"\nFunction where\n    Return "running in " + config\nEnd\nPrint where()'
         )
         self.assertEqual(vm.output_lines, ['running in prod'])
 
@@ -373,12 +357,7 @@ class TestVMStringInterpolation(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['10 and 50'])
 
     def test_local_variable_in_function(self):
-        vm = run_vm(
-            'Function greet takes who\n'
-            '    Print "Hi $who"\n'
-            'End\n'
-            'greet("Sam")'
-        )
+        vm = run_vm('Function greet takes who\n    Print "Hi $who"\nEnd\ngreet("Sam")')
         self.assertEqual(vm.output_lines, ['Hi Sam'])
 
     def test_dollar_followed_by_digit_is_literal(self):

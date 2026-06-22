@@ -5,6 +5,7 @@ Any program that produces different stdout / exit status across the two backends
 is a divergence bug, because `epl run` defaults to the VM while docs/tests often
 validate against the interpreter. Skips servers and interactive programs.
 """
+
 import os
 import subprocess
 import sys
@@ -13,12 +14,26 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Patterns that make a program unsuitable for headless parity diffing.
 SKIP_TOKENS = (
-    'WebApp', 'Route ', 'Listen', 'Serve', 'serve(', 'run_server',
-    'Ask ', 'Prompt ', 'input(', 'Read line', 'websocket', 'WebSocket',
+    'WebApp',
+    'Route ',
+    'Listen',
+    'Serve',
+    'serve(',
+    'run_server',
+    'Ask ',
+    'Prompt ',
+    'input(',
+    'Read line',
+    'websocket',
+    'WebSocket',
     # Nondeterministic output (random / uuid) — output legitimately differs
     # between any two runs, so it can't be diffed for backend parity.
-    'random', 'uuid', 'generate_uuid', 'random_string',
+    'random',
+    'uuid',
+    'generate_uuid',
+    'random_string',
 )
+
 
 def collect():
     files = []
@@ -29,6 +44,7 @@ def collect():
                 if n.endswith('.epl'):
                     files.append(os.path.join(dirpath, n))
     return sorted(files)
+
 
 def should_skip(path):
     try:
@@ -41,17 +57,18 @@ def should_skip(path):
             return True, f'contains {tok.strip()!r}'
     return False, ''
 
+
 def run(path, interpret):
     cmd = [sys.executable, '-m', 'epl', 'run']
     if interpret:
         cmd.append('--interpret')
     cmd.append(path)
     try:
-        p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
-                           timeout=25)
+        p = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=25)
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired:
         return None, '', '<timeout>'
+
 
 def main():
     files = collect()
@@ -83,10 +100,13 @@ def main():
         print('--- INTERP stdout ---')
         print(in_out[:1200])
         if vm_err.strip():
-            print('--- VM stderr ---'); print(vm_err[:500])
+            print('--- VM stderr ---')
+            print(vm_err[:500])
         if in_err.strip():
-            print('--- INTERP stderr ---'); print(in_err[:500])
+            print('--- INTERP stderr ---')
+            print(in_err[:500])
     return 0
+
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -1244,9 +1244,7 @@ class Interpreter:
         if name == 'random' or name == 'random_integer':
             if len(args) == 2:
                 return _random.randint(int(args[0]), int(args[1]))
-            raise EPLRuntimeError(
-                f'{name}() takes 2 arguments (min, max).', line
-            )
+            raise EPLRuntimeError(f'{name}() takes 2 arguments (min, max).', line)
 
         if name == 'random_seed':
             if len(args) != 1:
