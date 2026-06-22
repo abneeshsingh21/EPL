@@ -218,6 +218,52 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
         )
         self.assertEqual(vm.output_lines, ['Hello World', 'Hello Sam'])
 
+    def test_whole_float_keeps_float_form(self):
+        vm = run_vm('Print sqrt(16)\nPrint 3.0 + 1.0')
+        self.assertEqual(vm.output_lines, ['4.0', '4.0'])
+
+    def test_division_whole_result_is_int(self):
+        vm = run_vm('Print 8 / 2\nPrint 7 / 2')
+        self.assertEqual(vm.output_lines, ['4', '3.5'])
+
+    def test_none_displays_as_nothing(self):
+        vm = run_vm('Function f\n    Return\nEnd\nPrint f()')
+        self.assertEqual(vm.output_lines, ['nothing'])
+
+
+class TestVMErrorHandling(unittest.TestCase):
+    """Try/Catch must bind the caught error and propagate across call frames,
+    matching the interpreter. Regressions from the parity harness.
+    """
+
+    def test_catch_variable_binds_runtime_error(self):
+        vm = run_vm('Try\n  x = 10 / 0\nCatch e\n  Print e\nEnd')
+        self.assertEqual(
+            vm.output_lines, ['EPL Runtime Error on line 2: Cannot divide by zero.']
+        )
+
+    def test_catch_variable_binds_thrown_value(self):
+        vm = run_vm('Try\n  Throw "boom"\nCatch err\n  Print err\nEnd')
+        self.assertEqual(vm.output_lines, ['EPL Runtime Error on line 2: boom'])
+
+    def test_throw_inside_function_propagates_to_caller_catch(self):
+        vm = run_vm(
+            'Function check takes n\n'
+            '    If n < 0 then\n'
+            '        Throw "negative!"\n'
+            '    End\n'
+            '    Return n\n'
+            'End\n'
+            'Try\n'
+            '    check(-5)\n'
+            'Catch e\n'
+            '    Print "caught: " + e\n'
+            'End'
+        )
+        self.assertEqual(
+            vm.output_lines, ['caught: EPL Runtime Error on line 3: negative!']
+        )
+
 
 class TestVMStringInterpolation(unittest.TestCase):
     """$name / ${expr} interpolation must match the interpreter & compiler.
@@ -258,10 +304,10 @@ class TestVMStringInterpolation(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['just a plain string'])
 
     def test_interpolated_value_uses_epl_formatting(self):
-        # Booleans/floats must render with EPL semantics (true, whole-float as
-        # int) — not Python repr (True, 4.0) — matching the interpreter.
+        # Booleans render lowercase (true, not Python's True). Whole floats
+        # keep their float form (4.0), matching the interpreter.
         vm = run_vm('flag = true\nratio = 4.0\nPrint "$flag and $ratio"')
-        self.assertEqual(vm.output_lines, ['true and 4'])
+        self.assertEqual(vm.output_lines, ['true and 4.0'])
 
     def test_single_dynamic_part_is_stringified(self):
         # A lone "$flag" must still become the string "true", not the bool.
@@ -371,8 +417,10 @@ class TestVMBuiltinDictDispatch(unittest.TestCase):
     """Test O(1) dict-based builtin dispatch."""
 
     def test_builtin_sqrt(self):
+        # sqrt returns a float; whole floats keep their float form (matches
+        # the interpreter), so sqrt(16) prints "4.0", not "4".
         vm = run_vm('Display sqrt(16)')
-        self.assertEqual(vm.output_lines, ['4'])
+        self.assertEqual(vm.output_lines, ['4.0'])
 
     def test_builtin_abs(self):
         vm = run_vm('Display abs(-7)')

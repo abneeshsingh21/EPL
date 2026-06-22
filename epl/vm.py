@@ -300,6 +300,14 @@ class BytecodeCompiler:
                     try:
                         if isinstance(a, (int, float)) and isinstance(b, (int, float)):
                             result = op_fn(a, b)
+                            # Mirror _op_div: a whole-number division result is
+                            # an int, so folding matches runtime + interpreter.
+                            if (
+                                code[i + 2].op == Op.DIV
+                                and isinstance(result, float)
+                                and result == int(result)
+                            ):
+                                result = int(result)
                             result_idx = self._add_const(result)
                             old_to_new[i] = new_idx
                             old_to_new[i + 1] = new_idx
@@ -1367,9 +1375,14 @@ class BytecodeCompiler:
         end_jump = self._emit_jump(Op.JUMP)
 
         self._patch_jump(handler_jump)
-        # Store exception in catch variable
-        if hasattr(node, 'catch_var') and node.catch_var:
-            idx = self._declare_local(node.catch_var)
+        # Store the caught error into the catch variable. The AST attribute is
+        # `error_var` (TryCatch / TryCatchFinally); older shapes used catch_var.
+        catch_var = (
+            getattr(node, 'error_var', None)
+            or getattr(node, 'catch_var', None)
+        )
+        if catch_var:
+            idx = self._declare_local(catch_var)
             self._emit(Op.STORE_VAR, idx)
         else:
             self._emit(Op.POP)
@@ -1713,6 +1726,14 @@ class BytecodeCompiler:
                     }
                     if op_str in fold_ops and (op_str not in ('/', 'Divide', 'DIVIDE') or rv != 0):
                         result = fold_ops[op_str](lv, rv)
+                        # Mirror _op_div: whole-number division yields an int,
+                        # so folding matches runtime and the interpreter.
+                        if (
+                            op_str in ('/', 'Divide', 'DIVIDE')
+                            and isinstance(result, float)
+                            and result == int(result)
+                        ):
+                            result = int(result)
                         idx = self._add_const(result)
                         self._emit(Op.LOAD_CONST, idx)
                         return
@@ -2124,17 +2145,29 @@ class VM:
                             break
                 except VMError as e:
                     if self.try_stack:
-                        handler_ip = self.try_stack.pop()
+                        depth, handler_ip = self.try_stack.pop()
+                        # Unwind nested call frames back to the one that owns
+                        # the handler, then refresh the loop's frame locals.
+                        del call_stack[depth:]
+                        frame = call_stack[-1]
+                        code = frame.func.code
+                        code_len = len(code)
                         frame.ip = handler_ip
-                        stack.append(str(e))
+                        # Bind a caught value in the interpreter's format so a
+                        # `Catch e` block sees the same string across backends.
+                        stack.append(f'EPL Runtime Error on line {e.line}: {e.message}')
                     else:
                         e.with_call_stack(self._capture_call_stack())
                         raise
                 except Exception as e:
                     if self.try_stack:
-                        handler_ip = self.try_stack.pop()
+                        depth, handler_ip = self.try_stack.pop()
+                        del call_stack[depth:]
+                        frame = call_stack[-1]
+                        code = frame.func.code
+                        code_len = len(code)
                         frame.ip = handler_ip
-                        stack.append(str(e))
+                        stack.append(f'EPL Runtime Error on line {inst.line}: {e}')
                     else:
                         raise VMError(
                             str(e), inst.line, call_stack=self._capture_call_stack()
@@ -2204,7 +2237,7 @@ class VM:
     def _op_div(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
         if b == 0 or b == 0.0:
-            raise VMError('Division by zero', inst.line)
+            raise VMError('Cannot divide by zero.', inst.line)
         result = a / b
         self.stack.append(
             int(result) if isinstance(result, float) and result == int(result) else result
@@ -2714,20 +2747,19 @@ class VM:
 
     # Exception handling
     def _op_setup_try(self, inst):
-        self.try_stack.append(inst.arg)
+        # Record the call-stack depth so a throw from a nested function call
+        # unwinds to the frame that owns this handler.
+        self.try_stack.append((len(self.call_stack), inst.arg))
 
     def _op_pop_try(self, inst):
         if self.try_stack:
             self.try_stack.pop()
 
     def _op_throw(self, inst):
+        # Raise uniformly so the main loop's handler performs cross-frame
+        # unwinding (the Try/Catch may live in a calling function).
         val = self.stack.pop()
-        if self.try_stack:
-            handler_ip = self.try_stack.pop()
-            self.call_stack[-1].ip = handler_ip
-            self.stack.append(val)
-        else:
-            raise VMError(str(val), inst.line)
+        raise VMError(str(val), inst.line)
 
     # ─── Closure opcodes ─────────────────────────────────────
 
@@ -3613,12 +3645,13 @@ class VM:
     def _format_value(self, val):
         """Format a value for output."""
         if val is None:
-            return 'none'
+            return 'nothing'
         elif isinstance(val, bool):
             return 'true' if val else 'false'
         elif isinstance(val, float):
-            if val == int(val):
-                return str(int(val))
+            # Preserve float-ness in display (4.0 stays "4.0"), matching the
+            # interpreter. Division returning ints for whole results is handled
+            # separately in _op_div.
             return str(val)
         elif isinstance(val, list):
             return '[' + ', '.join(self._format_value(v) for v in val) + ']'

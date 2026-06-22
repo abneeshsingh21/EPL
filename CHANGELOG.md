@@ -27,6 +27,19 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **`Try`/`Catch` now binds the caught error and propagates across call frames
+  under the bytecode VM:** the catch variable was never populated (the compiler
+  checked the wrong AST attribute), so `Catch e … Print e` always printed
+  `none`; and an error thrown inside a called function did not reach a
+  `Try`/`Catch` in the caller (the handler address was applied to the wrong
+  frame). The catch variable now receives the error — formatted identically to
+  the interpreter (`EPL Runtime Error on line N: …`) — and exceptions unwind
+  nested call frames to the frame that owns the handler.
+- **Number and `nothing` formatting match the interpreter under the VM:** whole
+  floats printed as integers (`sqrt(16)` → `4` instead of `4.0`) because the
+  VM's value formatter collapsed them; it now preserves float form. Division
+  still yields an integer for whole results (`8 / 2` → `4`) in both the runtime
+  and constant folding. A `nothing` value now prints `nothing` (was `none`).
 - **More bytecode-VM parity fixes (vs the interpreter):**
   - `random(min, max)` returned a raw `0..1` float instead of an integer in
     `[min, max]`. It now matches the interpreter (no-arg `random()` still
