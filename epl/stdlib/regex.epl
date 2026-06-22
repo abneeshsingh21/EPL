@@ -1,38 +1,38 @@
 Note "EPL Standard Library: regex — Regular Expressions"
 Note "Match, find, replace, split, compile, groups"
 
-Function match takes pattern and text
-    Return regex_match(pattern, text)
+Function match takes pattern and value
+    Return regex_match(pattern, value)
 End
 
-Function find takes pattern and text
-    Return regex_find(pattern, text)
+Function find takes pattern and value
+    Return regex_find(pattern, value)
 End
 
-Function find_all takes pattern and text
-    Return regex_find_all(pattern, text)
+Function find_all takes pattern and value
+    Return regex_find_all(pattern, value)
 End
 
-Function replace takes pattern and text and replacement
-    Return regex_replace(pattern, text, replacement)
+Function replace takes pattern and value and replacement
+    Return regex_replace(pattern, value, replacement)
 End
 
-Function split takes pattern and text
-    Return regex_split(pattern, text)
+Function split takes pattern and value
+    Return regex_split(pattern, value)
 End
 
-Function test takes pattern and text
-    Return regex_test(pattern, text)
+Function test takes pattern and value
+    Return regex_test(pattern, value)
 End
 
-Function escape takes text
-    Return regex_escape(text)
+Function escape takes value
+    Return regex_escape(value)
 End
 
 Function compile takes pattern and flags
     Return regex_compile(pattern, flags)
 End
 
-Function groups takes pattern and text
-    Return regex_groups(pattern, text)
+Function groups takes pattern and value
+    Return regex_groups(pattern, value)
 End
