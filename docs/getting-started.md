@@ -107,6 +107,24 @@ dog.name = "Rex"
 dog.speak()
 ```
 
+### Using the Standard Library
+
+Hundreds of helpers are built in and always available. Six modules also ship as importable wrappers: `json`, `encoding`, `net`, `os`, `regex`, and `sql`. A bare `Import` brings their functions in as plain names; an aliased import namespaces them:
+
+```epl
+Import "encoding"
+Say to_base64("hi")          Note: prints aGk=
+
+Import "regex" as RE
+Say RE.test("[0-9]+", "abc123")   Note: prints true (the string contains digits)
+
+Note: `json` is a reserved word, so import it with an alias for member access.
+Import "json" as J
+Say J.stringify(Map with ok = true and count = 3)
+```
+
+See the [standard library reference](stdlib-reference.md) for the full module APIs.
+
 ---
 
 ## 4. Use the Interactive REPL
