@@ -245,10 +245,9 @@ class EPLWSGIApp:
 
         # Static files
         if self.static_dir and path.startswith(self.static_prefix):
-            static_body = self._serve_static(path, environ, start_response)
-            # HEAD on a static file: keep the headers (incl. Content-Length that
-            # _serve_static already sent) but drop the body, like every other route.
-            return [b''] if method == 'HEAD' else static_body
+            # For HEAD, _serve_static emits identical headers (incl. the
+            # stat-derived Content-Length) but skips reading the file body.
+            return self._serve_static(path, environ, start_response, include_body=method != 'HEAD')
 
         # Route matching
         handler, params = self._match_route(method, path)
@@ -304,8 +303,12 @@ class EPLWSGIApp:
             return [b'']
         return [response.body]
 
-    def _serve_static(self, path, environ, start_response):
-        """Serve a static file with caching headers."""
+    def _serve_static(self, path, environ, start_response, include_body=True):
+        """Serve a static file with caching headers.
+
+        ``include_body=False`` (HEAD) sends the same status and headers —
+        including the stat-derived ``Content-Length`` — without reading the file.
+        """
         import mimetypes
 
         relative = path[len(self.static_prefix) :]
@@ -328,6 +331,8 @@ class EPLWSGIApp:
             ('Cache-Control', 'public, max-age=3600'),
         ]
         start_response('200 OK', headers)
+        if not include_body:
+            return [b'']
         with open(full_path, 'rb') as f:
             return [f.read()]
 

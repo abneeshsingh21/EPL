@@ -47,9 +47,11 @@ def _wait_for_server(proc: subprocess.Popen[str], base_url: str, timeout: float 
     instead of blindly waiting out the whole timeout — and includes that output
     on a genuine timeout so CI failures are diagnosable rather than opaque.
     """
-    deadline = time.time() + timeout
+    # Monotonic clock: a wall-clock (NTP) step mid-wait must not shorten or
+    # extend the deadline and flake the timeout.
+    deadline = time.monotonic() + timeout
     last_err: Exception | None = None
-    while time.time() < deadline:
+    while time.monotonic() < deadline:
         if proc.poll() is not None:
             out = _stop_process(proc)
             raise AssertionError(
