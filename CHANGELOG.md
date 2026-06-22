@@ -10,7 +10,21 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
-## [Unreleased]
+## [9.8.0] — 2026-06-23
+
+**Backend parity — the default runner now matches the reference.** EPL has three
+execution backends (tree-walking interpreter, bytecode VM, LLVM compiler), and
+`epl run` defaults to the bytecode VM. A new interpreter-vs-VM parity harness
+(`tests/parity_check.py`) revealed that the VM produced different output from the
+interpreter for **22 of 66** example programs — string interpolation, object
+fields inside methods, `Try`/`Catch` and cross-call-frame exceptions, slicing
+with a step, default parameters, stdlib maps, number/boolean/list formatting,
+and more. This release drives that to **0 divergences across all testable
+examples**, with ~70 new regression tests. It also stops a silent
+double-execution fallback (which masked the drift and duplicated output), makes
+the VM error on undeclared variables, gives top-level variables the global scope
+functions expect, and relaxes an over-strict inferred-type lock. Plus the web
+adapter, stdlib, and parser hardening from the prior cycle.
 
 ### Security
 
@@ -27,6 +41,118 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **Top-level variables are visible inside functions under the bytecode VM:** a
+  variable created at module level (e.g. `db = connect(...)`) was stored as a
+  local of the implicit main function, but functions looked it up as a global —
+  so they couldn't see it (it read as undefined). Top-level variables — including
+  `for each` / `for` loop variables — are now globals, matching the interpreter,
+  so a loop variable and a later `Create` of the same name share one binding.
+- **Unannotated variables are no longer locked to an inferred type:** the
+  interpreter inferred a type from the first value (`total = 0` → integer) and
+  then rejected accumulating a decimal into it — surprising for a dynamically
+  typed language, and stricter than the VM. Only an *explicit* annotation
+  (`Create x as integer`) now constrains later assignments.
+- **Caught errors carry the right category under the VM:** a caught value now
+  reads `EPL Name Error …` / `EPL Type Error …` as appropriate, instead of
+  always `EPL Runtime Error …`, matching the interpreter.
+- **Reading an undeclared variable is now an error under the bytecode VM:** it
+  silently evaluated to `nothing`, so a typo (`score` for `Score`) produced
+  wrong output instead of an error. It now raises *"Variable … has not been
+  created yet"*, matching the interpreter and catching typos.
+- **`to_string` and `random_integer` work on both backends:** the interpreter
+  rejected `to_string(x)` and `random_integer(min, max)` (which the bytecode VM
+  already accepted), so the same program behaved differently depending on the
+  runner. Both are now recognised builtins in the interpreter (`to_string`
+  aliases `to_text`; `random_integer` aliases `random`), and the VM gained the
+  `random_integer` spelling too.
+- **Maps returned by stdlib functions work under the bytecode VM:** functions
+  like `csv_read` (and JSON parsing) return the interpreter's map type, which
+  the VM didn't recognise — so `row.Salary` returned `nothing` (then crashed in
+  `to_integer`) and printing a row showed Python's `repr` (`{'Name': 'Alice'}`).
+  Stdlib return values are now normalised to the VM's native maps at the call
+  boundary, so attribute access, formatting, and iteration all work.
+- **`to_text` / `to_string` format with EPL semantics under the VM:** they used
+  Python's `str()`, so `to_text([1, 2])` produced `['1', '2']`-style output and
+  booleans rendered as `True`/`False`. They now use the shared formatter
+  (`[1, 2]`, `true`/`false`), matching the interpreter.
+- **An early `Return` from inside a loop no longer corrupts the caller under the
+  bytecode VM:** a function returned without clearing operands it had pushed, so
+  a `for each` iterator abandoned by an early `Return` leaked onto the shared
+  operand stack — making an *enclosing* loop in the caller iterate the wrong
+  collection (e.g. a password analyzer looped over a helper's internal list
+  instead of its inputs). `Return` now restores the operand stack to the call
+  frame's base, so functions are always stack-neutral apart from their result.
+- **A `$word` that isn't a defined variable stays literal under the VM:** the
+  VM substituted an undefined `$name` in a string with `nothing` (so a password
+  like `aB3$xK9!mN2@` became `aB3nothing!mN2@`). It now leaves an undefined
+  `$name` untouched, exactly like the interpreter — a defined variable still
+  interpolates.
+- **`Try`/`Catch` now binds the caught error and propagates across call frames
+  under the bytecode VM:** the catch variable was never populated (the compiler
+  checked the wrong AST attribute), so `Catch e … Print e` always printed
+  `none`; and an error thrown inside a called function did not reach a
+  `Try`/`Catch` in the caller (the handler address was applied to the wrong
+  frame). The catch variable now receives the error — formatted identically to
+  the interpreter (`EPL Runtime Error on line N: …`) — and exceptions unwind
+  nested call frames to the frame that owns the handler.
+- **Number and `nothing` formatting match the interpreter under the VM:** whole
+  floats printed as integers (`sqrt(16)` → `4` instead of `4.0`) because the
+  VM's value formatter collapsed them; it now preserves float form. Division
+  still yields an integer for whole results (`8 / 2` → `4`) in both the runtime
+  and constant folding. A `nothing` value now prints `nothing` (was `none`).
+- **More bytecode-VM parity fixes (vs the interpreter):**
+  - `random(min, max)` returned a raw `0..1` float instead of an integer in
+    `[min, max]`. It now matches the interpreter (no-arg `random()` still
+    returns a `0..1` float).
+  - List/string slicing with a step (`items[0:10:2]`) ignored the step and
+    returned a contiguous range. The step is now compiled and applied.
+  - Default parameter values (`Function greet takes name = "World"`) leaked the
+    raw AST node (`<…Literal object…>`) instead of the value. Defaults are now
+    reduced to constants (including literal lists/maps) at compile time.
+- **Built-in methods and string concatenation now match the interpreter under
+  the bytecode VM:** several `epl run` (VM) defects were found via a new
+  interpreter-vs-VM parity harness and fixed together:
+  - Property-style method access (`text.uppercase`, `list.length`, `map.length`,
+    `"…".trim`) returned `none` because the VM treated it as plain attribute
+    access. It now dispatches to the built-in method, matching the interpreter.
+  - `list.sort()` and `list.reverse()` returned a new list without mutating the
+    original, so a subsequent print showed the unsorted list. They now mutate in
+    place like the interpreter.
+  - String concatenation with `+` stringified booleans, lists, and `none` with
+    Python's `repr` (`True`, `['a', 'b']`) instead of EPL formatting
+    (`true`, `[a, b]`, `none`). It now uses the shared value formatter.
+  - Added missing method aliases so VM and interpreter accept the same names:
+    `uppercase`/`lowercase` (method-call form), `find` (string), `to_list`,
+    `is_number`, `is_alpha`, `format` (string), and `entries` (map).
+- **`epl run` no longer double-executes a program when the VM hits an
+  unsupported feature mid-run:** the VM streams output live, then on an internal
+  error silently fell back to the interpreter, which re-ran the program from the
+  start — duplicating all output already printed (and any side effects). The
+  runner now only falls back when the VM has produced no output yet; if output
+  was already emitted it surfaces the VM error instead of re-running. Live
+  streaming is preserved via a pass-through output counter.
+- **Instance fields are accessible inside methods under the bytecode VM
+  (implicit `this`):** a method that referenced a bare field name — e.g.
+  `Print name` or `Set amount to amount + 1` — compiled the name to a global
+  lookup, so reads returned `none` (printing `None says None` instead of
+  `Rex says Woof!`) and writes silently went to a global instead of the
+  instance. The VM now resolves a bare name inside a method to `this.<field>`
+  when it matches a class property and isn't shadowed by a local/parameter,
+  matching the interpreter for reads, bare assignments, `Set … to …`, and
+  augmented assignments. Found via a new interpreter-vs-VM parity harness.
+- **String interpolation now works under the default `epl run` (bytecode VM):**
+  EPL's documented `$name` and `${expr}` interpolation was implemented by the
+  interpreter and the LLVM compiler but **not** the bytecode VM — and the VM is
+  what `epl run` uses by default. The VM keyed off bare `{expr}` (not EPL
+  syntax) and only did a naive global load, so `Say "Hello, $name!"` printed
+  literally and `${1 + 2}` never evaluated. The VM now uses the same
+  `$name`/`${expr}` template grammar, resolves locals before globals, and
+  compiles full expressions inside `${…}`. Output is now identical across the
+  interpreter, VM, and compiler. Six regression tests added in `tests/test_vm.py`.
+- **`epl vm` no longer prints every line twice:** the VM streams output live as
+  it executes, but the `vm` CLI command then re-printed the collected
+  `output_lines`, duplicating all program output. The redundant re-print was
+  removed (the default `run` path was already correct).
 - **HEAD requests are handled correctly across the web adapters:** a `HEAD`
   request on a registered `GET` route returned `404` (`epl.wsgi.EPLWSGIApp`,
   `epl.deploy.WSGIAdapter`), and the built-in server wrote a body in violation

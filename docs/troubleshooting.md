@@ -159,6 +159,31 @@ Check:
 
 On Linux, validate with the same environment used in release smoke where possible.
 
+## Standard Library Imports
+
+### `Import "json"` parses but `json` is not usable as a name
+
+The bundled stdlib modules (`json`, `encoding`, `net`, `os`, `regex`, `sql`)
+are importable directly, e.g. `Import "encoding"` exposes bare helpers like
+`to_base64(...)`, and `Import "encoding" as ENC` namespaces them as
+`ENC.to_base64(...)`.
+
+`json` is a reserved token, so it cannot be used as a plain variable name or as
+the bare module handle. Use one of these forms instead:
+
+```epl
+Import "json"
+Say parse("{\"a\": 1}")
+```
+
+```epl
+Import "json" as J
+Say J.parse("{\"a\": 1}")
+```
+
+If you see a parser error pointing at `json`, you are likely trying to use it as
+an identifier — rename the variable or use the `Import "json" as J` form above.
+
 ## Package Ecosystem
 
 ### `epl search` / `epl update` / `epl audit` output looks inconsistent

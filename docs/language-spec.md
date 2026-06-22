@@ -1,152 +1,170 @@
-# EPL Language Specification v7.0
-
-> **EPL** — English Programming Language  
-> A general-purpose programming language with plain-English syntax and a documented support boundary.
+> **EPL v9.8.0** - English Programming Language
+>
+> This specification describes the syntax and runtime surface supported by the current EPL source tree. When an older example conflicts with this file, treat this file, the parser, and the tests as the source of truth.
 
 ---
 
-## 1. Overview
+## 1. Scope And Support Boundary
 
-EPL is a general-purpose programming language designed to read like English. Every statement, keyword, and construct uses familiar English words instead of cryptic symbols. EPL supports:
+EPL is a general-purpose language with plain-English syntax. The current implementation includes:
 
-- Variables, constants, and type conversions
-- Functions with closures and recursion
-- Classes with inheritance and polymorphism
-- Modules and namespaces
-- Pattern matching (Match/When)
-- Error handling (Try/Catch/Finally)
-- Collections: lists, dictionaries, sets
-- File I/O, networking, databases
-- Web framework with routing, templates, WebSocket
-- Concurrency (threads, channels, locks)
-- LLVM compilation to native code
-- Transpilation to JavaScript, Node.js, Kotlin
-- Bytecode VM execution
-- Standard library modules and built-in functions
+- Variables, constants, expressions, functions, lambdas, classes, modules, imports, and error handling
+- Lists and `Map with ...` dictionaries
+- Native WebApp routes with HTML pages and JSON responses
+- Built-in SQLite helpers and additional `real_db_*` adapters
+- Python, JavaScript, and TypeScript bridge statements
+- Standard library modules under `epl/stdlib/`
+- CLI targets for interpreter, bytecode VM, JavaScript, Python, Kotlin, Android, iOS, desktop, web, and deployment generation
+
+Enterprise guidance:
+
+- Prefer syntax shown in this document for long-lived code.
+- Treat rapidly evolving UI, 3D, ML, cloud, and package-publishing surfaces as integration features that should be validated in CI for your exact target.
+- Use parser-verified examples and tests for release gates. Documentation snippets are illustrative unless explicitly marked as production patterns.
+- Do not rely on undocumented legacy syntax in new code.
 
 ---
 
 ## 2. Lexical Structure
 
-### 2.1 Comments
+### 2.1 Case
+
+Keywords are recognized case-insensitively by the lexer, but examples use title-case statement keywords (`Create`, `If`, `Function`, `Route`) and capitalized built-in literals (`True`, `False`, `Nothing`) for readability.
+
+### 2.2 Comments
 
 ```epl
 Note: This is a single-line comment
-Note: Everything after "Note:" on a line is ignored
+
+Note "String-form comment, useful as a module header or docstring"
+Comment "Alias of the string form"
+
+NoteBlock
+    This whole block is ignored by the parser.
+End
 ```
 
-### 2.2 Identifiers
+EPL accepts four comment forms:
+
+- `Note: text` — line comment (colon form)
+- `Note "text"` — string form, commonly used as a module header or docstring at the top of a file
+- `Comment "text"` — alias of the string form
+- `NoteBlock ... End` — block comment
+
+Use `Note:`, `Note "..."`, and `NoteBlock` in documentation and production examples. Do not document `#` as a supported comment form unless your target runtime has a test for it.
+
+### 2.3 Identifiers
 
 Identifiers start with a letter or underscore and may contain letters, digits, and underscores.
 
+```text
+[A-Za-z_][A-Za-z0-9_]*
 ```
-[a-zA-Z_][a-zA-Z0-9_]*
-```
 
-### 2.3 Literals
+Recommended style:
 
-| Type | Examples |
-|------|----------|
-| Integer | `42`, `-7`, `0` |
-| Decimal | `3.14`, `-0.5`, `1.0` |
-| Text (String) | `"hello"`, `"it's EPL"`, `""` |
-| Boolean | `True`, `False` |
-| Nothing | `Nothing` |
-| List | `[1, 2, 3]`, `["a", "b"]`, `[]` |
-| Dictionary | `{"key": "value", "age": 25End` |
+- variables and functions: `snake_case`
+- classes and interfaces: `PascalCase`
+- constants: `UPPER_SNAKE_CASE`
 
-### 2.4 String Templates
+Some reserved words are soft keywords and may also be used as function, parameter, or member names: `match`, `fetch`, `delete`, `where`, and `port`. This is what allows stdlib APIs such as `regex.match`, `net.fetch`, `sql.delete`, and `sql ... where` to parse.
 
-Strings support `$variable` and `${expressionEnd` interpolation:
+### 2.4 Literals
+
+| Type | Examples | Notes |
+| --- | --- | --- |
+| Integer | `42`, `-7`, `0` | Whole numbers |
+| Decimal | `3.14`, `-0.5`, `1.0` | Floating-point values |
+| Text | `"hello"`, `"it's EPL"`, `""` | Use double quotes |
+| Boolean | `True`, `False` | `yes`/`no` also tokenize as booleans, but prefer `True`/`False` |
+| Nothing | `Nothing` | Null-like value |
+| List | `[1, 2, 3]`, `["a", "b"]`, `[]` | Ordered collection |
+| Map | `Map with name = "Alice" and age = 30` | Key-value dictionary |
+
+### 2.5 Strings And Interpolation
+
+Strings support variable interpolation with `$name` and expression interpolation with `${...}`.
 
 ```epl
 name = "World"
-Say "Hello, $name!"              Note: Hello, World!
-Say "2 + 2 = ${2 + 2End"          Note: 2 + 2 = 4
+Say "Hello, $name!"
+Say "2 + 2 = ${2 + 2}"
 ```
 
-### 2.5 Keywords (Reserved Words)
-
-```
-Create Set If Then Else End Each In
-Function Takes Return EndFunction
-Class Inherits Constructor Method EndClass
-Module EndModule Import Use As
-Try Catch Finally EndTry Throw
-Match When Default End
-Print Say Ask Input Display Show
-And Or Not Is True False Nothing
-Constant Assert Exit Wait
-To From Step By
-Break Continue
-Repeat Times EndRepeat
-Async Await
-New Self Super
-Equal Greater Less Than At Most Least
-```
+Use interpolation for simple output. For complex expressions, assign the expression to a variable first.
 
 ---
 
 ## 3. Statements
 
-### 3.1 Line Termination
+Statements are line-oriented. Blocks end with `End` or a specific end token such as `EndFunction`, `EndIf`, `EndFor`, or `EndRepeat` where supported.
 
-Statements are line-terminated. One statement per line (no semicolons required).
+### 3.1 Variables
 
-### 3.2 Variable Declaration
+Preferred concise form:
 
 ```epl
-x = 10
 name = "Alice"
+age = 25
 items = [1, 2, 3]
-config = Map with port = 8080 and debug = True
+settings = Map with host = "localhost" and port = 8080
 ```
 
-English alias:
+English declaration form:
+
 ```epl
-Remember x as 10
+Create name equal to "Alice"
+Create age = 25
+Create text title equal to "Report"
+Create list scores equal to [10, 20, 30]
 ```
 
-### 3.3 Variable Assignment
+Compatibility alias:
 
 ```epl
-x = 20
+Remember name as "Alice"
+```
+
+### 3.2 Assignment
+
+```epl
 name = "Bob"
+Set age to 30
+Increase age by 1
+Decrease age by 1
 ```
 
-Compound assignment:
+Use normal reassignment for multiply, divide, and modulo:
+
 ```epl
-x = x + 1      Note: standard
-Increase x by 1           Note: shorthand increment
-Decrease x by 5           Note: shorthand decrement
-Note: [Parser Error] Set x *= 2           Note: shorthand multiply
-Note: [Parser Error] Set x /= 4           Note: shorthand divide
-Note: [Parser Error] Set x %= 3           Note: shorthand modulo
+total = total * 2
+remaining = remaining % 10
 ```
 
-### 3.4 Constants
+### 3.3 Constants
 
 ```epl
 Constant PI = 3.14159
-Constant MAX_SIZE = 100
+Constant APP_NAME = "Billing API"
 ```
 
 Constants cannot be reassigned after initialization.
 
-### 3.5 Print / Output
+### 3.4 Output
 
 ```epl
-Print "Hello"            Note: print with newline
-Say "Hello"              Note: English alias for Print
-Display items            Note: alias for Print
-Show result              Note: alias for Print
+Print "Hello"
+Say "Hello"
+Display "Hello"
+Show "Hello"
 ```
 
-### 3.6 Input
+### 3.5 Input
 
 ```epl
-name = ask("What is your name? ")
-age = ask("How old are you? ")    Note: alias
+Input username with prompt "Username: "
+Ask "Password: " store in password
+Ask "Email: " and store in email
 ```
 
 ---
@@ -155,102 +173,140 @@ age = ask("How old are you? ")    Note: alias
 
 ### 4.1 Arithmetic
 
-| Operator | Meaning |
-|----------|---------|
-| `+` | Addition / String concatenation |
-| `-` | Subtraction |
-| `*` | Multiplication |
-| `/` | Division |
-| `%` | Modulo |
+| Syntax | Meaning |
+| --- | --- |
+| `a + b` | Addition or text concatenation |
+| `a - b` | Subtraction |
+| `a * b` | Multiplication |
+| `a / b` | Division |
+| `a % b` | Modulo |
 | `power(a, b)` | Exponentiation |
+| `a raised to b` | English exponentiation form |
 
 ### 4.2 Comparison
 
 | Syntax | Meaning |
-|--------|---------|
-| `==` or `is equal to` | Equality |
-| `!=` or `is not equal to` | Inequality |
-| `>` or `is greater than` | Greater |
-| `<` or `is less than` | Less |
-| `>=` or `is at least` | Greater or equal |
-| `<=` or `is at most` | Less or equal |
+| --- | --- |
+| `a == b`, `a is equal to b`, `a equals b` | Equality |
+| `a != b`, `a is not equal to b`, `a does not equal b` | Inequality |
+| `a > b`, `a is greater than b` | Greater than |
+| `a < b`, `a is less than b` | Less than |
+| `a >= b`, `a is at least b` | Greater than or equal |
+| `a <= b`, `a is at most b` | Less than or equal |
 
-### 4.3 Logical
-
-| Operator | Meaning |
-|----------|---------|
-| `And` / `and` | Logical AND |
-| `Or` / `or` | Logical OR |
-| `Not` / `not` | Logical NOT |
-
-### 4.4 String Operations
+### 4.3 Logical Operators
 
 ```epl
-full = first + " " + last     Note: concatenation
-len = length(name)             Note: length
-sub = substring(name, 0, 3)   Note: substring
-up = uppercase(name)           Note: uppercase
-low = lowercase(name)          Note: lowercase
+If is_active And score > 80 Then
+    Say "eligible"
+End
+
+If Not is_locked Then
+    Say "open"
+End
 ```
 
-### 4.5 List Operations
+`And`, `Or`, and `Not` are the recommended spellings in docs, though lower-case forms tokenize too.
+
+### 4.4 Ternary Expression
 
 ```epl
-items = [1, 2, 3]
-items.push(4)  Note: add to end
-items.remove(2)  Note: remove first occurrence
-first = items[0]      Note: index access
-len = length(items)   Note: list length
-has = contains(items, 3)  Note: membership test
-```
-
-### 4.6 Dictionary Operations
-
-```epl
-config = Map with host = "localhost" and port = 8080
-host = config.host         Note: access by key
-Note: [Parser Error] Set config["debug"] to True                 Note: set key
-ks = keys(config)             Note: get all keys
-vs = values(config)           Note: get all values
-```
-
-### 4.7 Member Access
-
-```epl
-len = name.length        Note: property access
-up = name.upper()        Note: method call
-Note: [Parser Error] Module::function_name()                Note: module-scoped access
+age_group = "adult" if age >= 18 otherwise "minor"
 ```
 
 ---
 
-## 5. Control Flow
+## 5. Collections
 
-### 5.1 If / Else
+### 5.1 Lists
 
 ```epl
-If condition then
-    Note: body
-End
+items = [3, 1, 4]
+items.add(1)
+first = items[0]
+items.sort()
+items.reverse()
+joined = items.join(", ")
+```
 
-If x > 10 then
-    Say "Big"
-Otherwise
-    Say "Small"
-End
+Common list methods:
 
-If score >= 90 Then
-    Say "A"
-Otherwise If score >= 80 Then
-    Say "B"
-Otherwise If score >= 70 Then
-    Say "C"
+| Method | Purpose |
+| --- | --- |
+| `add(item)` | Append item |
+| `remove(item)` | Remove first matching value |
+| `contains(item)` | Membership test |
+| `sort()` | Sort in place |
+| `reverse()` | Reverse in place |
+| `join(separator)` | Join elements as text |
+| `pop()` | Remove and return the last item |
+| `clear()` | Empty the list |
+| `map(fn)`, `filter(fn)`, `reduce(fn)` | Functional transforms |
+| `find(fn)`, `every(fn)`, `some(fn)` | Functional predicates |
+| `slice(start, end)` | Return a slice |
+| `unique()`, `flatten()`, `sum()`, `min()`, `max()` | Convenience helpers |
+
+### 5.2 Maps
+
+Current map literal syntax:
+
+```epl
+person = Map with name = "Alice" and age = 30
+Say person.name
+person.set("role", "admin")
+Say person.get("role", "user")
+```
+
+Map keys in literals are identifiers. For dynamic keys, build the map and call `set`.
+
+```epl
+headers = Map with content_type = "application/json"
+headers.set("X-Request-ID", request_id)
+```
+
+`Map with ... and ...` literals may be written on a single logical line, or spread across multiple lines by breaking around each `and` separator:
+
+```epl
+Create config equal to Map with host = "localhost"
+    and port = 8080
+    and debug = True
+Say config.get("port")
+```
+
+Each continuation line begins with `and key = value`. Single-line maps still terminate correctly. For maps with dynamic keys, build the map and call `.set()`.
+
+Common map methods:
+
+| Method | Purpose |
+| --- | --- |
+| `keys()` | List keys |
+| `values()` | List values |
+| `entries()` | List key-value pairs |
+| `has(key)` | Check for key |
+| `get(key, default)` | Read key with default |
+| `set(key, value)` | Set key |
+| `remove(key)` | Delete key |
+| `merge(other)` | Merge maps |
+| `clear()` | Empty map |
+| `copy()` | Copy map |
+
+---
+
+## 6. Control Flow
+
+### 6.1 If / Otherwise
+
+```epl
+If age >= 18 Then
+    Say "Adult"
+Otherwise If age >= 13 Then
+    Say "Teen"
 Otherwise
-    Say "F"
+    Say "Child"
 End
 ```
 
-### 5.2 Match / When (Pattern Matching)
+### 6.2 Match / When
 
 ```epl
 Match grade
@@ -258,24 +314,30 @@ Match grade
         Say "Excellent"
     When "B" or "C"
         Say "Good"
-    When "D"
-        Say "Needs work"
     Default
         Say "Unknown"
 End
 ```
 
-### 5.3 While Loop
+### 6.3 While
 
 ```epl
 counter = 0
 While counter < 10
     Say counter
-    counter = counter + 1
+    Increase counter by 1
 End
 ```
 
-### 5.4 For Loop (Range)
+### 6.4 Repeat
+
+```epl
+Repeat 5 times
+    Say "Hello"
+End
+```
+
+### 6.5 For Range
 
 ```epl
 For i from 1 to 10
@@ -283,36 +345,28 @@ For i from 1 to 10
 End
 
 For i from 0 to 20 step 2
-    Say i              Note: 0, 2, 4, ..., 20
+    Say i
 End
 ```
 
-### 5.5 For Each Loop
+### 6.6 For Each
 
 ```epl
 names = ["Alice", "Bob", "Charlie"]
 For Each name In names
-    Say "Hello, $name!"
+    Say "Hello, $name"
 End
 ```
 
-### 5.6 Repeat Loop
-
-```epl
-Repeat 5 Times
-    Say "Hello!"
-End
-```
-
-### 5.7 Break / Continue
+### 6.7 Break And Continue
 
 ```epl
 For i from 1 to 100
     If i == 50 Then
-        Break          Note: exit loop
+        Break
     End
     If i % 2 == 0 Then
-        Continue       Note: skip even numbers
+        Continue
     End
     Say i
 End
@@ -320,13 +374,13 @@ End
 
 ---
 
-## 6. Functions
+## 7. Functions And Lambdas
 
-### 6.1 Definition
+### 7.1 Function Definitions
 
 ```epl
 Function greet takes name
-    Say "Hello, $name!"
+    Say "Hello, $name"
 End
 
 Function add takes a, b
@@ -341,167 +395,200 @@ Function factorial takes n
 End
 ```
 
-### 6.2 Calling
+Long English form:
 
 ```epl
-greet("Alice")
-result = add(3, 4)
+Define a function named double that takes x
+    Return x * 2
+End
 ```
 
-### 6.3 Default Parameters
+### 7.2 Parameters
 
-Functions without required arguments can be called with fewer arguments.
-
-### 6.4 Lambda / Anonymous Functions
+Parameters may be separated with commas or `and`.
 
 ```epl
-double = Lambda x -> x * 2
-Say double(5)          Note: 10
+Function add takes a, b
+    Return a + b
+End
+
+Function multiply takes a and b
+    Return a * b
+End
 ```
+
+Default parameters and rest parameters are supported by the parser for supported runtimes:
+
+```epl
+Function greet takes name = "friend"
+    Say "Hello, $name"
+End
+
+Function total takes rest numbers
+    Return numbers.sum()
+End
+```
+
+### 7.3 Lambdas
+
+```epl
+double = lambda x -> x * 2
+add = lambda a, b -> a + b
+
+nums = [1, 2, 3]
+Say nums.map(lambda x -> x * 2)
+```
+
+`given x return expression` is also parsed as a lambda-style expression. Prefer `lambda ... -> ...` in public docs.
 
 ---
 
-## 7. Classes & OOP
+## 8. Classes And Objects
 
-### 7.1 Class Definition
+### 8.1 Basic Class
 
 ```epl
 Class Animal
-    Function init takes name, sound
-        Self.name = name
-        Self.sound = sound
-    End
+    name = "Unknown"
+    sound = "..."
 
     Function speak
-        Say "$Self.name says $Self.sound!"
-    End
-
-    Function get_name
-        Return Self.name
+        Say name + " says " + sound
     End
 End
+
+dog = new Animal
+dog.name = "Rex"
+dog.sound = "Woof"
+dog.speak()
 ```
 
-### 7.2 Instantiation
+### 8.2 Constructor Pattern
+
+`init` is the constructor called when arguments are provided.
 
 ```epl
-dog = new Animal("Dog", "Woof")
-dog.speak()            Note: Dog says Woof!
+Class Counter
+    value = 0
+
+    Function init takes start
+        value = start
+    End
+
+    Function increment
+        Increase value by 1
+        Return value
+    End
+End
+
+counter = new Counter(10)
+Say counter.increment()
 ```
 
-### 7.3 Inheritance
+### 8.3 Inheritance
 
 ```epl
 Class Dog extends Animal
-    Function init takes name
-        Super.init("Dog: " + name, "Woof")
-        Self.tricks = []
-    End
-
-    Function learn takes trick
-Note: [Parser Error]         append(Self.tricks, trick)
-    End
-
-    Function show_tricks
-        Say "$Self.name knows: $Self.tricks"
+    Function init takes dog_name
+        name = dog_name
+        sound = "Woof"
     End
 End
 ```
 
-### 7.4 Static Methods
-
-```epl
-Class MathUtils
-    Function add takes a, b
-        Return a + b
-    End
-End
-
-result = MathUtils.add(3, 4)
-```
+Interfaces, visibility keywords, static methods, generic classes, and `Super` are implemented surfaces, but they should be covered by project-specific tests before use in production libraries.
 
 ---
 
-## 8. Modules & Imports
+## 9. Modules And Imports
 
-### 8.1 Module Definition
+### 9.1 Module Blocks
 
 ```epl
 Module Utils
-    Function helper takes x
+    Constant VERSION = "1.0"
+
+    Function double takes x
         Return x * 2
     End
-
-    Constant VERSION = "1.0"
 End
-```
 
-Access via `Module::member`:
-```epl
-result = Utils::helper(5)
 Say Utils::VERSION
+Say Utils::double(5)
 ```
 
-### 8.2 Import (File)
+### 9.2 File And Standard Library Imports
 
 ```epl
-Import "helpers.epl"           Note: merge all exports into current scope
-Import "utils.epl" as Utils    Note: import as namespace (Utils::func)
+Import "helpers.epl"
+Import "math" as Math
+Use "collections" as Collections
 ```
 
-### 8.3 Import (Standard Library)
+Import resolution checks:
+
+1. Exact path
+2. Path plus `.epl`
+3. Relative to current file
+4. Built-in EPL standard library under `epl/stdlib/`
+5. Installed packages such as `epl_modules/` and user package cache
+
+Bundled stdlib modules import in two ways:
 
 ```epl
-Import "math"                  Note: imports EPL stdlib math module
-Import "math" as Math          Note: imports as namespace (Math::factorial)
-Import "string"                Note: string utilities
-Import "collections"           Note: collections, stack, queue
-Import "io"                    Note: file and console I/O
-Import "testing"               Note: test framework
-Import "datetime"              Note: date/time utilities
-Import "functional"            Note: map, filter, reduce, compose
-Import "http"                  Note: HTTP client
-Import "crypto"                Note: hashing, encoding, random
+Note: Bare import brings function names into the current scope.
+Import "encoding"
+Say to_base64("hi")
+
+Note: Aliased import namespaces them under the alias.
+Import "encoding" as ENC
+Say ENC.to_base64("hi")
 ```
 
-### 8.4 Import Resolution Order
+The shippable importable modules are `json`, `encoding`, `net`, `os`, `regex`, and `sql`. See `docs/stdlib-reference.md` for their public APIs. Because `json` is a reserved token, member access such as `json.parse(...)` will not lex; use the bare form (`Import "json"` then `parse(...)`) or, preferably, an alias (`Import "json" as J` then `J.stringify(...)`).
 
-1. Exact file path
-2. Path + `.epl` extension
-3. Relative to current file directory
-4. EPL standard library (`epl/stdlib/<name>.epl`)
-5. Package manager (`epl_modules/`, `~/.epl/packages/`)
-
-### 8.5 Python Bridge
+### 9.3 Python Bridge
 
 ```epl
-Note: [Parser Error] Import python "json" as json
-Note: [Parser Error] Import python "os" as os
-Note: [Parser Error] Import python "requests" as req
+Note: `json` is a reserved token, so alias the Python module to a non-reserved name.
+Use python "json" as pyjson
+
+payload = pyjson.loads("{\"ok\": true}")
+Say payload.get("ok")
 ```
 
-For project-managed third-party packages, declare them in `epl.toml`:
+Third-party dependencies belong in `epl.toml`:
 
 ```toml
-[github-dependencies]
-web-kit = "epl-lang/web-kit"
-
 [python-dependencies]
 requests = "*"
 yaml = "pyyaml>=6"
 ```
 
-When a bridged module is not installed, EPL can install:
-1. project-declared dependencies from `[python-dependencies]`
-2. selected allowlisted packages automatically
+Sandbox mode blocks `Use python`.
 
-EPL projects can also declare GitHub-hosted EPL packages in `[github-dependencies]` and install them with `epl install` or `epl gitinstall owner/repo`.
+### 9.4 JavaScript And TypeScript Bridge
+
+```epl
+Use javascript "lodash" as lodash
+Use typescript "axios" as axios
+
+Say lodash.capitalize("hello from epl")
+```
+
+Manage JS dependencies with:
+
+```bash
+epl jsinstall lodash
+epl jsremove lodash
+epl jsdeps
+```
+
+Sandbox mode blocks `Use javascript` and `Use typescript`.
 
 ---
 
-## 9. Error Handling
-
-### 9.1 Try / Catch / Finally
+## 10. Error Handling
 
 ```epl
 Try
@@ -510,44 +597,34 @@ Try
 Catch error
     Say "Error: $error"
 Finally
-    cleanup()
+    Say "cleanup"
 End
 ```
 
-### 9.2 Throw
+Throw errors with:
 
 ```epl
-Throw "Something went wrong"
-Throw "Invalid input: $value"
+Throw "Invalid input"
 ```
 
-### 9.3 Assert
+Some older examples use `Raise`; prefer `Throw` in current docs.
+
+Assertions:
 
 ```epl
-Assert x > 0
-Assert length(items) == 5
+Assert length(items) > 0
 Assert name != Nothing
 ```
 
 ---
 
-## 10. Web Framework
+## 11. Native WebApp Syntax
 
-### 10.1 Routes
+The served web runtime is the native `Create WebApp` DSL.
 
 ```epl
-Route "/" shows
-    home_page()
-End
-Route "/api/data" responds with
-    process_data()
-End
 Create WebApp called app
-```
 
-### 10.2 Native Routes
-
-```epl
 Route "/" shows
     Page "Welcome"
         Heading "Welcome to EPL"
@@ -560,490 +637,251 @@ Route "/api/users" responds with
     users = ["Alice", "Bob"]
     Send json Map with users = users and count = length(users)
 End
+
+Start app on port 8000
 ```
 
-### 10.3 Request Context
+When using `epl serve app.epl`, the CLI can host the app without an explicit `Start app on port ...` in many project workflows. Keep `Start app on port ...` in standalone examples that are run directly.
 
-Inside native WebApp routes, EPL exposes:
+### 11.1 Request Context
 
-- `request_data`
-- `request_params`
-- `request_headers`
-- `request_method`
-- `request_path`
-- `request`
-- `session_id`
+Inside route bodies:
+
+| Name | Meaning |
+| --- | --- |
+| `request_data` | Parsed request body as map |
+| `request_params` | Path and query parameters |
+| `request_headers` | Request headers |
+| `request_method` | HTTP method |
+| `request_path` | Normalized request path |
+| `request` | Combined request object |
+| `session_id` | Current session identifier when present |
 
 ```epl
 Route "/users/:name" responds with
     name = request_params.name
-    role = request_data.get("role")
+    role = request_data.get("role", "guest")
     Send json Map with name = name and role = role and method = request_method
 End
 ```
 
-### 10.4 Dynamic Pages
+### 11.2 Page Elements
 
-Page strings support `$variable` interpolation from values defined earlier in the same route:
+Common page elements:
 
 ```epl
-Route "/hello/:name" shows
-    title = "Welcome, " + request_params.name
-
-    Page "$title"
-        Heading "$title"
-        Text "Served from $request_path"
+Page "Dashboard"
+    Heading "Dashboard"
+    Subheading "Today"
+    Text "Status: $status"
+    Link "Home" to "/"
+    Button "Refresh"
+    Div class "panel"
+        Text "Nested content"
     End
 End
 ```
 
-### 10.5 Helper Facades
-
-The authoritative served runtime is the native `Create WebApp` DSL.
-
-Optional supported helper packages:
-
-- `epl-web`
-- `epl-db`
-- `epl-test`
-
-Install with:
-
-```bash
-epl install epl-web
-epl install epl-db
-epl install epl-test
-```
-
-### 10.6 Server
-
-Production server:
-
-```bash
-epl serve webapp.epl --port 8080 --workers 4
-```
-
----
-
-## 11. Standard Library (Native EPL)
-
-EPL ships with 9 native EPL modules in `epl/stdlib/`:
-
-| Module | Description | Key Functions |
-|--------|-------------|---------------|
-| `math` | Math operations | `factorial`, `fibonacci`, `is_prime`, `gcd`, `lcm`, `average`, `median` |
-| `string` | String utilities | `repeat_string`, `pad_left`, `capitalize`, `title_case`, `truncate`, `slug` |
-| `collections` | Data structures | `flatten`, `chunk`, `unique`, `stack_*`, `queue_*` |
-| `io` | File/console I/O helpers | `read_file`, `write_file`, `file_lines`, `path_join`, `prompt` |
-| `testing` | Test framework | `test()`, `expect_equal`, `expect_true`, `expect_contains`, `test_summary` |
-| `datetime` | Date/time | `format_duration`, `time_ago`, timer functions |
-| `functional` | FP utilities | `map_list`, `filter_list`, `reduce_list`, `compose`, `pipe`, `memoize` |
-| `http` | HTTP client helpers | `get`, `post`, `status helpers`, `parse_json`, `to_json` |
-| `crypto` | Crypto/encoding | `md5`, `sha256`, `to_base64`, `uuid`, `random_string` |
-
-Plus many built-in functions available without imports (math, string, file, database, networking, etc.). See [`stdlib-reference.md`](stdlib-reference.md) for the current documented surface.
-
----
-
-## 12. Built-in Functions
-
-### 12.1 Core
-
-| Function | Description |
-|----------|-------------|
-| `length(x)` | Length of string, list, or dict |
-| `type_of(x)` | Type name as string |
-| `to_integer(x)` | Convert to integer |
-| `to_text(x)` | Convert to string |
-| `to_decimal(x)` | Convert to float |
-| `to_boolean(x)` | Convert to boolean |
-
-### 12.2 Math
-
-| Function | Description |
-|----------|-------------|
-| `sqrt(x)` | Square root |
-| `power(x, n)` | Exponentiation |
-| `floor(x)` | Floor |
-| `ceil(x)` | Ceiling |
-| `round(x)` | Round |
-| `absolute(x)` | Absolute value |
-| `random()` | Random 0..1 |
-| `min(a, b)` | Minimum |
-| `max(a, b)` | Maximum |
-| `log(x)` | Natural log |
-| `sin(x)`, `cos(x)`, `tan(x)` | Trigonometry |
-
-### 12.3 Collections
-
-| Function | Description |
-|----------|-------------|
-| `range(n)` | List [0..n-1] |
-| `sum(list)` | Sum of numeric list |
-| `sorted(list)` | Sorted copy |
-| `reversed(list)` | Reversed copy |
-| `keys(dict)` | Dictionary keys |
-| `values(dict)` | Dictionary values |
-| `append(list, item)` | Add to list |
-| `remove(list, item)` | Remove from list |
-| `contains(col, item)` | Membership test |
-| `join(list, sep)` | Join to string |
-| `split(str, sep)` | Split string |
-| `index_of(list, item)` | Find index |
-
-### 12.4 I/O
-
-| Function | Description |
-|----------|-------------|
-| `file_read(path)` | Read file contents |
-| `file_write(path, data)` | Write file |
-| `file_append(path, data)` | Append to file |
-| `file_exists(path)` | Check existence |
-| `file_delete(path)` | Delete file |
-| `dir_list(path)` | List directory |
-| `dir_create(path)` | Create directory |
-
-### 12.5 Networking
-
-| Function | Description |
-|----------|-------------|
-| `http_get(url)` | HTTP GET |
-| `http_post(url, data)` | HTTP POST |
-| `json_parse(str)` | Parse JSON |
-| `json_stringify(obj)` | Serialize JSON |
-
----
-
-## 13. Concurrency
-
-### 13.1 Threads
+Use `Raw HTML` only for trusted static markup:
 
 ```epl
-t = real_thread_run(my_function, arg1, arg2)
-real_thread_join(t)
-```
-
-### 13.2 Channels
-
-```epl
-ch = real_channel_create(10)  Note: buffered channel
-real_channel_send(ch, "message")
-msg = real_channel_receive(ch)
-```
-
-### 13.3 Mutexes
-
-```epl
-lock = real_mutex_create()
-real_mutex_lock(lock)
-Note: critical section
-real_mutex_unlock(lock)
-```
-
-### 13.4 Async / Await
-
-```epl
-Async Function fetch_data takes url
-    response = Await http_get(url)
-    Return response
+Page "Trusted Markup"
+    Raw HTML "<strong>Trusted markup only</strong>"
 End
 ```
 
+Never pass user-controlled input into `Raw HTML`.
+
 ---
 
-## 14. Compilation Targets
+## 12. Database Syntax
 
-### 14.1 Interpreter (Default)
+### 12.1 Built-in SQLite
 
-```bash
-epl run program.epl
-```
-
-### 14.2 LLVM Native Compilation
-
-```bash
-epl build program.epl       # Produces program.exe
-epl ir program.epl           # Show LLVM IR
-```
-
-### 14.3 JavaScript Transpilation
-
-```bash
-epl js program.epl           # Produces program.js
-```
-
-### 14.4 Node.js Transpilation
-
-```bash
-epl node program.epl         # Produces program_node.js
-```
-
-### 14.5 Kotlin / Android
-
-```bash
-epl kotlin program.epl       # Produces program.kt
-epl android program.epl      # Generates Android project
-epl ios program.epl          # Generates iOS / SwiftUI project
-```
-
-### 14.6 Bytecode VM
-
-```bash
-epl vm program.epl            # Fast bytecode execution
-```
-
-### 14.7 Desktop & Web Targets
-
-```bash
-epl desktop program.epl      # Compose Multiplatform (Windows/macOS/Linux)
-epl web program.epl          # Web app (WASM/JS/Kotlin-JS)
-epl wasm program.epl         # WebAssembly binary
-```
-
-### 14.8 JavaScript/TypeScript Bridge
-
-Access the NPM ecosystem from EPL:
+Use `db_*` for the primary SQLite path:
 
 ```epl
-Use javascript "lodash" as lodash
-Use typescript "axios" as axios
-
-Say lodash.capitalize("hello from epl")
+db = db_open("app.db")
+db_execute(db, "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE)")
+db_execute(db, "INSERT INTO users (name, email) VALUES (?, ?)", ["Alice", "alice@example.com"])
+users = db_query(db, "SELECT id, name, email FROM users ORDER BY id")
+db_close(db)
 ```
 
-Manage JS dependencies:
-```bash
-epl jsinstall lodash         # Install npm package
-epl jsremove lodash          # Remove npm package
-epl jsdeps                   # List JS dependencies
-```
+Production guidance:
 
-### 14.9 Deployment Targets
+- Use raw `CREATE TABLE` SQL through `db_execute` for migrations.
+- Use parameter placeholders for all external values.
+- `db_create_table` now accepts standard SQL column constraints and parameterized types in its column map, for example `INTEGER PRIMARY KEY`, `TEXT NOT NULL`, `VARCHAR(255)`, and `DECIMAL(10,2)`. Allowed type words include `DECIMAL`, `FLOAT`, `DOUBLE`, `CHAR`, and `TIMESTAMP`. Identifiers are still validated and SQL injection is still blocked.
+- Close connections in long-running scripts and tests.
 
-```bash
-epl deploy k8s app.epl --image app:1.0 --host app.example.com --tls
-epl deploy aws app.epl --image app:latest --region us-east-1
-epl deploy gcp app.epl --image app:latest --region us-central1
-epl deploy azure app.epl --image app:latest --region eastus
-```
+### 12.2 Additional Adapters
 
-### 14.10 Observability
+`real_db_*` helpers support integration with PostgreSQL, MySQL, and SQLite when drivers and URLs are available:
 
 ```epl
-Import "epl.observability" As obs
-obs.attach(app)
+db = real_db_connect("sqlite:///app.db")
+rows = real_db_query(db, "SELECT * FROM users WHERE active = ?", [True])
+real_db_close(db)
 ```
 
-Auto-registers `/_health`, `/_ready`, `/_metrics` endpoints.
+Validate non-SQLite deployments in your own environment.
 
 ---
 
-## 15. Package Manager
+## 13. Standard Library Surface
 
-### 15.1 Project Initialization
+Built-ins available without imports include:
 
-```bash
-epl new myproject             # Create full project structure
-epl new myproject --template web
-epl new myproject --template api
-epl new myproject --template frontend
-epl new myproject --template auth
-epl new myproject --template chatbot
-epl new myproject --template lib
-epl new myproject --template fullstack
-epl init                      # Initialize in current directory
-```
+- Core conversion: `length`, `type_of`, `to_integer`, `to_decimal`, `to_text`, `to_boolean`
+- Math: `sqrt`, `power`, `floor`, `ceil`, `round`, `absolute`, `random(min, max)`, `min`, `max`
+- String and collection helpers: `uppercase`, `lowercase`, `trim`, `split`, `join`, `contains`, `keys`, `values`
+- File and directory helpers: `file_read`, `file_write`, `file_exists`, `dir_list`, `path_join`
+- HTTP and JSON: `http_get`, `http_post`, `json_parse`, `json_stringify`
+- Database: `db_open`, `db_execute`, `db_query`, `db_query_one`, `db_insert`, `db_close`
+- Auth: `auth_hash_password`, `auth_verify_password`, `auth_jwt_create`, `auth_jwt_verify`
+- WebSocket: `ws_server_create`, `ws_on_connect`, `ws_on_message`, `ws_broadcast`
+- Templates: `template_render`, `template_render_string`
 
-### 15.2 Package Management
+In addition to the always-available built-ins, six bundled modules under `epl/stdlib/` are importable: `json`, `encoding`, `net`, `os`, `regex`, and `sql`. These are thin EPL wrappers over the Python-backed built-ins (`json_parse`, `regex_match`, `db_*`, and so on), which remain callable directly without an import. Import them bare to bring functions in as plain names, or with `as` to namespace them.
 
-```bash
-epl install <package>         # Install a package
-epl uninstall <package>       # Remove a package
-epl packages                  # List installed packages
-```
-
-### 15.3 Project Structure
-
-```
-myproject/
-├── epl.toml              # Project manifest
-├── README.md
-├── .gitignore
-├── src/
-│   └── main.epl          # Entry point
-├── tests/
-│   └── test_main.epl     # Tests
-├── lib/                  # Local libraries
-└── epl_modules/          # Installed packages
-```
+See `docs/stdlib-reference.md` for the current reference and optional dependency notes.
 
 ---
 
-## 16. CLI Reference
+## 14. CLI Reference
 
-```
-epl <file.epl>                   Run an EPL program
-epl run <file.epl> [flags]       Run with flags
-epl run                          Run the current project's manifest entrypoint
-epl new <name> [--template T]    Create a new project
-epl build <file.epl>             Compile to native executable
-epl build                        Build the current project's manifest entrypoint
-epl test [dir|file]              Run tests
-epl repl                         Interactive REPL
-epl install <pkg>                Install package
-epl pyinstall <import> [spec]    Install/save a Python package for `Use python`
-epl jsinstall <pkg> [ver]        Install/save an npm package for `Use javascript`
-epl jsremove <pkg>               Remove an npm dependency
-epl jsdeps                       List installed JS dependencies
-epl gitinstall <owner/repo>      Install/save a GitHub dependency
-epl github <clone|pull|push>     GitHub project workflows
-epl serve <file.epl> [opts]      Start production server
-epl js <file.epl>                Transpile to JavaScript
-epl node <file.epl>              Transpile to Node.js
-epl kotlin <file.epl>            Transpile to Kotlin
-epl python <file.epl>            Transpile to Python
-epl android <file.epl>           Generate Android project
-epl ios <file.epl>               Generate iOS/SwiftUI project
-epl desktop <file.epl>           Generate desktop app
-epl web <file.epl>               Generate web app (WASM/JS/Kotlin-JS)
-epl deploy k8s <file> [opts]     Generate Kubernetes manifests
-epl deploy aws <file> [opts]     Deploy to AWS ECS
-epl deploy gcp <file> [opts]     Deploy to GCP Cloud Run
-epl deploy azure <file> [opts]   Deploy to Azure Container Apps
-epl ir <file.epl>                Show LLVM IR
-epl vm <file.epl>                Run with bytecode VM
-epl debug <file.epl>             Debug with breakpoints
-epl fmt <file|dir> [options]     Format source code
-epl lint [dir|file]              Lint source code
-epl check [file|dir]             Static type checking
-epl fix <file>                   AI Error Diagnostics
-epl lsp                          Start LSP server
-epl playground                   Start browser playground
-epl copilot                      AI code assistant (offline)
-epl ai <prompt>                  AI code assistant
-epl --version                    Show version
-epl --help                       Show help
+```bash
+epl <file.epl>
+epl run <file.epl>
+epl run
+epl new <name> --template web
+epl build <file.epl>
+epl test
+epl repl
+epl serve <file.epl> --port 8080
+epl js <file.epl>
+epl node <file.epl>
+epl python <file.epl>
+epl kotlin <file.epl>
+epl android <file.epl>
+epl ios <file.epl>
+epl desktop <file.epl>
+epl web <file.epl>
+epl vm <file.epl>
+epl debug <file.epl>
+epl fmt <file-or-dir>
+epl lint
+epl check
+epl install <package>
+epl pyinstall <import> [spec]
+epl jsinstall <package> [version]
+epl gitinstall <owner/repo>
+epl deploy k8s <file.epl> --image app:1.0 --host app.example.com --tls
+epl playground
+epl --version
 ```
 
-Production serving uses the `eplang[server]` extra and supports Waitress / Gunicorn for WSGI plus Uvicorn / Hypercorn for ASGI. For multi-worker ASGI deployment, use the generated `deploy/asgi.py` entrypoint with your server's import-string form.
-
-### 16.1 Flags
+Flags commonly used in production checks:
 
 | Flag | Effect |
-|------|--------|
-| `--strict` | Enable static type checking |
-| `--sandbox` | Disable dangerous built-ins |
-| `--verbose` | Debug output |
+| --- | --- |
+| `--strict` | Enable static checking where supported |
+| `--sandbox` | Disable dangerous built-ins and ecosystem bridges |
+| `--verbose` | Show diagnostic output |
 | `--quiet` | Suppress non-error output |
-| `--no-color` | Disable ANSI colors |
+| `--no-color` | Disable ANSI color |
 
 ---
 
-## 17. Type System
+## 15. Current Grammar Summary
 
-EPL is dynamically typed with optional static checking (`--strict` mode).
-
-### 17.1 Types
-
-| Type | Description | Example |
-|------|-------------|---------|
-| `Integer` | Whole numbers | `42` |
-| `Decimal` | Floating-point | `3.14` |
-| `Text` | Strings | `"hello"` |
-| `Boolean` | True/False | `True` |
-| `Nothing` | Null/nil | `Nothing` |
-| `List` | Ordered collection | `[1, 2, 3]` |
-| `Dictionary` | Key-value map | `{"a": 1End` |
-| `Function` | Callable | `add` |
-| `Class` | Type definition | `Animal` |
-| `Object` | Class instance | `new Animal(...)` |
-
-### 17.2 Type Checking Functions
-
-```epl
-is_integer(42)
-Note: True
-is_decimal(3.14)
-Note: True
-is_text("hello")
-Note: True
-is_boolean(True)     Note: True
-is_list([1, 2])      Note: True
-Note: [Parser Error] is_map({"a": 1End)     Note: True
-is_nothing(Nothing)  Note: True
-is_number(42)        Note: True (int or float)
-type_of(42)          Note: "Integer"
-```
-
----
-
-## 18. Grammar (EBNF Summary)
+This is a practical summary, not a byte-for-byte copy of the parser.
 
 ```ebnf
-program        = { statement End ;
-statement      = variable_decl | assignment | print_stmt | if_stmt
-               | while_stmt | for_stmt | for_each_stmt | repeat_stmt
-               | function_def | class_def | module_def | import_stmt
-               | use_stmt | try_stmt | match_stmt | return_stmt
-               | throw_stmt | assert_stmt | break_stmt | continue_stmt
-               | wait_stmt | exit_stmt | route_stmt | expression_stmt ;
+program        = { statement newline } ;
 
-variable_decl  = "Create" IDENT "equal to" expression ;
-assignment     = "Set" target "to" expression ;
-print_stmt     = ("Print" | "Say" | "Display" | "Show") expression ;
-if_stmt        = "If" expression "Then" block { "Else If" expression "Then" block End [ "Else" block ] "End" ;
+statement      = var_decl | assignment | print_stmt | input_stmt
+               | if_stmt | match_stmt | while_stmt | repeat_stmt
+               | for_range | for_each | function_def | class_def
+               | module_def | import_stmt | use_stmt | try_stmt
+               | return_stmt | throw_stmt | assert_stmt
+               | webapp_stmt | route_stmt | start_stmt
+               | expression_stmt ;
+
+var_decl       = identifier "=" expression
+               | "Create" [ type ] identifier ( "equal" [ "to" ] | "=" | "as" ) expression
+               | "Remember" identifier "as" expression ;
+
+assignment     = identifier "=" expression
+               | "Set" identifier "to" expression
+               | ( "Increase" | "Decrease" ) identifier "by" expression ;
+
+print_stmt     = ( "Print" | "Say" | "Display" | "Show" ) expression ;
+input_stmt     = "Input" identifier [ "with" "prompt" string ]
+               | "Ask" [ string ] [ "and" ] [ "store" ] [ "in" ] identifier ;
+
+if_stmt        = "If" expression [ "Then" ] block
+                 { "Otherwise" "If" expression [ "Then" ] block }
+                 [ "Otherwise" block ] "End" ;
+
+match_stmt     = "Match" expression { "When" expression block } [ "Default" block ] "End" ;
 while_stmt     = "While" expression block "End" ;
-for_stmt       = "For" IDENT "from" expression "to" expression [ "step" expression ] block "End" ;
-for_each_stmt  = "For Each" IDENT "In" expression block "End" ;
-repeat_stmt    = "Repeat" expression "Times" block "EndRepeat" ;
-function_def   = "Function" IDENT [ "Takes" param_list ] block "EndFunction" ;
-class_def      = "Class" IDENT [ "Inherits" IDENT ] class_body "EndClass" ;
-module_def     = "Module" IDENT block "End" ;
-import_stmt    = "Import" STRING [ "as" IDENT ] ;
-use_stmt       = "Use python" STRING [ "as" IDENT ] ;
-try_stmt       = "Try" block "Catch" IDENT block [ "Finally" block ] "EndTry" ;
-match_stmt     = "Match" expression { "When" expr_list block End [ "Default" block ] "End" ;
+repeat_stmt    = "Repeat" expression "times" block "End" ;
+for_range      = "For" identifier "from" expression "to" expression [ "step" expression ] block "End" ;
+for_each       = "For" "Each" identifier "In" expression block "End" ;
+
+function_def   = "Function" identifier [ "takes" param_list ] block "End"
+               | "Define" [ "a" ] "function" [ "named" ] identifier [ "that" "takes" param_list ] block "End" ;
+
+class_def      = "Class" identifier [ "extends" identifier ] class_body "End" ;
+module_def     = "Module" identifier block "End" ;
+import_stmt    = "Import" string [ "as" identifier ] ;
+use_stmt       = "Use" string [ "as" identifier ]
+               | "Use" "python" string [ "as" identifier ]
+               | "Use" ( "javascript" | "typescript" ) string [ "as" identifier ] ;
+
+try_stmt       = "Try" block "Catch" identifier block [ "Finally" block ] "End" ;
 return_stmt    = "Return" [ expression ] ;
 throw_stmt     = "Throw" expression ;
 assert_stmt    = "Assert" expression ;
 
-expression     = or_expr ;
-or_expr        = and_expr { ("Or" | "or") and_expr End ;
-and_expr       = not_expr { ("And" | "and") not_expr End ;
-not_expr       = [ "Not" | "not" ] comparison ;
-comparison     = addition { comp_op addition End ;
-addition       = multiplication { ("+" | "-") multiplication End ;
-multiplication = unary { ("*" | "/" | "%") unary End ;
-unary          = [ "-" | "Not" ] primary ;
-primary        = NUMBER | STRING | "True" | "False" | "Nothing"
-               | IDENT | list_literal | dict_literal
-               | function_call | member_access | index_access
-               | "(" expression ")" | lambda ;
+webapp_stmt    = "Create" "WebApp" [ "called" ] identifier ;
+route_stmt     = "Route" string ( "shows" | "responds" [ "with" ] ) block "End" ;
+start_stmt     = "Start" identifier [ "on" ] [ "port" ] expression ;
 
-param_list     = IDENT { "," IDENT End ;
-block          = { statement End ;
+expression     = ternary ;
+ternary        = or_expr [ "if" expression "otherwise" expression ] ;
+or_expr        = and_expr { "or" and_expr } ;
+and_expr       = not_expr { "and" not_expr } ;
+not_expr       = [ "not" ] comparison ;
+comparison     = addition { comparison_operator addition } ;
+addition       = multiplication { ( "+" | "-" ) multiplication } ;
+multiplication = unary { ( "*" | "/" | "%" ) unary } ;
+unary          = [ "-" | "not" ] postfix ;
+postfix        = primary { call | index | slice | property | method_call } ;
+primary        = number | string | "True" | "False" | "Nothing"
+               | identifier | list_literal | map_literal | lambda_expr
+               | "new" identifier [ call_args ] | "(" expression ")" ;
+
+list_literal   = "[" [ expression { "," expression } ] "]" ;
+map_literal    = "Map" "with" identifier "=" expression { [ newline ] "and" identifier "=" expression } ;
+lambda_expr    = "lambda" param_list "->" expression ;
 ```
 
 ---
 
-## 19. Version History
+## 16. Enterprise Production Checklist
 
-| Version | Highlights |
-|---------|-----------|
-| 0.1 | Variables, Print, Input |
-| 0.2 | If/Else, While, For |
-| 0.3 | Functions, Import, Use |
-| 0.4 | Classes, OOP, Inheritance |
-| 0.5 | Try/Catch, Match/When |
-| 0.6 | Built-in functions, Math |
-| 0.7 | English aliases (Say, Ask, Remember) |
-| 1.0 | String templates, list/dict comprehensions |
-| 2.0 | LLVM compilation, JS transpilation |
-| 3.0 | Web framework, GUI, Package manager |
-| 4.0 | ORM, Debugger, LSP, Testing, AI, Bytecode VM |
-| 4.1 | Advanced web: store backends, WebSocket, hot-reload |
-| **4.2** | **Independent language: standalone CLI, native stdlib, binary packaging** |
+- Pin EPL and dependency versions in CI.
+- Run parser smoke tests for every documented example your product depends on.
+- Use `db_execute` migrations for real schemas and parameterized queries for all external values.
+- Run web apps behind a reviewed production server and trusted proxy configuration.
+- Keep secrets in environment variables or a secret manager, never in EPL source.
+- Enable `--sandbox` for untrusted code.
+- Treat Python/JS bridges as privileged integration points.
+- Validate deployment artifacts against your own cluster/cloud policy before rollout.
 
 ---
 
-*EPL v9.1.0 — Write code in plain English. Build anything.*
+*EPL v9.8.0 - Write readable programs in plain English, with clear production boundaries.*

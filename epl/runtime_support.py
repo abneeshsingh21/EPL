@@ -188,17 +188,48 @@ def run_file(
             pass
 
     if not force_interpret:
-        try:
-            from epl.vm import compile_and_run
+        from epl.vm import compile_and_run
 
+        # The VM streams output live. If it fails AFTER producing output, the
+        # program already had observable effects — silently re-running it on the
+        # interpreter would DUPLICATE that output (and any side effects). So we
+        # only fall back when the VM produced nothing yet; otherwise we surface
+        # the VM error. A pass-through counter preserves live streaming.
+        class _CountingStdout:
+            def __init__(self, target):
+                self._t = target
+                self.n = 0
+
+            def write(self, s):
+                self.n += len(s)
+                return self._t.write(s)
+
+            def flush(self):
+                return self._t.flush()
+
+            def __getattr__(self, name):
+                return getattr(self._t, name)
+
+        tee = _CountingStdout(sys.stdout)
+        saved_stdout = sys.stdout
+        sys.stdout = tee
+        try:
             compile_and_run(source)
             return True
         except (KeyboardInterrupt, SystemExit, MemoryError):
             raise
-        except Exception:
-            # v7.8: Only show fallback message in verbose mode to reduce noise
+        except Exception as exc:
+            if tee.n > 0:
+                msg = getattr(exc, 'message', None) or str(exc)
+                line = getattr(exc, 'line', 0)
+                where = f' on line {line}' if line else ''
+                print(f'\n  EPL Runtime Error{where}: {msg}', file=sys.stderr)
+                return False
+            # No output produced yet → safe to fall back to the interpreter.
             if os.environ.get('EPL_VERBOSE') or '--verbose' in sys.argv:
                 print(f'  [EPL] VM fallback to interpreter for: {filepath}', file=sys.stderr)
+        finally:
+            sys.stdout = saved_stdout
 
     interpreter = Interpreter(safe_mode=safe_mode)
     return run_source(

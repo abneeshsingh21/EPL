@@ -3526,8 +3526,8 @@ def _run_vm(args, flags):
         if result.get('error'):
             print(f'\nVM Error: {result["error"]}', file=sys.stderr)
             return 1
-        for line in result.get('output', []):
-            print(line)
+        # Note: the VM streams output live during execution, so we must not
+        # re-print result['output'] here or every line would appear twice.
         return 0
     except FileNotFoundError:
         print(f'{_red("Error:")} File not found: {filename}')

@@ -28,7 +28,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__version__ = '9.7.0'
+__version__ = '9.8.0'
 __author__ = 'Abneesh Singh'
 __email__ = 'singhabneesh250@gmail.com'
 __license__ = 'Apache 2.0'

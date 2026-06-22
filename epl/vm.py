@@ -14,10 +14,14 @@ Stack-based execution with call frames and local variable slots
 
 import math
 import operator
+import re as _re
 import time
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from typing import Any, Optional
+
+# String interpolation: ${expr} or $name (matches interpreter & compiler)
+_TEMPLATE_RE = _re.compile(r'\$\{([^}]+)\}|\$([a-zA-Z_][a-zA-Z0-9_]*)')
 
 # ─── Opcodes ──────────────────────────────────────────────────
 
@@ -59,6 +63,7 @@ class Op(IntEnum):
     # String
     CONCAT = auto()  # String concatenation
     STR_INTERP = auto()  # String interpolation (n items)
+    INTERP_VAR = auto()  # ($name) interp lookup: value if defined else literal
 
     # Control flow
     JUMP = auto()  # Unconditional jump
@@ -186,10 +191,13 @@ class CallFrame:
 class VMError(Exception):
     """Runtime error in the VM."""
 
-    def __init__(self, message, line=0, call_stack=None):
+    def __init__(self, message, line=0, call_stack=None, category='Runtime'):
         self.message = message
         self.line = line
         self.call_stack = list(call_stack or [])
+        # Error category ('Runtime', 'Name', 'Type', 'Index', 'Value', ...) so a
+        # caught value reads like the interpreter ("EPL Name Error on line N: …").
+        self.category = category
         super().__init__(self._format_message())
 
     def _format_message(self):
@@ -226,6 +234,10 @@ class BytecodeCompiler:
         self._const_cache: dict = {}
         self._label_counter = 0
         self._current_line = 0
+        # Property names of the class whose method body is currently being
+        # compiled. Enables implicit-`this`: a bare `name` inside a method
+        # resolves to the instance field, matching the interpreter.
+        self._current_method_props: set = set()
 
     def compile(self, program):
         """Compile a full AST program into bytecode."""
@@ -292,6 +304,14 @@ class BytecodeCompiler:
                     try:
                         if isinstance(a, (int, float)) and isinstance(b, (int, float)):
                             result = op_fn(a, b)
+                            # Mirror _op_div: a whole-number division result is
+                            # an int, so folding matches runtime + interpreter.
+                            if (
+                                code[i + 2].op == Op.DIV
+                                and isinstance(result, float)
+                                and result == int(result)
+                            ):
+                                result = int(result)
                             result_idx = self._add_const(result)
                             old_to_new[i] = new_idx
                             old_to_new[i + 1] = new_idx
@@ -654,6 +674,59 @@ class BytecodeCompiler:
             scope[name] = len(scope)
         return scope[name]
 
+    def _eval_const_default(self, val):
+        """Reduce a parameter's default value to a runtime constant.
+
+        Defaults are parsed as AST nodes (e.g. a Literal); the VM applies them
+        directly, so they must be unwrapped to their value. Literal lists/maps
+        of constants are supported; non-constant default expressions reduce to
+        None (the interpreter evaluates those lazily — a known VM limitation).
+        """
+        from epl import ast_nodes as ast
+
+        if isinstance(val, ast.Literal):
+            return val.value
+        if isinstance(val, (str, int, float, bool)) or val is None:
+            return val
+        if isinstance(val, ast.ListLiteral):
+            return [self._eval_const_default(e) for e in val.elements]
+        if isinstance(val, ast.DictLiteral):
+            return {self._eval_const_default(k): self._eval_const_default(v) for k, v in val.pairs}
+        return None
+
+    def _at_top_level(self):
+        """True when compiling module top-level code (not inside a function or
+        method body). Top-level variables are globals visible to functions,
+        matching the interpreter."""
+        return len(self.locals_stack) == 1
+
+    def _store_named(self, name):
+        """Emit a store to a user variable, honoring top-level-global scoping:
+        globals at module level, locals inside a function/method. Used by
+        declarations and loop variables so they bind in one consistent place."""
+        if self._at_top_level():
+            self._emit(Op.STORE_GLOBAL, name)
+        else:
+            self._emit(Op.STORE_VAR, self._declare_local(name))
+
+    def _load_named(self, name):
+        """Emit a load of a user variable, mirroring _store_named's scoping."""
+        if not self._at_top_level():
+            idx = self._resolve_local(name)
+            if idx is not None:
+                self._emit(Op.LOAD_VAR, idx)
+                return
+        self._emit(Op.LOAD_GLOBAL, name)
+
+    def _resolve_method_prop(self, name):
+        """Return the local index of `this` if `name` is an instance field
+        accessed inside a method body (and not shadowed by a local/param);
+        otherwise None. Enables implicit-`this` field access.
+        """
+        if name in self._current_method_props and self._resolve_local(name) is None:
+            return self._resolve_local('this')
+        return None
+
     # ─── Statement compilation ────────────────────────────────
 
     def _compile_stmt(self, node):
@@ -871,17 +944,35 @@ class BytecodeCompiler:
             self._emit(Op.PRINT, 1)
 
     def _compile_var_decl(self, node):
+        # Inside a method, assigning to a name that is an instance field writes
+        # the field (matching the interpreter) rather than shadowing it with a
+        # new local — but only if no local of that name exists yet.
+        this_idx = self._resolve_method_prop(node.name)
+        if this_idx is not None:
+            self._emit(Op.LOAD_VAR, this_idx)
+            self._compile_expr(node.value)
+            self._emit(Op.SET_ATTR, node.name)
+            return
         self._compile_expr(node.value)
-        idx = self._declare_local(node.name)
-        self._emit(Op.STORE_VAR, idx)
+        # Top-level variables are globals so functions can read them (matching
+        # the interpreter). Inside a function/method they are locals.
+        self._store_named(node.name)
 
     def _compile_assignment(self, node):
-        self._compile_expr(node.value)
         idx = self._resolve_local(node.name)
         if idx is not None:
+            self._compile_expr(node.value)
             self._emit(Op.STORE_VAR, idx)
-        else:
-            self._emit(Op.STORE_GLOBAL, node.name)
+            return
+        this_idx = self._resolve_method_prop(node.name)
+        if this_idx is not None:
+            # Bare assignment to an instance field inside a method → this.field
+            self._emit(Op.LOAD_VAR, this_idx)
+            self._compile_expr(node.value)
+            self._emit(Op.SET_ATTR, node.name)
+            return
+        self._compile_expr(node.value)
+        self._emit(Op.STORE_GLOBAL, node.name)
 
     def _compile_aug_assign(self, node):
         op_map = {
@@ -896,14 +987,28 @@ class BytecodeCompiler:
             '%=': Op.MOD,
         }
         idx = self._resolve_local(node.name)
+        this_idx = None if idx is not None else self._resolve_method_prop(node.name)
+        op_type = getattr(node, 'op', None) or getattr(node, 'operator', 'Plus')
+        vm_op = op_map.get(str(op_type), Op.ADD)
+
+        if this_idx is not None:
+            # Instance field: build [obj, obj.field <op> value] then SET_ATTR.
+            self._emit(Op.LOAD_VAR, this_idx)  # obj (for the eventual store)
+            self._emit(Op.LOAD_VAR, this_idx)
+            self._emit(Op.GET_ATTR, node.name)  # current value
+            self._compile_expr(node.value)
+            self._emit(vm_op)  # new value
+            self._emit(Op.SET_ATTR, node.name)
+            return
+
+        # Load current value
         if idx is not None:
             self._emit(Op.LOAD_VAR, idx)
         else:
             self._emit(Op.LOAD_GLOBAL, node.name)
         self._compile_expr(node.value)
-        op_type = getattr(node, 'op', None) or getattr(node, 'operator', 'Plus')
-        vm_op = op_map.get(str(op_type), Op.ADD)
         self._emit(vm_op)
+        # Store back
         if idx is not None:
             self._emit(Op.STORE_VAR, idx)
         else:
@@ -972,17 +1077,17 @@ class BytecodeCompiler:
         end_val = node.end if hasattr(node, 'end') else node.range_end
         step_val = getattr(node, 'step', None)
 
-        # Initialize counter
+        # Initialize counter (global at top level so it's visible like the
+        # interpreter; local inside a function).
         self._compile_expr(start_val)
         var_name = node.var_name if hasattr(node, 'var_name') else node.variable
-        var_idx = self._declare_local(var_name)
-        self._emit(Op.STORE_VAR, var_idx)
+        self._store_named(var_name)
 
         loop_start = len(self.instructions)
         self.loop_stack.append({'continue': loop_start, 'breaks': []})
 
         # Check condition: var <= end
-        self._emit(Op.LOAD_VAR, var_idx)
+        self._load_named(var_name)
         self._compile_expr(end_val)
         self._emit(Op.LTE)
         exit_jump = self._emit_jump(Op.JUMP_IF_FALSE)
@@ -992,13 +1097,13 @@ class BytecodeCompiler:
             self._compile_stmt(stmt)
 
         # Increment
-        self._emit(Op.LOAD_VAR, var_idx)
+        self._load_named(var_name)
         if step_val:
             self._compile_expr(step_val)
         else:
             self._emit(Op.LOAD_CONST, self._add_const(1))
         self._emit(Op.ADD)
-        self._emit(Op.STORE_VAR, var_idx)
+        self._store_named(var_name)
 
         self._emit(Op.LOOP_BACK, loop_start)
         self._patch_jump(exit_jump)
@@ -1012,13 +1117,14 @@ class BytecodeCompiler:
         self._compile_expr(node.iterable)
         self._emit(Op.GET_ITER)
 
-        var_idx = self._declare_local(node.var_name)
         loop_start = len(self.instructions)
         self.loop_stack.append({'continue': loop_start, 'breaks': []})
 
         exit_jump = self._emit(Op.FOR_ITER, -1)
 
-        self._emit(Op.STORE_VAR, var_idx)
+        # Bind the loop variable (global at top level, local in a function) so
+        # it's the same binding as any Create of that name in the same scope.
+        self._store_named(node.var_name)
 
         for stmt in node.body:
             self._compile_stmt(stmt)
@@ -1124,7 +1230,7 @@ class BytecodeCompiler:
             name=node.name,
             param_count=len(param_names),
             param_names=param_names,
-            defaults=defaults,
+            defaults=[self._eval_const_default(d) for d in defaults],
             code=self.instructions,
             local_count=len(self.locals_stack[-1]),
         )
@@ -1195,13 +1301,20 @@ class BytecodeCompiler:
 
     def _compile_class_def(self, node):
         """Compile a class definition."""
+        from epl import ast_nodes as ast
+
         methods = {}
         properties = {}
         constructor = None
 
-        for member in node.body if isinstance(node.body, list) else []:
-            from epl import ast_nodes as ast
+        # Pre-pass: collect ALL property names first, so a method body can
+        # reference fields declared after it in source order (implicit-`this`).
+        members = node.body if isinstance(node.body, list) else []
+        prop_names = {m.name for m in members if isinstance(m, ast.VarDeclaration)}
+        prev_props = self._current_method_props
+        self._current_method_props = prop_names
 
+        for member in members:
             if isinstance(member, ast.FunctionDef):
                 # Save state
                 outer_instr = self.instructions
@@ -1241,7 +1354,7 @@ class BytecodeCompiler:
                     name=member.name,
                     param_count=len(param_names),
                     param_names=param_names,
-                    defaults=defaults,
+                    defaults=[self._eval_const_default(d) for d in defaults],
                     code=self.instructions,
                     local_count=len(self.locals_stack[-1]),
                     is_method=True,
@@ -1262,6 +1375,8 @@ class BytecodeCompiler:
                 elif isinstance(val, (str, int, float, bool)) or val is None:
                     default = val
                 properties[member.name] = default
+
+        self._current_method_props = prev_props
 
         compiled = CompiledClass(
             name=node.name,
@@ -1285,9 +1400,11 @@ class BytecodeCompiler:
         end_jump = self._emit_jump(Op.JUMP)
 
         self._patch_jump(handler_jump)
-        # Store exception in catch variable
-        if hasattr(node, 'catch_var') and node.catch_var:
-            idx = self._declare_local(node.catch_var)
+        # Store the caught error into the catch variable. The AST attribute is
+        # `error_var` (TryCatch / TryCatchFinally); older shapes used catch_var.
+        catch_var = getattr(node, 'error_var', None) or getattr(node, 'catch_var', None)
+        if catch_var:
+            idx = self._declare_local(catch_var)
             self._emit(Op.STORE_VAR, idx)
         else:
             self._emit(Op.POP)
@@ -1360,8 +1477,10 @@ class BytecodeCompiler:
 
         elif isinstance(node, ast.Literal) and isinstance(node.value, str):
             val = node.value
-            # Handle interpolation: look for {expr} in string
-            if '{' in val and '}' in val:
+            # Handle interpolation: EPL uses $name and ${expr} (matching the
+            # interpreter and LLVM compiler). A bare '$' that isn't a valid
+            # template falls through to a plain string constant.
+            if '$' in val and _TEMPLATE_RE.search(val):
                 self._compile_interpolated_string(val)
             else:
                 self._emit(Op.LOAD_CONST, self._add_const(val))
@@ -1378,7 +1497,12 @@ class BytecodeCompiler:
             if idx is not None:
                 self._emit(Op.LOAD_VAR, idx)
             else:
-                self._emit(Op.LOAD_GLOBAL, name)
+                this_idx = self._resolve_method_prop(name)
+                if this_idx is not None:
+                    self._emit(Op.LOAD_VAR, this_idx)
+                    self._emit(Op.GET_ATTR, name)
+                else:
+                    self._emit(Op.LOAD_GLOBAL, name)
 
         elif isinstance(node, ast.BinaryOp):
             self._compile_binary(node)
@@ -1436,6 +1560,8 @@ class BytecodeCompiler:
             self._compile_expr(node.end) if node.end else self._emit(
                 Op.LOAD_CONST, self._add_const(None)
             )
+            step = getattr(node, 'step', None)
+            self._compile_expr(step) if step else self._emit(Op.LOAD_CONST, self._add_const(None))
             self._emit(Op.SLICE)
 
         elif hasattr(ast, 'TypeCast') and isinstance(node, ast.TypeCast):
@@ -1479,28 +1605,64 @@ class BytecodeCompiler:
             self._emit(Op.LOAD_CONST, self._add_const(None))
 
     def _compile_interpolated_string(self, template):
-        """Compile a string with {expr} interpolation."""
-        import re
+        """Compile a string with $name / ${expr} interpolation.
 
-        parts = re.split(r'\{([^}]+)\}', template)
+        Matches the interpreter and LLVM compiler: $name does a variable
+        lookup (local or global), and ${expr} parses and compiles a full
+        expression. Each dynamic part is stringified before concatenation.
+        """
         count = 0
-        for i, part in enumerate(parts):
-            if i % 2 == 0:
-                # Static string part
-                if part:
-                    self._emit(Op.LOAD_CONST, self._add_const(part))
-                    count += 1
-            else:
-                # Expression part - compile as variable lookup
-                self._emit(Op.LOAD_GLOBAL, part.strip())
-                self._emit(Op.CALL_BUILTIN, ('to_string', 1))
+        last_end = 0
+        for match in _TEMPLATE_RE.finditer(template):
+            # Static text preceding this match
+            static = template[last_end : match.start()]
+            if static:
+                self._emit(Op.LOAD_CONST, self._add_const(static))
                 count += 1
+            last_end = match.end()
+
+            expr_text = match.group(1)  # ${expression}
+            var_name = match.group(2)  # $variable
+            if expr_text is not None:
+                self._compile_template_expr(expr_text)
+            else:
+                idx = self._resolve_local(var_name)
+                if idx is not None:
+                    self._emit(Op.LOAD_VAR, idx)
+                else:
+                    # Undefined globals stay literal ("$name"), like the
+                    # interpreter — so "$xK9" in a password isn't mangled.
+                    self._emit(Op.INTERP_VAR, (var_name, '$' + var_name))
+            count += 1
+
+        # Trailing static text
+        tail = template[last_end:]
+        if tail:
+            self._emit(Op.LOAD_CONST, self._add_const(tail))
+            count += 1
+
+        # STR_INTERP stringifies each part with _format_value (the same
+        # formatter PRINT uses) and concatenates, so the result is always a
+        # string and matches the interpreter/compiler output exactly. Always
+        # emit it (even for a single dynamic part) to guarantee a string.
         if count == 0:
             self._emit(Op.LOAD_CONST, self._add_const(''))
-        elif count == 1:
-            pass  # Already on stack
         else:
             self._emit(Op.STR_INTERP, count)
+
+    def _compile_template_expr(self, expr_text):
+        """Parse and compile a ${...} template expression to bytecode."""
+        try:
+            from epl.lexer import Lexer
+            from epl.parser import Parser
+
+            tokens = Lexer(expr_text).tokenize()
+            expr_node = Parser(tokens)._parse_expression()
+            self._compile_expr(expr_node)
+        except Exception:
+            # On parse failure, leave the original placeholder text intact,
+            # mirroring the interpreter's leave-as-is behaviour.
+            self._emit(Op.LOAD_CONST, self._add_const('${' + expr_text + '}'))
 
     def _compile_binary(self, node):
         from epl import ast_nodes as ast_mod
@@ -1586,6 +1748,14 @@ class BytecodeCompiler:
                     }
                     if op_str in fold_ops and (op_str not in ('/', 'Divide', 'DIVIDE') or rv != 0):
                         result = fold_ops[op_str](lv, rv)
+                        # Mirror _op_div: whole-number division yields an int,
+                        # so folding matches runtime and the interpreter.
+                        if (
+                            op_str in ('/', 'Divide', 'DIVIDE')
+                            and isinstance(result, float)
+                            and result == int(result)
+                        ):
+                            result = int(result)
                         idx = self._add_const(result)
                         self._emit(Op.LOAD_CONST, idx)
                         return
@@ -1852,6 +2022,7 @@ class VM:
             Op.NOT: self._op_not,
             Op.CONCAT: self._op_concat,
             Op.STR_INTERP: self._op_str_interp,
+            Op.INTERP_VAR: self._op_interp_var,
             Op.JUMP: self._op_jump,
             Op.JUMP_IF_FALSE: self._op_jump_if_false,
             Op.JUMP_IF_TRUE: self._op_jump_if_true,
@@ -1997,17 +2168,32 @@ class VM:
                             break
                 except VMError as e:
                     if self.try_stack:
-                        handler_ip = self.try_stack.pop()
+                        depth, handler_ip = self.try_stack.pop()
+                        # Unwind nested call frames back to the one that owns
+                        # the handler, then refresh the loop's frame locals.
+                        del call_stack[depth:]
+                        frame = call_stack[-1]
+                        code = frame.func.code
+                        code_len = len(code)
                         frame.ip = handler_ip
-                        stack.append(str(e))
+                        # Bind a caught value in the interpreter's format so a
+                        # `Catch e` block sees the same string across backends.
+                        stack.append(
+                            f'EPL {getattr(e, "category", "Runtime")} Error '
+                            f'on line {e.line}: {e.message}'
+                        )
                     else:
                         e.with_call_stack(self._capture_call_stack())
                         raise
                 except Exception as e:
                     if self.try_stack:
-                        handler_ip = self.try_stack.pop()
+                        depth, handler_ip = self.try_stack.pop()
+                        del call_stack[depth:]
+                        frame = call_stack[-1]
+                        code = frame.func.code
+                        code_len = len(code)
                         frame.ip = handler_ip
-                        stack.append(str(e))
+                        stack.append(f'EPL Runtime Error on line {inst.line}: {e}')
                     else:
                         raise VMError(
                             str(e), inst.line, call_stack=self._capture_call_stack()
@@ -2037,7 +2223,13 @@ class VM:
         elif name in self._builtins:
             self.stack.append(self._builtins[name])
         else:
-            self.stack.append(None)
+            # Reading an undeclared variable is an error (matches the
+            # interpreter) — catches typos instead of silently yielding nothing.
+            raise VMError(
+                f'Variable "{name}" has not been created yet.',
+                inst.line,
+                category='Name',
+            )
 
     def _op_store_global(self, inst):
         self.globals[inst.arg] = self.stack.pop()
@@ -2060,7 +2252,9 @@ class VM:
     def _op_add(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
         if isinstance(a, str) or isinstance(b, str):
-            self.stack.append(str(a) + str(b))
+            # Concatenation stringifies with EPL semantics (true/false, none,
+            # [a, b] lists, whole floats as ints) — matching the interpreter.
+            self.stack.append(self._format_value(a) + self._format_value(b))
         else:
             self.stack.append(a + b)
 
@@ -2075,7 +2269,7 @@ class VM:
     def _op_div(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
         if b == 0 or b == 0.0:
-            raise VMError('Division by zero', inst.line)
+            raise VMError('Cannot divide by zero.', inst.line)
         result = a / b
         self.stack.append(
             int(result) if isinstance(result, float) and result == int(result) else result
@@ -2148,7 +2342,24 @@ class VM:
         for _ in range(count):
             parts.append(self.stack.pop())
         parts.reverse()
-        self.stack.append(''.join(str(p) for p in parts))
+        # Use _format_value (the PRINT formatter) so interpolated values render
+        # with EPL semantics (true/false, none, ints for whole floats) rather
+        # than Python repr.
+        self.stack.append(''.join(self._format_value(p) for p in parts))
+
+    def _op_interp_var(self, inst):
+        # ($name) interpolation: push the variable's value if it is defined,
+        # otherwise push the literal text ("$name") — matching the interpreter,
+        # which leaves an undefined $name untouched instead of inserting nothing.
+        name, literal = inst.arg
+        if name in self.globals:
+            self.stack.append(self.globals[name])
+        elif name in self.functions:
+            self.stack.append(self.functions[name])
+        elif name in self.classes:
+            self.stack.append(self.classes[name])
+        else:
+            self.stack.append(literal)
 
     # Control flow
     def _op_jump(self, inst):
@@ -2269,7 +2480,14 @@ class VM:
 
     def _op_return(self, inst):
         ret_val = self.stack.pop() if self.stack else None
-        self.call_stack.pop()
+        frame = self.call_stack.pop()
+        # Discard any operands the function left on the stack — e.g. a for-each
+        # iterator abandoned by an early `Return` inside a loop — so they can't
+        # corrupt the caller (which would, say, make an enclosing loop iterate
+        # the wrong collection). Restore the operand stack to the frame's base.
+        base = getattr(frame, 'base_pointer', None)
+        if base is not None and 0 <= base <= len(self.stack):
+            del self.stack[base:]
         self.stack.append(ret_val)
 
     def _op_call_builtin(self, inst):
@@ -2281,7 +2499,7 @@ class VM:
         # Special builtins
         if name == 'to_string':
             val = self.stack.pop()
-            self.stack.append(str(val) if val is not None else '')
+            self.stack.append(self._format_value(val) if val is not None else '')
             return
 
         if name == 'type_cast':
@@ -2362,12 +2580,14 @@ class VM:
             obj[idx] = val
 
     def _op_slice(self, inst):
+        step = self.stack.pop()
         end = self.stack.pop()
         start = self.stack.pop()
         obj = self.stack.pop()
         s = int(start) if start is not None else None
         e = int(end) if end is not None else None
-        self.stack.append(obj[s:e])
+        st = int(step) if step is not None else None
+        self.stack.append(obj[s:e:st])
 
     # Object/Class
     def _op_get_attr(self, inst):
@@ -2378,10 +2598,27 @@ class VM:
                 self.stack.append(obj.attrs[attr])
             else:
                 self.stack.append(None)
-        elif isinstance(obj, dict):
-            self.stack.append(obj.get(attr))
         else:
-            self.stack.append(getattr(obj, attr, None))
+            self.stack.append(self._get_property(obj, attr))
+
+    def _get_property(self, obj, attr):
+        """Property-style (no-paren) access, matching the interpreter:
+        `text.uppercase`, `list.length`, `map.length`, plus dict key access.
+        """
+        # `length` works on strings, lists, and maps.
+        if attr == 'length' and isinstance(obj, (str, list, dict)):
+            return len(obj)
+        if isinstance(obj, str):
+            if attr == 'uppercase':
+                return obj.upper()
+            if attr == 'lowercase':
+                return obj.lower()
+            if attr == 'trim':
+                return obj.strip()
+            return None
+        if isinstance(obj, dict):
+            return obj.get(attr)
+        return getattr(obj, attr, None)
 
     def _op_set_attr(self, inst):
         val = self.stack.pop()
@@ -2563,20 +2800,19 @@ class VM:
 
     # Exception handling
     def _op_setup_try(self, inst):
-        self.try_stack.append(inst.arg)
+        # Record the call-stack depth so a throw from a nested function call
+        # unwinds to the frame that owns this handler.
+        self.try_stack.append((len(self.call_stack), inst.arg))
 
     def _op_pop_try(self, inst):
         if self.try_stack:
             self.try_stack.pop()
 
     def _op_throw(self, inst):
+        # Raise uniformly so the main loop's handler performs cross-frame
+        # unwinding (the Try/Catch may live in a calling function).
         val = self.stack.pop()
-        if self.try_stack:
-            handler_ip = self.try_stack.pop()
-            self.call_stack[-1].ip = handler_ip
-            self.stack.append(val)
-        else:
-            raise VMError(str(val), inst.line)
+        raise VMError(str(val), inst.line)
 
     # ─── Closure opcodes ─────────────────────────────────────
 
@@ -2788,7 +3024,9 @@ class VM:
             return self._type_name(args[0]) if args else 'nothing'
 
         def _to_text(args, line):
-            return str(args[0]) if args else ''
+            # Use the EPL formatter so to_text([1,2]) → "[1, 2]" and booleans →
+            # "true"/"false" (not Python's repr), matching the interpreter.
+            return self._format_value(args[0]) if args else ''
 
         def _to_integer(args, line):
             return int(float(args[0])) if args else 0
@@ -2856,6 +3094,10 @@ class VM:
             return min(args[0]) if len(args) == 1 and isinstance(args[0], list) else min(args)
 
         def _random(args, line):
+            # random(min, max) → integer in [min, max] (matches interpreter);
+            # random() with no args → float in [0, 1).
+            if len(args) >= 2:
+                return _random_mod.randint(int(args[0]), int(args[1]))
             return _random_mod.random()
 
         def _random_int(args, line):
@@ -3081,6 +3323,7 @@ class VM:
             'min': _min,
             'random': _random,
             'random_int': _random_int,
+            'random_integer': _random_int,
             'power': _power,
             # String
             'upper': _upper,
@@ -3214,10 +3457,24 @@ class VM:
             from epl.stdlib import STDLIB_FUNCTIONS, call_stdlib
 
             if name in STDLIB_FUNCTIONS:
-                return call_stdlib(name, args, line)
+                # stdlib returns the interpreter's EPLDict for maps; the VM uses
+                # plain dicts, so normalise at the boundary.
+                return self._unwrap_epl(call_stdlib(name, args, line))
         except ImportError:
             pass
         return None
+
+    def _unwrap_epl(self, val):
+        """Recursively convert interpreter EPLDict values (returned by stdlib
+        functions like csv_read / json parsing) into plain dicts so VM
+        attribute access, formatting, and iteration work on them."""
+        if type(val).__name__ == 'EPLDict' and hasattr(val, 'data'):
+            return {k: self._unwrap_epl(v) for k, v in val.data.items()}
+        if isinstance(val, list):
+            return [self._unwrap_epl(v) for v in val]
+        if isinstance(val, dict):
+            return {k: self._unwrap_epl(v) for k, v in val.items()}
+        return val
 
     def _call_vm_function(self, func, args):
         """Call a compiled function synchronously and return result."""
@@ -3264,9 +3521,9 @@ class VM:
     def _str_method(self, obj, method, args, line):
         if method == 'length':
             return len(obj)
-        if method == 'upper' or method == 'to_upper':
+        if method == 'upper' or method == 'to_upper' or method == 'uppercase':
             return obj.upper()
-        if method == 'lower' or method == 'to_lower':
+        if method == 'lower' or method == 'to_lower' or method == 'lowercase':
             return obj.lower()
         if method == 'trim' or method == 'strip':
             return obj.strip()
@@ -3280,7 +3537,7 @@ class VM:
             return obj.startswith(args[0])
         if method == 'ends_with':
             return obj.endswith(args[0])
-        if method == 'index_of':
+        if method == 'index_of' or method == 'find':
             return obj.find(args[0])
         if method == 'substring':
             return obj[int(args[0]) : int(args[1]) if len(args) > 1 else None]
@@ -3306,6 +3563,21 @@ class VM:
             return obj.rjust(int(args[0]), args[1] if len(args) > 1 else ' ')
         if method == 'pad_right':
             return obj.ljust(int(args[0]), args[1] if len(args) > 1 else ' ')
+        if method == 'to_list':
+            return list(obj)
+        if method == 'is_number':
+            try:
+                float(obj)
+                return True
+            except ValueError:
+                return False
+        if method == 'is_alpha':
+            return obj.isalpha()
+        if method == 'format':
+            result = obj
+            for a in args:
+                result = result.replace('{}', self._format_value(a), 1)
+            return result
         raise VMError(f"Unknown method '{method}' on string", line)
 
     def _list_method(self, obj, method, args, line):
@@ -3329,9 +3601,11 @@ class VM:
         if method == 'index_of':
             return obj.index(args[0]) if args[0] in obj else -1
         if method == 'sort':
-            return sorted(obj)
+            obj.sort()
+            return obj
         if method == 'reverse':
-            return list(reversed(obj))
+            obj.reverse()
+            return obj
         if method == 'join':
             return (args[0] if args else ',').join(str(x) for x in obj)
         if method == 'map':
@@ -3378,7 +3652,7 @@ class VM:
             return list(obj.keys())
         if method == 'values':
             return list(obj.values())
-        if method == 'items':
+        if method == 'items' or method == 'entries':
             return [[k, v] for k, v in obj.items()]
         if method == 'has_key' or method == 'has':
             return args[0] in obj
@@ -3441,12 +3715,13 @@ class VM:
     def _format_value(self, val):
         """Format a value for output."""
         if val is None:
-            return 'none'
+            return 'nothing'
         elif isinstance(val, bool):
             return 'true' if val else 'false'
         elif isinstance(val, float):
-            if val == int(val):
-                return str(int(val))
+            # Preserve float-ness in display (4.0 stays "4.0"), matching the
+            # interpreter. Division returning ints for whole results is handled
+            # separately in _op_div.
             return str(val)
         elif isinstance(val, list):
             return '[' + ', '.join(self._format_value(v) for v in val) + ']'

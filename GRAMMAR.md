@@ -1,6 +1,6 @@
-# EPL Formal Grammar Specification v7.6
+# EPL Formal Grammar Specification v9.7
 
-This document defines the complete formal grammar for the EPL (English Programming Language) v7.6.
+This document defines the complete formal grammar for the EPL (English Programming Language) v9.7.
 The notation uses Extended Backus–Naur Form (EBNF) with the following conventions:
 
 - `"keyword"` — literal keyword (case-insensitive)
@@ -20,9 +20,25 @@ The notation uses Extended Backus–Naur Form (EBNF) with the following conventi
 
 ```ebnf
 NEWLINE      = "\n" | "\r\n" ;
-COMMENT      = "Note:" , { any_char - NEWLINE } , NEWLINE ;
-(* Comments starting with "Note:" are discarded by the lexer *)
+
+(* Four comment forms, all discarded by the lexer / treated as no-ops: *)
+COMMENT      = line_comment | string_comment | block_comment ;
+
+line_comment   = "Note:" , { any_char - NEWLINE } , NEWLINE ;
+                 (* `Note:` (colon) consumes the rest of the line *)
+
+string_comment = ( "Note" | "Comment" ) , STRING ;
+                 (* `Note "…"` and its alias `Comment "…"` — the string form,
+                    commonly used as a module header / docstring *)
+
+block_comment  = "NoteBlock" , { any } , "End" ;
+                 (* multi-line block comment, terminated by End *)
 ```
+
+> **Note on `Note`:** the bare word `Note` is only a comment when immediately
+> followed by `:` (line form) or a string literal (string form). The string
+> form was added in v9.x so the bundled standard-library modules can carry
+> `Note "…"` headers; before that they failed to parse.
 
 ### 1.2 Literals
 
@@ -92,7 +108,7 @@ Map  Import  Use  Python  Constant  Module  Export  Yields
 Async  Await
 
 (* Misc *)
-Wait  Seconds  Exit  NoteBlock
+Wait  Seconds  Exit  NoteBlock  Comment
 
 (* Arithmetic helpers *)
 Increase  Decrease  Add  Sort  Reverse  Multiply  Divide  Mod
@@ -398,8 +414,22 @@ reverse_stmt     = "Reverse" , IDENTIFIER ;
 
 list_literal     = "[" , [ expression , { "," , expression } ] , "]" ;
 
-map_literal      = "Map" , "with" , IDENTIFIER , "=" , expression ,
-                   { "and" , IDENTIFIER , "=" , expression } ;
+map_literal      = "Map" , "with" , [ NEWLINE ] ,
+                   IDENTIFIER , "=" , expression ,
+                   { [ NEWLINE ] , "and" , [ NEWLINE ] ,
+                     IDENTIFIER , "=" , expression } ;
+(* Map literals may span multiple lines: newlines are tolerated around the
+   "and" separator (both trailing-"and" and leading-"and" styles). A
+   single-line map's terminating newline is never swallowed. *)
+```
+
+Example (both forms are equivalent):
+```
+Create m equal to Map with a = 1 and b = 2
+
+Create m equal to Map with
+    a = 1
+    and b = 2
 ```
 
 ### 2.10 File I/O
@@ -420,6 +450,14 @@ read_expr        = "Read" , "file" , expression ;
 module_stmt      = import_stmt | use_stmt | module_def | export_stmt ;
 
 import_stmt      = "Import" , STRING , [ "as" , IDENTIFIER ] ;
+(* `Import "name"` resolves, in order: a user .epl module, then a bundled
+   standard-library module under epl/stdlib/ (json, encoding, net, os, regex,
+   sql). Without "as", the module's functions are bound as bare names
+   (`Import "encoding"` → `to_base64(…)`); with "as A" they are namespaced
+   (`Import "encoding" as A` → `A.to_base64(…)`).
+   Caveat: `json` is itself a reserved token, so member access `json.parse`
+   cannot be lexed — import json bare and call `parse(…)`, or alias it:
+   `Import "json" as J` then `J.parse(…)`. *)
 
 use_stmt         = "Use" , "python" , STRING , [ "as" , IDENTIFIER ] ;
 
@@ -537,7 +575,7 @@ page_def         = "Page" , STRING ,
                    { html_element } ,
                    "End" ;
 
-html_element     = "Heading" , STRING
+html_element     = ( "Heading" , STRING
                  | "SubHeading" , STRING
                  | "Text" , STRING
                  | "Link" , STRING , [ "to" , STRING ]
@@ -545,7 +583,18 @@ html_element     = "Heading" , STRING
                  | "Button" , STRING , [ "does" , expression ]
                  | "Form" , [ "action" , STRING ] , { html_element } , "End"
                  | "Input" , STRING , [ "placeholder" , STRING ]
-                 | "List" , expression ;
+                 | "Div" , { html_element } , "End"
+                 | "List" , expression ) , { element_attr } ;
+
+(* v9.x web DSL: most elements accept trailing styling/attributes. *)
+element_attr     = "with" , "style" , STRING        (* named style reference   *)
+                 | "style" , STRING                  (* inline CSS              *)
+                 | "class" , STRING
+                 | "id" , STRING
+                 | attr_name , STRING ;              (* safe generic attribute:
+                                                        class/id/style plus
+                                                        aria-*/data-* etc.      *)
+(* `on*` event attributes are rejected — use a native event block instead. *)
 
 send_stmt        = "Send" , [ "json" | "text" ] , expression ;
 
@@ -646,3 +695,13 @@ Print age
 - The period `.` serves dual purpose: property access operator and optional statement terminator. The parser disambiguates based on context.
 - English comparison phrases (e.g., "is greater than") are resolved by the lexer into standard comparison tokens.
 - The `and` keyword is context-sensitive: it acts as a logical operator in expressions and as a separator in parameter/argument lists.
+- **Soft keywords:** a set of words that are reserved tokens but read naturally
+  as names are accepted in identifier positions (function names, parameter
+  names, and member-access names) — including `match`, `fetch`, `delete`,
+  `where`, and `port`. They are only ever dispatched as statements by token
+  *type*, so allowing them as names does not change statement parsing. This is
+  what lets the bundled stdlib expose `regex.match`, `net.fetch`, `sql.delete`,
+  and `sql … where …`.
+- **Type words as names:** because type tokens such as `text` are heavily
+  overloaded, they are *not* soft keywords. Stdlib wrappers that would
+  otherwise need a parameter literally named `text` use `value` instead.

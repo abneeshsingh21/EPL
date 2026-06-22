@@ -1,6 +1,8 @@
-# Web Development with EPL
+# Web Guide
 
-Build web apps with EPL's native `Create WebApp` runtime. This is the authoritative served web path used by `epl serve`, deploy generation, and the maintained starter templates.
+Build web apps with EPL's native `Create WebApp` runtime. This is the authoritative served web path used by `epl serve`, deployment generation, and maintained starter templates.
+
+---
 
 ## Quick Start
 
@@ -18,6 +20,8 @@ End
 Route "/api/health" responds with
     Send json Map with status = "ok" and service = "demo"
 End
+
+Start app on port 8000
 ```
 
 ```bash
@@ -25,6 +29,10 @@ epl serve app.epl
 epl serve app.epl --port 3000
 epl serve app.epl --dev
 ```
+
+When `epl serve` hosts the file, the CLI can control the port. `Start app on port ...` is useful in direct-run standalone programs.
+
+---
 
 ## Starter Templates
 
@@ -37,9 +45,13 @@ epl new myui --template frontend
 epl new myapp --template fullstack
 ```
 
+Review generated starters before production deployment. They are scaffolds, not a substitute for your security and operations policy.
+
+---
+
 ## Native Route Syntax
 
-### Page route
+Page route:
 
 ```epl
 Route "/" shows
@@ -51,7 +63,7 @@ Route "/" shows
 End
 ```
 
-### JSON route
+JSON route:
 
 ```epl
 Route "/api/users" responds with
@@ -60,31 +72,45 @@ Route "/api/users" responds with
 End
 ```
 
+Path parameters:
+
+```epl
+Route "/users/:name" responds with
+    Send json Map with name = request_params.name
+End
+```
+
+---
+
 ## Request Context Variables
 
-Inside native WebApp routes, EPL now exposes request context variables directly:
+Inside native WebApp routes, EPL exposes:
 
-- `request_data`: POST/PUT/DELETE body as a map
-- `request_params`: merged query parameters and path parameters
-- `request_headers`: request headers as a map
-- `request_method`: HTTP verb
-- `request_path`: normalized path
-- `request`: combined request object map
-- `session_id`: current session identifier when present
+| Variable | Description |
+| --- | --- |
+| `request_data` | Parsed body map for JSON/form requests |
+| `request_params` | Merged path and query parameters |
+| `request_headers` | Request headers map |
+| `request_method` | HTTP method |
+| `request_path` | Normalized request path |
+| `request` | Combined request object |
+| `session_id` | Current session identifier when present |
 
 Example:
 
 ```epl
 Route "/users/:name" responds with
     name = request_params.name
-    role = request_data.get("role")
+    role = request_data.get("role", "guest")
     Send json Map with name = name and role = role and path = request_path
 End
 ```
 
+---
+
 ## Dynamic Route State
 
-You can define variables before `Send json` and reuse them in page text with `$variable` templates.
+Variables defined before `Page` or `Send json` can be used inside the route.
 
 ```epl
 Route "/hello/:name" shows
@@ -97,66 +123,147 @@ Route "/hello/:name" shows
 End
 ```
 
-## Database Integration
+---
 
-Use the supported `epl-db` facade for application data:
+## Page Elements
 
 ```epl
-Import "epl-db"
-
-db = open(":memory:")
-create_table(db, "notes", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and title = "TEXT NOT NULL")
-
-Route "/api/notes" responds with
-    Send json Map with notes = query(db, "SELECT id, title FROM notes ORDER BY id")
+Page "Dashboard"
+    Heading "Dashboard"
+    Subheading "Today"
+    Text "Status: $status"
+    Link "Home" to "/"
+    Button "Refresh" class "primary"
+    Div class "panel"
+        Text "Nested content"
+    End
 End
 ```
+
+Supported HTML DSL areas include headings, text, links, images, buttons, forms, structural elements, styles, event helpers, and raw HTML. Use `Raw HTML` only for trusted static markup.
+
+```epl
+Page "Trusted Markup"
+    Raw HTML "<strong>Trusted static markup</strong>"
+End
+```
+
+Never pass user-controlled input into `Raw HTML`.
+
+---
+
+## Database Integration
+
+Use built-in SQLite helpers directly for the stable path.
+
+```epl
+Create WebApp called app
+
+db = db_open("notes.db")
+db_execute(db, "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
+
+Route "/api/notes" responds with
+    notes = db_query(db, "SELECT id, title FROM notes ORDER BY id")
+    Send json Map with ok = True and notes = notes
+End
+
+Route "/api/notes/create" responds with
+    title = trim(request_data.get("title", ""))
+
+    If length(title) == 0 Then
+        Send json Map with ok = False and error = "Title is required"
+    Otherwise
+        db_execute(db, "INSERT INTO notes (title) VALUES (?)", [title])
+        Send json Map with ok = True
+    End
+End
+```
+
+`db_create_table` accepts standard column constraints (`INTEGER PRIMARY KEY`, `TEXT NOT NULL`, `VARCHAR(255)`, …), so it is fine for most tables. For foreign keys, indexes, and `DEFAULT`/`CHECK` clauses, use versioned SQL migrations through `db_execute`. See the [database guide](database.md) for the full boundary.
+
+---
 
 ## Authentication Helpers
 
 EPL exposes auth helpers directly in the runtime:
 
 ```epl
-hash = auth_hash_password("secret")
-ok = auth_verify_password("secret", hash)
+password_hash = auth_hash_password("secret-password")
+ok = auth_verify_password("secret-password", password_hash)
 token = auth_generate_token(32)
 ```
 
-The `auth` starter template combines these helpers with `epl-db` and request context bindings for login/register APIs.
-
-## Chatbot and AI Apps
-
-For chatbot-style apps, use the native WebApp DSL for HTTP routes and the Python bridge for model access:
+JWT pattern:
 
 ```epl
-Import "epl.ai" As ai
+secret = env_get("JWT_SECRET", "")
+payload = Map with user_id = 123 and role = "admin"
+token = auth_jwt_create(payload, secret, 3600)
+verified = auth_jwt_verify(token, secret)
+```
+
+Production requirements:
+
+- keep secrets out of source
+- require TLS at the proxy/load balancer
+- set secure cookie/session policy
+- rate-limit login and token endpoints
+- log security events without logging passwords or tokens
+
+---
+
+## Chatbot And AI Apps
+
+Use the native WebApp DSL for HTTP routes and the Python bridge or AI module for model access.
+
+```epl
+Import "epl.ai" as ai
 
 Route "/api/chat" responds with
-    messages = [Map with role = "user" and content = request_data.get("message")]
-    Send json Map with reply = ai.chat(messages)
+    message = request_data.get("message", "")
+    messages = [Map with role = "user" and content = message]
+
+    Try
+        reply = ai.chat(messages)
+        Send json Map with ok = True and reply = reply
+    Catch error
+        Send json Map with ok = False and error = "AI backend unavailable"
+    End
 End
 ```
 
-If no local/cloud model backend is configured, wrap the call in `Try` / `Catch` and return a fallback response. The `chatbot` starter template does this for you.
+Production AI routes need timeouts, request limits, audit logs, and explicit fallback behavior.
 
-## Supported Facade Package
+---
 
-If you prefer helper wrappers around the lower-level request/response builtins, install:
+## WebSocket Helpers
 
-```bash
-epl install epl-web
+```epl
+server = ws_server_create(8090)
+
+Function connected takes client_id
+    Say "Connected: " + client_id
+End
+
+Function received takes client_id, message
+    ws_broadcast(server, client_id + ": " + message)
+End
+
+ws_on_connect(server, connected)
+ws_on_message(server, received)
+ws_server_start(server)
 ```
 
-`epl-web` is a supported helper facade. The native `Create WebApp` DSL remains the authoritative served runtime.
+Validate WebSocket behavior through your reverse proxy and load balancer before production use.
 
-## Adding Observability
+---
 
-Attach health checks, readiness probes, and Prometheus metrics to any web app:
+## Observability
 
 ```epl
 Create WebApp called app
 
-Import "epl.observability" As obs
+Import "epl.observability" as obs
 obs.attach(app)
 
 Route "/" shows
@@ -168,16 +275,19 @@ End
 Start app on port 8000
 ```
 
-This auto-registers:
-- `/_health` — JSON health status (uptime, app name, version)
-- `/_ready` — Readiness probe (toggleable via `obs.set_ready(true/false, "reason")`)
-- `/_metrics` — Prometheus-format metrics (request count, error count, latency histogram, in-flight requests)
+When the observability module is available, it can register:
 
-Use `obs.start_request()` and `obs.record_request(duration, error)` for per-route tracking.
+- `/_health`
+- `/_ready`
+- `/_metrics`
+
+Use route-level timing and structured logs for production workflows.
+
+---
 
 ## Deployment
 
-### Local Deployment
+Local generation:
 
 ```bash
 epl deploy docker
@@ -186,15 +296,13 @@ epl deploy systemd
 epl deploy all
 ```
 
-### Kubernetes
+Kubernetes:
 
 ```bash
 epl deploy k8s myapp.epl --app-name my-service --image my-registry/my-service:1.0 --port 8000 --host my-service.example.com --tls --replicas 3
 ```
 
-Generates: Namespace, ConfigMap, Deployment (with resource limits and health probes), Service, Ingress (with TLS), and HorizontalPodAutoscaler.
-
-### Cloud Providers
+Cloud providers:
 
 ```bash
 epl deploy aws myapp.epl --image my-service:latest --region us-east-1 --port 8000
@@ -202,8 +310,18 @@ epl deploy gcp myapp.epl --image my-service:latest --region us-central1 --port 8
 epl deploy azure myapp.epl --image my-service:latest --region eastus --port 8000
 ```
 
-### Cloudflare Workers
+Generated deployment artifacts should be reviewed against your organization's runtime, secret, ingress, logging, and rollout policies.
 
-EPL supports edge deployment via Cloudflare Workers. See `wrangler.jsonc` for configuration.
+---
 
-Generated deployment artifacts are validated in CI through Docker Compose, WSGI, and ASGI reference app smoke tests.
+## Enterprise Web Checklist
+
+- Validate all request data before use.
+- Use `Send json` for API responses.
+- Avoid raw exception messages in user-facing responses.
+- Keep secrets in environment variables or a secret manager.
+- Use parameterized SQL for every database value.
+- Review proxy trust, forwarded headers, TLS, and rate-limiting behavior.
+- Test `GET`, `POST`, `HEAD`, `OPTIONS`, and error paths for every public route.
+- Add health, readiness, and metrics endpoints for deployed services.
+- Run smoke tests against the exact WSGI/ASGI/deployment entrypoint you ship.

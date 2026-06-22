@@ -50,7 +50,7 @@ Route "/api/users" responds with
 End
 
 Route "/health" responds with
-    Send json Map with status = "healthy" and version = "9.7.0"
+    Send json Map with status = "healthy" and version = "9.8.0"
 End
 ```
 
@@ -197,13 +197,17 @@ EPL is a multi-backend language with a unified frontend:
 
 | Target | Command | Output |
 |--------|---------|--------|
-| Interpreter | `epl run app.epl` | Direct execution |
-| Bytecode VM | `epl vm app.epl` | Stack-based VM |
+| Bytecode VM (default) | `epl run app.epl` | Stack-based VM |
+| Interpreter | `epl run --interpret app.epl` | Tree-walk |
 | Native Binary | `epl build app.epl` | LLVM → `.exe` / ELF |
 | WebAssembly | `epl wasm app.epl` | `.wasm` module |
 | JavaScript | `epl js app.epl` | Browser/Node.js |
 | Kotlin | `epl kotlin app.epl` | JVM / Android |
 | Python | `epl python app.epl` | `.py` transpile |
+
+The interpreter and bytecode VM are held to **byte-for-byte output parity** by a
+dedicated harness (`tests/parity_check.py`) that diffs every example across both
+backends — so `epl run` and `epl run --interpret` behave identically.
 
 ---
 
