@@ -1286,10 +1286,15 @@ def _db_create_table(conn_id, table, columns):
             'REAL',
             'BLOB',
             'NUMERIC',
+            'DECIMAL',
+            'FLOAT',
+            'DOUBLE',
             'VARCHAR',
+            'CHAR',
             'BOOLEAN',
             'DATE',
             'DATETIME',
+            'TIMESTAMP',
             'PRIMARY KEY',
             'NOT NULL',
             'UNIQUE',
@@ -1313,13 +1318,22 @@ def _db_create_table(conn_id, table, columns):
         for col_name in cols.keys():
             if not _IDENT_RE.match(col_name):
                 raise RuntimeError(f'Invalid column name: {col_name}')
+        # Multi-word constraints like "PRIMARY KEY" and "NOT NULL" are stored as
+        # phrases in _SAFE_TYPES, but validation runs word-by-word — so check
+        # against the individual words those phrases decompose into.
+        _SAFE_TYPE_WORDS = frozenset(word for entry in _SAFE_TYPES for word in entry.split())
         for col_name, typ in cols.items():
             # Validate each word in the column type against safe types
             words = str(typ).upper().split()
             for w in words:
-                # Allow type names, numbers (for VARCHAR(255)), and parenthesized values
-                cleaned = w.strip('()')
-                if cleaned and not cleaned.isdigit() and cleaned not in _SAFE_TYPES:
+                # Allow parameterized types like VARCHAR(255) or DECIMAL(10,2):
+                # the base must be a safe type and the args must be digits/commas.
+                base, _, rest = w.partition('(')
+                if rest:
+                    if not rest.endswith(')') or not _re.match(r'^\d+(\s*,\s*\d+)*$', rest[:-1]):
+                        raise RuntimeError(f'Invalid column type component: {w}')
+                cleaned = base.strip('()')
+                if cleaned and not cleaned.isdigit() and cleaned not in _SAFE_TYPE_WORDS:
                     raise RuntimeError(f'Invalid column type component: {w}')
         col_defs = ', '.join(f'"{name}" {typ}' for name, typ in cols.items())
     with _db_connection_lock(conn_id):

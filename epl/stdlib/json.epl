@@ -1,8 +1,8 @@
 Note "EPL Standard Library: json — JSON operations"
 Note "Parse, stringify, pretty-print, validate, merge, query"
 
-Function parse takes text
-    Return json_parse(text)
+Function parse takes value
+    Return json_parse(value)
 End
 
 Function stringify takes value
@@ -13,8 +13,8 @@ Function pretty takes value
     Return json_pretty(value)
 End
 
-Function is_valid takes text
-    Return json_valid(text)
+Function is_valid takes value
+    Return json_valid(value)
 End
 
 Function merge takes obj1 and obj2

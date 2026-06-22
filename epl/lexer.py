@@ -53,9 +53,20 @@ class Lexer:
                 self._skip_comment()
                 continue
 
-            # Comments: Note: ...
+            # Comments: `Note: ...` (colon form) or `Note "..."` (string form,
+            # mirroring the `Comment "..."` alias). The string form is what the
+            # bundled stdlib modules use for their headers; without it those
+            # modules fail to parse and become unimportable.
             if ch.lower() == 'n' and self._match_word('note'):
-                if self.pos + 4 < len(self.source) and self.source[self.pos + 4] == ':':
+                after = self.pos + 4  # index just past the word "note"
+                if after < len(self.source) and self.source[after] == ':':
+                    self._skip_comment()
+                    continue
+                # `Note "..."` — allow optional spaces/tabs before the string.
+                probe = after
+                while probe < len(self.source) and self.source[probe] in ' \t':
+                    probe += 1
+                if probe < len(self.source) and self.source[probe] == '"':
                     self._skip_comment()
                     continue
 

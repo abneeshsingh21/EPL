@@ -168,6 +168,15 @@ class Parser:
         TokenType.DRAW,
         TokenType.FILL,
         TokenType.STROKE,
+        # v9.8.0: words that are reserved tokens but read naturally as
+        # function/parameter/member names. Required by the bundled stdlib
+        # wrappers (regex.match, net.fetch, sql.delete, sql ... where ...).
+        # These are only ever dispatched as statements by token *type*, so
+        # allowing them in identifier positions does not affect statements.
+        TokenType.MATCH,
+        TokenType.FETCH,
+        TokenType.DELETE_KW,
+        TokenType.WHERE,
     )
 
     def _expect_identifier(self, error_msg: str = None) -> Token:
@@ -1929,6 +1938,17 @@ class Parser:
                 return ast.FunctionCall(tok.value, args, tok.line)
             return ast.Identifier(tok.value, tok.line)
 
+        # Guidance for a common mistake: `Create x equal to Create WebApp ...`.
+        # `Create WebApp` is a statement, not an expression, so it can't follow
+        # "equal to". Point the user at the correct statement form.
+        if tok.type == TokenType.CREATE and self._peek().type == TokenType.WEBAPP:
+            raise ParserError(
+                '"Create WebApp" is a statement, not a value, so it cannot be '
+                'assigned with "equal to". Write it on its own line instead, '
+                'naming the app directly — e.g. `Create WebApp called app`.',
+                tok.line,
+            )
+
         raise ParserError(
             f'Expected a value or expression, but found "{tok.value}" ({tok.type.name}).', tok.line
         )
@@ -2184,6 +2204,8 @@ class Parser:
         self._advance()  # consume MAP
 
         self._expect(TokenType.WITH, 'Expected "with" after "Map".')
+        # Allow the first pair to start on the next line (multi-line map literal).
+        self._skip_newlines()
 
         pairs = []
         # Parse first pair: key = value
@@ -2192,9 +2214,18 @@ class Parser:
         value = self._parse_comparison()  # use comparison to avoid consuming 'and'
         pairs.append((key_tok.value, value))
 
-        # Parse remaining pairs: and key = value
-        while self._match(TokenType.AND):
+        # Parse remaining pairs: "and key = value". Tolerate newlines around the
+        # "and" so map literals can span multiple lines, but never swallow the
+        # statement-terminating newline of a single-line map: only skip newlines
+        # when a continuation "and" actually follows, otherwise rewind.
+        while True:
+            saved = self.pos
+            self._skip_newlines()
+            if not self._match(TokenType.AND):
+                self.pos = saved
+                break
             self._advance()  # consume AND
+            self._skip_newlines()  # allow "and" at end of line, key on the next
             key_tok = self._expect_identifier('Expected key name after "and".')
             self._expect(TokenType.OP_ASSIGN, 'Expected "=" after key name.')
             value = self._parse_comparison()

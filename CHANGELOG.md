@@ -45,6 +45,34 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
   file and the current directory live on different drives. The display path now
   degrades gracefully to an absolute path via a new `_safe_relpath()` helper
   (the value is only ever shown to the user, never used for resolution).
+- **Bundled stdlib modules are importable again:** every shipped module
+  (`json`, `encoding`, `net`, `os`, `regex`, `sql`) failed to parse — and was
+  therefore impossible to `Import` — because they use the `Note "…"` comment
+  form (now accepted by the lexer alongside `Note:`) and natural wrapper names
+  that collide with reserved words. `match`, `fetch`, `delete`, and `where` are
+  now usable as function/parameter/member names. (`json` is itself a reserved
+  type token, so that module must be imported with an alias: `Import "json" as
+  J`.) Regression tests parse all six modules and exercise import + call.
+- **`db_create_table` accepts standard column constraints:** the type validator
+  split each definition into single words but compared them against multi-word
+  phrases (`PRIMARY KEY`, `NOT NULL`), so legitimate types like
+  `INTEGER PRIMARY KEY` and `TEXT NOT NULL` were rejected. It now validates
+  against the individual constraint words and properly handles parameterized
+  types (`VARCHAR(255)`, `DECIMAL(10,2)`), while still blocking SQL injection.
+  Also adds `DECIMAL`, `FLOAT`, `DOUBLE`, `CHAR`, and `TIMESTAMP` to the
+  allow-list.
+- **`Map with` literals can span multiple lines:** map pairs were parsed as a
+  single logical line, so breaking `Map with a = 1 and b = 2` across lines was a
+  syntax error. Newlines are now tolerated around the `and` separator (both
+  trailing `and` and leading `and` styles), without ever swallowing the
+  statement terminator of a single-line map.
+
+### Changed
+
+- **Clearer error for `Create WebApp` misuse:** `Create app equal to Create
+  WebApp …` previously failed with an opaque `Expected a value or expression`.
+  It now explains that `Create WebApp` is a statement, not a value, and points
+  to the correct form: `Create WebApp called app`.
 
 ---
 
