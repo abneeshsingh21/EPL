@@ -466,6 +466,7 @@ BUILTINS = {
     'type_of',
     'to_integer',
     'to_text',
+    'to_string',
     'to_decimal',
     'to_number',
     'to_boolean',
@@ -475,6 +476,7 @@ BUILTINS = {
     'max',
     'min',
     'random',
+    'random_integer',
     'random_seed',
     'uppercase',
     'lowercase',
@@ -1185,7 +1187,7 @@ class Interpreter:
             except (ValueError, TypeError):
                 raise EPLRuntimeError('Cannot convert to number.', line) from None
 
-        if name == 'to_text':
+        if name == 'to_text' or name == 'to_string':
             return self._format_value(args[0]) if len(args) == 1 else ''
 
         if name == 'to_boolean':
@@ -1239,10 +1241,12 @@ class Interpreter:
                 raise EPLRuntimeError('min() requires at least 1 argument.', line)
             return min(args)
 
-        if name == 'random':
+        if name == 'random' or name == 'random_integer':
             if len(args) == 2:
                 return _random.randint(int(args[0]), int(args[1]))
-            raise EPLRuntimeError('random() takes 2 arguments (min, max).', line)
+            raise EPLRuntimeError(
+                f'{name}() takes 2 arguments (min, max).', line
+            )
 
         if name == 'random_seed':
             if len(args) != 1:

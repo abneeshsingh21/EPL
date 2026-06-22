@@ -3295,6 +3295,7 @@ class VM:
             'min': _min,
             'random': _random,
             'random_int': _random_int,
+            'random_integer': _random_int,
             'power': _power,
             # String
             'upper': _upper,

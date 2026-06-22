@@ -201,6 +201,14 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
         vm = run_vm('Print to_text([1, 2, 3])\nPrint to_text(1 == 1)')
         self.assertEqual(vm.output_lines, ['[1, 2, 3]', 'true'])
 
+    def test_to_string_alias(self):
+        vm = run_vm('Print to_string(42)\nPrint to_string([1, 2])')
+        self.assertEqual(vm.output_lines, ['42', '[1, 2]'])
+
+    def test_random_integer_alias_in_range(self):
+        vm = run_vm('r = random_integer(1, 6)\nPrint r >= 1 and r <= 6')
+        self.assertEqual(vm.output_lines, ['true'])
+
     def test_random_two_args_is_int_in_range(self):
         vm = run_vm('r = random(1, 100)\nPrint r >= 1 and r <= 100')
         self.assertEqual(vm.output_lines, ['true'])

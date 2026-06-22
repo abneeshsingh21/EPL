@@ -27,6 +27,12 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **`to_string` and `random_integer` work on both backends:** the interpreter
+  rejected `to_string(x)` and `random_integer(min, max)` (which the bytecode VM
+  already accepted), so the same program behaved differently depending on the
+  runner. Both are now recognised builtins in the interpreter (`to_string`
+  aliases `to_text`; `random_integer` aliases `random`), and the VM gained the
+  `random_integer` spelling too.
 - **Maps returned by stdlib functions work under the bytecode VM:** functions
   like `csv_read` (and JSON parsing) return the interpreter's map type, which
   the VM didn't recognise — so `row.Salary` returned `nothing` (then crashed in
