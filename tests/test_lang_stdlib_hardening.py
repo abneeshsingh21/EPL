@@ -81,6 +81,14 @@ class TestStdlibModuleImports:
         # Should not raise — previously these all failed to parse.
         parse_epl(source)
 
+    @pytest.mark.parametrize('module', MODULES)
+    def test_module_imports_at_runtime(self, module):
+        """Each module must actually execute its `Import` (covers net/os too)."""
+        # `json` is a reserved token, so it can only be imported via an alias.
+        stmt = f'Import "{module}" as M' if module == 'json' else f'Import "{module}"'
+        out = run_epl(f'{stmt}\nSay "imported"\n')
+        assert out == ['imported']
+
     def test_regex_match_keyword_function_name(self):
         """`match` is a reserved token but must work as a wrapper function."""
         out = run_epl('Import "regex" as RE\nSay RE.match("[0-9]+", "123abc")\n')
