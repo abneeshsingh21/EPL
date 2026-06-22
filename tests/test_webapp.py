@@ -24,28 +24,51 @@ def _pick_free_port() -> int:
     return port
 
 
-def _wait_for_server(base_url: str, timeout: float = 30.0) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            with urlopen(f'{base_url}/_health', timeout=2):
-                return
-        except Exception:
-            time.sleep(0.3)
-    raise AssertionError(f'Timed out waiting for To-Do app at {base_url}')
-
-
 def _stop_process(proc: subprocess.Popen[str]) -> str:
-    if proc.poll() is None:
-        proc.terminate()
+    """Terminate the server and return its merged stdout/stderr (idempotent)."""
+    try:
+        if proc.poll() is None:
+            proc.terminate()
         try:
             stdout, _ = proc.communicate(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
             stdout, _ = proc.communicate(timeout=5)
         return stdout or ''
-    stdout, _ = proc.communicate(timeout=5)
-    return stdout or ''
+    except ValueError:
+        # communicate() was already called once; its streams are closed.
+        return ''
+
+
+def _wait_for_server(proc: subprocess.Popen[str], base_url: str, timeout: float = 60.0) -> None:
+    """Poll the health endpoint until the server answers, or fail with context.
+
+    Fails fast (with the server's captured output) if the process exits early,
+    instead of blindly waiting out the whole timeout — and includes that output
+    on a genuine timeout so CI failures are diagnosable rather than opaque.
+    """
+    # Monotonic clock: a wall-clock (NTP) step mid-wait must not shorten or
+    # extend the deadline and flake the timeout.
+    deadline = time.monotonic() + timeout
+    last_err: Exception | None = None
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            out = _stop_process(proc)
+            raise AssertionError(
+                f'To-Do app exited early (code {proc.returncode}) before serving {base_url}.\n'
+                f'--- server output ---\n{out}'
+            )
+        try:
+            with urlopen(f'{base_url}/_health', timeout=2):
+                return
+        except Exception as exc:
+            last_err = exc
+            time.sleep(0.3)
+    out = _stop_process(proc)
+    raise AssertionError(
+        f'Timed out after {int(timeout)}s waiting for To-Do app at {base_url} '
+        f'(last error: {last_err!r}).\n--- server output ---\n{out}'
+    )
 
 
 def test_todo_webapp_flow_over_http():
@@ -75,7 +98,7 @@ def test_todo_webapp_flow_over_http():
             stderr=subprocess.STDOUT,
             text=True,
         )
-        _wait_for_server(base)
+        _wait_for_server(proc, base)
 
         resp = urlopen(f'{base}/', timeout=5)
         html = resp.read().decode('utf-8')

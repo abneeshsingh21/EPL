@@ -10,8 +10,10 @@ Production-grade web server with:
   - WebSocket support via ASGI
 """
 
+import html as _html
 import io
 import json
+import logging
 import os
 import signal
 import threading
@@ -21,6 +23,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
 from epl import _debug_log
+
+_logger = logging.getLogger('epl.wsgi')
 
 # ═══════════════════════════════════════════════════════════
 #  Request / Response Objects
@@ -155,6 +159,9 @@ class EPLWSGIApp:
         self.error_handlers = {}  # status_code → handler
         self.static_dir = None
         self.static_prefix = '/static/'
+        # When True, the 500 page echoes the (escaped) exception text. Off by
+        # default so production never leaks internals; opt in for local dev.
+        self.debug = False
 
     def route(self, path, methods=None):
         """Decorator to register a route handler."""
@@ -202,9 +209,14 @@ class EPLWSGIApp:
         return pattern, param_names
 
     def _match_route(self, method, path):
-        """Find matching route for a request."""
+        """Find matching route for a request.
+
+        HEAD is routed as GET (RFC 9110 §9.3.2): a HEAD request must resolve to
+        the same handler as the equivalent GET, with the body suppressed later.
+        """
+        candidate_methods = ['GET'] if method == 'HEAD' else []
         for route_method, pattern, param_names, handler in self.routes:
-            if route_method == method or route_method == '*':
+            if route_method == method or route_method in candidate_methods or route_method == '*':
                 m = pattern.match(path)
                 if m:
                     return handler, m.groupdict()
@@ -233,7 +245,9 @@ class EPLWSGIApp:
 
         # Static files
         if self.static_dir and path.startswith(self.static_prefix):
-            return self._serve_static(path, environ, start_response)
+            # For HEAD, _serve_static emits identical headers (incl. the
+            # stat-derived Content-Length) but skips reading the file body.
+            return self._serve_static(path, environ, start_response, include_body=method != 'HEAD')
 
         # Route matching
         handler, params = self._match_route(method, path)
@@ -262,21 +276,39 @@ class EPLWSGIApp:
                     response._body = '<h1>404 Not Found</h1>'
 
         except Exception as e:
+            # Log the full detail server-side; never leak it to the client.
+            _logger.exception('Unhandled error processing %s %s', method, path)
             error_handler = self.error_handlers.get(500)
             if error_handler:
                 response = error_handler(request, e)
             else:
                 response.status = 500
-                response._body = f'<h1>500 Internal Server Error</h1><p>{e}</p>'
+                if self.debug:
+                    response._body = (
+                        f'<h1>500 Internal Server Error</h1><pre>{_html.escape(str(e))}</pre>'
+                    )
+                else:
+                    response._body = (
+                        '<h1>500 Internal Server Error</h1>'
+                        '<p>The server encountered an internal error and could not '
+                        'complete your request.</p>'
+                    )
 
         # Send response
         status_line = f'{response.status} {self._status_text(response.status)}'
         response_headers = response.get_headers()
         start_response(status_line, response_headers)
+        # HEAD must carry identical headers (incl. Content-Length) but no body.
+        if method == 'HEAD':
+            return [b'']
         return [response.body]
 
-    def _serve_static(self, path, environ, start_response):
-        """Serve a static file with caching headers."""
+    def _serve_static(self, path, environ, start_response, include_body=True):
+        """Serve a static file with caching headers.
+
+        ``include_body=False`` (HEAD) sends the same status and headers —
+        including the stat-derived ``Content-Length`` — without reading the file.
+        """
         import mimetypes
 
         relative = path[len(self.static_prefix) :]
@@ -299,6 +331,8 @@ class EPLWSGIApp:
             ('Cache-Control', 'public, max-age=3600'),
         ]
         start_response('200 OK', headers)
+        if not include_body:
+            return [b'']
         with open(full_path, 'rb') as f:
             return [f.read()]
 
@@ -504,8 +538,12 @@ class _WSGIRequestHandler(BaseHTTPRequestHandler):
         for name, value in response_headers_list[0]:
             self.send_header(name, value)
         self.end_headers()
+        # RFC 9110: a response to HEAD must not include a message body, even if
+        # the app returned one. Headers (incl. Content-Length) are still sent.
+        is_head = self.command == 'HEAD'
         for chunk in body_parts:
-            self.wfile.write(chunk)
+            if not is_head:
+                self.wfile.write(chunk)
 
     do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = do_HEAD = do_OPTIONS = lambda self: (
         self.do_request()

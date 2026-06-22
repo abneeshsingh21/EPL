@@ -80,7 +80,11 @@ def rewrite_links(html: str) -> str:
 def main():
     out_dir = os.path.join(HERE, 'dist')
     if '--out' in sys.argv:
-        out_dir = os.path.abspath(sys.argv[sys.argv.index('--out') + 1])
+        idx = sys.argv.index('--out')
+        if idx + 1 >= len(sys.argv):
+            print('Error: --out requires a directory argument', file=sys.stderr)
+            return 2
+        out_dir = os.path.abspath(sys.argv[idx + 1])
     os.makedirs(out_dir, exist_ok=True)
 
     port = _free_port()

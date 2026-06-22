@@ -420,10 +420,24 @@ class RedisStoreBackend(StoreBackend):
 
     def store_remove(self, collection, index):
         key = self._key(collection)
+        # Match Memory/SQLite semantics: out-of-range indexes are silently
+        # ignored. A bare lset() would instead raise on a bad index — and could
+        # crash on a race where the list shrinks between callers.
+        if index < 0 or index >= self._redis.llen(key):
+            return
         # Redis doesn't have direct index-delete; use sentinel approach
         sentinel = f'__DELETED_{secrets.token_hex(8)}__'
-        self._redis.lset(key, index, sentinel)
-        self._redis.lrem(key, 1, sentinel)
+        try:
+            self._redis.lset(key, index, sentinel)
+            self._redis.lrem(key, 1, sentinel)
+        except Exception as exc:
+            # Only swallow the specific "index out of range" race — the list
+            # shrank between our llen() check and the lset(), so the target is
+            # already gone. Anything else (connection drop, timeout, …) is a real
+            # failure and must propagate rather than be silently lost.
+            if 'out of range' not in str(exc).lower():
+                raise
+            _debug_log.suppressed('store_backends:redis_remove_race')
 
     def store_clear(self, collection):
         self._redis.delete(self._key(collection))
