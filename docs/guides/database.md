@@ -1,6 +1,6 @@
 # Database Guide
 
-EPL v9.7.0 has two database layers:
+EPL v9.8.0 has two database layers:
 
 - `db_*`: built-in SQLite helpers. This is the most directly supported local database workflow.
 - `real_db_*`: additional adapters for PostgreSQL, MySQL, and SQLite when the required drivers and runtime environment are available.

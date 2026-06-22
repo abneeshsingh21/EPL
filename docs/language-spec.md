@@ -1,4 +1,4 @@
-> **EPL v9.7.0** - English Programming Language
+> **EPL v9.8.0** - English Programming Language
 >
 > This specification describes the syntax and runtime surface supported by the current EPL source tree. When an older example conflicts with this file, treat this file, the parser, and the tests as the source of truth.
 
@@ -884,4 +884,4 @@ lambda_expr    = "lambda" param_list "->" expression ;
 
 ---
 
-*EPL v9.7.0 - Write readable programs in plain English, with clear production boundaries.*
+*EPL v9.8.0 - Write readable programs in plain English, with clear production boundaries.*

@@ -1,6 +1,6 @@
 # EPL Examples
 
-These examples are written for EPL v9.7.0 and use the current parser-backed syntax. For release-gated support claims, use `docs/support-matrix.md`, `docs/reference-apps.md`, and the tests as the final source of truth.
+These examples are written for EPL v9.8.0 and use the current parser-backed syntax. For release-gated support claims, use `docs/support-matrix.md`, `docs/reference-apps.md`, and the tests as the final source of truth.
 
 ---
 
@@ -69,7 +69,7 @@ Route "/" shows
 End
 
 Route "/api/health" responds with
-    Send json Map with status = "ok" and version = "9.7.0"
+    Send json Map with status = "ok" and version = "9.8.0"
 End
 
 Start app on port 8000
@@ -152,7 +152,7 @@ For production, store JWT secrets in environment variables or a secret manager, 
 ## JSON And HTTP
 
 ```epl
-raw = "{\"name\":\"EPL\",\"version\":\"9.7.0\"}"
+raw = "{\"name\":\"EPL\",\"version\":\"9.8.0\"}"
 data = json_parse(raw)
 
 Say data.name

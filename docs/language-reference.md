@@ -1,6 +1,6 @@
 # EPL Language Reference
 
-Complete reference for EPL v9.7.0 syntax that is stable enough to teach in user-facing documentation.
+Complete reference for EPL v9.8.0 syntax that is stable enough to teach in user-facing documentation.
 
 ## Table Of Contents
 

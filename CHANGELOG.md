@@ -10,7 +10,21 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
-## [Unreleased]
+## [9.8.0] — 2026-06-23
+
+**Backend parity — the default runner now matches the reference.** EPL has three
+execution backends (tree-walking interpreter, bytecode VM, LLVM compiler), and
+`epl run` defaults to the bytecode VM. A new interpreter-vs-VM parity harness
+(`tests/parity_check.py`) revealed that the VM produced different output from the
+interpreter for **22 of 66** example programs — string interpolation, object
+fields inside methods, `Try`/`Catch` and cross-call-frame exceptions, slicing
+with a step, default parameters, stdlib maps, number/boolean/list formatting,
+and more. This release drives that to **0 divergences across all testable
+examples**, with ~70 new regression tests. It also stops a silent
+double-execution fallback (which masked the drift and duplicated output), makes
+the VM error on undeclared variables, gives top-level variables the global scope
+functions expect, and relaxes an over-strict inferred-type lock. Plus the web
+adapter, stdlib, and parser hardening from the prior cycle.
 
 ### Security
 

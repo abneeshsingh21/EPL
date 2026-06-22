@@ -1,6 +1,6 @@
 # EPL Standard Library Reference
 
-EPL v9.7.0 includes Python-backed built-ins plus native EPL modules under `epl/stdlib/`. This page documents the stable surface most useful to application authors and marks optional or environment-dependent areas clearly.
+EPL v9.8.0 includes Python-backed built-ins plus native EPL modules under `epl/stdlib/`. This page documents the stable surface most useful to application authors and marks optional or environment-dependent areas clearly.
 
 Use implementation tests as the final release gate for any function your product depends on.
 
