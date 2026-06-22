@@ -41,6 +41,21 @@ _SYNTAX_SECTIONS = [
         ],
     },
     {
+        'id': 'string_interpolation',
+        'title': 'String Interpolation',
+        'summary': (
+            'Inside any string, $name inserts a variable and ${expr} inserts an '
+            'expression. A $ not followed by a name or { stays literal, so prices '
+            'and passwords are left untouched.'
+        ),
+        'examples': [
+            'Create name = "Ada"\nSay "Hello, $name"',
+            'Create x = 2\nCreate y = 3\nSay "Sum is ${x + y}"',
+            'Say "Item ${index + 1} of ${total}"',
+            'Note: $5 and aB3$xK9 are NOT templates — the $ stays literal',
+        ],
+    },
+    {
         'id': 'control_flow',
         'title': 'Control Flow',
         'summary': 'If/Otherwise, While, Repeat, For, and Match/When all close with End.',
