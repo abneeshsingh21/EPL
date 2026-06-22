@@ -27,6 +27,16 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **Maps returned by stdlib functions work under the bytecode VM:** functions
+  like `csv_read` (and JSON parsing) return the interpreter's map type, which
+  the VM didn't recognise — so `row.Salary` returned `nothing` (then crashed in
+  `to_integer`) and printing a row showed Python's `repr` (`{'Name': 'Alice'}`).
+  Stdlib return values are now normalised to the VM's native maps at the call
+  boundary, so attribute access, formatting, and iteration all work.
+- **`to_text` / `to_string` format with EPL semantics under the VM:** they used
+  Python's `str()`, so `to_text([1, 2])` produced `['1', '2']`-style output and
+  booleans rendered as `True`/`False`. They now use the shared formatter
+  (`[1, 2]`, `true`/`false`), matching the interpreter.
 - **An early `Return` from inside a loop no longer corrupts the caller under the
   bytecode VM:** a function returned without clearing operands it had pushed, so
   a `for each` iterator abandoned by an early `Return` leaked onto the shared

@@ -2471,7 +2471,7 @@ class VM:
         # Special builtins
         if name == 'to_string':
             val = self.stack.pop()
-            self.stack.append(str(val) if val is not None else '')
+            self.stack.append(self._format_value(val) if val is not None else '')
             return
 
         if name == 'type_cast':
@@ -2996,7 +2996,9 @@ class VM:
             return self._type_name(args[0]) if args else 'nothing'
 
         def _to_text(args, line):
-            return str(args[0]) if args else ''
+            # Use the EPL formatter so to_text([1,2]) → "[1, 2]" and booleans →
+            # "true"/"false" (not Python's repr), matching the interpreter.
+            return self._format_value(args[0]) if args else ''
 
         def _to_integer(args, line):
             return int(float(args[0])) if args else 0
@@ -3426,10 +3428,24 @@ class VM:
             from epl.stdlib import STDLIB_FUNCTIONS, call_stdlib
 
             if name in STDLIB_FUNCTIONS:
-                return call_stdlib(name, args, line)
+                # stdlib returns the interpreter's EPLDict for maps; the VM uses
+                # plain dicts, so normalise at the boundary.
+                return self._unwrap_epl(call_stdlib(name, args, line))
         except ImportError:
             pass
         return None
+
+    def _unwrap_epl(self, val):
+        """Recursively convert interpreter EPLDict values (returned by stdlib
+        functions like csv_read / json parsing) into plain dicts so VM
+        attribute access, formatting, and iteration work on them."""
+        if type(val).__name__ == 'EPLDict' and hasattr(val, 'data'):
+            return {k: self._unwrap_epl(v) for k, v in val.data.items()}
+        if isinstance(val, list):
+            return [self._unwrap_epl(v) for v in val]
+        if isinstance(val, dict):
+            return {k: self._unwrap_epl(v) for k, v in val.items()}
+        return val
 
     def _call_vm_function(self, func, args):
         """Call a compiled function synchronously and return result."""

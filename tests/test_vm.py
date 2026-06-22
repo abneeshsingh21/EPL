@@ -196,6 +196,11 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
         vm = run_vm('s = "the fox"\nPrint s.find("fox")')
         self.assertEqual(vm.output_lines, ['4'])
 
+    def test_to_text_uses_epl_formatting(self):
+        # to_text must format lists/bools with EPL semantics, not Python repr.
+        vm = run_vm('Print to_text([1, 2, 3])\nPrint to_text(1 == 1)')
+        self.assertEqual(vm.output_lines, ['[1, 2, 3]', 'true'])
+
     def test_random_two_args_is_int_in_range(self):
         vm = run_vm('r = random(1, 100)\nPrint r >= 1 and r <= 100')
         self.assertEqual(vm.output_lines, ['true'])
