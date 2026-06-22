@@ -255,6 +255,14 @@ class TestVMErrorHandling(unittest.TestCase):
             vm.output_lines, ['EPL Runtime Error on line 2: Cannot divide by zero.']
         )
 
+    def test_reading_undefined_variable_errors(self):
+        # Catches typos: an undeclared variable read raises (like the
+        # interpreter) instead of silently yielding nothing.
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('Print score')
+
     def test_catch_variable_binds_thrown_value(self):
         vm = run_vm('Try\n  Throw "boom"\nCatch err\n  Print err\nEnd')
         self.assertEqual(vm.output_lines, ['EPL Runtime Error on line 2: boom'])

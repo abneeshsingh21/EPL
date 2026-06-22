@@ -2201,7 +2201,9 @@ class VM:
         elif name in self._builtins:
             self.stack.append(self._builtins[name])
         else:
-            self.stack.append(None)
+            # Reading an undeclared variable is an error (matches the
+            # interpreter) — catches typos instead of silently yielding nothing.
+            raise VMError(f'Variable "{name}" has not been created yet.', inst.line)
 
     def _op_store_global(self, inst):
         self.globals[inst.arg] = self.stack.pop()

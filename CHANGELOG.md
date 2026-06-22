@@ -27,6 +27,10 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **Reading an undeclared variable is now an error under the bytecode VM:** it
+  silently evaluated to `nothing`, so a typo (`score` for `Score`) produced
+  wrong output instead of an error. It now raises *"Variable … has not been
+  created yet"*, matching the interpreter and catching typos.
 - **`to_string` and `random_integer` work on both backends:** the interpreter
   rejected `to_string(x)` and `random_integer(min, max)` (which the bytecode VM
   already accepted), so the same program behaved differently depending on the
