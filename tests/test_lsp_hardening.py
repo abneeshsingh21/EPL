@@ -1,5 +1,5 @@
 import io
-import time
+import threading
 
 from epl.lsp_server import JSONRPC, EPLLanguageServer
 
@@ -103,18 +103,31 @@ def test_lsp_analysis_timeout_becomes_diagnostic(monkeypatch):
     server = _server(debounce=0.0, timeout=0.01)
     uri = 'file:///slow.epl'
 
+    # Block the worker on an Event the test owns rather than a fixed sleep. The
+    # analysis runs in a thread that the server abandons after join(timeout);
+    # a `time.sleep(0.05)` worker flakes on a loaded runner where the main
+    # thread is starved past join() and wakes only after the sleep already
+    # finished, so is_alive() reads False and no timeout fires. Waiting on an
+    # Event makes the worker *provably* still running when join() returns,
+    # independent of scheduler timing. The 5s cap prevents a leaked thread if
+    # the assertion path raises before we release it.
+    release = threading.Event()
+
     def slow(_text):
-        time.sleep(0.05)
+        release.wait(timeout=5.0)
         return [], []
 
     monkeypatch.setattr(server.analyzer, 'analyze_text', slow)
 
-    server._on_did_change(
-        {
-            'textDocument': {'uri': uri},
-            'contentChanges': [{'text': 'Print "hello"'}],
-        }
-    )
+    try:
+        server._on_did_change(
+            {
+                'textDocument': {'uri': uri},
+                'contentChanges': [{'text': 'Print "hello"'}],
+            }
+        )
 
-    diagnostics = server.analyzer.diagnostics[uri]
-    assert any('timed out' in diag['message'].lower() for diag in diagnostics)
+        diagnostics = server.analyzer.diagnostics[uri]
+        assert any('timed out' in diag['message'].lower() for diag in diagnostics)
+    finally:
+        release.set()
