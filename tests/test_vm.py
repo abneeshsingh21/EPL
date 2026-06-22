@@ -85,6 +85,72 @@ class TestVMBasicOps(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['hi', 'hi', 'hi'])
 
 
+class TestVMImplicitThis(unittest.TestCase):
+    """Bare instance-field access inside a method must resolve to `this.field`
+    (matching the interpreter), not a global. Regression: the VM previously
+    compiled bare field names to LOAD_GLOBAL, yielding `none`.
+    """
+
+    def test_read_instance_field_in_method(self):
+        vm = run_vm(
+            'Class Animal\n'
+            '    name = "Unknown"\n'
+            '    sound = "..."\n'
+            '    Function speak\n'
+            '        Print name + " says " + sound\n'
+            '    End\n'
+            'End\n'
+            'dog = new Animal\n'
+            'dog.name = "Rex"\n'
+            'dog.sound = "Woof!"\n'
+            'dog.speak()'
+        )
+        self.assertEqual(vm.output_lines, ['Rex says Woof!'])
+
+    def test_write_instance_field_bare_assignment(self):
+        vm = run_vm(
+            'Class Box\n'
+            '    amount = 0\n'
+            '    Function bump\n'
+            '        amount = amount + 1\n'
+            '    End\n'
+            'End\n'
+            'b = new Box\n'
+            'b.bump()\n'
+            'b.bump()\n'
+            'Print b.amount'
+        )
+        self.assertEqual(vm.output_lines, ['2'])
+
+    def test_write_instance_field_set_keyword(self):
+        vm = run_vm(
+            'Class Box\n'
+            '    amount = 0\n'
+            '    Function addv takes v\n'
+            '        Set amount to amount + v\n'
+            '    End\n'
+            'End\n'
+            'b = new Box\n'
+            'b.addv(10)\n'
+            'Print b.amount'
+        )
+        self.assertEqual(vm.output_lines, ['10'])
+
+    def test_param_shadows_field(self):
+        # A method parameter named like a field must win over the field.
+        vm = run_vm(
+            'Class Box\n'
+            '    amount = 99\n'
+            '    Function echo takes amount\n'
+            '        Print amount\n'
+            '    End\n'
+            'End\n'
+            'b = new Box\n'
+            'b.echo(7)'
+        )
+        self.assertEqual(vm.output_lines, ['7'])
+
+
 class TestVMStringInterpolation(unittest.TestCase):
     """$name / ${expr} interpolation must match the interpreter & compiler.
 

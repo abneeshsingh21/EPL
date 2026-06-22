@@ -27,6 +27,15 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **Instance fields are accessible inside methods under the bytecode VM
+  (implicit `this`):** a method that referenced a bare field name — e.g.
+  `Print name` or `Set amount to amount + 1` — compiled the name to a global
+  lookup, so reads returned `none` (printing `None says None` instead of
+  `Rex says Woof!`) and writes silently went to a global instead of the
+  instance. The VM now resolves a bare name inside a method to `this.<field>`
+  when it matches a class property and isn't shadowed by a local/parameter,
+  matching the interpreter for reads, bare assignments, `Set … to …`, and
+  augmented assignments. Found via a new interpreter-vs-VM parity harness.
 - **String interpolation now works under the default `epl run` (bytecode VM):**
   EPL's documented `$name` and `${expr}` interpolation was implemented by the
   interpreter and the LLVM compiler but **not** the bytecode VM — and the VM is

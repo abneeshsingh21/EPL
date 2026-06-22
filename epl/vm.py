@@ -230,6 +230,10 @@ class BytecodeCompiler:
         self._const_cache: dict = {}
         self._label_counter = 0
         self._current_line = 0
+        # Property names of the class whose method body is currently being
+        # compiled. Enables implicit-`this`: a bare `name` inside a method
+        # resolves to the instance field, matching the interpreter.
+        self._current_method_props: set = set()
 
     def compile(self, program):
         """Compile a full AST program into bytecode."""
@@ -658,6 +662,15 @@ class BytecodeCompiler:
             scope[name] = len(scope)
         return scope[name]
 
+    def _resolve_method_prop(self, name):
+        """Return the local index of `this` if `name` is an instance field
+        accessed inside a method body (and not shadowed by a local/param);
+        otherwise None. Enables implicit-`this` field access.
+        """
+        if name in self._current_method_props and self._resolve_local(name) is None:
+            return self._resolve_local('this')
+        return None
+
     # ─── Statement compilation ────────────────────────────────
 
     def _compile_stmt(self, node):
@@ -875,17 +888,34 @@ class BytecodeCompiler:
             self._emit(Op.PRINT, 1)
 
     def _compile_var_decl(self, node):
+        # Inside a method, assigning to a name that is an instance field writes
+        # the field (matching the interpreter) rather than shadowing it with a
+        # new local — but only if no local of that name exists yet.
+        this_idx = self._resolve_method_prop(node.name)
+        if this_idx is not None:
+            self._emit(Op.LOAD_VAR, this_idx)
+            self._compile_expr(node.value)
+            self._emit(Op.SET_ATTR, node.name)
+            return
         self._compile_expr(node.value)
         idx = self._declare_local(node.name)
         self._emit(Op.STORE_VAR, idx)
 
     def _compile_assignment(self, node):
-        self._compile_expr(node.value)
         idx = self._resolve_local(node.name)
         if idx is not None:
+            self._compile_expr(node.value)
             self._emit(Op.STORE_VAR, idx)
-        else:
-            self._emit(Op.STORE_GLOBAL, node.name)
+            return
+        this_idx = self._resolve_method_prop(node.name)
+        if this_idx is not None:
+            # Bare assignment to an instance field inside a method → this.field
+            self._emit(Op.LOAD_VAR, this_idx)
+            self._compile_expr(node.value)
+            self._emit(Op.SET_ATTR, node.name)
+            return
+        self._compile_expr(node.value)
+        self._emit(Op.STORE_GLOBAL, node.name)
 
     def _compile_aug_assign(self, node):
         op_map = {
@@ -900,14 +930,28 @@ class BytecodeCompiler:
             '%=': Op.MOD,
         }
         idx = self._resolve_local(node.name)
+        this_idx = None if idx is not None else self._resolve_method_prop(node.name)
+        op_type = getattr(node, 'op', None) or getattr(node, 'operator', 'Plus')
+        vm_op = op_map.get(str(op_type), Op.ADD)
+
+        if this_idx is not None:
+            # Instance field: build [obj, obj.field <op> value] then SET_ATTR.
+            self._emit(Op.LOAD_VAR, this_idx)   # obj (for the eventual store)
+            self._emit(Op.LOAD_VAR, this_idx)
+            self._emit(Op.GET_ATTR, node.name)  # current value
+            self._compile_expr(node.value)
+            self._emit(vm_op)                   # new value
+            self._emit(Op.SET_ATTR, node.name)
+            return
+
+        # Load current value
         if idx is not None:
             self._emit(Op.LOAD_VAR, idx)
         else:
             self._emit(Op.LOAD_GLOBAL, node.name)
         self._compile_expr(node.value)
-        op_type = getattr(node, 'op', None) or getattr(node, 'operator', 'Plus')
-        vm_op = op_map.get(str(op_type), Op.ADD)
         self._emit(vm_op)
+        # Store back
         if idx is not None:
             self._emit(Op.STORE_VAR, idx)
         else:
@@ -1199,13 +1243,22 @@ class BytecodeCompiler:
 
     def _compile_class_def(self, node):
         """Compile a class definition."""
+        from epl import ast_nodes as ast
+
         methods = {}
         properties = {}
         constructor = None
 
-        for member in node.body if isinstance(node.body, list) else []:
-            from epl import ast_nodes as ast
+        # Pre-pass: collect ALL property names first, so a method body can
+        # reference fields declared after it in source order (implicit-`this`).
+        members = node.body if isinstance(node.body, list) else []
+        prop_names = {
+            m.name for m in members if isinstance(m, ast.VarDeclaration)
+        }
+        prev_props = self._current_method_props
+        self._current_method_props = prop_names
 
+        for member in members:
             if isinstance(member, ast.FunctionDef):
                 # Save state
                 outer_instr = self.instructions
@@ -1266,6 +1319,8 @@ class BytecodeCompiler:
                 elif isinstance(val, (str, int, float, bool)) or val is None:
                     default = val
                 properties[member.name] = default
+
+        self._current_method_props = prev_props
 
         compiled = CompiledClass(
             name=node.name,
@@ -1384,7 +1439,12 @@ class BytecodeCompiler:
             if idx is not None:
                 self._emit(Op.LOAD_VAR, idx)
             else:
-                self._emit(Op.LOAD_GLOBAL, name)
+                this_idx = self._resolve_method_prop(name)
+                if this_idx is not None:
+                    self._emit(Op.LOAD_VAR, this_idx)
+                    self._emit(Op.GET_ATTR, name)
+                else:
+                    self._emit(Op.LOAD_GLOBAL, name)
 
         elif isinstance(node, ast.BinaryOp):
             self._compile_binary(node)
