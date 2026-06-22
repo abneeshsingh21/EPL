@@ -265,6 +265,33 @@ class TestVMErrorHandling(unittest.TestCase):
         )
 
 
+class TestVMStackHygiene(unittest.TestCase):
+    """Functions must restore the operand stack on return, even on an early
+    `Return` from inside a loop. Regression: a leaked for-each iterator made an
+    enclosing loop iterate the wrong collection.
+    """
+
+    def test_early_return_from_loop_does_not_corrupt_outer_loop(self):
+        vm = run_vm(
+            'Function first_match takes p\n'
+            '    Create opts equal to ["x", "y", "z"]\n'
+            '    For each o in opts\n'
+            '        If p.contains(o) then\n'
+            '            Return o\n'
+            '        End\n'
+            '    End\n'
+            '    Return ""\n'
+            'End\n'
+            'Create words equal to ["ax", "by", "cz"]\n'
+            'For each w in words\n'
+            '    Create m equal to first_match(w)\n'
+            '    Print w\n'
+            'End'
+        )
+        # The outer loop must iterate `words`, not the helper's `opts`.
+        self.assertEqual(vm.output_lines, ['ax', 'by', 'cz'])
+
+
 class TestVMStringInterpolation(unittest.TestCase):
     """$name / ${expr} interpolation must match the interpreter & compiler.
 
@@ -313,6 +340,12 @@ class TestVMStringInterpolation(unittest.TestCase):
         # A lone "$flag" must still become the string "true", not the bool.
         vm = run_vm('flag = true\nPrint "$flag"')
         self.assertEqual(vm.output_lines, ['true'])
+
+    def test_undefined_variable_stays_literal(self):
+        # "$xK9" where xK9 is undefined must stay literal (matches interpreter),
+        # not be replaced with "nothing".
+        vm = run_vm('p = "aB3$xK9!mN2@"\nPrint p\nPrint length(p)')
+        self.assertEqual(vm.output_lines, ['aB3$xK9!mN2@', '12'])
 
 
 class TestVMConstantFolding(unittest.TestCase):

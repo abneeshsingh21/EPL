@@ -63,6 +63,7 @@ class Op(IntEnum):
     # String
     CONCAT = auto()  # String concatenation
     STR_INTERP = auto()  # String interpolation (n items)
+    INTERP_VAR = auto()  # ($name) interp lookup: value if defined else literal
 
     # Control flow
     JUMP = auto()  # Unconditional jump
@@ -1610,7 +1611,9 @@ class BytecodeCompiler:
                 if idx is not None:
                     self._emit(Op.LOAD_VAR, idx)
                 else:
-                    self._emit(Op.LOAD_GLOBAL, var_name)
+                    # Undefined globals stay literal ("$name"), like the
+                    # interpreter — so "$xK9" in a password isn't mangled.
+                    self._emit(Op.INTERP_VAR, (var_name, '$' + var_name))
             count += 1
 
         # Trailing static text
@@ -2000,6 +2003,7 @@ class VM:
             Op.NOT: self._op_not,
             Op.CONCAT: self._op_concat,
             Op.STR_INTERP: self._op_str_interp,
+            Op.INTERP_VAR: self._op_interp_var,
             Op.JUMP: self._op_jump,
             Op.JUMP_IF_FALSE: self._op_jump_if_false,
             Op.JUMP_IF_TRUE: self._op_jump_if_true,
@@ -2315,6 +2319,20 @@ class VM:
         # than Python repr.
         self.stack.append(''.join(self._format_value(p) for p in parts))
 
+    def _op_interp_var(self, inst):
+        # ($name) interpolation: push the variable's value if it is defined,
+        # otherwise push the literal text ("$name") — matching the interpreter,
+        # which leaves an undefined $name untouched instead of inserting nothing.
+        name, literal = inst.arg
+        if name in self.globals:
+            self.stack.append(self.globals[name])
+        elif name in self.functions:
+            self.stack.append(self.functions[name])
+        elif name in self.classes:
+            self.stack.append(self.classes[name])
+        else:
+            self.stack.append(literal)
+
     # Control flow
     def _op_jump(self, inst):
         self.call_stack[-1].ip = inst.arg
@@ -2434,7 +2452,14 @@ class VM:
 
     def _op_return(self, inst):
         ret_val = self.stack.pop() if self.stack else None
-        self.call_stack.pop()
+        frame = self.call_stack.pop()
+        # Discard any operands the function left on the stack — e.g. a for-each
+        # iterator abandoned by an early `Return` inside a loop — so they can't
+        # corrupt the caller (which would, say, make an enclosing loop iterate
+        # the wrong collection). Restore the operand stack to the frame's base.
+        base = getattr(frame, 'base_pointer', None)
+        if base is not None and 0 <= base <= len(self.stack):
+            del self.stack[base:]
         self.stack.append(ret_val)
 
     def _op_call_builtin(self, inst):

@@ -27,6 +27,18 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **An early `Return` from inside a loop no longer corrupts the caller under the
+  bytecode VM:** a function returned without clearing operands it had pushed, so
+  a `for each` iterator abandoned by an early `Return` leaked onto the shared
+  operand stack — making an *enclosing* loop in the caller iterate the wrong
+  collection (e.g. a password analyzer looped over a helper's internal list
+  instead of its inputs). `Return` now restores the operand stack to the call
+  frame's base, so functions are always stack-neutral apart from their result.
+- **A `$word` that isn't a defined variable stays literal under the VM:** the
+  VM substituted an undefined `$name` in a string with `nothing` (so a password
+  like `aB3$xK9!mN2@` became `aB3nothing!mN2@`). It now leaves an undefined
+  `$name` untouched, exactly like the interpreter — a defined variable still
+  interpolates.
 - **`Try`/`Catch` now binds the caught error and propagates across call frames
   under the bytecode VM:** the catch variable was never populated (the compiler
   checked the wrong AST attribute), so `Catch e … Print e` always printed
