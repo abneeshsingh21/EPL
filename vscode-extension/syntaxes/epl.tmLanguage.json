@@ -93,8 +93,17 @@
               "match": "\\\\[nrt\\\\\\\"\\'0abfv]"
             },
             {
+              "name": "meta.interpolation.epl",
+              "match": "(\\$\\{)([^}]+)(\\})",
+              "captures": {
+                "1": { "name": "punctuation.definition.template-expression.begin.epl" },
+                "2": { "name": "variable.other.interpolation.epl" },
+                "3": { "name": "punctuation.definition.template-expression.end.epl" }
+              }
+            },
+            {
               "name": "variable.other.interpolation.epl",
-              "match": "\\{[^}]+\\}"
+              "match": "\\$[a-zA-Z_][a-zA-Z0-9_]*"
             }
           ]
         },
@@ -204,6 +213,10 @@
         {
           "name": "keyword.control.web.event.epl",
           "match": "\\b(On|Toggle|Navigate|Scroll|Run)\\b"
+        },
+        {
+          "name": "keyword.control.web.route.epl",
+          "match": "\\b(shows|responds|called|does|render|apply|action)\\b"
         }
       ]
     },

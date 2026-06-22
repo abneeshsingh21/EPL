@@ -20,6 +20,20 @@
         ],
         "description": "Print a value"
     },
+    "Print Interpolated": {
+        "prefix": "printf",
+        "body": [
+            "Print \"${1:label}: \\$${2:name}\""
+        ],
+        "description": "Print with $name string interpolation"
+    },
+    "Interpolated Expression": {
+        "prefix": "interp",
+        "body": [
+            "Print \"${1:Result}: \\${${2:1 + 2}}\""
+        ],
+        "description": "String interpolation with a ${expr} expression"
+    },
     "Create Variable": {
         "prefix": "create",
         "body": [
@@ -516,10 +530,10 @@
         "description": "EPL program skeleton"
     },
     "Test Function": {
-        "prefix": "test",
+        "prefix": "testfn",
         "body": [
-            "Test Function test_",
-            "\t",
+            "Test Function test_${1:name}",
+            "    $0",
             "End"
         ],
         "description": "EPL Test Function snippet"

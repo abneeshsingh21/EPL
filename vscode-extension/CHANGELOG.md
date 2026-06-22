@@ -4,6 +4,48 @@ All notable changes to the EPL VS Code extension are documented here.
 The extension version tracks the extension itself; language features are
 provided by the `eplang` Language Server (the `epl` CLI on your PATH).
 
+## [2.8.0] — 2026-06-23
+
+Tracks `eplang` **9.8.0** (interpreter ↔ bytecode-VM backend parity).
+
+### Fixed
+
+- **String interpolation is now highlighted with the correct syntax.** The
+  TextMate grammar matched the old `{expr}` form, but EPL interpolation is
+  `$name` and `${expr}` (the syntax now implemented identically across the
+  interpreter, bytecode VM, and LLVM compiler in 9.8.0). Both forms are now
+  colored — `$name` as a variable, and `${ … }` with distinct delimiter and
+  expression scopes — so a literal `$` that isn't a template (e.g. a password
+  like `aB3$xK9!`) is left alone, matching the language's own rules.
+
+### Added
+
+- **Native web-DSL route keywords** — `shows`, `responds`, `called`, `does`,
+  `render`, `apply`, and `action` are now highlighted, completing coverage of
+  the native web DSL introduced in 9.7.0 (`Route "/" shows`,
+  `Route "/api" responds with`, `Create WebApp called app`,
+  `Button "…" does handler`).
+- **String-interpolation snippets** — `printf` (`$name`) and `interp`
+  (`${expr}`) scaffold interpolated strings.
+
+### Changed
+
+- Disambiguated a duplicate `test` snippet prefix (the test-function snippet is
+  now `testfn`), so each snippet prefix is unique.
+
+## [2.7.0] — 2026-06-16
+
+Tracks `eplang` **9.7.0** (native web DSL, Phases 1–6).
+
+### Added
+
+- **Native web-DSL grammar tokens** — structural and `<head>` elements of the
+  new native web DSL are now highlighted: `Stylesheet`, `Head`, `Div`,
+  `Section`, `Nav`, `Header`, `Footer`, `Span`, `Article`, `Aside`, `Main`,
+  `Container`, `Select`; head metadata `Description`, `Keywords`, `Author`,
+  `ThemeColor`, `Canonical`, `Favicon`, `Font`, `OpenGraph`, `Twitter`, `Meta`;
+  and event keywords `On`, `Toggle`, `Navigate`, `Scroll`, `Run`.
+
 ## [2.6.0] — 2026-06-14
 
 ### Added

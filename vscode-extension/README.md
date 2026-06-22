@@ -17,13 +17,14 @@
 |---------|-------------|
 | 🎨 **Semantic Highlighting** | Lexer-accurate token colors from the Language Server (v2) — keywords, functions, classes, types — layered over TextMate so English words are colored only where they're truly keywords, never inside strings or comments |
 | 🧩 **Embedded Languages** | Full HTML/CSS/JS highlighting inside triple-quoted strings (`""" … """`) and SQL highlighting inside query strings — so the web markup, styles, scripts, and queries embedded in EPL apps are colored, not flat |
+| 🔤 **String Interpolation** | `$name` and `${expr}` inside strings are highlighted with correct EPL syntax — a literal `$` that isn't a template is left untouched, exactly as the language treats it |
 | 🔍 **Real-time Diagnostics** | Error detection powered by EPL's Language Server Protocol |
 | 💡 **Code Completion** | 725+ stdlib function signatures with documentation |
 | 📖 **Hover Documentation** | Function signatures, parameter types, and descriptions on hover |
 | ✏️ **Token-aware Rename** | Safe workspace rename (`F2`) that only touches real identifiers — never matches inside strings or comments |
 | 🔗 **Find References** | Token-aware find-all-references across the workspace |
 | ▶️ **Run from Editor** | Execute `.epl` files directly with `Ctrl+Shift+R` |
-| ⚡ **Bytecode VM Backend** | Run with the bytecode VM (`epl vm`) — full interpreter parity since v9.1.0 |
+| ⚡ **Bytecode VM Backend** | Run with the bytecode VM (`epl vm`) — verified byte-for-byte parity with the interpreter as of v9.8.0 |
 | 🔧 **Type Checking** | Static type analysis via `epl check` |
 | 📐 **Formatting** | Auto-format EPL source files |
 | 🧪 **Linting** | Code quality analysis |
