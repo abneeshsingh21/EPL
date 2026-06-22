@@ -27,6 +27,28 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **Built-in methods and string concatenation now match the interpreter under
+  the bytecode VM:** several `epl run` (VM) defects were found via a new
+  interpreter-vs-VM parity harness and fixed together:
+  - Property-style method access (`text.uppercase`, `list.length`, `map.length`,
+    `"…".trim`) returned `none` because the VM treated it as plain attribute
+    access. It now dispatches to the built-in method, matching the interpreter.
+  - `list.sort()` and `list.reverse()` returned a new list without mutating the
+    original, so a subsequent print showed the unsorted list. They now mutate in
+    place like the interpreter.
+  - String concatenation with `+` stringified booleans, lists, and `none` with
+    Python's `repr` (`True`, `['a', 'b']`) instead of EPL formatting
+    (`true`, `[a, b]`, `none`). It now uses the shared value formatter.
+  - Added missing method aliases so VM and interpreter accept the same names:
+    `uppercase`/`lowercase` (method-call form), `find` (string), `to_list`,
+    `is_number`, `is_alpha`, `format` (string), and `entries` (map).
+- **`epl run` no longer double-executes a program when the VM hits an
+  unsupported feature mid-run:** the VM streams output live, then on an internal
+  error silently fell back to the interpreter, which re-ran the program from the
+  start — duplicating all output already printed (and any side effects). The
+  runner now only falls back when the VM has produced no output yet; if output
+  was already emitted it surfaces the VM error instead of re-running. Live
+  streaming is preserved via a pass-through output counter.
 - **Instance fields are accessible inside methods under the bytecode VM
   (implicit `this`):** a method that referenced a bare field name — e.g.
   `Print name` or `Set amount to amount + 1` — compiled the name to a global

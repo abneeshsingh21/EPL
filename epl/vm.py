@@ -2160,7 +2160,9 @@ class VM:
     def _op_add(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
         if isinstance(a, str) or isinstance(b, str):
-            self.stack.append(str(a) + str(b))
+            # Concatenation stringifies with EPL semantics (true/false, none,
+            # [a, b] lists, whole floats as ints) — matching the interpreter.
+            self.stack.append(self._format_value(a) + self._format_value(b))
         else:
             self.stack.append(a + b)
 
@@ -2481,10 +2483,27 @@ class VM:
                 self.stack.append(obj.attrs[attr])
             else:
                 self.stack.append(None)
-        elif isinstance(obj, dict):
-            self.stack.append(obj.get(attr))
         else:
-            self.stack.append(getattr(obj, attr, None))
+            self.stack.append(self._get_property(obj, attr))
+
+    def _get_property(self, obj, attr):
+        """Property-style (no-paren) access, matching the interpreter:
+        `text.uppercase`, `list.length`, `map.length`, plus dict key access.
+        """
+        # `length` works on strings, lists, and maps.
+        if attr == 'length' and isinstance(obj, (str, list, dict)):
+            return len(obj)
+        if isinstance(obj, str):
+            if attr == 'uppercase':
+                return obj.upper()
+            if attr == 'lowercase':
+                return obj.lower()
+            if attr == 'trim':
+                return obj.strip()
+            return None
+        if isinstance(obj, dict):
+            return obj.get(attr)
+        return getattr(obj, attr, None)
 
     def _op_set_attr(self, inst):
         val = self.stack.pop()
@@ -3367,9 +3386,9 @@ class VM:
     def _str_method(self, obj, method, args, line):
         if method == 'length':
             return len(obj)
-        if method == 'upper' or method == 'to_upper':
+        if method == 'upper' or method == 'to_upper' or method == 'uppercase':
             return obj.upper()
-        if method == 'lower' or method == 'to_lower':
+        if method == 'lower' or method == 'to_lower' or method == 'lowercase':
             return obj.lower()
         if method == 'trim' or method == 'strip':
             return obj.strip()
@@ -3383,7 +3402,7 @@ class VM:
             return obj.startswith(args[0])
         if method == 'ends_with':
             return obj.endswith(args[0])
-        if method == 'index_of':
+        if method == 'index_of' or method == 'find':
             return obj.find(args[0])
         if method == 'substring':
             return obj[int(args[0]) : int(args[1]) if len(args) > 1 else None]
@@ -3409,6 +3428,21 @@ class VM:
             return obj.rjust(int(args[0]), args[1] if len(args) > 1 else ' ')
         if method == 'pad_right':
             return obj.ljust(int(args[0]), args[1] if len(args) > 1 else ' ')
+        if method == 'to_list':
+            return list(obj)
+        if method == 'is_number':
+            try:
+                float(obj)
+                return True
+            except ValueError:
+                return False
+        if method == 'is_alpha':
+            return obj.isalpha()
+        if method == 'format':
+            result = obj
+            for a in args:
+                result = result.replace('{}', self._format_value(a), 1)
+            return result
         raise VMError(f"Unknown method '{method}' on string", line)
 
     def _list_method(self, obj, method, args, line):
@@ -3432,9 +3466,11 @@ class VM:
         if method == 'index_of':
             return obj.index(args[0]) if args[0] in obj else -1
         if method == 'sort':
-            return sorted(obj)
+            obj.sort()
+            return obj
         if method == 'reverse':
-            return list(reversed(obj))
+            obj.reverse()
+            return obj
         if method == 'join':
             return (args[0] if args else ',').join(str(x) for x in obj)
         if method == 'map':
@@ -3481,7 +3517,7 @@ class VM:
             return list(obj.keys())
         if method == 'values':
             return list(obj.values())
-        if method == 'items':
+        if method == 'items' or method == 'entries':
             return [[k, v] for k, v in obj.items()]
         if method == 'has_key' or method == 'has':
             return args[0] in obj

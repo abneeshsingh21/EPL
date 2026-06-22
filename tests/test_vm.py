@@ -151,6 +151,52 @@ class TestVMImplicitThis(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['7'])
 
 
+class TestVMMethodsAndFormatting(unittest.TestCase):
+    """Parity with the interpreter for built-in methods and concatenation
+    formatting. Regressions found via the interpreter-vs-VM parity harness.
+    """
+
+    def test_property_style_string_methods(self):
+        vm = run_vm(
+            'name = "Hello"\n'
+            'Print name.uppercase\n'
+            'Print name.lowercase\n'
+            'Print name.length\n'
+            'Print "  hi  ".trim'
+        )
+        self.assertEqual(vm.output_lines, ['HELLO', 'hello', '5', 'hi'])
+
+    def test_method_call_string_aliases(self):
+        vm = run_vm('name = "Hi"\nPrint name.uppercase()\nPrint name.lowercase()')
+        self.assertEqual(vm.output_lines, ['HI', 'hi'])
+
+    def test_list_sort_reverse_mutate_in_place(self):
+        vm = run_vm(
+            'nums = [3, 1, 2]\n'
+            'nums.sort()\n'
+            'Print nums\n'
+            'nums.reverse()\n'
+            'Print nums'
+        )
+        self.assertEqual(vm.output_lines, ['[1, 2, 3]', '[3, 2, 1]'])
+
+    def test_concat_formats_bool_lowercase(self):
+        vm = run_vm('Print "valid: " + (1 == 1)')
+        self.assertEqual(vm.output_lines, ['valid: true'])
+
+    def test_concat_formats_list_without_quotes(self):
+        vm = run_vm('words = ["a", "b", "c"]\nPrint "words: " + words')
+        self.assertEqual(vm.output_lines, ['words: [a, b, c]'])
+
+    def test_dict_entries_alias(self):
+        vm = run_vm('m = Map with a = 1\nPrint m.entries()')
+        self.assertEqual(vm.output_lines, ['[[a, 1]]'])
+
+    def test_string_find_alias(self):
+        vm = run_vm('s = "the fox"\nPrint s.find("fox")')
+        self.assertEqual(vm.output_lines, ['4'])
+
+
 class TestVMStringInterpolation(unittest.TestCase):
     """$name / ${expr} interpolation must match the interpreter & compiler.
 
