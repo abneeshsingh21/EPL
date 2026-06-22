@@ -196,6 +196,28 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
         vm = run_vm('s = "the fox"\nPrint s.find("fox")')
         self.assertEqual(vm.output_lines, ['4'])
 
+    def test_random_two_args_is_int_in_range(self):
+        vm = run_vm('r = random(1, 100)\nPrint r >= 1 and r <= 100')
+        self.assertEqual(vm.output_lines, ['true'])
+
+    def test_slice_with_step(self):
+        vm = run_vm(
+            'n = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]\n'
+            'Print n[0:10:2]\n'
+            'Print n[1:10:3]'
+        )
+        self.assertEqual(vm.output_lines, ['[10, 30, 50, 70, 90]', '[20, 50, 80]'])
+
+    def test_default_parameter_value(self):
+        vm = run_vm(
+            'Function greet takes name = "World"\n'
+            '    Print "Hello " + name\n'
+            'End\n'
+            'greet()\n'
+            'greet("Sam")'
+        )
+        self.assertEqual(vm.output_lines, ['Hello World', 'Hello Sam'])
+
 
 class TestVMStringInterpolation(unittest.TestCase):
     """$name / ${expr} interpolation must match the interpreter & compiler.

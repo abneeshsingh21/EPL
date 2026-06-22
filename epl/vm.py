@@ -662,6 +662,29 @@ class BytecodeCompiler:
             scope[name] = len(scope)
         return scope[name]
 
+    def _eval_const_default(self, val):
+        """Reduce a parameter's default value to a runtime constant.
+
+        Defaults are parsed as AST nodes (e.g. a Literal); the VM applies them
+        directly, so they must be unwrapped to their value. Literal lists/maps
+        of constants are supported; non-constant default expressions reduce to
+        None (the interpreter evaluates those lazily — a known VM limitation).
+        """
+        from epl import ast_nodes as ast
+
+        if isinstance(val, ast.Literal):
+            return val.value
+        if isinstance(val, (str, int, float, bool)) or val is None:
+            return val
+        if isinstance(val, ast.ListLiteral):
+            return [self._eval_const_default(e) for e in val.elements]
+        if isinstance(val, ast.DictLiteral):
+            return {
+                self._eval_const_default(k): self._eval_const_default(v)
+                for k, v in val.pairs
+            }
+        return None
+
     def _resolve_method_prop(self, name):
         """Return the local index of `this` if `name` is an instance field
         accessed inside a method body (and not shadowed by a local/param);
@@ -1172,7 +1195,7 @@ class BytecodeCompiler:
             name=node.name,
             param_count=len(param_names),
             param_names=param_names,
-            defaults=defaults,
+            defaults=[self._eval_const_default(d) for d in defaults],
             code=self.instructions,
             local_count=len(self.locals_stack[-1]),
         )
@@ -1298,7 +1321,7 @@ class BytecodeCompiler:
                     name=member.name,
                     param_count=len(param_names),
                     param_names=param_names,
-                    defaults=defaults,
+                    defaults=[self._eval_const_default(d) for d in defaults],
                     code=self.instructions,
                     local_count=len(self.locals_stack[-1]),
                     is_method=True,
@@ -1500,6 +1523,10 @@ class BytecodeCompiler:
                 Op.LOAD_CONST, self._add_const(None)
             )
             self._compile_expr(node.end) if node.end else self._emit(
+                Op.LOAD_CONST, self._add_const(None)
+            )
+            step = getattr(node, 'step', None)
+            self._compile_expr(step) if step else self._emit(
                 Op.LOAD_CONST, self._add_const(None)
             )
             self._emit(Op.SLICE)
@@ -2467,12 +2494,14 @@ class VM:
             obj[idx] = val
 
     def _op_slice(self, inst):
+        step = self.stack.pop()
         end = self.stack.pop()
         start = self.stack.pop()
         obj = self.stack.pop()
         s = int(start) if start is not None else None
         e = int(end) if end is not None else None
-        self.stack.append(obj[s:e])
+        st = int(step) if step is not None else None
+        self.stack.append(obj[s:e:st])
 
     # Object/Class
     def _op_get_attr(self, inst):
@@ -2978,6 +3007,10 @@ class VM:
             return min(args[0]) if len(args) == 1 and isinstance(args[0], list) else min(args)
 
         def _random(args, line):
+            # random(min, max) → integer in [min, max] (matches interpreter);
+            # random() with no args → float in [0, 1).
+            if len(args) >= 2:
+                return _random_mod.randint(int(args[0]), int(args[1]))
             return _random_mod.random()
 
         def _random_int(args, line):

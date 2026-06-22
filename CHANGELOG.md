@@ -27,6 +27,15 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ### Fixed
 
+- **More bytecode-VM parity fixes (vs the interpreter):**
+  - `random(min, max)` returned a raw `0..1` float instead of an integer in
+    `[min, max]`. It now matches the interpreter (no-arg `random()` still
+    returns a `0..1` float).
+  - List/string slicing with a step (`items[0:10:2]`) ignored the step and
+    returned a contiguous range. The step is now compiled and applied.
+  - Default parameter values (`Function greet takes name = "World"`) leaked the
+    raw AST node (`<…Literal object…>`) instead of the value. Defaults are now
+    reduced to constants (including literal lists/maps) at compile time.
 - **Built-in methods and string concatenation now match the interpreter under
   the bytecode VM:** several `epl run` (VM) defects were found via a new
   interpreter-vs-VM parity harness and fixed together:
