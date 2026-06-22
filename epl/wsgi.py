@@ -283,8 +283,7 @@ class EPLWSGIApp:
                 response.status = 500
                 if self.debug:
                     response._body = (
-                        '<h1>500 Internal Server Error</h1>'
-                        f'<pre>{_html.escape(str(e))}</pre>'
+                        f'<h1>500 Internal Server Error</h1><pre>{_html.escape(str(e))}</pre>'
                     )
                 else:
                     response._body = (
