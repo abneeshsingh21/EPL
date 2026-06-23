@@ -155,28 +155,6 @@ STYLES = """
 /* Minimal Reset for EPL Web */
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; padding: 0; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-
-
-/* Native Component Styles */
-.native-pull-up {
-    display: inline-block;
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1);
-}
-.native-pull-up.visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-.native-words-wrapper {
-    display: inline-block;
-}
-.noise-overlay.native-noise {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.7; mix-blend-mode: overlay; pointer-events: none; background-color: transparent; filter: url('#noise'); z-index: 1;
-}
-.bg-noise.native-noise-bg {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.4; pointer-events: none; background-color: transparent; filter: url('#bgNoise'); z-index: 0;
-}
 """
 
 
@@ -237,21 +215,6 @@ def generate_html(
     if custom_css or animation_css or raw_css:
         extra_css = f'\n    <style>\n{custom_css}\n{animation_css}\n{raw_css}\n    </style>'
 
-    native_animations_js = """
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if(entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                }
-            });
-        }, { threshold: 0.1 });
-        document.querySelectorAll('.native-pull-up').forEach(el => observer.observe(el));
-    });
-    </script>
-    """
-
     # Font loading — system stack (default, no network) or Google Fonts CDN.
     if _CONFIG['fonts'] == 'cdn':
         font_link = (
@@ -301,7 +264,6 @@ def generate_html(
         {body_html}
     </div>
     {footer_html}
-    {native_animations_js}
     {scripts_html}
 </body>
 </html>"""
@@ -534,55 +496,6 @@ def _render_element(elem, data_store=None, form_data=None):
                 f'</form></div>'
             )
         return '\n'.join(html_parts)
-
-    if tag == 'noise_overlay':
-        return (
-            '<div class="noise-overlay native-noise"></div>'
-            + '<svg style="display:none"><filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"/></filter></svg>'
-        )
-
-    if tag == 'bg_noise':
-        return (
-            '<div class="bg-noise native-noise-bg"></div>'
-            + '<svg style="display:none"><filter id="bgNoise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter></svg>'
-        )
-
-    if tag == 'words_pull_up':
-        asterisk = attrs.get('asterisk', '').lower() == 'true'
-        words = str(content).split(' ')
-        spans = []
-        for i, w in enumerate(words):
-            if not w:
-                continue
-            delay = i * 0.1
-            spans.append(
-                f'<span class="native-pull-up" style="transition-delay: {delay}s;">{_esc(w)}</span>'
-            )
-        if asterisk:
-            delay = len(words) * 0.1
-            spans.append(
-                f'<span class="native-pull-up hero-asterisk" style="transition-delay: {delay}s;">*</span>'
-            )
-        return f'<div class="native-words-wrapper">{"&nbsp;".join(spans)}</div>'
-
-    if tag == 'words_pull_up_multi_style':
-        children = elem.children or []
-        spans = []
-        word_index = 0
-        for child in children:
-            if getattr(child, 'tag', '') == 'segment':
-                seg_content = str(getattr(child, 'content', ''))
-                seg_style = getattr(child, 'attributes', {}).get('style', '')
-                words = seg_content.split(' ')
-                for w in words:
-                    if not w:
-                        continue
-                    delay = word_index * 0.1
-                    spans.append(
-                        f'<span class="native-pull-up {seg_style}" style="transition-delay: {delay}s;">{_esc(w)}</span>'
-                    )
-                    word_index += 1
-        return f'<div class="native-words-wrapper">{"&nbsp;".join(spans)}</div>'
 
     if tag == 'script':
         return ''  # scripts go in the <script> section

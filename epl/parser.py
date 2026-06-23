@@ -2628,58 +2628,6 @@ class Parser:
         if tok.type == TokenType.PAGE:
             return self._parse_page()
 
-        # v7.0: Native Animation Components
-        if tok.type == TokenType.WORDS_PULL_UP:
-            self._advance()
-            content = self._expect(TokenType.STRING, 'Expected WordsPullUp text').value
-            attrs = {}
-            if (
-                self._match(TokenType.IDENTIFIER)
-                and str(self._current().value).lower() == 'asterisk'
-            ):
-                self._advance()
-                attrs['asterisk'] = self._expect(
-                    TokenType.STRING, 'Expected asterisk value (e.g. "true")'
-                ).value
-            self._end_statement()
-            return ast.HtmlElement('words_pull_up', content, attrs, line=tok.line)
-
-        if tok.type == TokenType.NOISE_OVERLAY:
-            self._advance()
-            self._end_statement()
-            return ast.HtmlElement('noise_overlay', None, {}, line=tok.line)
-
-        if tok.type == TokenType.BG_NOISE:
-            self._advance()
-            self._end_statement()
-            return ast.HtmlElement('bg_noise', None, {}, line=tok.line)
-
-        if tok.type == TokenType.WORDS_PULL_UP_MULTI_STYLE:
-            self._advance()
-            self._end_statement()
-            self._skip_newlines()
-            children = []
-            while not self._is_block_end():
-                if self._match(TokenType.SEGMENT):
-                    seg_tok = self._current()
-                    self._advance()
-                    seg_content = self._expect(TokenType.STRING, 'Expected Segment text').value
-                    seg_attrs = {}
-                    if self._match(TokenType.STYLE):
-                        self._advance()
-                        seg_attrs['style'] = self._expect(
-                            TokenType.STRING, 'Expected style classes'
-                        ).value
-                    self._end_statement()
-                    children.append(
-                        ast.HtmlElement('segment', seg_content, seg_attrs, line=seg_tok.line)
-                    )
-                else:
-                    self._advance()
-                self._skip_newlines()
-            self._consume_block_end()
-            return ast.HtmlElement('words_pull_up_multi_style', None, {}, children, line=tok.line)
-
         # v6.0: Structural elements inside Page
         _structural_map = {
             TokenType.DIV: 'div',
@@ -3605,10 +3553,6 @@ class Parser:
             TokenType.TYPE_LIST,
             TokenType.SCRIPT,
             TokenType.PAGE,
-            TokenType.WORDS_PULL_UP,
-            TokenType.NOISE_OVERLAY,
-            TokenType.BG_NOISE,
-            TokenType.WORDS_PULL_UP_MULTI_STYLE,
             TokenType.DIV,
             TokenType.SECTION,
             TokenType.NAV,

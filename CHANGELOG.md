@@ -10,6 +10,43 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.9.0] — 2026-06-24
+
+**Core de-bloat — website cosmetics removed from the shared language.** v9.7.0
+baked four marketing-site visual effects into the core that ships to every PyPI
+user: `WordsPullUp`, `WordsPullUpMultiStyle`, `NoiseOverlay`, `BgNoise` — plus
+their default CSS and an unconditional `IntersectionObserver` script emitted on
+*every* generated page. These were the flagship website's visual identity, not
+the language. They are removed; the website now reproduces them in its own layer
+via the `Raw HTML` escape hatch + site-owned CSS/JS, verified byte-identical at
+build time.
+
+### ⚠️ Breaking (web DSL)
+- Removed page elements: `WordsPullUp`, `WordsPullUpMultiStyle` (+ its `Segment`
+  keyword), `NoiseOverlay`, `BgNoise`. Pages using them must switch to
+  `Raw HTML "..."` or a userland `Component`. No other syntax is affected.
+
+### Removed
+- `epl/html_gen.py`: the four cosmetic render branches; the `.native-pull-up` /
+  `.native-words-wrapper` / `.noise-overlay` / `.bg-noise` default CSS; and the
+  always-on pull-up scroll observer injected into every page.
+- `epl/parser.py`: the v7.0 "Native Animation Components" parse branches and the
+  four tokens from `_NESTED_ELEMENT_TOKENS`.
+- `epl/tokens.py`: `WORDS_PULL_UP`, `WORDS_PULL_UP_MULTI_STYLE`, `SEGMENT`,
+  `NOISE_OVERLAY`, `BG_NOISE` token types and their keyword aliases.
+
+### Kept (deliberately)
+- `store_list` (`Say items from "…"`) — a legitimate data-store feature used by
+  `examples/todo.epl`, styled with core design tokens. There is no in-page loop
+  primitive to replace it, so it stays.
+
+### Tests
+- New `tests/test_no_website_cosmetics_in_core.py` guards against the cosmetics
+  reappearing and confirms `store_list` still renders.
+- Full suite: **1921 passed, 5 skipped**; interpreter↔VM parity: **0 divergences**.
+
+---
+
 ## [9.8.0] — 2026-06-23
 
 **Backend parity — the default runner now matches the reference.** EPL has three

@@ -106,7 +106,9 @@ def test_reveal_observer_defined_once():
         _div('        On reveal\n            Add class "a"\n        End\n')
         + _div('        On reveal\n            Add class "b"\n        End\n')
     )
-    assert html.count('new IntersectionObserver') == 2  # one native-pull-up + one events observer
+    # A single shared events observer, even with multiple `On reveal` handlers.
+    # (Core no longer ships a separate always-on pull-up observer.)
+    assert html.count('new IntersectionObserver') == 1
 
 
 # ── Inline sugar ─────────────────────────────────────────────────────────────

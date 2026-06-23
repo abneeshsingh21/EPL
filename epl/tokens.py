@@ -269,13 +269,6 @@ class TokenType(Enum):
     FILL = auto()  # "Fill"
     STROKE = auto()  # "Stroke"
 
-    # --- v7.0: Native Animation Components ---
-    WORDS_PULL_UP = auto()
-    WORDS_PULL_UP_MULTI_STYLE = auto()
-    SEGMENT = auto()
-    NOISE_OVERLAY = auto()
-    BG_NOISE = auto()
-
     # --- Keywords: Logical ---
     AND = auto()
     OR = auto()
@@ -578,12 +571,6 @@ KEYWORDS = {
     'draw': TokenType.DRAW,
     'fill': TokenType.FILL,
     'stroke': TokenType.STROKE,
-    # v7.0: Native Animation Components
-    'wordspullup': TokenType.WORDS_PULL_UP,
-    'wordspullupmultistyle': TokenType.WORDS_PULL_UP_MULTI_STYLE,
-    'segment': TokenType.SEGMENT,
-    'noiseoverlay': TokenType.NOISE_OVERLAY,
-    'bgnoise': TokenType.BG_NOISE,
 }
 
 # Multi-word keyword phrases (checked in order, longest first)
