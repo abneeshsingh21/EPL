@@ -31,11 +31,7 @@ class TestPageControlFlowParsing(unittest.TestCase):
 
     def test_for_each_inside_page_is_parsed(self):
         page = self._parse_page(
-            'Page "List"\n'
-            '    For each item in things\n'
-            '        Text "$item"\n'
-            '    End\n'
-            'End\n'
+            'Page "List"\n    For each item in things\n        Text "$item"\n    End\nEnd\n'
         )
         kinds = [type(e).__name__ for e in page.elements]
         self.assertIn('ForEachLoop', kinds)

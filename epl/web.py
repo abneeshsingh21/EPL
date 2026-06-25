@@ -402,9 +402,7 @@ def _build_route_env(
             continue
         if _param_name in _reserved_route_names:
             continue
-        route_env.define_variable(
-            _param_name, interpreter._wrap_python_result(_param_value)
-        )
+        route_env.define_variable(_param_name, interpreter._wrap_python_result(_param_value))
 
     return route_env
 
@@ -495,8 +493,15 @@ def _expand_for_range(node, interpreter, env):
     start = interpreter._eval(node.start, env)
     end = interpreter._eval(node.end, env)
     step = interpreter._eval(node.step, env) if node.step is not None else 1
-    if not isinstance(start, int) or not isinstance(end, int) or not isinstance(step, int) or step == 0:
-        raise EPLRuntimeError('For range inside a Page requires integer bounds and non-zero step.', node.line)
+    if (
+        not isinstance(start, int)
+        or not isinstance(end, int)
+        or not isinstance(step, int)
+        or step == 0
+    ):
+        raise EPLRuntimeError(
+            'For range inside a Page requires integer bounds and non-zero step.', node.line
+        )
     out = []
     loop_env = env.create_child(name='page-for-range')
     values = range(start, end + 1, step) if step > 0 else range(start, end - 1, step)

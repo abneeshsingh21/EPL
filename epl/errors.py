@@ -158,9 +158,7 @@ def _did_you_mean(
         return ''
     matches = [
         m
-        for m in difflib.get_close_matches(
-            name, candidates, n=max_suggestions + 1, cutoff=cutoff
-        )
+        for m in difflib.get_close_matches(name, candidates, n=max_suggestions + 1, cutoff=cutoff)
         if m.lower() != name.lower()
     ][:max_suggestions]
     if not matches:
