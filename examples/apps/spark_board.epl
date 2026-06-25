@@ -42,7 +42,7 @@ Route "/api/add" responds with
 End
 
 Route "/api/pin/{id}" responds with
-    real_db_execute(db, "UPDATE ideas pinned = CASE WHEN pinned=0 THEN 1 Otherwise 0 END WHERE id=?", [to_integer(id)])
+    real_db_execute(db, "UPDATE ideas SET pinned = CASE WHEN pinned=0 THEN 1 ELSE 0 END WHERE id=?", [to_integer(id)])
     Send json Map with ok = 1
 End
 

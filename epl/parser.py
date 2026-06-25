@@ -753,7 +753,11 @@ class Parser:
             'Multiply',
             'Divide',
         ]
-        suggestions = difflib.get_close_matches(tok.value, _statement_keywords, n=2, cutoff=0.6)
+        suggestions = [
+            s
+            for s in difflib.get_close_matches(tok.value, _statement_keywords, n=3, cutoff=0.6)
+            if s.lower() != tok.value.lower()
+        ][:2]
         if suggestions:
             hint = ' or '.join(f'"{s}"' for s in suggestions)
             raise ParserError(
@@ -934,7 +938,11 @@ class Parser:
             'Multiply',
             'Divide',
         ]
-        suggestions = difflib.get_close_matches(var_name, _statement_keywords, n=2, cutoff=0.6)
+        suggestions = [
+            s
+            for s in difflib.get_close_matches(var_name, _statement_keywords, n=3, cutoff=0.6)
+            if s.lower() != var_name.lower()
+        ][:2]
         if suggestions:
             hint = ' or '.join(f'"{s}"' for s in suggestions)
             raise ParserError(
@@ -2661,7 +2669,7 @@ class Parser:
         return None
 
     def _parse_send(self):
-        """Send json <expr>  or  Send text <expr>"""
+        """Send json <expr>  |  Send text <expr>  |  Send redirect <url>"""
         line = self._current().line
         self._advance()  # consume SEND
 
@@ -2671,6 +2679,11 @@ class Parser:
         elif self._match(TokenType.TYPE_TEXT):
             self._advance()
             response_type = 'text'
+        elif self._match(TokenType.REDIRECT):
+            # `Send redirect "/path"` — convenience alias for the standalone
+            # `Redirect to "/path"` statement, kept symmetric with json/text.
+            self._advance()
+            response_type = 'redirect'
 
         data = self._parse_expression()
         self._end_statement()

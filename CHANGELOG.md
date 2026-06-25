@@ -10,6 +10,52 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.9.1] — 2026-06-25
+
+**Web framework correctness — shipped-broken examples and route bugs fixed.** A
+standalone cross-platform stress test (`epl-omniapp/`) built one app against the
+9.9.0 web generator and logged a full audit. This release fixes every web-layer
+finding, so the flagship example apps parse, run, and serve correctly.
+
+### Fixed
+- **Brace-style path params silently 404'd.** `Route "/x/{id}"` was never
+  compiled as a parameterized route (only `:id` was), so every `{id}` route fell
+  through to a 404. Both `:name` and `{name}` are now supported and equivalent
+  (`epl/web.py` `_compile_param_route` / `add_route`).
+- **Captured params were not bound as bare variables.** A route body could only
+  read a param via `request_params.name` / `web_request_param("name")`, not the
+  bare `name` used throughout the examples and docs. Each identifier-safe param
+  is now also exposed as a bare variable (reserved `request_*` names are never
+  overwritten).
+- **`Send redirect "/path"` was unsupported.** Only the standalone `Redirect to`
+  statement worked; the `Send redirect` alias now parses and issues a real HTTP
+  3xx from both the WSGI adapter (`epl/deploy.py`) and the dev HTTP handler.
+- **`db_query(...).count` type error.** `db_query` returns a *list* of row maps,
+  so scalar/`count(*)` reads via `.count` failed. Shipped `todo_app.epl` now
+  uses `db_query_one` (returns the first row map or null); `db_query_one` is
+  documented as the ergonomic scalar read.
+- **`spark_board.epl` shipped with invalid SQL** (`UPDATE ideas pinned = …` and
+  `Otherwise` inside SQL) — corrected to valid `UPDATE … SET … ELSE … END`.
+- **"Did you mean X?" suggested the exact token typed.** The diagnostic now
+  excludes a candidate equal (case-insensitive) to the input across both parser
+  sites and `errors.py` `_did_you_mean`.
+
+### Docs
+- `docs/guides/web.md`: documented both path-param syntaxes + bare-variable
+  access, `Send redirect` / `Redirect to`, positional `Input`, `Form action`
+  (defaults to `POST`), `Stylesheet … End` as a raw-CSS block, and
+  `db_query` (list) vs `db_query_one` (row).
+
+### Tests
+- New `tests/test_web_route_params.py` (`{id}` + `:id` match and bind a bare
+  var; redirect parses and executes), `tests/test_diagnostics_self_suggest.py`
+  (no self-suggestion), and `tests/test_examples_parse.py` (every shipped
+  example app must parse — guards against shipping broken flagship examples).
+- Full suite: **1931 passed, 5 skipped** (1921 baseline + 10 new, zero
+  regressions).
+
+---
+
 ## [9.9.0] — 2026-06-24
 
 **Core de-bloat — website cosmetics removed from the shared language.** v9.7.0

@@ -8,7 +8,7 @@ db = db_open("todo_records.db")
 db_execute(db, "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY, task TEXT, done INTEGER)")
 
 Note: Insert some sample data if table is empty
-existing = db_query(db, "SELECT count(*) as count FROM todos")
+existing = db_query_one(db, "SELECT count(*) as count FROM todos")
 If existing.count == 0 Then
     db_execute(db, "INSERT INTO todos (task, done) VALUES ('Learn EPL syntax', 1)")
     db_execute(db, "INSERT INTO todos (task, done) VALUES ('Build an EPL showcase app', 0)")

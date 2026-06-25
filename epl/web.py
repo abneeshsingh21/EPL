@@ -380,6 +380,31 @@ def _build_route_env(
     route_env.define_variable('web_request_path', _bridge_request_path)
     route_env.define_variable('web_request_param', _bridge_request_param)
 
+    # B8: expose captured route/query params as bare variables, so a body for
+    # `Route "/x/:id"` (or "/x/{id}") can use `id` directly — matching the syntax
+    # used throughout the shipped examples and docs. Reserved request_* names are
+    # never overwritten, and only identifier-safe keys are bound.
+    _reserved_route_names = {
+        'request',
+        'request_data',
+        'form_data',
+        'request_body',
+        'request_params',
+        'query_params',
+        'request_headers',
+        'request_method',
+        'request_path',
+        'session_id',
+    }
+    for _param_name, _param_value in (params or {}).items():
+        if not isinstance(_param_name, str) or not _param_name.isidentifier():
+            continue
+        if _param_name in _reserved_route_names:
+            continue
+        route_env.define_variable(
+            _param_name, interpreter._wrap_python_result(_param_value)
+        )
+
     return route_env
 
 
@@ -1266,15 +1291,21 @@ class EPLWebApp:
         _configure_backends(store=store, session=session, **kwargs)
         return self
 
+    # Matches both Express-style (:id) and brace-style ({id}) path parameters.
+    _PARAM_TOKEN_RE = re.compile(r':([a-zA-Z_][a-zA-Z0-9_]*)|\{([a-zA-Z_][a-zA-Z0-9_]*)\}')
+
     def _compile_param_route(self, path, method, response_type, body):
-        """Compile a parameterized route like /users/:id into a regex."""
-        param_names = re.findall(r':([a-zA-Z_][a-zA-Z0-9_]*)', path)
+        """Compile a parameterized route like /users/:id or /users/{id} into a regex."""
+        param_names = [a or b for (a, b) in self._PARAM_TOKEN_RE.findall(path)]
         if not param_names:
             return False
-        # Convert :param to named group
-        pattern = path
-        for pn in param_names:
-            pattern = pattern.replace(f':{pn}', f'(?P<{pn}>[^/]+)')
+
+        # Convert every :param and {param} to a named regex group.
+        def _to_group(match):
+            name = match.group(1) or match.group(2)
+            return f'(?P<{name}>[^/]+)'
+
+        pattern = self._PARAM_TOKEN_RE.sub(_to_group, path)
         pattern = f'^{pattern}$'
         if method not in self.param_routes:
             self.param_routes[method] = []
@@ -1283,8 +1314,8 @@ class EPLWebApp:
 
     def add_route(self, path, response_type, body, method='GET'):
         """Register a route with its response type and body."""
-        # Check if this is a parameterized route
-        if ':' in path:
+        # Check if this is a parameterized route (supports :id and {id}).
+        if ':' in path or '{' in path:
             self._compile_param_route(path, method, response_type, body)
             return
         key = f'{method}:{path}'
@@ -2037,7 +2068,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 self._send_html(html)
         elif response_type == 'json':
             data = self._build_json(body, form_data=form_data, params=params)
-            # Support actual HTTP redirects from json routes
+            # Support actual HTTP redirects from json routes (`Send redirect`).
             if isinstance(data, dict) and 'redirect' in data and len(data) == 1:
                 self._send_redirect(data['redirect'])
             elif isinstance(data, str):

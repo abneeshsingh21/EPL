@@ -72,11 +72,35 @@ Route "/api/users" responds with
 End
 ```
 
-Path parameters:
+Path parameters — both the colon form (`:name`) and the brace form (`{name}`)
+are supported and equivalent:
 
 ```epl
 Route "/users/:name" responds with
-    Send json Map with name = request_params.name
+    Send json Map with name = name
+End
+
+Route "/users/{id}" responds with
+    Send json Map with id = id
+End
+```
+
+Each captured parameter is available three ways inside the route body: as a
+**bare variable** (`name`, `id`), via `request_params.name`, and via
+`web_request_param("name")`. The bare-variable form matches the syntax used
+throughout the example apps.
+
+### Redirects
+
+Issue an HTTP redirect with either the standalone statement or the `Send` alias:
+
+```epl
+Route "/old" responds with
+    Send redirect "/new"
+End
+
+Route "/save" shows
+    Redirect to "/"
 End
 ```
 
@@ -150,6 +174,39 @@ End
 
 Never pass user-controlled input into `Raw HTML`.
 
+### Forms and inputs
+
+`Input` is **positional** (`Input "field_name"`), and `Form` takes an `action`
+(method defaults to `POST`):
+
+```epl
+Page "Add Task"
+    Form action "/add"
+        Input "title" placeholder "What needs doing?"
+        Button "Save"
+    End
+End
+```
+
+This renders `<form method="POST" action="/add">` with a text `<input name="title">`.
+
+### Stylesheet (raw CSS)
+
+`Stylesheet ... End` is a **raw-CSS block** — its body is literal CSS injected
+verbatim into the page `<head>` (not a container for nested `Style` selectors):
+
+```epl
+Page "Styled"
+    Stylesheet
+        .card { border-radius: 12px; padding: 16px; }
+        .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+    End
+    Div class "card"
+        Text "Hover me"
+    End
+End
+```
+
 ---
 
 ## Database Integration
@@ -166,6 +223,15 @@ Route "/api/notes" responds with
     notes = db_query(db, "SELECT id, title FROM notes ORDER BY id")
     Send json Map with ok = True and notes = notes
 End
+```
+
+`db_query` always returns a **list of row maps**. For a single value (e.g. a
+`count(*)` or a lookup by id), use `db_query_one`, which returns the first row
+map (or null), so property access works directly:
+
+```epl
+row = db_query_one(db, "SELECT count(*) as count FROM notes")
+total = row.count
 
 Route "/api/notes/create" responds with
     title = trim(request_data.get("title", ""))
