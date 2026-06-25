@@ -23,6 +23,11 @@ class Parser:
         self.tokens = tokens
         self.pos = 0
         self._depth = 0
+        # >0 while parsing the children of a Page/Div/layout/component element.
+        # In that context, control-flow blocks (For Each / For range / If) parse
+        # their bodies as elements so they can be expanded into markup at render
+        # time, rather than as ordinary statements.
+        self._element_ctx_depth = 0
         self.errors: list = []  # collected parse errors for recovery mode
         self.max_errors = 20  # stop collecting after this many
 
@@ -1112,7 +1117,7 @@ class Parser:
         # Parse then-body until Otherwise or End
         then_body = []
         while not self._is_block_end():
-            stmt = self._parse_statement()
+            stmt = self._parse_body_item()
             if stmt:
                 then_body.append(stmt)
             self._skip_newlines()
@@ -1129,7 +1134,7 @@ class Parser:
             else:
                 self._skip_newlines()
                 while not self._match(TokenType.END, TokenType.END_IF, TokenType.EOF):
-                    stmt = self._parse_statement()
+                    stmt = self._parse_body_item()
                     if stmt:
                         else_body.append(stmt)
                     self._skip_newlines()
@@ -1212,7 +1217,7 @@ class Parser:
 
         body = []
         while not self._match(TokenType.END, TokenType.END_FOR, TokenType.EOF):
-            stmt = self._parse_statement()
+            stmt = self._parse_body_item()
             if stmt:
                 body.append(stmt)
             self._skip_newlines()
@@ -1242,7 +1247,7 @@ class Parser:
 
         body = []
         while not self._match(TokenType.END, TokenType.END_FOR, TokenType.EOF):
-            stmt = self._parse_statement()
+            stmt = self._parse_body_item()
             if stmt:
                 body.append(stmt)
             self._skip_newlines()
@@ -2476,27 +2481,31 @@ class Parser:
         head_directives = []
         stylesheets = []
         styles = []
-        while not self._is_block_end():
-            if self._token_starts_head_directive():
-                directive = self._parse_head_directive()
-                if directive:
-                    head_directives.append(directive)
+        self._element_ctx_depth += 1
+        try:
+            while not self._is_block_end():
+                if self._token_starts_head_directive():
+                    directive = self._parse_head_directive()
+                    if directive:
+                        head_directives.append(directive)
+                    self._skip_newlines()
+                    continue
+                # Page-scoped CSS: a `Stylesheet`/`Style` block nested in a Page
+                # renders only on this route (after any site-wide CSS).
+                if self._match(TokenType.STYLESHEET):
+                    stylesheets.append(self._parse_stylesheet_def())
+                    self._skip_newlines()
+                    continue
+                if self._match(TokenType.STYLE):
+                    styles.append(self._parse_style_def())
+                    self._skip_newlines()
+                    continue
+                elem = self._parse_html_element()
+                if elem:
+                    elements.append(elem)
                 self._skip_newlines()
-                continue
-            # Page-scoped CSS: a `Stylesheet`/`Style` block nested in a Page
-            # renders only on this route (after any site-wide CSS).
-            if self._match(TokenType.STYLESHEET):
-                stylesheets.append(self._parse_stylesheet_def())
-                self._skip_newlines()
-                continue
-            if self._match(TokenType.STYLE):
-                styles.append(self._parse_style_def())
-                self._skip_newlines()
-                continue
-            elem = self._parse_html_element()
-            if elem:
-                elements.append(elem)
-            self._skip_newlines()
+        finally:
+            self._element_ctx_depth -= 1
 
         self._consume_block_end()
         return ast.PageDef(title_tok.value, elements, line, head_directives, stylesheets, styles)
@@ -2662,6 +2671,24 @@ class Parser:
             return self._parse_scene_3d()
         if tok.type == TokenType.DRAW:
             return self._parse_draw_command()
+
+        # v9.9.2: control flow inside the Page DSL. `For Each` / `For range` /
+        # `If` produce loop/branch nodes whose bodies are elements; the web
+        # runtime expands them into concrete markup per request (dynamic lists,
+        # conditional sections). Parsed in element context so nested bodies are
+        # elements too.
+        if tok.type == TokenType.FOR:
+            self._element_ctx_depth += 1
+            try:
+                return self._parse_for()
+            finally:
+                self._element_ctx_depth -= 1
+        if tok.type == TokenType.IF:
+            self._element_ctx_depth += 1
+            try:
+                return self._parse_if()
+            finally:
+                self._element_ctx_depth -= 1
 
         # Unknown element: skip line
         self._advance()
@@ -3581,6 +3608,14 @@ class Parser:
         }
     )
 
+    def _parse_body_item(self):
+        """Parse one item inside a control-flow body (For/If/While). Inside an
+        element context this is an element-or-statement (so `For Each` in a Page
+        can hold `Text`/`Div`/...); otherwise it's an ordinary statement."""
+        if self._element_ctx_depth > 0:
+            return self._parse_element_or_statement()
+        return self._parse_statement()
+
     def _parse_element_or_statement(self):
         """Try to parse as HTML element first, then fall back to statement."""
         tok = self._current()
@@ -4302,17 +4337,21 @@ class Parser:
         self._end_statement()
 
         children = []
-        while not self._match(TokenType.END, TokenType.EOF):
-            self._skip_newlines()
-            if self._match(TokenType.END, TokenType.EOF):
-                break
-            # Nested event block: `On click ... End` as an element child.
-            if self._match(TokenType.ON):
-                events.append(self._parse_event_handler())
-                continue
-            child = self._parse_element_or_statement()
-            if child:
-                children.append(child)
+        self._element_ctx_depth += 1
+        try:
+            while not self._match(TokenType.END, TokenType.EOF):
+                self._skip_newlines()
+                if self._match(TokenType.END, TokenType.EOF):
+                    break
+                # Nested event block: `On click ... End` as an element child.
+                if self._match(TokenType.ON):
+                    events.append(self._parse_event_handler())
+                    continue
+                child = self._parse_element_or_statement()
+                if child:
+                    children.append(child)
+        finally:
+            self._element_ctx_depth -= 1
 
         self._expect(TokenType.END, f'Expected "End" to close {tag} block.')
         self._end_statement()
@@ -4352,13 +4391,17 @@ class Parser:
         self._end_statement()
 
         children = []
-        while not self._match(TokenType.END, TokenType.EOF):
-            self._skip_newlines()
-            if self._match(TokenType.END, TokenType.EOF):
-                break
-            child = self._parse_element_or_statement()
-            if child:
-                children.append(child)
+        self._element_ctx_depth += 1
+        try:
+            while not self._match(TokenType.END, TokenType.EOF):
+                self._skip_newlines()
+                if self._match(TokenType.END, TokenType.EOF):
+                    break
+                child = self._parse_element_or_statement()
+                if child:
+                    children.append(child)
+        finally:
+            self._element_ctx_depth -= 1
 
         self._expect(TokenType.END, f'Expected "End" to close {layout_type} block.')
         self._end_statement()
@@ -4378,13 +4421,17 @@ class Parser:
         self._end_statement()
 
         body = []
-        while not self._match(TokenType.END, TokenType.EOF):
-            self._skip_newlines()
-            if self._match(TokenType.END, TokenType.EOF):
-                break
-            stmt = self._parse_element_or_statement()
-            if stmt:
-                body.append(stmt)
+        self._element_ctx_depth += 1
+        try:
+            while not self._match(TokenType.END, TokenType.EOF):
+                self._skip_newlines()
+                if self._match(TokenType.END, TokenType.EOF):
+                    break
+                stmt = self._parse_element_or_statement()
+                if stmt:
+                    body.append(stmt)
+        finally:
+            self._element_ctx_depth -= 1
 
         self._expect(TokenType.END, 'Expected "End" to close Component block.')
         self._end_statement()
@@ -4398,13 +4445,17 @@ class Parser:
         self._end_statement()
 
         body = []
-        while not self._match(TokenType.END, TokenType.EOF):
-            self._skip_newlines()
-            if self._match(TokenType.END, TokenType.EOF):
-                break
-            stmt = self._parse_element_or_statement()
-            if stmt:
-                body.append(stmt)
+        self._element_ctx_depth += 1
+        try:
+            while not self._match(TokenType.END, TokenType.EOF):
+                self._skip_newlines()
+                if self._match(TokenType.END, TokenType.EOF):
+                    break
+                stmt = self._parse_element_or_statement()
+                if stmt:
+                    body.append(stmt)
+        finally:
+            self._element_ctx_depth -= 1
 
         self._expect(TokenType.END, 'Expected "End" to close Responsive block.')
         self._end_statement()

@@ -10,6 +10,34 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.9.2] — 2026-06-25
+
+**`For each` and `If` now work inside the Page DSL.** Previously, control-flow
+keywords inside a `Page` hit the parser's "unknown element" branch and were
+**silently dropped** — so a dynamic list (`For each item in items ...`) rendered
+nothing, forcing authors into `Raw HTML`. This was the omniapp finding B1.
+
+### Added
+- Control flow inside Page/Div/layout/Component/Responsive elements: `For each`,
+  `For i from a to b [step s]`, and `If ... Otherwise ... End` are parsed with
+  element bodies and **expanded into markup per request** against the route's
+  data. The loop variable is in scope for every (possibly nested) child element;
+  an empty iterable renders nothing.
+  - Parser: an element-context depth flag (`_element_ctx_depth`) makes
+    control-flow bodies parse as elements; `_parse_html_element` now handles
+    `For`/`If` instead of skipping them (`epl/parser.py`).
+  - Runtime: `epl/web.py` `_resolve_page_element` expands `ForEachLoop` /
+    `ForRange` / `IfStatement` nodes via the interpreter in a child env,
+    flattening results into the parent element list.
+
+### Tests
+- New `tests/test_web_page_control_flow.py`: parser keeps the nodes (top-level
+  and nested in a `Div`); served pages render one element per item, only the
+  true `If` branch, and nothing for an empty list.
+- Full suite: **1937 passed, 5 skipped** (zero regressions).
+
+---
+
 ## [9.9.1] — 2026-06-25
 
 **Web framework correctness — shipped-broken examples and route bugs fixed.** A

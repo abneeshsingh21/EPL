@@ -207,6 +207,35 @@ Page "Styled"
 End
 ```
 
+### Dynamic lists and conditionals (`For each` / `If`)
+
+`For each` and `If` work **directly inside a Page** — their bodies are page
+elements, and they are expanded into markup per request against the route's
+data. This is how you render a dynamic list without dropping to `Raw HTML`:
+
+```epl
+Route "/tasks" shows
+    tasks = db_query(db, "SELECT id, title, done FROM tasks ORDER BY id")
+    Page "Tasks"
+        Heading "My Tasks"
+        For each t in tasks
+            Div class "row"
+                Text "$t.title"
+                If t.done == 1 Then
+                    Text "✓ done"
+                Otherwise
+                    Link "Complete" to "/done/$t.id"
+                End
+            End
+        End
+    End
+End
+```
+
+The loop variable (`t`) is in scope for every element in the body, including
+nested containers. An empty list renders nothing; `For i from 1 to N` and
+`Otherwise` branches are supported the same way.
+
 ---
 
 ## Database Integration
