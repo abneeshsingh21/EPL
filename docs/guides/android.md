@@ -65,6 +65,30 @@ To build APKs from the CLI, you need:
 | `--build` | Build APK after generating project |
 | `--name NAME` | Set the app display name |
 | `--compose` | Use Jetpack Compose UI (default) |
+| `--strict` | Fail the build (exit code `2`) if any construct could not be ported |
+
+## What gets ported (and what doesn't)
+
+The native targets (`android`, `ios`, `desktop`) **transliterate EPL logic** to
+Kotlin/Swift. EPL web apps, however, rely on things that have no native-widget
+equivalent: HTTP routing (`Route`, `WebApp`, `Start ... on port`), a server-side
+backend, and the web escape hatches `Raw HTML` / `Script` / `Stylesheet`. Those
+cannot be turned into native widgets.
+
+Rather than drop them silently, every native build now:
+
+- prints a summary of unportable constructs, and
+- writes a **`PORTING_REPORT.md`** into the output directory listing each one
+  (with its line number and why it was dropped) plus what *did* port.
+
+Use `--strict` in CI to turn any unportable construct into a build failure:
+
+```bash
+epl android myapp.epl --strict   # exit 2 if anything couldn't be ported
+```
+
+Pure-logic EPL (functions, math, data) ports cleanly with an empty report. To
+ship a real web app on a device, use a WebView shell rather than transliteration.
 
 ## Project Structure
 

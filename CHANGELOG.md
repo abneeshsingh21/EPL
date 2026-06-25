@@ -10,6 +10,41 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [9.10.0] — 2026-06-25
+
+**Native export now tells the truth about what it ported.** The Android, iOS,
+and desktop targets transliterate EPL logic to Kotlin/Swift, but EPL web apps
+rely on HTTP routing, a server-side backend, and web escape hatches (`Raw HTML`
+/ `Script` / `Stylesheet`) that have **no native-widget equivalent**. Previously
+the generators dropped every such construct silently, exited `0`, and printed
+"✓ generated" — so an app whose UI is built from `Raw HTML` (like the omniapp
+stress test, finding H2) appeared to port fully when ~90 % of it had been
+discarded. The build now reports exactly what survived.
+
+### Added
+- **Portability analysis** (`epl/native_portability.py`): a single AST walk that
+  produces an honest `PortabilityReport` of every construct that cannot be ported
+  to a native target — web routing/serving (`Route`, `WebApp`, `Start ... on
+  port`, `Send ...`), web-only markup (`Raw HTML`, `Script`, `Stylesheet`),
+  server-side storage (`Store`/`Fetch`), and web/`db_*` builtins — each with its
+  line number and the reason it was dropped.
+- **Loud reporting on every native build**: `epl android|ios|desktop` now prints
+  a summary of unportable constructs to stderr and writes a full
+  `PORTING_REPORT.md` into the output directory, including the
+  functions/statements that *did* port and how to ship the real web app via a
+  WebView target.
+- **`--strict` flag** for `android`/`ios`/`desktop`: exit non-zero (code `2`)
+  when any construct could not be ported, so CI no longer treats a lossy
+  transliteration as success.
+
+### Notes
+- This release changes **no codegen output** — it only reports the truth about
+  coverage. Pure-logic EPL (functions, math, data) still ports cleanly with an
+  empty report.
+- `db_*` calls are reported as unportable until the native db bridge ships (H1).
+
+---
+
 ## [9.9.2] — 2026-06-25
 
 **`For each` and `If` now work inside the Page DSL.** Previously, control-flow
