@@ -3157,7 +3157,7 @@ def _transpile_python(args):
 
 
 def _emit_porting_report(program, target, output_dir, strict=False):
-    """Honest native-export reporting (v9.10.0).
+    """Honest native-export reporting (v10.0.0).
 
     Analyze what could NOT be ported to `target`, print a loud summary to
     stderr, and write `<output_dir>/PORTING_REPORT.md`. Returns True when the
@@ -3201,8 +3201,10 @@ def _android(args, flags=None):
     use_compose = '--compose' in args[1:]
     build_apk = '--build' in args[1:]
     strict = '--strict' in args[1:] or bool(flags and '--strict' in flags)
+    webview = '--webview' in args[1:]
     app_name = None
     package_name = None
+    url = None
 
     rest = args[1:]
     i = 0
@@ -3215,15 +3217,33 @@ def _android(args, flags=None):
             package_name = rest[i + 1]
             i += 2
             continue
+        if rest[i] == '--url' and i + 1 < len(rest):
+            url = rest[i + 1]
+            i += 2
+            continue
         i += 1
 
     try:
-        from epl.kotlin_gen import generate_android_project
-
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         output_dir = f'{base}_android'
         resolved_name = app_name or base.replace('_', ' ').title()
+
+        if webview:
+            from epl.webview_gen import generate_android_webview
+
+            loaded = generate_android_webview(
+                program, output_dir, resolved_name, url=url, package_name=package_name
+            )
+            print(f'\n  {_green("✓")} Android WebView shell generated: {_bold(output_dir)}/')
+            print(f'  App name: {resolved_name}')
+            print(f'  Loads:    {loaded}')
+            print(f'\n  {_dim("Ships the real EPL web app — no UI or routes dropped.")}')
+            print(f'  {_dim("Build:")} cd {output_dir} && ./gradlew assembleDebug')
+            return 0
+
+        from epl.kotlin_gen import generate_android_project
+
         generate_android_project(program, output_dir, app_name=resolved_name)
 
         print(f'\n  {_green("✓")} Android project generated: {_bold(output_dir)}/')
@@ -3261,6 +3281,8 @@ def _ios(args, flags=None):
     bundle_id = 'com.epl.app'
     team_id = None
     strict = bool(flags and '--strict' in flags)
+    webview = False
+    url = None
 
     i = 1
     while i < len(args):
@@ -3277,6 +3299,14 @@ def _ios(args, flags=None):
             team_id = args[i + 1]
             i += 2
             continue
+        if arg == '--url' and i + 1 < len(args):
+            url = args[i + 1]
+            i += 2
+            continue
+        if arg == '--webview':
+            webview = True
+            i += 1
+            continue
         if arg == '--strict':
             strict = True
             i += 1
@@ -3285,12 +3315,26 @@ def _ios(args, flags=None):
         return 1
 
     try:
-        from epl.ios_gen import generate_ios_project
-
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         output_dir = f'{base}_ios'
         resolved_name = app_name or base.replace('_', ' ').title()
+
+        if webview:
+            from epl.webview_gen import generate_ios_webview
+
+            loaded = generate_ios_webview(
+                program, output_dir, resolved_name, url=url, bundle_id=bundle_id
+            )
+            print(f'\n  {_green("✓")} iOS WebView shell generated: {_bold(output_dir)}/')
+            print(f'  App name: {resolved_name}')
+            print(f'  Loads:    {loaded}')
+            print(f'\n  {_dim("Ships the real EPL web app — no UI or routes dropped.")}')
+            print(f'  {_dim("Next:")} see {output_dir}/README.md for Xcode steps.')
+            return 0
+
+        from epl.ios_gen import generate_ios_project
+
         generate_ios_project(
             program,
             output_dir,
@@ -3409,6 +3453,8 @@ def _desktop(args, flags=None):
     width = 900
     height = 700
     strict = bool(flags and '--strict' in flags)
+    webview = False
+    url = None
 
     i = 1
     while i < len(args):
@@ -3425,6 +3471,14 @@ def _desktop(args, flags=None):
             height = int(args[i + 1])
             i += 2
             continue
+        if arg == '--url' and i + 1 < len(args):
+            url = args[i + 1]
+            i += 2
+            continue
+        if arg == '--webview':
+            webview = True
+            i += 1
+            continue
         if arg == '--strict':
             strict = True
             i += 1
@@ -3433,12 +3487,30 @@ def _desktop(args, flags=None):
         return 1
 
     try:
-        from epl.desktop import generate_desktop_project
-
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         resolved_name = app_name or base.title().replace('_', '')
         output_dir = f'{base}_desktop'
+
+        if webview:
+            from epl.webview_gen import generate_desktop_webview
+
+            loaded = generate_desktop_webview(
+                program,
+                output_dir,
+                resolved_name,
+                source_path=filename,
+                url=url,
+                width=width,
+                height=height,
+            )
+            print(f'  Desktop app generated: {output_dir}/')
+            print(f'  App: {resolved_name} (runs the real EPL web app at {loaded})')
+            print(f'  Run: cd {output_dir} && pip install -r requirements.txt && python main.py')
+            return 0
+
+        from epl.desktop import generate_desktop_project
+
         generate_desktop_project(
             program, output_dir, app_name=resolved_name, width=width, height=height
         )

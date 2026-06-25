@@ -12,12 +12,12 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from epl.lexer import Lexer
-from epl.parser import Parser
 from epl.native_portability import (
     analyze,
     render_console,
     render_markdown,
 )
+from epl.parser import Parser
 
 
 def parse(source):

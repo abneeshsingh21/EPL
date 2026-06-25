@@ -10,38 +10,53 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
-## [9.10.0] — 2026-06-25
+## [10.0.0] — 2026-06-25
 
-**Native export now tells the truth about what it ported.** The Android, iOS,
-and desktop targets transliterate EPL logic to Kotlin/Swift, but EPL web apps
-rely on HTTP routing, a server-side backend, and web escape hatches (`Raw HTML`
-/ `Script` / `Stylesheet`) that have **no native-widget equivalent**. Previously
-the generators dropped every such construct silently, exited `0`, and printed
-"✓ generated" — so an app whose UI is built from `Raw HTML` (like the omniapp
-stress test, finding H2) appeared to port fully when ~90 % of it had been
-discarded. The build now reports exactly what survived.
+**The "one codebase → web + Android + iOS + desktop" claim is now genuinely
+true — and honest about *how*.** EPL web apps rely on HTTP routing, a server-side
+backend, and the web escape hatches `Raw HTML` / `Script` / `Stylesheet`, none
+of which have a native-widget equivalent. The transliterating native targets
+used to drop all of that silently, exit `0`, and print "✓ generated" — so an app
+whose UI is built from `Raw HTML` (the omniapp stress test, finding H2) looked
+fully ported when ~90 % of it had been discarded. This release does two things:
+it **tells the truth** about what transliteration can carry, and it adds a
+**WebView target** that ships the real web app with nothing dropped.
 
 ### Added
+- **WebView target (`--webview`)** for `android` / `ios` / `desktop` — ships the
+  **real** EPL web app instead of transliterating it:
+  - **android** — a native `WebView` shell (`epl/webview_gen.py`) that loads the
+    running EPL web server; default URL targets the emulator-to-host loopback
+    (`10.0.2.2`) on the app's declared port, overridable with `--url`.
+  - **ios** — a SwiftUI `WKWebView` shell (sources + `Info.plist` with local
+    networking enabled).
+  - **desktop** — a Python `pywebview` launcher that starts the EPL app and opens
+    it in a native window. Because EPL is itself Python, this runs the **whole**
+    app — UI *and* backend — with zero transliteration.
+  - Nothing is dropped: routes, `Raw HTML`, `Script`, `Stylesheet`, and the
+    `db_*` backend are exactly what you built for the web.
 - **Portability analysis** (`epl/native_portability.py`): a single AST walk that
   produces an honest `PortabilityReport` of every construct that cannot be ported
-  to a native target — web routing/serving (`Route`, `WebApp`, `Start ... on
-  port`, `Send ...`), web-only markup (`Raw HTML`, `Script`, `Stylesheet`),
-  server-side storage (`Store`/`Fetch`), and web/`db_*` builtins — each with its
-  line number and the reason it was dropped.
-- **Loud reporting on every native build**: `epl android|ios|desktop` now prints
-  a summary of unportable constructs to stderr and writes a full
-  `PORTING_REPORT.md` into the output directory, including the
-  functions/statements that *did* port and how to ship the real web app via a
-  WebView target.
+  by the **transliterating** target — web routing/serving (`Route`, `WebApp`,
+  `Start ... on port`, `Send ...`), web-only markup (`Raw HTML`, `Script`,
+  `Stylesheet`), server-side storage (`Store`/`Fetch`), and web/`db_*` builtins —
+  each with its line number and the reason it was dropped.
+- **Loud reporting on every transliterating build**: `epl android|ios|desktop`
+  prints a summary of unportable constructs to stderr and writes a full
+  `PORTING_REPORT.md` into the output directory, including what *did* port and how
+  to ship the real app via `--webview`.
 - **`--strict` flag** for `android`/`ios`/`desktop`: exit non-zero (code `2`)
   when any construct could not be ported, so CI no longer treats a lossy
   transliteration as success.
 
 ### Notes
-- This release changes **no codegen output** — it only reports the truth about
-  coverage. Pure-logic EPL (functions, math, data) still ports cleanly with an
-  empty report.
-- `db_*` calls are reported as unportable until the native db bridge ships (H1).
+- The transliterating path changes **no codegen output** — it only reports the
+  truth about coverage. Pure-logic EPL (functions, math, data) still ports
+  cleanly with an empty report; for a real web app, use `--webview`.
+- `db_*` calls are reported as unportable by the transliterating target until the
+  native db bridge ships (H1); the WebView target runs them unchanged.
+- Major version bump: native-export CLIs gain new behavior (loud reporting,
+  `--strict` exit codes, `--webview`/`--url`), so this is **10.0.0**.
 
 ---
 

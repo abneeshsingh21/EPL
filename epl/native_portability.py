@@ -1,4 +1,4 @@
-"""Native-export portability analysis (v9.10.0).
+"""Native-export portability analysis (v10.0.0).
 
 The Android/iOS/desktop generators transliterate EPL logic to Kotlin/Swift.
 Some EPL constructs have NO native equivalent in that model:
@@ -104,7 +104,7 @@ def analyze(program: ast.Program, target: str, has_db_bridge: bool = True) -> Po
     """Build a portability report for `program` against `target`.
 
     `has_db_bridge` reflects whether the target's generated runtime now ships a
-    `db_*` implementation (True since v9.10.0 for android/desktop). When True,
+    `db_*` implementation (True since v10.0.0 for android/desktop). When True,
     database calls are portable and not flagged.
     """
     report = PortabilityReport(target=target)
@@ -145,7 +145,9 @@ def analyze(program: ast.Program, target: str, has_db_bridge: bool = True) -> Po
                 'Stylesheet',
                 'Raw CSS has no native-widget equivalent; styling is not ported.',
             )
-        elif isinstance(node, (getattr(ast, 'StoreStatement', ()), getattr(ast, 'FetchStatement', ()))):
+        elif isinstance(
+            node, (getattr(ast, 'StoreStatement', ()), getattr(ast, 'FetchStatement', ()))
+        ):
             report.add(
                 node.line,
                 'Store/Fetch',
@@ -172,8 +174,7 @@ def analyze(program: ast.Program, target: str, has_db_bridge: bool = True) -> Po
                 report.add(
                     node.line,
                     f'{name}()',
-                    f'No database bridge in the {target} runtime; this call '
-                    'will not compile.',
+                    f'No database bridge in the {target} runtime; this call will not compile.',
                 )
 
     _walk(program, visit)
@@ -188,7 +189,7 @@ def analyze(program: ast.Program, target: str, has_db_bridge: bool = True) -> Po
 
 
 def _is_web_only_toplevel(stmt) -> bool:
-    web_types = (
+    web_types: tuple[type, ...] = (
         ast.Route,
         ast.WebApp,
         ast.StartServer,
@@ -214,9 +215,7 @@ def render_console(report: PortabilityReport, color=None) -> str:
     blocking = report.blocking
     warnings = report.warnings
     if not report.issues:
-        lines.append(
-            paint('green', f'  ✓ All constructs are portable to {report.target}.')
-        )
+        lines.append(paint('green', f'  ✓ All constructs are portable to {report.target}.'))
         return '\n'.join(lines)
 
     lines.append('')
@@ -224,14 +223,15 @@ def render_console(report: PortabilityReport, color=None) -> str:
         lines.append(
             paint(
                 'red',
-                f'  ⚠ {len(blocking)} construct(s) cannot be ported to '
-                f'{report.target} natively:',
+                f'  ⚠ {len(blocking)} construct(s) cannot be ported to {report.target} natively:',
             )
         )
         for issue in blocking[:12]:
             lines.append(f'      • line {issue.line}: {issue.construct} — {issue.detail}')
         if len(blocking) > 12:
-            lines.append(paint('dim', f'      … and {len(blocking) - 12} more (see PORTING_REPORT.md)'))
+            lines.append(
+                paint('dim', f'      … and {len(blocking) - 12} more (see PORTING_REPORT.md)')
+            )
     if warnings:
         lines.append(paint('yellow', f'  ⚠ {len(warnings)} warning(s) — see PORTING_REPORT.md.'))
     lines.append('')
@@ -265,8 +265,10 @@ def render_markdown(report: PortabilityReport, app_name: str = 'App') -> str:
         '',
     ]
     if not report.issues:
-        out.append('✅ **Everything in this program is portable to '
-                    f'{report.target}.** Nothing was dropped.')
+        out.append(
+            '✅ **Everything in this program is portable to '
+            f'{report.target}.** Nothing was dropped.'
+        )
         out.append('')
         return '\n'.join(out)
 
