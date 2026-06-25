@@ -10,6 +10,130 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [10.0.0] — 2026-06-25
+
+**The "one codebase → web + Android + iOS + desktop" claim is now genuinely
+true — and honest about *how*.** EPL web apps rely on HTTP routing, a server-side
+backend, and the web escape hatches `Raw HTML` / `Script` / `Stylesheet`, none
+of which have a native-widget equivalent. The transliterating native targets
+used to drop all of that silently, exit `0`, and print "✓ generated" — so an app
+whose UI is built from `Raw HTML` (the omniapp stress test, finding H2) looked
+fully ported when ~90 % of it had been discarded. This release does two things:
+it **tells the truth** about what transliteration can carry, and it adds a
+**WebView target** that ships the real web app with nothing dropped.
+
+### Added
+- **WebView target (`--webview`)** for `android` / `ios` / `desktop` — ships the
+  **real** EPL web app instead of transliterating it:
+  - **android** — a native `WebView` shell (`epl/webview_gen.py`) that loads the
+    running EPL web server; default URL targets the emulator-to-host loopback
+    (`10.0.2.2`) on the app's declared port, overridable with `--url`.
+  - **ios** — a SwiftUI `WKWebView` shell (sources + `Info.plist` with local
+    networking enabled).
+  - **desktop** — a Python `pywebview` launcher that starts the EPL app and opens
+    it in a native window. Because EPL is itself Python, this runs the **whole**
+    app — UI *and* backend — with zero transliteration.
+  - Nothing is dropped: routes, `Raw HTML`, `Script`, `Stylesheet`, and the
+    `db_*` backend are exactly what you built for the web.
+- **Portability analysis** (`epl/native_portability.py`): a single AST walk that
+  produces an honest `PortabilityReport` of every construct that cannot be ported
+  by the **transliterating** target — web routing/serving (`Route`, `WebApp`,
+  `Start ... on port`, `Send ...`), web-only markup (`Raw HTML`, `Script`,
+  `Stylesheet`), server-side storage (`Store`/`Fetch`), and web/`db_*` builtins —
+  each with its line number and the reason it was dropped.
+- **Loud reporting on every transliterating build**: `epl android|ios|desktop`
+  prints a summary of unportable constructs to stderr and writes a full
+  `PORTING_REPORT.md` into the output directory, including what *did* port and how
+  to ship the real app via `--webview`.
+- **`--strict` flag** for `android`/`ios`/`desktop`: exit non-zero (code `2`)
+  when any construct could not be ported, so CI no longer treats a lossy
+  transliteration as success.
+
+### Notes
+- The transliterating path changes **no codegen output** — it only reports the
+  truth about coverage. Pure-logic EPL (functions, math, data) still ports
+  cleanly with an empty report; for a real web app, use `--webview`.
+- `db_*` calls are reported as unportable by the transliterating target until the
+  native db bridge ships (H1); the WebView target runs them unchanged.
+- Major version bump: native-export CLIs gain new behavior (loud reporting,
+  `--strict` exit codes, `--webview`/`--url`), so this is **10.0.0**.
+
+---
+
+## [9.9.2] — 2026-06-25
+
+**`For each` and `If` now work inside the Page DSL.** Previously, control-flow
+keywords inside a `Page` hit the parser's "unknown element" branch and were
+**silently dropped** — so a dynamic list (`For each item in items ...`) rendered
+nothing, forcing authors into `Raw HTML`. This was the omniapp finding B1.
+
+### Added
+- Control flow inside Page/Div/layout/Component/Responsive elements: `For each`,
+  `For i from a to b [step s]`, and `If ... Otherwise ... End` are parsed with
+  element bodies and **expanded into markup per request** against the route's
+  data. The loop variable is in scope for every (possibly nested) child element;
+  an empty iterable renders nothing.
+  - Parser: an element-context depth flag (`_element_ctx_depth`) makes
+    control-flow bodies parse as elements; `_parse_html_element` now handles
+    `For`/`If` instead of skipping them (`epl/parser.py`).
+  - Runtime: `epl/web.py` `_resolve_page_element` expands `ForEachLoop` /
+    `ForRange` / `IfStatement` nodes via the interpreter in a child env,
+    flattening results into the parent element list.
+
+### Tests
+- New `tests/test_web_page_control_flow.py`: parser keeps the nodes (top-level
+  and nested in a `Div`); served pages render one element per item, only the
+  true `If` branch, and nothing for an empty list.
+- Full suite: **1937 passed, 5 skipped** (zero regressions).
+
+---
+
+## [9.9.1] — 2026-06-25
+
+**Web framework correctness — shipped-broken examples and route bugs fixed.** A
+standalone cross-platform stress test (`epl-omniapp/`) built one app against the
+9.9.0 web generator and logged a full audit. This release fixes every web-layer
+finding, so the flagship example apps parse, run, and serve correctly.
+
+### Fixed
+- **Brace-style path params silently 404'd.** `Route "/x/{id}"` was never
+  compiled as a parameterized route (only `:id` was), so every `{id}` route fell
+  through to a 404. Both `:name` and `{name}` are now supported and equivalent
+  (`epl/web.py` `_compile_param_route` / `add_route`).
+- **Captured params were not bound as bare variables.** A route body could only
+  read a param via `request_params.name` / `web_request_param("name")`, not the
+  bare `name` used throughout the examples and docs. Each identifier-safe param
+  is now also exposed as a bare variable (reserved `request_*` names are never
+  overwritten).
+- **`Send redirect "/path"` was unsupported.** Only the standalone `Redirect to`
+  statement worked; the `Send redirect` alias now parses and issues a real HTTP
+  3xx from both the WSGI adapter (`epl/deploy.py`) and the dev HTTP handler.
+- **`db_query(...).count` type error.** `db_query` returns a *list* of row maps,
+  so scalar/`count(*)` reads via `.count` failed. Shipped `todo_app.epl` now
+  uses `db_query_one` (returns the first row map or null); `db_query_one` is
+  documented as the ergonomic scalar read.
+- **`spark_board.epl` shipped with invalid SQL** (`UPDATE ideas pinned = …` and
+  `Otherwise` inside SQL) — corrected to valid `UPDATE … SET … ELSE … END`.
+- **"Did you mean X?" suggested the exact token typed.** The diagnostic now
+  excludes a candidate equal (case-insensitive) to the input across both parser
+  sites and `errors.py` `_did_you_mean`.
+
+### Docs
+- `docs/guides/web.md`: documented both path-param syntaxes + bare-variable
+  access, `Send redirect` / `Redirect to`, positional `Input`, `Form action`
+  (defaults to `POST`), `Stylesheet … End` as a raw-CSS block, and
+  `db_query` (list) vs `db_query_one` (row).
+
+### Tests
+- New `tests/test_web_route_params.py` (`{id}` + `:id` match and bind a bare
+  var; redirect parses and executes), `tests/test_diagnostics_self_suggest.py`
+  (no self-suggestion), and `tests/test_examples_parse.py` (every shipped
+  example app must parse — guards against shipping broken flagship examples).
+- Full suite: **1931 passed, 5 skipped** (1921 baseline + 10 new, zero
+  regressions).
+
+---
+
 ## [9.9.0] — 2026-06-24
 
 **Core de-bloat — website cosmetics removed from the shared language.** v9.7.0

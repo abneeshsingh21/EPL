@@ -156,7 +156,11 @@ def _did_you_mean(
     """Suggest similar names using difflib (edit-distance based)."""
     if not candidates or not name:
         return ''
-    matches = difflib.get_close_matches(name, candidates, n=max_suggestions, cutoff=cutoff)
+    matches = [
+        m
+        for m in difflib.get_close_matches(name, candidates, n=max_suggestions + 1, cutoff=cutoff)
+        if m.lower() != name.lower()
+    ][:max_suggestions]
     if not matches:
         return ''
     if len(matches) == 1:

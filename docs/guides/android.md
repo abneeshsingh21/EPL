@@ -65,6 +65,51 @@ To build APKs from the CLI, you need:
 | `--build` | Build APK after generating project |
 | `--name NAME` | Set the app display name |
 | `--compose` | Use Jetpack Compose UI (default) |
+| `--strict` | Fail the build (exit code `2`) if any construct could not be ported |
+| `--webview` | Ship the **real** web app in a native WebView shell (nothing dropped) |
+| `--url URL` | With `--webview`, the URL the shell loads (default: local dev server) |
+
+## What gets ported (and what doesn't)
+
+The native targets (`android`, `ios`, `desktop`) **transliterate EPL logic** to
+Kotlin/Swift. EPL web apps, however, rely on things that have no native-widget
+equivalent: HTTP routing (`Route`, `WebApp`, `Start ... on port`), a server-side
+backend, and the web escape hatches `Raw HTML` / `Script` / `Stylesheet`. Those
+cannot be turned into native widgets.
+
+Rather than drop them silently, every native build now:
+
+- prints a summary of unportable constructs, and
+- writes a **`PORTING_REPORT.md`** into the output directory listing each one
+  (with its line number and why it was dropped) plus what *did* port.
+
+Use `--strict` in CI to turn any unportable construct into a build failure:
+
+```bash
+epl android myapp.epl --strict   # exit 2 if anything couldn't be ported
+```
+
+Pure-logic EPL (functions, math, data) ports cleanly with an empty report.
+
+## Shipping a real web app: `--webview`
+
+For an app whose UI is a web UI (Page DSL, `Raw HTML`, `Script`, `Stylesheet`)
+backed by routes and a database, transliteration is the wrong tool — use the
+**WebView target**, which ships the real app with nothing dropped:
+
+```bash
+# Native shell that loads your running EPL web server (emulator → host):
+epl android myapp.epl --webview
+
+# Point it at a deployed backend instead:
+epl android myapp.epl --webview --url https://myapp.example.com
+```
+
+The Android shell is a `WebView`; the iOS shell (`epl ios … --webview`) is a
+`WKWebView`; and the desktop shell (`epl desktop … --webview`) is a Python
+`pywebview` launcher that runs the **whole** app — UI *and* backend — in a native
+window with zero transliteration. For the local default, run the backend with
+`epl run myapp.epl`; the emulator reaches your machine at `10.0.2.2`.
 
 ## Project Structure
 

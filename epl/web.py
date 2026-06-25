@@ -30,6 +30,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
 from epl import ast_nodes as ast
+from epl.errors import RuntimeError as EPLRuntimeError
 from epl.html_gen import build_csp_header, generate_html, new_nonce
 
 # ─── Structured Logger ───────────────────────────────────
@@ -380,6 +381,29 @@ def _build_route_env(
     route_env.define_variable('web_request_path', _bridge_request_path)
     route_env.define_variable('web_request_param', _bridge_request_param)
 
+    # B8: expose captured route/query params as bare variables, so a body for
+    # `Route "/x/:id"` (or "/x/{id}") can use `id` directly — matching the syntax
+    # used throughout the shipped examples and docs. Reserved request_* names are
+    # never overwritten, and only identifier-safe keys are bound.
+    _reserved_route_names = {
+        'request',
+        'request_data',
+        'form_data',
+        'request_body',
+        'request_params',
+        'query_params',
+        'request_headers',
+        'request_method',
+        'request_path',
+        'session_id',
+    }
+    for _param_name, _param_value in (params or {}).items():
+        if not isinstance(_param_name, str) or not _param_name.isidentifier():
+            continue
+        if _param_name in _reserved_route_names:
+            continue
+        route_env.define_variable(_param_name, interpreter._wrap_python_result(_param_value))
+
     return route_env
 
 
@@ -419,7 +443,120 @@ def _resolve_page_value(value, interpreter, env):
     return value
 
 
+def _resolve_page_children(children, interpreter, env):
+    """Resolve a list of page children, flattening any control-flow nodes
+    (For Each / For range / If) that expand into zero-or-more elements."""
+    resolved = []
+    for child in children or []:
+        out = _resolve_page_element(child, interpreter, env)
+        if isinstance(out, list):
+            resolved.extend(out)
+        elif out is not None:
+            resolved.append(out)
+    return resolved
+
+
+def _eval_page_iterable(node, interpreter, env):
+    """Evaluate a `For Each` iterable into a Python list, matching the
+    interpreter's coercion (map → keys, generator → list)."""
+    value = interpreter._eval(node.iterable, env)
+    if hasattr(value, 'data') and isinstance(getattr(value, 'data', None), dict):
+        return list(value.data.keys())
+    if hasattr(value, 'to_list'):
+        return value.to_list()
+    if isinstance(value, (list, str)):
+        return list(value)
+    raise EPLRuntimeError(
+        'For each inside a Page requires a list, text, map, or generator.', node.line
+    )
+
+
+def _expand_for_each(node, interpreter, env):
+    """Expand a `For each x in items` block into a flat list of elements,
+    one rendering of the body per item."""
+    items = _eval_page_iterable(node, interpreter, env)
+    out = []
+    loop_env = env.create_child(name='page-for-each')
+    first = True
+    for item in items:
+        if first:
+            loop_env.define_variable(node.var_name, item)
+            first = False
+        else:
+            loop_env.variables[node.var_name]['value'] = item
+        out.extend(_resolve_page_children(node.body, interpreter, loop_env))
+    return out
+
+
+def _expand_for_range(node, interpreter, env):
+    """Expand a `For i from a to b [step s]` block into a flat list of elements."""
+    start = interpreter._eval(node.start, env)
+    end = interpreter._eval(node.end, env)
+    step = interpreter._eval(node.step, env) if node.step is not None else 1
+    if (
+        not isinstance(start, int)
+        or not isinstance(end, int)
+        or not isinstance(step, int)
+        or step == 0
+    ):
+        raise EPLRuntimeError(
+            'For range inside a Page requires integer bounds and non-zero step.', node.line
+        )
+    out = []
+    loop_env = env.create_child(name='page-for-range')
+    values = range(start, end + 1, step) if step > 0 else range(start, end - 1, step)
+    first = True
+    for i in values:
+        if first:
+            loop_env.define_variable(node.var_name, i)
+            first = False
+        else:
+            loop_env.variables[node.var_name]['value'] = i
+        out.extend(_resolve_page_children(node.body, interpreter, loop_env))
+    return out
+
+
+def _expand_if(node, interpreter, env):
+    """Expand an `If cond ... Otherwise ... End` block into the elements of
+    the branch whose condition holds (empty list if none)."""
+    if interpreter._is_truthy(interpreter._eval(node.condition, env)):
+        return _resolve_page_children(node.then_body, interpreter, env)
+    if node.else_body:
+        return _resolve_page_children(node.else_body, interpreter, env)
+    return []
+
+
 def _resolve_page_element(elem, interpreter, env):
+    # Control-flow nodes embedded in a Page expand into 0+ elements at request
+    # time. They only appear here when parsed in element context (v9.9.2).
+    if isinstance(elem, ast.ForEachLoop):
+        return _expand_for_each(elem, interpreter, env)
+    if isinstance(elem, ast.ForRange):
+        return _expand_for_range(elem, interpreter, env)
+    if isinstance(elem, ast.IfStatement):
+        return _expand_if(elem, interpreter, env)
+    if isinstance(elem, ast.StyledElement):
+        attrs = {
+            key: interpreter._resolve_template(value, env) if isinstance(value, str) else value
+            for key, value in (elem.attributes or {}).items()
+        }
+        return ast.StyledElement(
+            elem.tag,
+            elem.styles,
+            elem.class_names,
+            attrs,
+            _resolve_page_children(elem.children, interpreter, env),
+            elem.inline_styles,
+            elem.line,
+            elem.events,
+        )
+    if isinstance(elem, ast.LayoutContainer):
+        return ast.LayoutContainer(
+            elem.layout_type,
+            elem.properties,
+            _resolve_page_children(elem.children, interpreter, env),
+            elem.line,
+        )
     if not isinstance(elem, ast.HtmlElement):
         return elem
     content = _resolve_page_value(elem.content, interpreter, env)
@@ -427,7 +564,7 @@ def _resolve_page_element(elem, interpreter, env):
         key: interpreter._resolve_template(value, env) if isinstance(value, str) else value
         for key, value in (elem.attributes or {}).items()
     }
-    children = [_resolve_page_element(child, interpreter, env) for child in (elem.children or [])]
+    children = _resolve_page_children(elem.children, interpreter, env)
     return ast.HtmlElement(elem.tag, content, attrs, children, elem.line, elem.events)
 
 
@@ -440,7 +577,7 @@ def _resolve_page_def(page_def, interpreter, env):
         if isinstance(page_def.title, str)
         else page_def.title
     )
-    elements = [_resolve_page_element(element, interpreter, env) for element in page_def.elements]
+    elements = _resolve_page_children(page_def.elements, interpreter, env)
     return ast.PageDef(
         title,
         elements,
@@ -1266,15 +1403,21 @@ class EPLWebApp:
         _configure_backends(store=store, session=session, **kwargs)
         return self
 
+    # Matches both Express-style (:id) and brace-style ({id}) path parameters.
+    _PARAM_TOKEN_RE = re.compile(r':([a-zA-Z_][a-zA-Z0-9_]*)|\{([a-zA-Z_][a-zA-Z0-9_]*)\}')
+
     def _compile_param_route(self, path, method, response_type, body):
-        """Compile a parameterized route like /users/:id into a regex."""
-        param_names = re.findall(r':([a-zA-Z_][a-zA-Z0-9_]*)', path)
+        """Compile a parameterized route like /users/:id or /users/{id} into a regex."""
+        param_names = [a or b for (a, b) in self._PARAM_TOKEN_RE.findall(path)]
         if not param_names:
             return False
-        # Convert :param to named group
-        pattern = path
-        for pn in param_names:
-            pattern = pattern.replace(f':{pn}', f'(?P<{pn}>[^/]+)')
+
+        # Convert every :param and {param} to a named regex group.
+        def _to_group(match):
+            name = match.group(1) or match.group(2)
+            return f'(?P<{name}>[^/]+)'
+
+        pattern = self._PARAM_TOKEN_RE.sub(_to_group, path)
         pattern = f'^{pattern}$'
         if method not in self.param_routes:
             self.param_routes[method] = []
@@ -1283,8 +1426,8 @@ class EPLWebApp:
 
     def add_route(self, path, response_type, body, method='GET'):
         """Register a route with its response type and body."""
-        # Check if this is a parameterized route
-        if ':' in path:
+        # Check if this is a parameterized route (supports :id and {id}).
+        if ':' in path or '{' in path:
             self._compile_param_route(path, method, response_type, body)
             return
         key = f'{method}:{path}'
@@ -2037,7 +2180,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                 self._send_html(html)
         elif response_type == 'json':
             data = self._build_json(body, form_data=form_data, params=params)
-            # Support actual HTTP redirects from json routes
+            # Support actual HTTP redirects from json routes (`Send redirect`).
             if isinstance(data, dict) and 'redirect' in data and len(data) == 1:
                 self._send_redirect(data['redirect'])
             elif isinstance(data, str):

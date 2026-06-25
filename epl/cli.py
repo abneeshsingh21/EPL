@@ -442,9 +442,9 @@ def cli_main(argv=None):
         'node': lambda: _transpile_node(rest),
         'kotlin': lambda: _transpile_kotlin(rest),
         'python': lambda: _transpile_python(rest),
-        'android': lambda: _android(rest),
-        'ios': lambda: _ios(rest),
-        'desktop': lambda: _desktop(rest),
+        'android': lambda: _android(rest, flags),
+        'ios': lambda: _ios(rest, flags),
+        'desktop': lambda: _desktop(rest, flags),
         'web': lambda: _web(rest),
         'gui': lambda: _gui(rest),
         'ir': lambda: _show_ir(rest),
@@ -3156,7 +3156,43 @@ def _transpile_python(args):
         return 1
 
 
-def _android(args):
+def _emit_porting_report(program, target, output_dir, strict=False):
+    """Honest native-export reporting (v10.0.0).
+
+    Analyze what could NOT be ported to `target`, print a loud summary to
+    stderr, and write `<output_dir>/PORTING_REPORT.md`. Returns True when the
+    build should be treated as failed (i.e. `--strict` and a blocking issue
+    exists) so the caller can return a non-zero exit code instead of the old
+    silent "✓ generated".
+    """
+    try:
+        from epl.native_portability import analyze, render_console, render_markdown
+    except Exception:
+        return False
+    # H1 (a native db_* bridge) is not yet implemented, so be honest: report
+    # db_* calls as unportable until that runtime ships. Flip to True per-target
+    # when the bridge lands.
+    report = analyze(program, target, has_db_bridge=False)
+    colors = {'red': _red, 'yellow': _yellow, 'green': _green, 'dim': _dim, 'bold': _bold}
+    print(render_console(report, color=colors), file=sys.stderr)
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, 'PORTING_REPORT.md'), 'w', encoding='utf-8') as fh:
+            fh.write(render_markdown(report, app_name=os.path.basename(output_dir)))
+    except OSError:
+        pass
+    if strict and report.has_blocking:
+        print(
+            f'\n  {_red("Build failed (--strict):")} '
+            f'{len(report.blocking)} construct(s) could not be ported. '
+            'See PORTING_REPORT.md.',
+            file=sys.stderr,
+        )
+        return True
+    return False
+
+
+def _android(args, flags=None):
     args = _resolve_target_args(args)
     if not args:
         print(f'{_red("Error:")} No file specified.')
@@ -3164,8 +3200,11 @@ def _android(args):
     filename = args[0]
     use_compose = '--compose' in args[1:]
     build_apk = '--build' in args[1:]
+    strict = '--strict' in args[1:] or bool(flags and '--strict' in flags)
+    webview = '--webview' in args[1:]
     app_name = None
     package_name = None
+    url = None
 
     rest = args[1:]
     i = 0
@@ -3178,21 +3217,42 @@ def _android(args):
             package_name = rest[i + 1]
             i += 2
             continue
+        if rest[i] == '--url' and i + 1 < len(rest):
+            url = rest[i + 1]
+            i += 2
+            continue
         i += 1
 
     try:
-        from epl.kotlin_gen import generate_android_project
-
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         output_dir = f'{base}_android'
         resolved_name = app_name or base.replace('_', ' ').title()
+
+        if webview:
+            from epl.webview_gen import generate_android_webview
+
+            loaded = generate_android_webview(
+                program, output_dir, resolved_name, url=url, package_name=package_name
+            )
+            print(f'\n  {_green("✓")} Android WebView shell generated: {_bold(output_dir)}/')
+            print(f'  App name: {resolved_name}')
+            print(f'  Loads:    {loaded}')
+            print(f'\n  {_dim("Ships the real EPL web app — no UI or routes dropped.")}')
+            print(f'  {_dim("Build:")} cd {output_dir} && ./gradlew assembleDebug')
+            return 0
+
+        from epl.kotlin_gen import generate_android_project
+
         generate_android_project(program, output_dir, app_name=resolved_name)
 
         print(f'\n  {_green("✓")} Android project generated: {_bold(output_dir)}/')
         print(f'  App name: {resolved_name}')
         if use_compose:
             print('  UI Mode: Jetpack Compose')
+
+        if _emit_porting_report(program, 'android', output_dir, strict):
+            return 2
 
         if build_apk:
             _build_android_apk(output_dir)
@@ -3210,7 +3270,7 @@ def _android(args):
         return 1
 
 
-def _ios(args):
+def _ios(args, flags=None):
     args = _resolve_target_args(args)
     if not args:
         print(f'{_red("Error:")} No file specified.')
@@ -3220,6 +3280,9 @@ def _ios(args):
     app_name = None
     bundle_id = 'com.epl.app'
     team_id = None
+    strict = bool(flags and '--strict' in flags)
+    webview = False
+    url = None
 
     i = 1
     while i < len(args):
@@ -3236,16 +3299,42 @@ def _ios(args):
             team_id = args[i + 1]
             i += 2
             continue
+        if arg == '--url' and i + 1 < len(args):
+            url = args[i + 1]
+            i += 2
+            continue
+        if arg == '--webview':
+            webview = True
+            i += 1
+            continue
+        if arg == '--strict':
+            strict = True
+            i += 1
+            continue
         print(f'{_red("Error:")} Unknown ios option: {arg}')
         return 1
 
     try:
-        from epl.ios_gen import generate_ios_project
-
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         output_dir = f'{base}_ios'
         resolved_name = app_name or base.replace('_', ' ').title()
+
+        if webview:
+            from epl.webview_gen import generate_ios_webview
+
+            loaded = generate_ios_webview(
+                program, output_dir, resolved_name, url=url, bundle_id=bundle_id
+            )
+            print(f'\n  {_green("✓")} iOS WebView shell generated: {_bold(output_dir)}/')
+            print(f'  App name: {resolved_name}')
+            print(f'  Loads:    {loaded}')
+            print(f'\n  {_dim("Ships the real EPL web app — no UI or routes dropped.")}')
+            print(f'  {_dim("Next:")} see {output_dir}/README.md for Xcode steps.')
+            return 0
+
+        from epl.ios_gen import generate_ios_project
+
         generate_ios_project(
             program,
             output_dir,
@@ -3259,6 +3348,8 @@ def _ios(args):
         print(f'  Bundle ID: {bundle_id}')
         if team_id:
             print(f'  Team ID: {team_id}')
+        if _emit_porting_report(program, 'ios', output_dir, strict):
+            return 2
         print(f'\n  {_dim("Next steps:")}')
         print(f'    1. Open in Xcode: {output_dir}/')
         print(
@@ -3352,7 +3443,7 @@ def _build_android_apk(project_dir):
         print(f'\n  {_red("✗")} Build error: {e}')
 
 
-def _desktop(args):
+def _desktop(args, flags=None):
     args = _resolve_target_args(args)
     if not args:
         print(f'{_red("Error:")} No file specified.')
@@ -3361,6 +3452,9 @@ def _desktop(args):
     app_name = None
     width = 900
     height = 700
+    strict = bool(flags and '--strict' in flags)
+    webview = False
+    url = None
 
     i = 1
     while i < len(args):
@@ -3377,21 +3471,53 @@ def _desktop(args):
             height = int(args[i + 1])
             i += 2
             continue
+        if arg == '--url' and i + 1 < len(args):
+            url = args[i + 1]
+            i += 2
+            continue
+        if arg == '--webview':
+            webview = True
+            i += 1
+            continue
+        if arg == '--strict':
+            strict = True
+            i += 1
+            continue
         print(f'{_red("Error:")} Unknown desktop option: {arg}')
         return 1
 
     try:
-        from epl.desktop import generate_desktop_project
-
         _, program = _load_epl_program(filename)
         base = os.path.splitext(os.path.basename(filename))[0]
         resolved_name = app_name or base.title().replace('_', '')
         output_dir = f'{base}_desktop'
+
+        if webview:
+            from epl.webview_gen import generate_desktop_webview
+
+            loaded = generate_desktop_webview(
+                program,
+                output_dir,
+                resolved_name,
+                source_path=filename,
+                url=url,
+                width=width,
+                height=height,
+            )
+            print(f'  Desktop app generated: {output_dir}/')
+            print(f'  App: {resolved_name} (runs the real EPL web app at {loaded})')
+            print(f'  Run: cd {output_dir} && pip install -r requirements.txt && python main.py')
+            return 0
+
+        from epl.desktop import generate_desktop_project
+
         generate_desktop_project(
             program, output_dir, app_name=resolved_name, width=width, height=height
         )
         print(f'  Desktop project generated: {output_dir}/')
         print(f'  App: {resolved_name} ({width}x{height})')
+        if _emit_porting_report(program, 'desktop', output_dir, strict):
+            return 2
         print(f'  Build: cd {output_dir} && ./gradlew run')
         print('  Package: ./gradlew packageMsi  (or packageDmg/packageDeb)')
         return 0

@@ -267,8 +267,14 @@ class WSGIAdapter:
                     headers,
                     req.session_id,
                 )
-                body = json.dumps(data, indent=2, default=str)
-                resp = self._json_response(start_response, 200, body)
+                # `Send redirect "/path"` (or `Redirect to`) inside a `responds
+                # with` route surfaces as a single-key {'redirect': url} dict —
+                # honor it as a real HTTP redirect instead of serializing it.
+                if isinstance(data, dict) and set(data) == {'redirect'}:
+                    resp = self._redirect_response(start_response, data['redirect'])
+                else:
+                    body = json.dumps(data, indent=2, default=str)
+                    resp = self._json_response(start_response, 200, body)
             elif response_type == 'page':
                 html = self._build_page(
                     route_body,
