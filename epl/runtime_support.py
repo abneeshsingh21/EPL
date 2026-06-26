@@ -501,7 +501,18 @@ def compile_file(
         if os.path.exists(rt_obj):
             link_cmd.insert(2, rt_obj)
         if static:
-            link_cmd.append('-static')
+            # macOS has no static libc — Apple ships no crt0.o, so `-static`
+            # fails at link time with "library 'crt0.o' not found". Silently
+            # drop the flag there (the binary is simply dynamically linked)
+            # rather than emit an unlinkable command. Targeting a non-Darwin
+            # platform from macOS is still allowed to request static linking.
+            targeting_macos = (target and triple and 'darwin' in triple) or (
+                not target and sys.platform == 'darwin'
+            )
+            if targeting_macos:
+                print('  Note: ignoring -static on macOS (no static libc available)')
+            else:
+                link_cmd.append('-static')
         if (target and 'windows' not in target) or (not target and os.name != 'nt'):
             link_cmd.append('-lm')
         if target and 'linux' in target:
