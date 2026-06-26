@@ -780,7 +780,18 @@ class BytecodeCompiler:
                 raise VMError('Break outside of loop', self._current_line)
         elif isinstance(node, ast.ContinueStatement):
             if self.loop_stack:
-                self._emit(Op.LOOP_BACK, self.loop_stack[-1]['continue'])
+                top = self.loop_stack[-1]
+                target = top.get('continue')
+                if target is not None:
+                    # Loops whose back-edge already runs the advance step (while,
+                    # for-each): jump straight back to the loop head.
+                    self._emit(Op.LOOP_BACK, target)
+                else:
+                    # Counted loops (for-range, repeat) advance *after* the body,
+                    # so a continue must land on the increment, not the condition
+                    # check — otherwise the counter never moves and we spin
+                    # forever. Forward-patch it like a break.
+                    top['continues'].append(self._emit_jump(Op.JUMP))
             else:
                 raise VMError('Continue outside of loop', self._current_line)
         elif isinstance(node, ast.ImportStatement):
@@ -1071,37 +1082,133 @@ class BytecodeCompiler:
         for brk in loop_info['breaks']:
             self._patch_jump(brk)
 
+    _ZERO_STEP_MSG = 'For range step must be a non-zero integer.'
+
+    @staticmethod
+    def _const_step_value(step_val):
+        """The numeric value of a compile-time-constant step (``Literal(n)`` or
+        ``-Literal(n)``), or ``None`` when the step is a runtime expression.
+        A missing step means the default of ``1``."""
+        from epl import ast_nodes as ast
+
+        if step_val is None:
+            return 1
+        if isinstance(step_val, ast.Literal) and isinstance(step_val.value, (int, float)):
+            return step_val.value
+        if (
+            isinstance(step_val, ast.UnaryOp)
+            and step_val.operator == '-'
+            and isinstance(step_val.operand, ast.Literal)
+            and isinstance(step_val.operand.value, (int, float))
+        ):
+            return -step_val.operand.value
+        return None
+
     def _compile_for(self, node):
         # Compile: For <var> From <start> To <end> [Step <step>]
         start_val = node.start if hasattr(node, 'start') else node.range_start
         end_val = node.end if hasattr(node, 'end') else node.range_end
         step_val = getattr(node, 'step', None)
-
-        # Initialize counter (global at top level so it's visible like the
-        # interpreter; local inside a function).
-        self._compile_expr(start_val)
         var_name = node.var_name if hasattr(node, 'var_name') else node.variable
+
+        const_step = self._const_step_value(step_val)
+
+        # A constant step must be a non-zero integer, exactly like the
+        # interpreter (which does `not isinstance(step, int) or step == 0`).
+        # Zero never advances the counter (infinite loop); any float literal —
+        # including a whole-number one like `step 2.0` — is rejected, matching
+        # the interpreter's strict int-type check rather than its value.
+        if const_step is not None and (not isinstance(const_step, int) or const_step == 0):
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            return
+
+        # Evaluate the bounds ONCE, up front, in source order (start, end, then
+        # step) and snapshot end + a runtime step into locals — the interpreter
+        # does the same. Recomputing end each iteration would let a body that
+        # mutates the end/step variable change the loop's extent mid-flight,
+        # which can diverge from the interpreter or hang.
+        start_local = self._declare_local(f'__for_start_{self._label_counter}')
+        self._label_counter += 1
+        self._compile_expr(start_val)
+        self._emit(Op.STORE_VAR, start_local)
+
+        end_local = self._declare_local(f'__for_end_{self._label_counter}')
+        self._label_counter += 1
+        self._compile_expr(end_val)
+        self._emit(Op.STORE_VAR, end_local)
+
+        # For a runtime (non-constant) step, evaluate it once into a temp and
+        # reject a zero or non-integer value (the interpreter requires a non-zero
+        # integer). The loop direction is then derived from its sign on every
+        # iteration. A constant step uses the cheaper fixed comparison below.
+        step_local = None
+        if const_step is None:
+            step_local = self._declare_local(f'__step_{self._label_counter}')
+            self._label_counter += 1
+            self._compile_expr(step_val)
+            self._emit(Op.STORE_VAR, step_local)
+            # Reject step == 0 (would spin forever).
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.LOAD_CONST, self._add_const(0))
+            self._emit(Op.EQ)
+            nonzero_jump = self._emit_jump(Op.JUMP_IF_FALSE)
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            self._patch_jump(nonzero_jump)
+            # Reject a non-integer step, e.g. a 0.5 or 2.0 variable. `is_integer`
+            # mirrors the interpreter's `isinstance(step, int)` (excludes floats
+            # and bools), so a whole-number float like 2.0 is rejected too.
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.CALL_BUILTIN, ('is_integer', 1))
+            integer_jump = self._emit_jump(Op.JUMP_IF_TRUE)
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            self._patch_jump(integer_jump)
+
+        # Bind the loop variable to the snapshotted start (global at top level so
+        # it's visible like the interpreter; local inside a function).
+        self._emit(Op.LOAD_VAR, start_local)
         self._store_named(var_name)
 
         loop_start = len(self.instructions)
-        self.loop_stack.append({'continue': loop_start, 'breaks': []})
+        # 'continue' is None so that a Continue inside the body forward-jumps to
+        # the increment below (see ContinueStatement), instead of looping back to
+        # the condition with the counter unchanged.
+        self.loop_stack.append({'continue': None, 'continues': [], 'breaks': []})
 
-        # Check condition: var <= end
-        self._load_named(var_name)
-        self._compile_expr(end_val)
-        self._emit(Op.LTE)
+        # Check the loop condition. A counted loop with a negative step counts
+        # *down* (`var >= end`); a positive step counts *up* (`var <= end`).
+        if const_step is None:
+            # Direction-agnostic test that works for either sign of a runtime
+            # step: `(end - var) * step >= 0` (zero step already rejected above).
+            self._emit(Op.LOAD_VAR, end_local)
+            self._load_named(var_name)
+            self._emit(Op.SUB)
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.MUL)
+            self._emit(Op.LOAD_CONST, self._add_const(0))
+            self._emit(Op.GTE)
+        else:
+            self._load_named(var_name)
+            self._emit(Op.LOAD_VAR, end_local)
+            self._emit(Op.GTE if const_step < 0 else Op.LTE)
         exit_jump = self._emit_jump(Op.JUMP_IF_FALSE)
 
         # Body
         for stmt in node.body:
             self._compile_stmt(stmt)
 
+        # Continue lands here, on the increment, so the counter still advances.
+        for cont in self.loop_stack[-1]['continues']:
+            self._patch_jump(cont)
+
         # Increment
         self._load_named(var_name)
-        if step_val:
-            self._compile_expr(step_val)
+        if const_step is None:
+            self._emit(Op.LOAD_VAR, step_local)
         else:
-            self._emit(Op.LOAD_CONST, self._add_const(1))
+            self._emit(Op.LOAD_CONST, self._add_const(const_step))
         self._emit(Op.ADD)
         self._store_named(var_name)
 
@@ -1151,7 +1258,9 @@ class BytecodeCompiler:
         self._emit(Op.STORE_VAR, iter_idx)
 
         loop_start = len(self.instructions)
-        self.loop_stack.append({'continue': loop_start, 'breaks': []})
+        # 'continue' is None so a Continue forward-jumps to the `iter += 1` step
+        # below rather than back to the condition (which would spin forever).
+        self.loop_stack.append({'continue': None, 'continues': [], 'breaks': []})
 
         # Check: iter < count
         self._emit(Op.LOAD_VAR, iter_idx)
@@ -1161,6 +1270,10 @@ class BytecodeCompiler:
 
         for stmt in node.body:
             self._compile_stmt(stmt)
+
+        # Continue lands here, on the increment, so the counter still advances.
+        for cont in self.loop_stack[-1]['continues']:
+            self._patch_jump(cont)
 
         # iter += 1
         self._emit(Op.LOAD_VAR, iter_idx)

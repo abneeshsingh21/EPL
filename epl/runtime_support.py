@@ -246,19 +246,133 @@ def run_file(
 def _find_c_compiler() -> Optional[str]:
     import subprocess
 
+    # Only clang is a valid candidate: the native pipeline emits textual LLVM IR
+    # (a ``.ll`` file) and links it directly with the C compiler (see the
+    # ``[cc, ir_path, ...]`` link command below). gcc cannot consume LLVM IR, so
+    # returning it here only produced a confusing "runtime compilation issue"
+    # followed by a link failure. Requiring clang lets the caller emit a clear,
+    # actionable "install LLVM" message instead.
     candidates = [
         'clang',
         r'C:\Program Files\LLVM\bin\clang.exe',
         r'C:\Program Files (x86)\LLVM\bin\clang.exe',
-        'gcc',
     ]
     for candidate in candidates:
         try:
-            subprocess.run([candidate, '--version'], capture_output=True, timeout=10)
+            subprocess.run([candidate, '--version'], capture_output=True, timeout=10, check=True)
             return candidate
-        except (FileNotFoundError, Exception):
+        except (FileNotFoundError, subprocess.SubprocessError):
             continue
     return None
+
+
+# EPL types the native backend can lower a function parameter / return value to
+# (mirrors Compiler._infer_param_type). Anything outside this set — including an
+# untyped parameter — defaults to i8*/string in the backend, which silently
+# miscompiles numeric or otherwise-dynamic code.
+_NATIVE_TYPES = {
+    'integer',
+    'int',
+    'number',
+    'decimal',
+    'float',
+    'double',
+    'text',
+    'string',
+    'str',
+    'boolean',
+    'bool',
+    'list',
+    'array',
+    'map',
+    'dict',
+    'dictionary',
+}
+
+
+def _body_returns_a_value(body) -> bool:
+    """True if any statement in ``body`` is a ``Return <expr>`` that yields a
+    value. Nested function bodies are skipped — their returns are their own."""
+    from epl import ast_nodes as ast
+
+    stack = list(body or [])
+    while stack:
+        node = stack.pop()
+        if node is None or isinstance(node, (str, int, float, bool)):
+            continue
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if isinstance(node, ast.ReturnStatement):
+            if getattr(node, 'value', None) is not None:
+                return True
+            continue
+        if hasattr(node, '__dict__'):
+            for attr in vars(node).values():
+                if isinstance(attr, list):
+                    stack.extend(attr)
+                elif hasattr(attr, '__dict__'):
+                    stack.append(attr)
+    return False
+
+
+def _native_unsafe_functions(program) -> list:
+    """Return ``[(qualified_name, line, reason)]`` for top-level and module
+    functions the native backend cannot compile to a provably-correct binary:
+    those with an untyped parameter, or a value-returning body with no return
+    type. Such functions default to string in the backend and miscompile
+    numeric / dynamic code (often into a segfaulting binary). Identifying them
+    lets ``epl build`` refuse with an actionable message instead of emitting a
+    crashing executable. The default ``epl run`` path handles them correctly."""
+    from epl import ast_nodes as ast
+
+    problems: list = []
+
+    def check_fn(fn, qualname: str) -> None:
+        reasons: list = []
+        unannotated = []  # no type at all
+        unsupported = []  # explicit type the backend can't lower
+        for param in fn.params:
+            if isinstance(param, ast.RestParameter):
+                continue
+            if isinstance(param, tuple):
+                pname = param[0]
+                ptype = param[1] if len(param) > 1 else None
+            else:
+                pname, ptype = getattr(param, 'name', '?'), None
+            if ptype is None:
+                unannotated.append(pname)
+            elif str(ptype).lower() not in _NATIVE_TYPES:
+                unsupported.append(f'{pname}: {ptype}')
+        if unannotated:
+            reasons.append(f'parameter(s) {", ".join(unannotated)} have no type annotation')
+        if unsupported:
+            reasons.append(
+                f'parameter(s) {", ".join(unsupported)} use a type the native '
+                'backend cannot compile'
+            )
+        rt = getattr(fn, 'return_type', None)
+        if _body_returns_a_value(fn.body):
+            if rt is None:
+                reasons.append("returns a value but has no 'and returns <type>' annotation")
+            elif str(rt).lower() not in _NATIVE_TYPES:
+                reasons.append(f"return type '{rt}' is not one the native backend can compile")
+        if reasons:
+            problems.append((qualname, getattr(fn, 'line', 0), '; '.join(reasons)))
+
+    def unwrap(node):
+        return node.statement if isinstance(node, ast.VisibilityModifier) else node
+
+    for stmt in getattr(program, 'statements', []) or []:
+        stmt = unwrap(stmt)
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            check_fn(stmt, stmt.name)
+        elif isinstance(stmt, ast.ModuleDef):
+            for item in stmt.body:
+                item = unwrap(item)
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    check_fn(item, f'{stmt.name}::{item.name}')
+
+    return problems
 
 
 def compile_file(
@@ -277,6 +391,25 @@ def compile_file(
 
         triple = CROSS_TARGETS.get(target, target) if target else None
         program = Parser(Lexer(source).tokenize()).parse()
+
+        # Safety gate: the native backend has no type inference, so functions
+        # with untyped parameters or an untyped value return compile to wrong
+        # (often segfaulting) code. Refuse to emit a binary we cannot prove is
+        # correct, with an actionable message, rather than shipping a crash.
+        unsafe = _native_unsafe_functions(program)
+        if unsafe:
+            print('\n  Native build cannot guarantee a correct binary for this program.')
+            print('  The native compiler needs explicit types; these functions are not')
+            print('  fully typed and would miscompile:\n')
+            for name, line, reason in unsafe:
+                print(f'    - {name} (line {line}): {reason}')
+            print('\n  Add type annotations, for example:')
+            print('      Function add takes integer a and integer b and returns integer')
+            print('\n  ...or run it directly — the interpreter/VM supports full dynamic')
+            print('  typing with no annotations required:')
+            print(f'      epl run {os.path.basename(filepath)}')
+            return False
+
         compiler = Compiler(opt_level=opt_level, source_filename=filepath)
         if triple:
             compiler.module.triple = triple
@@ -345,8 +478,13 @@ def compile_file(
 
         cc = _find_c_compiler()
         if not cc:
-            print('\n  C compiler not found. Install: winget install LLVM.LLVM')
-            print(f'  LLVM IR saved to: {ir_path}')
+            print('\n  Native build needs the LLVM/clang toolchain (it compiles')
+            print('  generated LLVM IR — a plain gcc cannot do this).')
+            print('  Install it with:')
+            print('    Windows:  winget install LLVM.LLVM')
+            print('    macOS:    brew install llvm   (or: xcode-select --install)')
+            print('    Linux:    sudo apt install clang   # or your distro equivalent')
+            print(f'  The generated LLVM IR was saved to: {ir_path}')
             return False
 
         if target and 'windows' in target:
@@ -376,7 +514,18 @@ def compile_file(
         if os.path.exists(rt_obj):
             link_cmd.insert(2, rt_obj)
         if static:
-            link_cmd.append('-static')
+            # macOS has no static libc — Apple ships no crt0.o, so `-static`
+            # fails at link time with "library 'crt0.o' not found". Silently
+            # drop the flag there (the binary is simply dynamically linked)
+            # rather than emit an unlinkable command. Targeting a non-Darwin
+            # platform from macOS is still allowed to request static linking.
+            targeting_macos = (target and triple and 'darwin' in triple) or (
+                not target and sys.platform == 'darwin'
+            )
+            if targeting_macos:
+                print('  Note: ignoring -static on macOS (no static libc available)')
+            else:
+                link_cmd.append('-static')
         if (target and 'windows' not in target) or (not target and os.name != 'nt'):
             link_cmd.append('-lm')
         if target and 'linux' in target:

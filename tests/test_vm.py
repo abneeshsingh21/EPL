@@ -612,5 +612,129 @@ class TestVMPerformance(unittest.TestCase):
         self.assertLess(elapsed, 10.0)
 
 
+class TestVMCountedLoopControlFlow(unittest.TestCase):
+    """Counted loops (for-range, repeat) advance the counter *after* the body, so
+    a `Continue` must jump to the increment, not back to the condition. The VM
+    previously pointed `continue` at the condition, leaving the counter unchanged
+    and spinning forever (this hung `examples/constants_and_loops.epl`). Negative
+    steps were also always compiled with a `<=` test, so countdown loops never
+    ran a single iteration.
+    """
+
+    def test_for_continue_does_not_infinite_loop(self):
+        vm = run_vm('For i from 1 to 6\n  If i % 3 == 0 Then\n    Continue\n  End\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['1', '2', '4', '5'])
+
+    def test_repeat_continue_does_not_infinite_loop(self):
+        vm = run_vm(
+            'i = 0\nRepeat 5 times\n  Increase i by 1\n  If i == 3 Then\n    Continue\n  End\n  Print i\nEnd'
+        )
+        self.assertEqual(vm.output_lines, ['1', '2', '4', '5'])
+
+    def test_for_negative_step_counts_down(self):
+        vm = run_vm('For i from 5 to 1 step -1\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['5', '4', '3', '2', '1'])
+
+    def test_for_positive_step_still_works(self):
+        vm = run_vm('For i from 0 to 6 step 2\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['0', '2', '4', '6'])
+
+    def test_for_break_still_works(self):
+        vm = run_vm('For i from 1 to 10\n  If i > 3 Then\n    Break\n  End\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['1', '2', '3'])
+
+    def test_for_continue_matches_interpreter(self):
+        """VM and tree-walking interpreter must agree on counted-loop control flow."""
+        from epl.interpreter import Interpreter
+
+        code = (
+            'For i from 10 to 1 step -1\n  If i % 2 == 0 Then\n    Continue\n  End\n  Print i\nEnd'
+        )
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, [str(n) for n in (9, 7, 5, 3, 1)])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
+    def test_for_runtime_positive_step_counts_up(self):
+        """A step given by a variable (not a literal) must derive direction at runtime."""
+        vm = run_vm('s = 2\nFor i from 0 to 6 step s\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['0', '2', '4', '6'])
+
+    def test_for_runtime_negative_step_counts_down(self):
+        """A negative runtime step must count down, mirroring the interpreter."""
+        vm = run_vm('s = 0 - 1\nFor i from 5 to 1 step s\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['5', '4', '3', '2', '1'])
+
+    def test_for_constant_zero_step_raises(self):
+        """A compile-time-constant zero step would spin forever; reject it instead."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('For i from 1 to 5 step 0\n  Print i\nEnd')
+
+    def test_for_runtime_zero_step_raises(self):
+        """A runtime zero step must be rejected at execution time, not hang."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('s = 0\nFor i from 1 to 5 step s\n  Print i\nEnd')
+
+    def test_for_constant_fractional_step_raises(self):
+        """A fractional constant step must be rejected (interpreter wants an integer)."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('For i from 1 to 5 step 0.5\n  Print i\nEnd')
+
+    def test_for_runtime_fractional_step_raises(self):
+        """A fractional runtime step must be rejected at execution time."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('s = 0.5\nFor i from 1 to 5 step s\n  Print i\nEnd')
+
+    def test_for_whole_number_float_step_raises_like_interpreter(self):
+        """The interpreter rejects any non-int step via isinstance, so even a
+        whole-number float like 2.0 must be rejected by the VM for parity —
+        both as a constant literal and as a runtime variable."""
+        from epl.errors import EPLError
+        from epl.interpreter import Interpreter
+        from epl.vm import VMError
+
+        for code in (
+            'For i from 1 to 5 step 2.0\n  Print i\nEnd',
+            's = 2.0\nFor i from 1 to 5 step s\n  Print i\nEnd',
+        ):
+            with self.assertRaises(VMError):
+                run_vm(code)
+            interp = Interpreter()
+            with self.assertRaises(EPLError):
+                interp.execute(Parser(Lexer(code).tokenize()).parse())
+
+    def test_for_end_bound_snapshotted_like_interpreter(self):
+        """The end bound is evaluated once up front; mutating it in the body must
+        not change the loop's extent (matches the interpreter, avoids a hang)."""
+        from epl.interpreter import Interpreter
+
+        code = 'e = 3\nFor i from 1 to e\n  Print i\n  e = 10\nEnd'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, ['1', '2', '3'])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
+    def test_for_runtime_step_matches_interpreter(self):
+        """VM and interpreter must agree when the step is a runtime expression."""
+        from epl.interpreter import Interpreter
+
+        code = 's = 0 - 2\nFor i from 10 to 0 step s\n  Print i\nEnd'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, [str(n) for n in (10, 8, 6, 4, 2, 0)])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
+
 if __name__ == '__main__':
     unittest.main()

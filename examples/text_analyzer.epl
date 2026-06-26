@@ -10,33 +10,33 @@ Print "  Text Analyzer"
 Print "=============================="
 Print ""
 
-sample = "The quick brown fox jumps over the lazy dog. The dog barked at the fox. The fox ran away quickly."
+Create sample equal to "The quick brown fox jumps over the lazy dog. The dog barked at the fox. The fox ran away quickly."
 
 Print "Text: " + truncate(sample, 50, "...")
 Print ""
 
 Note: --- Basic Stats ---
-words = sample.split(" ")
-char_count = length(sample)
-wc = word_count(sample)
+Create words equal to sample.split(" ")
+Create char_count equal to length(sample)
+Create wc equal to word_count(sample)
 Print "Characters: " + to_text(char_count)
 Print "Words: " + to_text(wc)
 
 Note: --- Word frequency ---
 Print ""
 Print "--- Word Frequency ---"
-word_list = []
-freq_list = []
+Create word_list equal to []
+Create freq_list equal to []
 
 For Each w In words
-    clean = w.replace(".", "")
-    clean = lowercase(clean)
-    found = False
-    i = 0
+    Create clean equal to w.replace(".", "")
+    Set clean to lowercase(clean)
+    Create found equal to False
+    Create i equal to 0
     While i < length(word_list)
         If word_list[i] == clean Then
             freq_list[i] = freq_list[i] + 1
-            found = True
+            Set found to True
         End
         Increase i by 1
     End
@@ -46,16 +46,16 @@ For Each w In words
     End
 End
 
-j = 0
+Create j equal to 0
 While j < length(word_list)
-    bar = repeat_string("#", freq_list[j])
-    padded_word = pad_right(word_list[j], 10, " ")
-# [AUTO-FIX] removed broken token
+    Create bar equal to repeat_string("#", freq_list[j])
+    Create padded_word equal to pad_right(word_list[j], 10, " ")
+    Print "  " + padded_word + bar + " (" + to_text(freq_list[j]) + ")"
     Increase j by 1
 End
 
 Note: --- Unique Words ---
-unique_words = unique(word_list)
+Create unique_words equal to unique(word_list)
 Print ""
 Print "Unique words: " + to_text(length(unique_words))
 Print "Most common: the"
