@@ -694,6 +694,24 @@ class TestVMCountedLoopControlFlow(unittest.TestCase):
         with self.assertRaises(VMError):
             run_vm('s = 0.5\nFor i from 1 to 5 step s\n  Print i\nEnd')
 
+    def test_for_whole_number_float_step_raises_like_interpreter(self):
+        """The interpreter rejects any non-int step via isinstance, so even a
+        whole-number float like 2.0 must be rejected by the VM for parity —
+        both as a constant literal and as a runtime variable."""
+        from epl.errors import EPLError
+        from epl.interpreter import Interpreter
+        from epl.vm import VMError
+
+        for code in (
+            'For i from 1 to 5 step 2.0\n  Print i\nEnd',
+            's = 2.0\nFor i from 1 to 5 step s\n  Print i\nEnd',
+        ):
+            with self.assertRaises(VMError):
+                run_vm(code)
+            interp = Interpreter()
+            with self.assertRaises(EPLError):
+                interp.execute(Parser(Lexer(code).tokenize()).parse())
+
     def test_for_end_bound_snapshotted_like_interpreter(self):
         """The end bound is evaluated once up front; mutating it in the body must
         not change the loop's extent (matches the interpreter, avoids a hang)."""

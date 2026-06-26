@@ -1114,15 +1114,14 @@ class BytecodeCompiler:
         const_step = self._const_step_value(step_val)
 
         # A constant step must be a non-zero integer, exactly like the
-        # interpreter. Zero never advances the counter (infinite loop); a
-        # fractional literal such as `step 0.5` would silently miscompile. When
-        # we can see either at compile time, emit the interpreter's error.
-        if const_step is not None and (const_step == 0 or int(const_step) != const_step):
+        # interpreter (which does `not isinstance(step, int) or step == 0`).
+        # Zero never advances the counter (infinite loop); any float literal —
+        # including a whole-number one like `step 2.0` — is rejected, matching
+        # the interpreter's strict int-type check rather than its value.
+        if const_step is not None and (not isinstance(const_step, int) or const_step == 0):
             self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
             self._emit(Op.THROW)
             return
-        if const_step is not None:
-            const_step = int(const_step)
 
         # Evaluate the bounds ONCE, up front, in source order (start, end, then
         # step) and snapshot end + a runtime step into locals — the interpreter
@@ -1157,13 +1156,12 @@ class BytecodeCompiler:
             self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
             self._emit(Op.THROW)
             self._patch_jump(nonzero_jump)
-            # Reject a non-integer step (`step % 1 != 0`), e.g. a 0.5 variable.
+            # Reject a non-integer step, e.g. a 0.5 or 2.0 variable. `is_integer`
+            # mirrors the interpreter's `isinstance(step, int)` (excludes floats
+            # and bools), so a whole-number float like 2.0 is rejected too.
             self._emit(Op.LOAD_VAR, step_local)
-            self._emit(Op.LOAD_CONST, self._add_const(1))
-            self._emit(Op.MOD)
-            self._emit(Op.LOAD_CONST, self._add_const(0))
-            self._emit(Op.NEQ)
-            integer_jump = self._emit_jump(Op.JUMP_IF_FALSE)
+            self._emit(Op.CALL_BUILTIN, ('is_integer', 1))
+            integer_jump = self._emit_jump(Op.JUMP_IF_TRUE)
             self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
             self._emit(Op.THROW)
             self._patch_jump(integer_jump)
