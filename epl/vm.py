@@ -1113,29 +1113,43 @@ class BytecodeCompiler:
 
         const_step = self._const_step_value(step_val)
 
-        # A zero step never advances the counter, so the loop would spin forever.
-        # The interpreter rejects this with an error; when we can see it's a
-        # constant zero at compile time, emit the same error instead of a hang.
-        if const_step == 0:
+        # A constant step must be a non-zero integer, exactly like the
+        # interpreter. Zero never advances the counter (infinite loop); a
+        # fractional literal such as `step 0.5` would silently miscompile. When
+        # we can see either at compile time, emit the interpreter's error.
+        if const_step is not None and (const_step == 0 or int(const_step) != const_step):
             self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
             self._emit(Op.THROW)
             return
+        if const_step is not None:
+            const_step = int(const_step)
 
-        # Initialize counter (global at top level so it's visible like the
-        # interpreter; local inside a function).
+        # Evaluate the bounds ONCE, up front, in source order (start, end, then
+        # step) and snapshot end + a runtime step into locals — the interpreter
+        # does the same. Recomputing end each iteration would let a body that
+        # mutates the end/step variable change the loop's extent mid-flight,
+        # which can diverge from the interpreter or hang.
+        start_local = self._declare_local(f'__for_start_{self._label_counter}')
+        self._label_counter += 1
         self._compile_expr(start_val)
-        self._store_named(var_name)
+        self._emit(Op.STORE_VAR, start_local)
 
-        # For a runtime (non-constant) step, evaluate it once into a temp, reject
-        # a zero value at runtime, and derive the loop direction from its sign on
-        # every iteration — exactly as the interpreter does. (A constant step
-        # uses the cheaper fixed comparison below.)
+        end_local = self._declare_local(f'__for_end_{self._label_counter}')
+        self._label_counter += 1
+        self._compile_expr(end_val)
+        self._emit(Op.STORE_VAR, end_local)
+
+        # For a runtime (non-constant) step, evaluate it once into a temp and
+        # reject a zero or non-integer value (the interpreter requires a non-zero
+        # integer). The loop direction is then derived from its sign on every
+        # iteration. A constant step uses the cheaper fixed comparison below.
         step_local = None
         if const_step is None:
             step_local = self._declare_local(f'__step_{self._label_counter}')
             self._label_counter += 1
             self._compile_expr(step_val)
             self._emit(Op.STORE_VAR, step_local)
+            # Reject step == 0 (would spin forever).
             self._emit(Op.LOAD_VAR, step_local)
             self._emit(Op.LOAD_CONST, self._add_const(0))
             self._emit(Op.EQ)
@@ -1143,6 +1157,21 @@ class BytecodeCompiler:
             self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
             self._emit(Op.THROW)
             self._patch_jump(nonzero_jump)
+            # Reject a non-integer step (`step % 1 != 0`), e.g. a 0.5 variable.
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.LOAD_CONST, self._add_const(1))
+            self._emit(Op.MOD)
+            self._emit(Op.LOAD_CONST, self._add_const(0))
+            self._emit(Op.NEQ)
+            integer_jump = self._emit_jump(Op.JUMP_IF_FALSE)
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            self._patch_jump(integer_jump)
+
+        # Bind the loop variable to the snapshotted start (global at top level so
+        # it's visible like the interpreter; local inside a function).
+        self._emit(Op.LOAD_VAR, start_local)
+        self._store_named(var_name)
 
         loop_start = len(self.instructions)
         # 'continue' is None so that a Continue inside the body forward-jumps to
@@ -1155,7 +1184,7 @@ class BytecodeCompiler:
         if const_step is None:
             # Direction-agnostic test that works for either sign of a runtime
             # step: `(end - var) * step >= 0` (zero step already rejected above).
-            self._compile_expr(end_val)
+            self._emit(Op.LOAD_VAR, end_local)
             self._load_named(var_name)
             self._emit(Op.SUB)
             self._emit(Op.LOAD_VAR, step_local)
@@ -1164,7 +1193,7 @@ class BytecodeCompiler:
             self._emit(Op.GTE)
         else:
             self._load_named(var_name)
-            self._compile_expr(end_val)
+            self._emit(Op.LOAD_VAR, end_local)
             self._emit(Op.GTE if const_step < 0 else Op.LTE)
         exit_jump = self._emit_jump(Op.JUMP_IF_FALSE)
 
@@ -1180,10 +1209,8 @@ class BytecodeCompiler:
         self._load_named(var_name)
         if const_step is None:
             self._emit(Op.LOAD_VAR, step_local)
-        elif step_val is not None:
-            self._compile_expr(step_val)
         else:
-            self._emit(Op.LOAD_CONST, self._add_const(1))
+            self._emit(Op.LOAD_CONST, self._add_const(const_step))
         self._emit(Op.ADD)
         self._store_named(var_name)
 

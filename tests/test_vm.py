@@ -680,6 +680,32 @@ class TestVMCountedLoopControlFlow(unittest.TestCase):
         with self.assertRaises(VMError):
             run_vm('s = 0\nFor i from 1 to 5 step s\n  Print i\nEnd')
 
+    def test_for_constant_fractional_step_raises(self):
+        """A fractional constant step must be rejected (interpreter wants an integer)."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('For i from 1 to 5 step 0.5\n  Print i\nEnd')
+
+    def test_for_runtime_fractional_step_raises(self):
+        """A fractional runtime step must be rejected at execution time."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('s = 0.5\nFor i from 1 to 5 step s\n  Print i\nEnd')
+
+    def test_for_end_bound_snapshotted_like_interpreter(self):
+        """The end bound is evaluated once up front; mutating it in the body must
+        not change the loop's extent (matches the interpreter, avoids a hang)."""
+        from epl.interpreter import Interpreter
+
+        code = 'e = 3\nFor i from 1 to e\n  Print i\n  e = 10\nEnd'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, ['1', '2', '3'])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
     def test_for_runtime_step_matches_interpreter(self):
         """VM and interpreter must agree when the step is a runtime expression."""
         from epl.interpreter import Interpreter
