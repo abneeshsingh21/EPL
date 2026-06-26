@@ -81,6 +81,26 @@ def test_db_calls_flagged_without_bridge_only():
     assert not any(i.construct.startswith('db_query') for i in ok.issues)
 
 
+def test_cli_reports_db_portable_for_android_only(tmp_path):
+    """The cli wires has_db_bridge per target: the android Kotlin runtime ships a
+    real SQLite bridge (v10.0.1, H1), so db_* is portable there; ios/desktop have
+    no verified bridge and must still report db_* as unportable."""
+    from epl.cli import _emit_porting_report
+
+    program = parse('Set rows to db_query("SELECT 1")\nDisplay rows\n')
+
+    def db_flagged_for(target):
+        out = tmp_path / target
+        out.mkdir()
+        _emit_porting_report(program, target, str(out))
+        md = (out / 'PORTING_REPORT.md').read_text(encoding='utf-8')
+        return 'db_query' in md
+
+    assert not db_flagged_for('android'), 'android has the SQLite bridge — db_* is portable'
+    assert db_flagged_for('ios'), 'ios has no db bridge — db_* must still be flagged'
+    assert db_flagged_for('desktop'), 'desktop has no db bridge — db_* must still be flagged'
+
+
 def test_target_is_recorded():
     for target in ('android', 'ios', 'desktop'):
         assert analyze(parse(PURE_LOGIC), target).target == target

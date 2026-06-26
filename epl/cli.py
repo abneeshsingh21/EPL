@@ -3169,10 +3169,11 @@ def _emit_porting_report(program, target, output_dir, strict=False):
         from epl.native_portability import analyze, render_console, render_markdown
     except Exception:
         return False
-    # H1 (a native db_* bridge) is not yet implemented, so be honest: report
-    # db_* calls as unportable until that runtime ships. Flip to True per-target
-    # when the bridge lands.
-    report = analyze(program, target, has_db_bridge=False)
+    # H1 (a native db_* bridge): the android Kotlin runtime now ships one
+    # (EPLRuntime.kt → SQLiteDatabase) and db_* apps compile, so db_* IS portable
+    # there. ios (Swift) and desktop have no verified bridge yet, so stay honest
+    # and keep reporting db_* as unportable for them.
+    report = analyze(program, target, has_db_bridge=(target == 'android'))
     colors = {'red': _red, 'yellow': _yellow, 'green': _green, 'dim': _dim, 'bold': _bold}
     print(render_console(report, color=colors), file=sys.stderr)
     try:
