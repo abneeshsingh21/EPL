@@ -44,6 +44,23 @@ restored; and a new runtime test stops broken examples from shipping green again
   the C-compiler probe no longer falls back to gcc; when no LLVM/clang toolchain
   is present it prints a clear, per-OS install hint instead of a link error.
 
+### Added — native build safety gate
+- **`epl build` now refuses to emit a binary it cannot prove type-correct,
+  instead of silently producing a segfaulting one.** Because the native backend
+  has no type inference, a function with an untyped parameter or an untyped
+  value-return defaults to string and miscompiles numeric code (often a crash).
+  `compile_file` now scans for these unprovable functions up front and stops
+  with an actionable message — naming each function, the reason, an example
+  annotation, and the `epl run` fallback that supports full dynamic typing — and
+  writes no executable. Measured effect across the shipped examples: native
+  segfaults dropped from 4 to 2, with 14 programs now getting a clean,
+  explanatory refusal instead of a build failure or crash. (The 2 remaining
+  crashes are top-level dynamic type-mixing such as `"len: " + name.length`,
+  which a static gate cannot catch without the full inference work; these run
+  correctly under `epl run`.)
+- Regression tests: `tests/test_native_safety_gate.py` (toolchain-independent —
+  the refusal happens before any compiler runs).
+
 ### Restored
 - **7 example programs that an automated "AUTO-FIX" pass (v7.4.0) had silently
   gutted** — it deleted variable declarations and other essential lines, leaving

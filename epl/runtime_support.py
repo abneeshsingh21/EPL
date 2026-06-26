@@ -266,6 +266,102 @@ def _find_c_compiler() -> Optional[str]:
     return None
 
 
+# EPL types the native backend can lower a function parameter / return value to
+# (mirrors Compiler._infer_param_type). Anything outside this set — including an
+# untyped parameter — defaults to i8*/string in the backend, which silently
+# miscompiles numeric or otherwise-dynamic code.
+_NATIVE_TYPES = {
+    'integer',
+    'int',
+    'number',
+    'decimal',
+    'float',
+    'double',
+    'text',
+    'string',
+    'str',
+    'boolean',
+    'bool',
+    'list',
+    'array',
+    'map',
+    'dict',
+    'dictionary',
+}
+
+
+def _body_returns_a_value(body) -> bool:
+    """True if any statement in ``body`` is a ``Return <expr>`` that yields a
+    value. Nested function bodies are skipped — their returns are their own."""
+    from epl import ast_nodes as ast
+
+    stack = list(body or [])
+    while stack:
+        node = stack.pop()
+        if node is None or isinstance(node, (str, int, float, bool)):
+            continue
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if isinstance(node, ast.ReturnStatement):
+            if getattr(node, 'value', None) is not None:
+                return True
+            continue
+        if hasattr(node, '__dict__'):
+            for attr in vars(node).values():
+                if isinstance(attr, list):
+                    stack.extend(attr)
+                elif hasattr(attr, '__dict__'):
+                    stack.append(attr)
+    return False
+
+
+def _native_unsafe_functions(program) -> list:
+    """Return ``[(qualified_name, line, reason)]`` for top-level and module
+    functions the native backend cannot compile to a provably-correct binary:
+    those with an untyped parameter, or a value-returning body with no return
+    type. Such functions default to string in the backend and miscompile
+    numeric / dynamic code (often into a segfaulting binary). Identifying them
+    lets ``epl build`` refuse with an actionable message instead of emitting a
+    crashing executable. The default ``epl run`` path handles them correctly."""
+    from epl import ast_nodes as ast
+
+    problems: list = []
+
+    def check_fn(fn, qualname: str) -> None:
+        reasons: list = []
+        untyped = []
+        for param in fn.params:
+            if isinstance(param, ast.RestParameter):
+                continue
+            if isinstance(param, tuple):
+                pname = param[0]
+                ptype = param[1] if len(param) > 1 else None
+            else:
+                pname, ptype = getattr(param, 'name', '?'), None
+            if ptype is None or str(ptype).lower() not in _NATIVE_TYPES:
+                untyped.append(pname)
+        if untyped:
+            joined = ', '.join(untyped)
+            reasons.append(f'parameter(s) {joined} have no type annotation')
+        rt = getattr(fn, 'return_type', None)
+        if (rt is None or str(rt).lower() not in _NATIVE_TYPES) and _body_returns_a_value(fn.body):
+            reasons.append("returns a value but has no 'and returns <type>' annotation")
+        if reasons:
+            problems.append((qualname, getattr(fn, 'line', 0), '; '.join(reasons)))
+
+    for stmt in getattr(program, 'statements', []) or []:
+        if isinstance(stmt, ast.VisibilityModifier):
+            stmt = stmt.statement
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            check_fn(stmt, stmt.name)
+        elif isinstance(stmt, ast.ModuleDef):
+            for item in stmt.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    check_fn(item, f'{stmt.name}::{item.name}')
+
+    return problems
+
+
 def compile_file(
     filepath: str, opt_level: int = 2, static: bool = False, target: Optional[str] = None
 ) -> bool:
@@ -282,6 +378,25 @@ def compile_file(
 
         triple = CROSS_TARGETS.get(target, target) if target else None
         program = Parser(Lexer(source).tokenize()).parse()
+
+        # Safety gate: the native backend has no type inference, so functions
+        # with untyped parameters or an untyped value return compile to wrong
+        # (often segfaulting) code. Refuse to emit a binary we cannot prove is
+        # correct, with an actionable message, rather than shipping a crash.
+        unsafe = _native_unsafe_functions(program)
+        if unsafe:
+            print('\n  Native build cannot guarantee a correct binary for this program.')
+            print('  The native compiler needs explicit types; these functions are not')
+            print('  fully typed and would miscompile:\n')
+            for name, line, reason in unsafe:
+                print(f'    - {name} (line {line}): {reason}')
+            print('\n  Add type annotations, for example:')
+            print('      Function add takes integer a and integer b and returns integer')
+            print('\n  ...or run it directly — the interpreter/VM supports full dynamic')
+            print('  typing with no annotations required:')
+            print(f'      epl run {os.path.basename(filepath)}')
+            return False
+
         compiler = Compiler(opt_level=opt_level, source_filename=filepath)
         if triple:
             compiler.module.triple = triple
