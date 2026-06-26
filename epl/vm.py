@@ -780,7 +780,18 @@ class BytecodeCompiler:
                 raise VMError('Break outside of loop', self._current_line)
         elif isinstance(node, ast.ContinueStatement):
             if self.loop_stack:
-                self._emit(Op.LOOP_BACK, self.loop_stack[-1]['continue'])
+                top = self.loop_stack[-1]
+                target = top.get('continue')
+                if target is not None:
+                    # Loops whose back-edge already runs the advance step (while,
+                    # for-each): jump straight back to the loop head.
+                    self._emit(Op.LOOP_BACK, target)
+                else:
+                    # Counted loops (for-range, repeat) advance *after* the body,
+                    # so a continue must land on the increment, not the condition
+                    # check — otherwise the counter never moves and we spin
+                    # forever. Forward-patch it like a break.
+                    top['continues'].append(self._emit_jump(Op.JUMP))
             else:
                 raise VMError('Continue outside of loop', self._current_line)
         elif isinstance(node, ast.ImportStatement):
@@ -1071,6 +1082,25 @@ class BytecodeCompiler:
         for brk in loop_info['breaks']:
             self._patch_jump(brk)
 
+    @staticmethod
+    def _is_negative_step(step_val) -> bool:
+        """True when a counted-loop step is a compile-time-constant negative
+        number (``Literal(-n)`` or ``-Literal(n)``). Non-constant steps return
+        False, so the loop keeps the default ``<=`` test."""
+        from epl import ast_nodes as ast
+
+        if step_val is None:
+            return False
+        if isinstance(step_val, ast.Literal):
+            return isinstance(step_val.value, (int, float)) and step_val.value < 0
+        if (
+            isinstance(step_val, ast.UnaryOp)
+            and step_val.operator == '-'
+            and isinstance(step_val.operand, ast.Literal)
+        ):
+            return isinstance(step_val.operand.value, (int, float)) and step_val.operand.value > 0
+        return False
+
     def _compile_for(self, node):
         # Compile: For <var> From <start> To <end> [Step <step>]
         start_val = node.start if hasattr(node, 'start') else node.range_start
@@ -1084,17 +1114,28 @@ class BytecodeCompiler:
         self._store_named(var_name)
 
         loop_start = len(self.instructions)
-        self.loop_stack.append({'continue': loop_start, 'breaks': []})
+        # 'continue' is None so that a Continue inside the body forward-jumps to
+        # the increment below (see ContinueStatement), instead of looping back to
+        # the condition with the counter unchanged.
+        self.loop_stack.append({'continue': None, 'continues': [], 'breaks': []})
 
-        # Check condition: var <= end
+        # Check the loop condition. A counted loop with a negative step counts
+        # *down*, so it must test `var >= end`; the default/positive step tests
+        # `var <= end`. The interpreter picks the comparison from the step's sign
+        # at runtime; the VM mirrors that for any compile-time-constant step
+        # (the common case, e.g. `step -1`) and falls back to `<=` otherwise.
         self._load_named(var_name)
         self._compile_expr(end_val)
-        self._emit(Op.LTE)
+        self._emit(Op.GTE if self._is_negative_step(step_val) else Op.LTE)
         exit_jump = self._emit_jump(Op.JUMP_IF_FALSE)
 
         # Body
         for stmt in node.body:
             self._compile_stmt(stmt)
+
+        # Continue lands here, on the increment, so the counter still advances.
+        for cont in self.loop_stack[-1]['continues']:
+            self._patch_jump(cont)
 
         # Increment
         self._load_named(var_name)
@@ -1151,7 +1192,9 @@ class BytecodeCompiler:
         self._emit(Op.STORE_VAR, iter_idx)
 
         loop_start = len(self.instructions)
-        self.loop_stack.append({'continue': loop_start, 'breaks': []})
+        # 'continue' is None so a Continue forward-jumps to the `iter += 1` step
+        # below rather than back to the condition (which would spin forever).
+        self.loop_stack.append({'continue': None, 'continues': [], 'breaks': []})
 
         # Check: iter < count
         self._emit(Op.LOAD_VAR, iter_idx)
@@ -1161,6 +1204,10 @@ class BytecodeCompiler:
 
         for stmt in node.body:
             self._compile_stmt(stmt)
+
+        # Continue lands here, on the increment, so the counter still advances.
+        for cont in self.loop_stack[-1]['continues']:
+            self._patch_jump(cont)
 
         # iter += 1
         self._emit(Op.LOAD_VAR, iter_idx)

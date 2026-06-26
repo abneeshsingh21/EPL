@@ -612,5 +612,50 @@ class TestVMPerformance(unittest.TestCase):
         self.assertLess(elapsed, 10.0)
 
 
+class TestVMCountedLoopControlFlow(unittest.TestCase):
+    """Counted loops (for-range, repeat) advance the counter *after* the body, so
+    a `Continue` must jump to the increment, not back to the condition. The VM
+    previously pointed `continue` at the condition, leaving the counter unchanged
+    and spinning forever (this hung `examples/constants_and_loops.epl`). Negative
+    steps were also always compiled with a `<=` test, so countdown loops never
+    ran a single iteration.
+    """
+
+    def test_for_continue_does_not_infinite_loop(self):
+        vm = run_vm('For i from 1 to 6\n  If i % 3 == 0 Then\n    Continue\n  End\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['1', '2', '4', '5'])
+
+    def test_repeat_continue_does_not_infinite_loop(self):
+        vm = run_vm(
+            'i = 0\nRepeat 5 times\n  Increase i by 1\n  If i == 3 Then\n    Continue\n  End\n  Print i\nEnd'
+        )
+        self.assertEqual(vm.output_lines, ['1', '2', '4', '5'])
+
+    def test_for_negative_step_counts_down(self):
+        vm = run_vm('For i from 5 to 1 step -1\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['5', '4', '3', '2', '1'])
+
+    def test_for_positive_step_still_works(self):
+        vm = run_vm('For i from 0 to 6 step 2\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['0', '2', '4', '6'])
+
+    def test_for_break_still_works(self):
+        vm = run_vm('For i from 1 to 10\n  If i > 3 Then\n    Break\n  End\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['1', '2', '3'])
+
+    def test_for_continue_matches_interpreter(self):
+        """VM and tree-walking interpreter must agree on counted-loop control flow."""
+        from epl.interpreter import Interpreter
+
+        code = (
+            'For i from 10 to 1 step -1\n  If i % 2 == 0 Then\n    Continue\n  End\n  Print i\nEnd'
+        )
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, [str(n) for n in (9, 7, 5, 3, 1)])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -10,6 +10,57 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
+## [Unreleased]
+
+**The bytecode VM (the default `epl run` engine) now executes counted loops
+correctly.** A deep-research audit of the shipped examples surfaced two real VM
+control-flow bugs and a wave of example-file corruption. Both engine bugs are
+fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
+restored; and a new runtime test stops broken examples from shipping green again.
+
+### Fixed
+- **`Continue` inside a counted loop (`For … from … to …`, `Repeat … times`)
+  hung forever.** The VM pointed the loop's `continue` target at the condition
+  check, which runs *before* the counter is advanced — so a `Continue` looped
+  back with the counter unchanged and spun the loop infinitely (this hung
+  `examples/constants_and_loops.epl`). `Continue` now forward-jumps to the
+  increment, matching the tree-walking interpreter. The interpreter was already
+  correct; only the VM was affected.
+- **Negative-step `For` loops never ran.** The VM always compiled the loop test
+  as `var <= end`, so a countdown like `For i from 10 to 1 step -1` exited
+  immediately and printed nothing. Counted loops with a compile-time-constant
+  negative step now test `var >= end` and count down correctly.
+
+### Restored
+- **7 example programs that an automated "AUTO-FIX" pass (v7.4.0) had silently
+  gutted** — it deleted variable declarations and other essential lines, leaving
+  files that *parsed* but crashed at runtime. Restored from their last-good
+  revision and verified to run clean: `variables`, `varargs_test`,
+  `error_handling`, `data_pipeline`, `data_tool`, `task_manager`, `text_analyzer`.
+
+### Added
+- **`tests/test_examples_run.py`** — actually *runs* every run-to-completion
+  example (not just parses it) and asserts a clean exit, so corruption like the
+  above cannot ship green again. Servers, interactive, Node-bridge and test-DSL
+  examples are excluded by category; four examples with still-open engine bugs
+  (`lambdas`, `slicing`, `text_editor`, `database_app`) are tracked as `xfail`
+  with specific reasons rather than hidden.
+- VM regression tests for counted-loop `Continue`, negative steps, and
+  `Break`, including a VM-vs-interpreter parity check.
+
+### Known issues (documented, not yet fixed)
+- `lambdas.epl`: a bare ternary assignment parses alone but fails after earlier
+  lambda assignments in the same file (context-dependent parse).
+- `slicing.epl`: omitted-bound step slices `[::2]` / `[::-1]` are unsupported
+  (explicit `[start:stop:step]` works).
+- `text_editor.epl`: bare `name = call(...)` assignment doesn't parse; `Create`
+  / `Set` handle a function-call right-hand side.
+- 7 example apps added after v7.0.0 (`calculator/`, `hello_web/`, `todo_app/`,
+  `todo_api/`, `official_starters/*`) were corrupted at creation and have no
+  clean revision to restore from; they need rewriting.
+
+---
+
 ## [10.0.0] — 2026-06-25
 
 **The "one codebase → web + Android + iOS + desktop" claim is now genuinely
