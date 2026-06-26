@@ -30,6 +30,19 @@ restored; and a new runtime test stops broken examples from shipping green again
   as `var <= end`, so a countdown like `For i from 10 to 1 step -1` exited
   immediately and printed nothing. Counted loops with a compile-time-constant
   negative step now test `var >= end` and count down correctly.
+- **`epl build` (native compilation) could not link at all.** `epl/runtime.c`
+  had accumulated duplicate definitions of `epl_file_read` / `epl_file_write` /
+  `epl_file_append` / `epl_file_exists` / `epl_file_delete` and `epl_time_now`,
+  plus a second `epl_sleep_ms` with a conflicting signature. The runtime never
+  compiled, so *every* native build failed at link time with `undefined symbol:
+  epl_gc_root_depth`. The duplicates are removed (keeping the binary-safe,
+  NULL-free file-I/O implementations and the higher-precision `epl_time_now`),
+  and `epl_sleep_ms` is resolved to the `int32_t` signature the compiler emits.
+  A type-annotated program now builds and runs as a real native executable.
+- **`epl build` picked `gcc` when `clang` was absent and then failed
+  confusingly.** The native pipeline emits LLVM IR, which gcc cannot compile, so
+  the C-compiler probe no longer falls back to gcc; when no LLVM/clang toolchain
+  is present it prints a clear, per-OS install hint instead of a link error.
 
 ### Restored
 - **7 example programs that an automated "AUTO-FIX" pass (v7.4.0) had silently
@@ -47,6 +60,12 @@ restored; and a new runtime test stops broken examples from shipping green again
   with specific reasons rather than hidden.
 - VM regression tests for counted-loop `Continue`, negative steps, and
   `Break`, including a VM-vs-interpreter parity check.
+- **`tests/test_native_build.py`** — the first end-to-end native test: it
+  compiles EPL programs through `compile_file` (the `epl build` path), links
+  against `runtime.c`, *runs* the resulting binary, and asserts its output.
+  No prior test ever compiled the runtime or ran a binary, which is why the
+  duplicate-symbol breakage shipped unnoticed. Skipped when no clang/LLVM
+  toolchain is available.
 
 ### Known issues (documented, not yet fixed)
 - `lambdas.epl`: a bare ternary assignment parses alone but fails after earlier
@@ -58,6 +77,17 @@ restored; and a new runtime test stops broken examples from shipping green again
 - 7 example apps added after v7.0.0 (`calculator/`, `hello_web/`, `todo_app/`,
   `todo_api/`, `official_starters/*`) were corrupted at creation and have no
   clean revision to restore from; they need rewriting.
+- **Native compilation (`epl build`) is correct only for type-annotated /
+  numerically-typed programs.** Now that linking works, a measurement of the
+  shipped run-to-completion examples found roughly 1 in 5 produce a correct
+  native binary; the rest fail to build, mismatch the interpreter, or crash.
+  The root cause is a single architectural gap: the native backend defaults
+  untyped values to `i8*` (string) and has no type inference, so idiomatic
+  dynamic code (`Function add takes a and b` used with both numbers and text)
+  generates wrong code. Making fully-dynamic EPL compile natively needs a
+  uniform tagged-value representation or whole-program type inference — a
+  dedicated backend effort tracked separately. The default `epl run`
+  (interpreter/VM) path is unaffected and runs this code correctly.
 
 ---
 

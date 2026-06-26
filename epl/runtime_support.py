@@ -246,17 +246,22 @@ def run_file(
 def _find_c_compiler() -> Optional[str]:
     import subprocess
 
+    # Only clang is a valid candidate: the native pipeline emits textual LLVM IR
+    # (a ``.ll`` file) and links it directly with the C compiler (see the
+    # ``[cc, ir_path, ...]`` link command below). gcc cannot consume LLVM IR, so
+    # returning it here only produced a confusing "runtime compilation issue"
+    # followed by a link failure. Requiring clang lets the caller emit a clear,
+    # actionable "install LLVM" message instead.
     candidates = [
         'clang',
         r'C:\Program Files\LLVM\bin\clang.exe',
         r'C:\Program Files (x86)\LLVM\bin\clang.exe',
-        'gcc',
     ]
     for candidate in candidates:
         try:
-            subprocess.run([candidate, '--version'], capture_output=True, timeout=10)
+            subprocess.run([candidate, '--version'], capture_output=True, timeout=10, check=True)
             return candidate
-        except (FileNotFoundError, Exception):
+        except (FileNotFoundError, subprocess.SubprocessError):
             continue
     return None
 
@@ -345,8 +350,13 @@ def compile_file(
 
         cc = _find_c_compiler()
         if not cc:
-            print('\n  C compiler not found. Install: winget install LLVM.LLVM')
-            print(f'  LLVM IR saved to: {ir_path}')
+            print('\n  Native build needs the LLVM/clang toolchain (it compiles')
+            print('  generated LLVM IR — a plain gcc cannot do this).')
+            print('  Install it with:')
+            print('    Windows:  winget install LLVM.LLVM')
+            print('    macOS:    brew install llvm   (or: xcode-select --install)')
+            print('    Linux:    sudo apt install clang   # or your distro equivalent')
+            print(f'  The generated LLVM IR was saved to: {ir_path}')
             return False
 
         if target and 'windows' in target:
