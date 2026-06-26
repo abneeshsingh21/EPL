@@ -656,6 +656,41 @@ class TestVMCountedLoopControlFlow(unittest.TestCase):
         self.assertEqual(vm.output_lines, [str(n) for n in (9, 7, 5, 3, 1)])
         self.assertEqual(vm.output_lines, interp.output_lines)
 
+    def test_for_runtime_positive_step_counts_up(self):
+        """A step given by a variable (not a literal) must derive direction at runtime."""
+        vm = run_vm('s = 2\nFor i from 0 to 6 step s\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['0', '2', '4', '6'])
+
+    def test_for_runtime_negative_step_counts_down(self):
+        """A negative runtime step must count down, mirroring the interpreter."""
+        vm = run_vm('s = 0 - 1\nFor i from 5 to 1 step s\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['5', '4', '3', '2', '1'])
+
+    def test_for_constant_zero_step_raises(self):
+        """A compile-time-constant zero step would spin forever; reject it instead."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('For i from 1 to 5 step 0\n  Print i\nEnd')
+
+    def test_for_runtime_zero_step_raises(self):
+        """A runtime zero step must be rejected at execution time, not hang."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('s = 0\nFor i from 1 to 5 step s\n  Print i\nEnd')
+
+    def test_for_runtime_step_matches_interpreter(self):
+        """VM and interpreter must agree when the step is a runtime expression."""
+        from epl.interpreter import Interpreter
+
+        code = 's = 0 - 2\nFor i from 10 to 0 step s\n  Print i\nEnd'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, [str(n) for n in (10, 8, 6, 4, 2, 0)])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
 
 if __name__ == '__main__':
     unittest.main()

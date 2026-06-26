@@ -6,6 +6,14 @@
  * Supports native, WASI, and Emscripten targets.
  */
 
+/* Request POSIX.1-2008 symbols (clock_gettime, CLOCK_REALTIME, CLOCK_MONOTONIC)
+ * before any include. They are visible under clang/gcc's default mode, but a
+ * strict ISO-C mode (-std=c11 without -D_DEFAULT_SOURCE) would leave them
+ * undeclared; defining this up front makes the non-Windows time path portable. */
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

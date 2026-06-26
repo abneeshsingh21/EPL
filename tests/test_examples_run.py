@@ -94,6 +94,14 @@ def test_examples_directory_present():
     assert _run_to_completion_examples(), 'no run-to-completion examples found'
 
 
+def test_known_broken_entries_exist():
+    """Guard against stale xfail entries. A removed/renamed example would also
+    make ``epl run`` exit non-zero, so ``test_known_broken_examples`` would keep
+    xfailing it forever and quietly hide that it's gone. Fail loudly instead."""
+    missing = sorted(n for n in _KNOWN_BROKEN if not (_EXAMPLES_DIR / n).is_file())
+    assert not missing, f'stale _KNOWN_BROKEN entries (file no longer exists): {missing}'
+
+
 @pytest.mark.parametrize('example', _run_to_completion_examples(), ids=lambda p: p.name)
 def test_example_runs_clean(example: Path):
     result = _run_example(example)

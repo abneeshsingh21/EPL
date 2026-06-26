@@ -329,7 +329,8 @@ def _native_unsafe_functions(program) -> list:
 
     def check_fn(fn, qualname: str) -> None:
         reasons: list = []
-        untyped = []
+        unannotated = []  # no type at all
+        unsupported = []  # explicit type the backend can't lower
         for param in fn.params:
             if isinstance(param, ast.RestParameter):
                 continue
@@ -338,24 +339,36 @@ def _native_unsafe_functions(program) -> list:
                 ptype = param[1] if len(param) > 1 else None
             else:
                 pname, ptype = getattr(param, 'name', '?'), None
-            if ptype is None or str(ptype).lower() not in _NATIVE_TYPES:
-                untyped.append(pname)
-        if untyped:
-            joined = ', '.join(untyped)
-            reasons.append(f'parameter(s) {joined} have no type annotation')
+            if ptype is None:
+                unannotated.append(pname)
+            elif str(ptype).lower() not in _NATIVE_TYPES:
+                unsupported.append(f'{pname}: {ptype}')
+        if unannotated:
+            reasons.append(f'parameter(s) {", ".join(unannotated)} have no type annotation')
+        if unsupported:
+            reasons.append(
+                f'parameter(s) {", ".join(unsupported)} use a type the native '
+                'backend cannot compile'
+            )
         rt = getattr(fn, 'return_type', None)
-        if (rt is None or str(rt).lower() not in _NATIVE_TYPES) and _body_returns_a_value(fn.body):
-            reasons.append("returns a value but has no 'and returns <type>' annotation")
+        if _body_returns_a_value(fn.body):
+            if rt is None:
+                reasons.append("returns a value but has no 'and returns <type>' annotation")
+            elif str(rt).lower() not in _NATIVE_TYPES:
+                reasons.append(f"return type '{rt}' is not one the native backend can compile")
         if reasons:
             problems.append((qualname, getattr(fn, 'line', 0), '; '.join(reasons)))
 
+    def unwrap(node):
+        return node.statement if isinstance(node, ast.VisibilityModifier) else node
+
     for stmt in getattr(program, 'statements', []) or []:
-        if isinstance(stmt, ast.VisibilityModifier):
-            stmt = stmt.statement
+        stmt = unwrap(stmt)
         if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
             check_fn(stmt, stmt.name)
         elif isinstance(stmt, ast.ModuleDef):
             for item in stmt.body:
+                item = unwrap(item)
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     check_fn(item, f'{stmt.name}::{item.name}')
 

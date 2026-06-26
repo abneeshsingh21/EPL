@@ -1082,36 +1082,67 @@ class BytecodeCompiler:
         for brk in loop_info['breaks']:
             self._patch_jump(brk)
 
+    _ZERO_STEP_MSG = 'For range step must be a non-zero integer.'
+
     @staticmethod
-    def _is_negative_step(step_val) -> bool:
-        """True when a counted-loop step is a compile-time-constant negative
-        number (``Literal(-n)`` or ``-Literal(n)``). Non-constant steps return
-        False, so the loop keeps the default ``<=`` test."""
+    def _const_step_value(step_val):
+        """The numeric value of a compile-time-constant step (``Literal(n)`` or
+        ``-Literal(n)``), or ``None`` when the step is a runtime expression.
+        A missing step means the default of ``1``."""
         from epl import ast_nodes as ast
 
         if step_val is None:
-            return False
-        if isinstance(step_val, ast.Literal):
-            return isinstance(step_val.value, (int, float)) and step_val.value < 0
+            return 1
+        if isinstance(step_val, ast.Literal) and isinstance(step_val.value, (int, float)):
+            return step_val.value
         if (
             isinstance(step_val, ast.UnaryOp)
             and step_val.operator == '-'
             and isinstance(step_val.operand, ast.Literal)
+            and isinstance(step_val.operand.value, (int, float))
         ):
-            return isinstance(step_val.operand.value, (int, float)) and step_val.operand.value > 0
-        return False
+            return -step_val.operand.value
+        return None
 
     def _compile_for(self, node):
         # Compile: For <var> From <start> To <end> [Step <step>]
         start_val = node.start if hasattr(node, 'start') else node.range_start
         end_val = node.end if hasattr(node, 'end') else node.range_end
         step_val = getattr(node, 'step', None)
+        var_name = node.var_name if hasattr(node, 'var_name') else node.variable
+
+        const_step = self._const_step_value(step_val)
+
+        # A zero step never advances the counter, so the loop would spin forever.
+        # The interpreter rejects this with an error; when we can see it's a
+        # constant zero at compile time, emit the same error instead of a hang.
+        if const_step == 0:
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            return
 
         # Initialize counter (global at top level so it's visible like the
         # interpreter; local inside a function).
         self._compile_expr(start_val)
-        var_name = node.var_name if hasattr(node, 'var_name') else node.variable
         self._store_named(var_name)
+
+        # For a runtime (non-constant) step, evaluate it once into a temp, reject
+        # a zero value at runtime, and derive the loop direction from its sign on
+        # every iteration — exactly as the interpreter does. (A constant step
+        # uses the cheaper fixed comparison below.)
+        step_local = None
+        if const_step is None:
+            step_local = self._declare_local(f'__step_{self._label_counter}')
+            self._label_counter += 1
+            self._compile_expr(step_val)
+            self._emit(Op.STORE_VAR, step_local)
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.LOAD_CONST, self._add_const(0))
+            self._emit(Op.EQ)
+            nonzero_jump = self._emit_jump(Op.JUMP_IF_FALSE)
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            self._patch_jump(nonzero_jump)
 
         loop_start = len(self.instructions)
         # 'continue' is None so that a Continue inside the body forward-jumps to
@@ -1120,13 +1151,21 @@ class BytecodeCompiler:
         self.loop_stack.append({'continue': None, 'continues': [], 'breaks': []})
 
         # Check the loop condition. A counted loop with a negative step counts
-        # *down*, so it must test `var >= end`; the default/positive step tests
-        # `var <= end`. The interpreter picks the comparison from the step's sign
-        # at runtime; the VM mirrors that for any compile-time-constant step
-        # (the common case, e.g. `step -1`) and falls back to `<=` otherwise.
-        self._load_named(var_name)
-        self._compile_expr(end_val)
-        self._emit(Op.GTE if self._is_negative_step(step_val) else Op.LTE)
+        # *down* (`var >= end`); a positive step counts *up* (`var <= end`).
+        if const_step is None:
+            # Direction-agnostic test that works for either sign of a runtime
+            # step: `(end - var) * step >= 0` (zero step already rejected above).
+            self._compile_expr(end_val)
+            self._load_named(var_name)
+            self._emit(Op.SUB)
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.MUL)
+            self._emit(Op.LOAD_CONST, self._add_const(0))
+            self._emit(Op.GTE)
+        else:
+            self._load_named(var_name)
+            self._compile_expr(end_val)
+            self._emit(Op.GTE if const_step < 0 else Op.LTE)
         exit_jump = self._emit_jump(Op.JUMP_IF_FALSE)
 
         # Body
@@ -1139,7 +1178,9 @@ class BytecodeCompiler:
 
         # Increment
         self._load_named(var_name)
-        if step_val:
+        if const_step is None:
+            self._emit(Op.LOAD_VAR, step_local)
+        elif step_val is not None:
             self._compile_expr(step_val)
         else:
             self._emit(Op.LOAD_CONST, self._add_const(1))
