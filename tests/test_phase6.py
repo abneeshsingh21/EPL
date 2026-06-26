@@ -604,9 +604,11 @@ Set flag to True
     gen = KotlinGenerator('com.test')
     code = gen.generate(program)
 
-    _check_contains('has x assignment', code, 'x = ')
-    _check_contains('has name assignment', code, 'name = ')
-    _check_contains('has pi assignment', code, 'pi = ')
+    # First `Set` of a name emits a typed `var` declaration — a bare assignment
+    # to an undeclared name is an unresolved reference in Kotlin and won't compile.
+    _check_contains('has x declaration', code, 'var x: Int = 42')
+    _check_contains('has name declaration', code, 'var name: String = "test"')
+    _check_contains('has pi declaration', code, 'var pi: Double = 3.14')
 
 
 @_tracked_test

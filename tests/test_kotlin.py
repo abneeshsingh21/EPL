@@ -108,7 +108,9 @@ def test_type_infer_const():
 
 def test_return_type_int():
     code = gen('Function double takes x\n  Return x * 2.\nEnd Function.')
-    assert 'fun double(x: Any): Int' in code or 'fun double(x: Any): Any' in code
+    # `x` is used arithmetically, so it's inferred Int (not Any) — which is what
+    # actually compiles: `Int * Int` has an operator, `Any * Int` does not.
+    assert 'fun double(x: Int): Int' in code
     print('  PASS: return_type_inference')
 
 
