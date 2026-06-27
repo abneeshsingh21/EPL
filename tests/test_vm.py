@@ -382,19 +382,13 @@ class TestVMModuleImports(unittest.TestCase):
 
     def test_vm_matches_interpreter(self):
         code = (
-            'Import "string" as Str\n'
-            'Print Str::capitalize("epl")\n'
-            'Print Str::pad_left("9", 3, "0")'
+            'Import "string" as Str\nPrint Str::capitalize("epl")\nPrint Str::pad_left("9", 3, "0")'
         )
         self.assertEqual(run_vm(code).output_lines, self._interp_lines(code))
 
     def test_repeat_import_inlined_once(self):
         # Importing the same module twice must not double-define or error.
-        code = (
-            'Import "string" as Str\n'
-            'Import "string" as Str2\n'
-            'Print Str::capitalize("ok")'
-        )
+        code = 'Import "string" as Str\nImport "string" as Str2\nPrint Str::capitalize("ok")'
         self.assertEqual(run_vm(code).output_lines, ['Ok'])
 
     def test_unknown_member_raises(self):

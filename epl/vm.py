@@ -1716,10 +1716,7 @@ class BytecodeCompiler:
             # `Alias.member(args)` on a module alias is the dot spelling of
             # `Alias::member(args)` — resolve it as a module member call.
             obj = node.obj
-            if (
-                isinstance(obj, ast.Identifier)
-                and obj.name in self._module_aliases
-            ):
+            if isinstance(obj, ast.Identifier) and obj.name in self._module_aliases:
                 for a in node.arguments:
                     self._compile_expr(a)
                 self._emit(
@@ -1749,10 +1746,7 @@ class BytecodeCompiler:
             # `Alias.member` on a module alias is the dot spelling of
             # `Alias::member` — a bare member read, not an attribute lookup.
             obj = node.obj
-            if (
-                isinstance(obj, ast.Identifier)
-                and obj.name in self._module_aliases
-            ):
+            if isinstance(obj, ast.Identifier) and obj.name in self._module_aliases:
                 self._load_named(node.property_name)
             else:
                 self._compile_expr(node.obj)
@@ -2117,11 +2111,7 @@ class BytecodeCompiler:
             acc.add(node.name)
             return
         if isinstance(node, ast.FunctionCall):
-            nm = (
-                node.name
-                if isinstance(node.name, str)
-                else getattr(node.name, 'name', None)
-            )
+            nm = node.name if isinstance(node.name, str) else getattr(node.name, 'name', None)
             if nm:
                 acc.add(nm)
         if not hasattr(node, '__dict__'):
@@ -3270,9 +3260,7 @@ class VM:
         module_name, member_name, arg_count = inst.arg
         func = self.functions.get(member_name)
         if func is None:
-            raise VMError(
-                f"Module '{module_name}' has no member '{member_name}'.", inst.line
-            )
+            raise VMError(f"Module '{module_name}' has no member '{member_name}'.", inst.line)
         self._call_function(func, arg_count)
 
     # ─── Built-in functions ───────────────────────────────────
