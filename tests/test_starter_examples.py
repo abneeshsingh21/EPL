@@ -58,7 +58,7 @@ _NEEDS_SECRET = {'discord_agent'}
 # of these show up in a served response body, the route handler is broken even
 # though the HTTP status is 200.
 _ERROR_SIGNATURES = (
-    '[E0',                    # EPL error codes: [E0200] parser, [E0500] name, …
+    '[E0',  # EPL error codes: [E0200] parser, [E0500] name, …
     'has not been created',
     'has not been defined',
     'Traceback (most recent call last)',
@@ -99,9 +99,9 @@ def _safe_get_routes(src: str) -> list[str]:
         if not m:
             continue
         path = m.group(1)
-        if '{' in path:                      # parameterised route — needs a real id
+        if '{' in path:  # parameterised route — needs a real id
             continue
-        if 'web_request_data' in chunk:      # reads a request body — skip for GET
+        if 'web_request_data' in chunk:  # reads a request body — skip for GET
             continue
         routes.append(path)
     return routes
@@ -119,8 +119,7 @@ def _port_open(port: int) -> bool:
 def _assert_clean_body(label: str, body: str) -> None:
     for sig in _ERROR_SIGNATURES:
         assert sig not in body, (
-            f'{label} returned an EPL error in its response body '
-            f'(found {sig!r}):\n{body[:600]}'
+            f'{label} returned an EPL error in its response body (found {sig!r}):\n{body[:600]}'
         )
 
 
@@ -196,10 +195,7 @@ def test_server_example_boots_and_serves(example: Path):
             _assert_clean_body(f'{example.parent.name} GET {path}', body)
             if status == 200:
                 served_ok += 1
-        assert served_ok, (
-            f'{example.parent.name}: no probed route returned 200 '
-            f'(tried {routes})'
-        )
+        assert served_ok, f'{example.parent.name}: no probed route returned 200 (tried {routes})'
     finally:
         proc.terminate()
         try:
