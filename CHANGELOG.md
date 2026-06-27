@@ -113,6 +113,17 @@ restored; and a new runtime test stops broken examples from shipping green again
   The VM now declines these at compile time (like the closure-capture guard) so
   `epl run` falls back to the interpreter cleanly, before any output.
 
+### Security
+- **`--sandbox` no longer bypassed by the bytecode VM.** Safe mode (file-write /
+  append / `exec` / download / dir & env mutation / `Use python` / `Load library`
+  blocking) is implemented only by the interpreter; the VM has no safe-mode
+  enforcement. `epl run` defaults to the VM, so sandboxed code was executed by an
+  engine that ignores the sandbox — previously masked only because the VM
+  happened to crash on the file-write op and fall back. Now that VM file I/O
+  works, `epl run --sandbox` routes to the interpreter unconditionally, so every
+  sandbox restriction is enforced again. (The VM is purely a speed optimization;
+  it must not run code it cannot secure.)
+
 ### Added — native build safety gate
 - **`epl build` now refuses to emit a binary it cannot prove type-correct,
   instead of silently producing a segfaulting one.** Because the native backend

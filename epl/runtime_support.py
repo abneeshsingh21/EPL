@@ -187,7 +187,15 @@ def run_file(
             _debug_suppressed('runtime_support.py:178')
             pass
 
-    if not force_interpret:
+    # Safe mode (--sandbox) is a security feature implemented ONLY by the
+    # interpreter (it blocks file writes/appends, exec, downloads, dir/env
+    # mutation, `Use python`, `Load library`, …). The bytecode VM has no
+    # safe-mode enforcement, so running sandboxed code on it would silently
+    # bypass every restriction. The VM is purely a speed optimization, so when
+    # sandboxed we skip it entirely and use the interpreter, which honors the
+    # sandbox. (Without this, a fixed VM file-write op executes the very write
+    # the sandbox is meant to block.)
+    if not force_interpret and not safe_mode:
         from epl.vm import compile_and_run
 
         # The VM streams output live. If it fails AFTER producing output, the
