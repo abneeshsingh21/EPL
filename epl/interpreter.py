@@ -3157,10 +3157,13 @@ class Interpreter:
             self._ensure_numeric(left, right, '/', node.line)
             if right == 0:
                 raise EPLRuntimeError('Cannot divide by zero.', node.line)
-            result = left / right
+            # Whole-number division of two ints yields an int. Use `//` directly
+            # rather than int(left / right): the float round-trip loses precision
+            # for large divisible ints (e.g. (10**18 + 1) / 1), and the VM uses
+            # `//` too, so both engines stay byte-identical.
             if isinstance(left, int) and isinstance(right, int) and left % right == 0:
-                return int(result)
-            return result
+                return left // right
+            return left / right
 
         if op == '%':
             self._ensure_numeric(left, right, '%', node.line)

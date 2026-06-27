@@ -1988,19 +1988,18 @@ class BytecodeCompiler:
                         '//': operator.floordiv,
                         'FloorDivide': operator.floordiv,
                     }
-                    if op_str in fold_ops and (op_str not in ('/', 'Divide', 'DIVIDE') or rv != 0):
-                        result = fold_ops[op_str](lv, rv)
+                    is_div = op_str in ('/', 'Divide', 'DIVIDE')
+                    if op_str in fold_ops and (not is_div or rv != 0):
                         # Mirror _op_div: division collapses to int ONLY when both
                         # operands are ints dividing evenly; a float operand keeps
-                        # the float (200.0 / 4 == 50.0, not 50), matching runtime
-                        # and the interpreter.
-                        if (
-                            op_str in ('/', 'Divide', 'DIVIDE')
-                            and isinstance(lv, int)
-                            and isinstance(rv, int)
-                            and lv % rv == 0
-                        ):
-                            result = int(result)
+                        # the float (200.0 / 4 == 50.0, not 50). Use `//` directly
+                        # for the even-int case — routing through float (int(a / b))
+                        # loses precision for large divisible ints, which would
+                        # diverge from runtime + the interpreter (both also `//`).
+                        if is_div and isinstance(lv, int) and isinstance(rv, int) and lv % rv == 0:
+                            result = lv // rv
+                        else:
+                            result = fold_ops[op_str](lv, rv)
                         idx = self._add_const(result)
                         self._emit(Op.LOAD_CONST, idx)
                         return
@@ -2588,14 +2587,16 @@ class VM:
         b, a = self.stack.pop(), self.stack.pop()
         if b == 0 or b == 0.0:
             raise VMError('Cannot divide by zero.', inst.line)
-        result = a / b
         # Match the interpreter exactly: collapse to int ONLY when both operands
         # are ints that divide evenly. If either operand is a float (e.g.
         # 200.0 / 4), preserve the float result — the old `result == int(result)`
         # test wrongly turned 50.0 into 50, diverging from `epl run --interpret`.
+        # Use `//` for the even-int case rather than int(a / b): the float
+        # round-trip loses precision for large divisible ints (e.g. 10**18 + 1).
         if isinstance(a, int) and isinstance(b, int) and a % b == 0:
-            result = int(result)
-        self.stack.append(result)
+            self.stack.append(a // b)
+            return
+        self.stack.append(a / b)
 
     def _op_mod(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
@@ -3524,7 +3525,10 @@ class VM:
             return input(str(args[0]) if args else '')
 
         def _read_file(args, line):
-            with open(str(args[0]), 'r') as f:
+            # utf-8 to match the writers (_write_file/_append_file) and the
+            # FILE_READ op — otherwise read_file() can mojibake or fail on files
+            # those wrote, on platforms whose default encoding isn't utf-8.
+            with open(str(args[0]), 'r', encoding='utf-8') as f:
                 return f.read()
 
         def _write_file(args, line):

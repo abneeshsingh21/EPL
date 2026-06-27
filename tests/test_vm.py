@@ -1018,23 +1018,46 @@ class TestVMParityWithInterpreter(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['4', '3.5'])
         self.assertEqual(vm.output_lines, self._interp(code))
 
+    def test_division_constant_folded_paths(self):
+        # Literal operands hit the compile-time constant-folding path (distinct
+        # from the runtime _op_div path). A float operand must keep the float;
+        # two evenly-dividing ints collapse to int — same rule, both paths.
+        code = 'Print 200.0 / 4\nPrint 9 / 3\nPrint 9 / 2'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['50.0', '3', '4.5'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_large_int_keeps_precision(self):
+        # Even-int division uses `//`, not int(a / b): the float round-trip
+        # loses precision for large divisible ints. A variable operand forces
+        # the runtime _op_div path (literals would constant-fold). Both engines
+        # must agree on the exact integer — this would diverge if only one used
+        # `//` (int((10**18 + 1) / 1) drops the +1).
+        code = 'n = 1000000000000000001\nPrint (n * 7) / 7'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['1000000000000000001'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
     def test_file_write_append_read_roundtrip(self):
         import tempfile
 
+        # Non-ASCII payload so this actually exercises the utf-8 fix — with the
+        # old platform-default encoding this would mojibake or raise on a
+        # non-utf-8 system (e.g. cp1252 Windows) instead of round-tripping.
         path = os.path.join(tempfile.mkdtemp(), 'vm_io.txt')
         epl_path = path.replace('\\', '/')
         code = (
-            f'Write "line1" to file "{epl_path}"\n'
-            f'Append "line2" to file "{epl_path}"\n'
+            f'Write "café ☕" to file "{epl_path}"\n'
+            f'Append "日本語 ñ" to file "{epl_path}"\n'
             f'c = Read file "{epl_path}"\n'
             f'Print c'
         )
         vm = run_vm(code)
         # Append adds a trailing newline (matching the interpreter), so the
-        # read-back is "line1line2\n" -> two printed lines.
+        # read-back is "café ☕日本語 ñ\n" -> two printed lines.
         self.assertEqual(vm.output_lines, self._interp(code))
         with open(path, encoding='utf-8') as f:
-            self.assertEqual(f.read(), 'line1line2\n')
+            self.assertEqual(f.read(), 'café ☕日本語 ñ\n')
 
     def test_use_python_declines_at_compile_time(self):
         # The VM has no foreign-language bridge; it must raise at compile time
