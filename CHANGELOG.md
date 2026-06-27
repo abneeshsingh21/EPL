@@ -43,6 +43,20 @@ restored; and a new runtime test stops broken examples from shipping green again
   confusingly.** The native pipeline emits LLVM IR, which gcc cannot compile, so
   the C-compiler probe no longer falls back to gcc; when no LLVM/clang toolchain
   is present it prints a clear, per-OS install hint instead of a link error.
+- **Soft-keyword words could not be used as ordinary variables.** `label`,
+  `menu`, `grid`, `start`, `row`, `column` and the other GUI/web/style soft
+  keywords head a statement only in their statement form, yet the parser
+  dispatched them to the widget/layout parsers even when the very next token was
+  an assignment operator — so `label = 5` and `grid += 1` failed to parse. The
+  statement dispatcher now peeks past a leading soft keyword: an assignment
+  operator immediately after it means a plain assignment, never a GUI statement.
+  Genuine widget statements (`Label "text"`, `Menu "File"`) are unaffected.
+- **Omitted-bound step slices `[::2]` / `[::-1]` / `[1::2]` failed to parse.**
+  The lexer emits `::` as a single `DOUBLE_COLON` token, so a slice opening with
+  `::` was mis-read as module access (`Module::member`). The subscript parser now
+  treats `::` as a slice separator (empty step allowed) when no member name
+  follows, and still as module access when one does. Both engines (interpreter
+  and VM) match Python slice semantics; explicit `[start:stop:step]` is unchanged.
 
 ### Added — native build safety gate
 - **`epl build` now refuses to emit a binary it cannot prove type-correct,
@@ -71,12 +85,16 @@ restored; and a new runtime test stops broken examples from shipping green again
 ### Added
 - **`tests/test_examples_run.py`** — actually *runs* every run-to-completion
   example (not just parses it) and asserts a clean exit, so corruption like the
-  above cannot ship green again. Servers, interactive, Node-bridge and test-DSL
-  examples are excluded by category; four examples with still-open engine bugs
-  (`lambdas`, `slicing`, `text_editor`, `database_app`) are tracked as `xfail`
-  with specific reasons rather than hidden.
+  above cannot ship green again. Servers, interactive, Node-bridge, test-DSL and
+  blocking desktop-GUI examples are excluded by category; `_KNOWN_BROKEN` is now
+  empty — `lambdas`, `slicing` and `database_app` are enforced run-to-completion
+  (the parser fixes above closed the first two; `database_app` was rewritten to
+  the injection-safe map form of `db_create_table` and valid `UPDATE … SET` SQL,
+  the example having been wrong). `text_editor` parses now and moved to the new
+  `_GUI_APPS` category because it spins a blocking window event loop.
 - VM regression tests for counted-loop `Continue`, negative steps, and
-  `Break`, including a VM-vs-interpreter parity check.
+  `Break`, including a VM-vs-interpreter parity check; plus slice tests for the
+  omitted-bound `::` forms and soft-keyword-as-variable tests, both engines.
 - **`tests/test_native_build.py`** — the first end-to-end native test: it
   compiles EPL programs through `compile_file` (the `epl build` path), links
   against `runtime.c`, *runs* the resulting binary, and asserts its output.
@@ -85,12 +103,6 @@ restored; and a new runtime test stops broken examples from shipping green again
   toolchain is available.
 
 ### Known issues (documented, not yet fixed)
-- `lambdas.epl`: a bare ternary assignment parses alone but fails after earlier
-  lambda assignments in the same file (context-dependent parse).
-- `slicing.epl`: omitted-bound step slices `[::2]` / `[::-1]` are unsupported
-  (explicit `[start:stop:step]` works).
-- `text_editor.epl`: bare `name = call(...)` assignment doesn't parse; `Create`
-  / `Set` handle a function-call right-hand side.
 - 7 example apps added after v7.0.0 (`calculator/`, `hello_web/`, `todo_app/`,
   `todo_api/`, `official_starters/*`) were corrupted at creation and have no
   clean revision to restore from; they need rewriting.

@@ -12,6 +12,7 @@ Examples that legitimately cannot "run to completion" are excluded by category,
 each with a reason:
 
 * ``_SERVERS``      — start a web server / run forever; covered by the parse test.
+* ``_GUI_APPS``     — spin a desktop GUI event loop that blocks; parse-covered.
 * ``_INTERACTIVE``  — block on stdin; cannot run unattended.
 * ``_NEEDS_NODE``   — require a Node.js runtime for the JavaScript bridge.
 * ``_TEST_DSL``     — use the ``Test "…" … End Test`` assertion DSL, not ``epl run``.
@@ -44,6 +45,13 @@ _SERVERS = {
     'webapp.epl',
 }
 
+# Desktop GUI apps — they spin a windowing event loop that blocks until the user
+# closes the window, so they cannot "run to completion" unattended (same shape as
+# a server). Their source is still guarded by test_examples_parse.py.
+_GUI_APPS = {
+    'text_editor.epl',
+}
+
 # Block on stdin (input/ask/prompt); cannot run unattended in CI.
 _INTERACTIVE = {
     'calculator.epl',
@@ -62,19 +70,21 @@ _TEST_DSL = {
 
 # Real, still-open engine bugs. Keep the reason specific so the next person knows
 # exactly what to fix; delete the entry when the bug is closed.
-_KNOWN_BROKEN = {
-    'lambdas.epl': 'context-dependent parse: a bare ternary assignment parses '
-    'alone but fails after earlier lambda assignments in the same file',
-    'slicing.epl': 'omitted-bound step slices [::2] / [::-1] are unsupported '
-    '(explicit [start:stop:step] works)',
-    'text_editor.epl': 'bare `name = call(...)` assignment does not parse; only '
-    '`Create`/`Set` handle a function-call RHS',
-    'database_app.epl': 'db_create_table raises a runtime error under the interpreter SQLite path',
-}
+#
+# Empty: the four formerly-tracked bugs are all fixed and now enforced as
+# run-to-completion examples —
+#   * lambdas.epl / slicing.epl — `label`/`menu`/`grid` (and friends) work as
+#     ordinary variable names, and omitted-bound step slices `[::2]`/`[::-1]`/
+#     `[1::2]` now parse (parser: soft-keyword-assignment guard + `::` slice).
+#   * database_app.epl — rewritten to use the injection-safe map form of
+#     db_create_table and valid `UPDATE ... SET` SQL (the example was wrong).
+#   * text_editor.epl — parsed once `menu = gui_menu(...)` was accepted; it is a
+#     blocking GUI app, so it moved to _GUI_APPS rather than becoming enforced.
+_KNOWN_BROKEN = {}  # name -> reason; plain assignment so conftest keeps collecting this module
 
 
 def _run_to_completion_examples():
-    excluded = _SERVERS | _INTERACTIVE | _NEEDS_NODE | _TEST_DSL | set(_KNOWN_BROKEN)
+    excluded = _SERVERS | _GUI_APPS | _INTERACTIVE | _NEEDS_NODE | _TEST_DSL | set(_KNOWN_BROKEN)
     return sorted(p for p in _EXAMPLES_DIR.glob('*.epl') if p.name not in excluded)
 
 

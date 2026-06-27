@@ -389,6 +389,26 @@ class Parser:
             TokenType.OP_MOD_ASSIGN,
         )
 
+        # A soft keyword used as a bare variable target — `label = 5`,
+        # `menu = "File"`, `start = 0`, `grid += 1` — is an assignment, not the
+        # GUI/web/style statement that shares the word. The peek is limited to
+        # assignment operators on purpose: the soft-keyword set also contains
+        # English statement verbs (`Add`, `Sort`, `Reverse`, `Map`, `Say`) whose
+        # genuine statement forms legitimately begin with `(` or `[`
+        # (e.g. `Add (Call f With x) to result`), so widening this peek to those
+        # continuations would misparse them (verified: it breaks the stdlib
+        # higher-order examples). Property/index targets on a soft-keyword
+        # variable (`menu.text = …`, `grid[0] = …`) are therefore not supported;
+        # rename the variable. No real statement form places an assignment
+        # operator immediately after its leading keyword, so this peek is
+        # unambiguous and must run before those dispatches. (The genuine
+        # statement keywords — Set, Repeat, Say, Ask — are dispatched earlier and
+        # never reach here.)
+        if tok.type in self._SOFT_KEYWORDS:
+            nxt = self._peek()
+            if nxt and nxt.type in _assign_types:
+                return self._parse_shorthand_assignment()
+
         # v0.7.1: Multiply/Divide English statements
         if tok.type == TokenType.MULTIPLY_KW:
             nxt = self._peek()
@@ -1758,8 +1778,14 @@ class Parser:
                     # Property access: obj.prop
                     expr = ast.PropertyAccess(expr, prop_name, getattr(expr, 'line', 0))
 
-            elif self._match(TokenType.DOUBLE_COLON):
-                # Module access: Module::member or Module::func(args)
+            elif self._match(TokenType.DOUBLE_COLON) and (
+                self._peek().type == TokenType.IDENTIFIER
+                or self._peek().type in self._SOFT_KEYWORDS
+            ):
+                # Module access: Module::member or Module::func(args). Only when a
+                # real member name (identifier) follows — otherwise `::` is a slice
+                # separator such as `nums[1::2]` or `nums[::-1]`, handled by the
+                # subscript branch below (the lexer emits `::` as one DOUBLE_COLON).
                 self._advance()  # consume ::
                 member_tok = self._expect_identifier('Expected member name after "::".')
                 member_name = member_tok.value
@@ -1779,58 +1805,62 @@ class Parser:
                     expr = ast.ModuleAccess(mod_name, member_name, None, line)
 
             elif self._match(TokenType.LBRACKET):
-                # Index access: items[i]  OR  Slice: items[start:end] or items[start:end:step]
+                # Index access `items[i]` or a slice. Delegated to a helper so the
+                # single- and double-colon forms are handled in one place.
                 self._advance()  # consume [
-                # Check for slice: [:end]
-                if self._match(TokenType.COLON):
-                    start_expr = ast.Literal(None, getattr(expr, 'line', 0))
-                    self._advance()  # consume :
-                    if self._match(TokenType.RBRACKET):
-                        end_expr = ast.Literal(None, getattr(expr, 'line', 0))
-                        step_expr = None
-                    elif self._match(TokenType.COLON):
-                        end_expr = ast.Literal(None, getattr(expr, 'line', 0))
-                        self._advance()  # consume :
-                        step_expr = self._parse_expression()
-                    else:
-                        end_expr = self._parse_expression()
-                        step_expr = None
-                        if self._match(TokenType.COLON):
-                            self._advance()
-                            step_expr = self._parse_expression()
-                    self._expect(TokenType.RBRACKET, 'Expected "]".')
-                    expr = ast.SliceAccess(
-                        expr, start_expr, end_expr, step_expr, getattr(expr, 'line', 0)
-                    )
-                else:
-                    index_expr = self._parse_expression()
-                    # Check if this is a slice
-                    if self._match(TokenType.COLON):
-                        self._advance()  # consume :
-                        if self._match(TokenType.RBRACKET):
-                            end_expr = ast.Literal(None, getattr(expr, 'line', 0))
-                            step_expr = None
-                        elif self._match(TokenType.COLON):
-                            end_expr = ast.Literal(None, getattr(expr, 'line', 0))
-                            self._advance()
-                            step_expr = self._parse_expression()
-                        else:
-                            end_expr = self._parse_expression()
-                            step_expr = None
-                            if self._match(TokenType.COLON):
-                                self._advance()
-                                step_expr = self._parse_expression()
-                        self._expect(TokenType.RBRACKET, 'Expected "]".')
-                        expr = ast.SliceAccess(
-                            expr, index_expr, end_expr, step_expr, getattr(expr, 'line', 0)
-                        )
-                    else:
-                        self._expect(TokenType.RBRACKET, 'Expected "]".')
-                        expr = ast.IndexAccess(expr, index_expr, getattr(expr, 'line', 0))
+                expr = self._parse_subscript(expr)
             else:
                 break
 
         return expr
+
+    def _parse_subscript(self, target):
+        """Parse the body of ``target[...]`` (the ``[`` is already consumed): a
+        plain index ``[i]`` or a slice. Supports every omitted-bound form —
+        ``[a:b]``, ``[a:b:c]``, ``[:b]``, ``[a:]``, ``[::c]``, ``[a::c]``,
+        ``[::-1]``. The lexer tokenises ``::`` as a single ``DOUBLE_COLON``, so
+        here that token is a slice separator with an empty middle bound; a bare
+        ``:`` is the ordinary separator."""
+        line0 = getattr(target, 'line', 0)
+        none_lit = ast.Literal(None, line0)
+
+        def bound():
+            # A slice/index bound, or None-literal when the part is empty (the
+            # next token is a separator or the closing bracket).
+            if self._match(TokenType.RBRACKET, TokenType.COLON, TokenType.DOUBLE_COLON):
+                return ast.Literal(None, line0)
+            return self._parse_expression()
+
+        # Leading `::` → [::step]  (start and end both omitted, e.g. [::-1]).
+        if self._match(TokenType.DOUBLE_COLON):
+            self._advance()
+            step_expr = None if self._match(TokenType.RBRACKET) else self._parse_expression()
+            self._expect(TokenType.RBRACKET, 'Expected "]".')
+            return ast.SliceAccess(target, none_lit, none_lit, step_expr, line0)
+
+        start_expr = bound()
+
+        # `start :: step` → [start::step]  (end omitted, e.g. [1::2]).
+        if self._match(TokenType.DOUBLE_COLON):
+            self._advance()
+            step_expr = None if self._match(TokenType.RBRACKET) else self._parse_expression()
+            self._expect(TokenType.RBRACKET, 'Expected "]".')
+            return ast.SliceAccess(target, start_expr, none_lit, step_expr, line0)
+
+        # `start : end [: step]`  (any bound may be empty).
+        if self._match(TokenType.COLON):
+            self._advance()
+            end_expr = bound()
+            step_expr = None
+            if self._match(TokenType.COLON):
+                self._advance()
+                step_expr = None if self._match(TokenType.RBRACKET) else self._parse_expression()
+            self._expect(TokenType.RBRACKET, 'Expected "]".')
+            return ast.SliceAccess(target, start_expr, end_expr, step_expr, line0)
+
+        # Plain index access `items[i]`.
+        self._expect(TokenType.RBRACKET, 'Expected "]".')
+        return ast.IndexAccess(target, start_expr, line0)
 
     def _parse_primary(self):
         tok = self._current()

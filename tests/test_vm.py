@@ -213,6 +213,44 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
         )
         self.assertEqual(vm.output_lines, ['[10, 30, 50, 70, 90]', '[20, 50, 80]'])
 
+    def test_omitted_bound_step_slices(self):
+        """Slices with omitted start/end around a `::` step — `[::2]`, `[::-1]`,
+        `[1::2]` — must parse and match Python semantics. The lexer emits `::` as
+        a single DOUBLE_COLON, so these once silently mis-parsed as module access.
+        """
+        n = '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]'
+        vm = run_vm(
+            f'n = {n}\n'
+            'Print n[::2]\n'  # every other from start
+            'Print n[::-1]\n'  # full reverse
+            'Print n[1::2]\n'  # odd indices
+            'Print n[:5]\n'  # first five (single-colon, end only)
+            'Print n[5:]\n'  # from five (single-colon, start only)
+        )
+        self.assertEqual(
+            vm.output_lines,
+            [
+                '[0, 2, 4, 6, 8]',
+                '[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]',
+                '[1, 3, 5, 7, 9]',
+                '[0, 1, 2, 3, 4]',
+                '[5, 6, 7, 8, 9]',
+            ],
+        )
+
+    def test_module_access_still_parses_after_slice_fix(self):
+        """The `::` slice fix must not break real `Module::member` access: `::` is
+        module access only when a member name follows, a slice separator otherwise
+        (both forms share the single DOUBLE_COLON token). End-to-end proof via the
+        interpreter that `Str::capitalize` still resolves rather than mis-parsing.
+        """
+        from epl.interpreter import Interpreter
+
+        code = 'Import "string" as Str\nPrint Str::capitalize("hello")'
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(interp.output_lines, ['Hello'])
+
     def test_default_parameter_value(self):
         vm = run_vm(
             'Function greet takes name = "World"\n'
@@ -307,6 +345,40 @@ class TestVMTopLevelScope(unittest.TestCase):
             'End'
         )
         self.assertEqual(vm.output_lines, ['10', '20', '30', '10', '20', '30'])
+
+
+class TestVMSoftKeywordIdentifiers(unittest.TestCase):
+    """GUI/web/style words (`label`, `menu`, `grid`, `start`, `row`, ...) are
+    soft keywords: they head a statement only in their statement form. Used as a
+    bare variable target — `label = 5`, `grid += 1` — they must be plain
+    assignments, not a misfired widget/layout statement.
+    """
+
+    def test_label_as_variable(self):
+        vm = run_vm('label = 5\nPrint label')
+        self.assertEqual(vm.output_lines, ['5'])
+
+    def test_menu_as_variable(self):
+        vm = run_vm('menu = "File"\nPrint menu')
+        self.assertEqual(vm.output_lines, ['File'])
+
+    def test_soft_keyword_augmented_assignment(self):
+        vm = run_vm('start = 0\nstart += 3\ngrid = 10\ngrid *= 2\nPrint start\nPrint grid')
+        self.assertEqual(vm.output_lines, ['3', '20'])
+
+    def test_multiple_soft_keyword_vars_in_expression(self):
+        vm = run_vm('row = 1\ncolumn = 2\nPrint row + column')
+        self.assertEqual(vm.output_lines, ['3'])
+
+    def test_soft_keyword_var_matches_interpreter(self):
+        from epl.interpreter import Interpreter
+
+        code = 'label = 7\nmenu = "x"\nstyle = label * 2\nPrint style\nPrint menu'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, ['14', 'x'])
+        self.assertEqual(vm.output_lines, interp.output_lines)
 
 
 class TestVMStackHygiene(unittest.TestCase):

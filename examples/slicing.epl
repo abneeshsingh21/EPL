@@ -24,10 +24,10 @@ Print numbers[3:]
 Note: ─── Slice with Step [start:end:step] ───
 Print numbers[0:10:2]
 Print numbers[1:10:3]
-Print numbers[0:4]
+Print numbers[::2]
 
 Note: ─── Reverse with Slice ───
-# [AUTO-FIX] removed broken token
+Print numbers[::-1]
 
 Note: ─── String Slicing ───
 word = "Hello, World!"
@@ -35,7 +35,7 @@ Print word[0:5]
 Print word[7:12]
 Print word[:5]
 Print word[7:]
-# [AUTO-FIX] removed broken token
+Print word[::-1]
 
 Note: ─── Index Assignment ───
 colors = ["red", "green", "blue"]
@@ -51,7 +51,7 @@ Print top_half
 Print bottom_half
 
 Note: ─── Every other element ───
-evens = scores[0:4]
-# [AUTO-FIX] removed broken token
+evens = scores[::2]
+odds = scores[1::2]
 Print evens
 Print odds
