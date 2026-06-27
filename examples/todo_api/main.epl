@@ -1,70 +1,76 @@
-Note: TODO API — RESTful task manager
-Note: Run with: epl serve examples/todo_api/main.epl
+Note: Todo API — a pure-JSON task manager backend
+Note: Run with: epl run examples/todo_api/main.epl
+Note:
+Note: This is the headless cousin of examples/todo_app: no UI, just a JSON API.
+Note: EPL routes respond to any HTTP method, so the action is encoded in the
+Note: path (.../add, .../delete) rather than relying on GET/POST/DELETE verbs.
+Note: Every write uses parameterized SQL ("?") so input can't become SQL.
 
-Note: ── Create the app ──
-# [AUTO-FIX] removed broken token
+Display "Starting Todo API..."
+db = db_open("todo_api.db")
+db_execute(db, "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)")
 
-Note: ── Database setup ──
-db = db_open("todos.db")
-Call db_create_table(db, "todos", Map with id = "INTEGER PRIMARY KEY AUTOINCREMENT" and title = "TEXT NOT NULL" and completed = "INTEGER DEFAULT 0" and created_at = "TEXT DEFAULT CURRENT_TIMESTAMP")
+Create webapp app
 
-Note: ── GET all todos ──
-# [AUTO-FIX] removed broken token
-    todos = db_query(db, "SELECT * FROM todos ORDER BY created_at DESC")
-    Return Map with success = True and data = todos
-# [AUTO-FIX] removed broken token
-
-Note: ── POST create todo ──
-# [AUTO-FIX] removed broken token
-    body = request_body()
-    title = get(body, "title")
-# [AUTO-FIX] removed broken token
-        Return Map with success = False and error = "Title is required"
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    Return Map with success = True and message = "Todo created"
-# [AUTO-FIX] removed broken token
-
-Note: ── PUT update todo ──
-# [AUTO-FIX] removed broken token
-    todo_id = get(params, "id")
-    body = request_body()
-    title = get(body, "title")
-    completed = get(body, "completed")
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    Return Map with success = True and message = "Todo updated"
-# [AUTO-FIX] removed broken token
-
-Note: ── DELETE todo ──
-# [AUTO-FIX] removed broken token
-    todo_id = get(params, "id")
-# [AUTO-FIX] removed broken token
-    Return Map with success = True and message = "Todo deleted"
-# [AUTO-FIX] removed broken token
-
-Note: ── Health check ──
-# [AUTO-FIX] removed broken token
-    count = db_query_one(db, "SELECT COUNT(*) as total FROM todos")
-    Return Map with status = "ok" and total_todos = get(count, "total")
-# [AUTO-FIX] removed broken token
-
-Note: ── Documentation page ──
-Page "/" renders
-    Title "Todo API"
-    Heading "Todo API Documentation"
-    Paragraph "A RESTful API built with EPL."
-# [AUTO-FIX] removed broken token
-    Paragraph "GET    /api/todos       — List all todos"
-    Paragraph "POST   /api/todos       — Create a todo (body: {title: '...'})"""
-    Paragraph "PUT    /api/todos/:id   — Update a todo"
-    Paragraph "DELETE /api/todos/:id   — Delete a todo"
-    Paragraph "GET    /api/health      — Health check"
+Note: ── API documentation page ──
+Route "/" shows
+    Page "Todo API"
+        Heading "Todo API"
+        Text "A RESTful-style task manager built with EPL. Endpoints:"
+        Text "GET  /api/todos          — list all todos"
+        Text "GET  /api/todos/{id}     — fetch one todo"
+        Text "POST /api/todos/add      — create a todo (body: {\"title\": \"...\"})"
+        Text "GET  /api/todos/{id}/toggle  — flip a todo's completed flag"
+        Text "GET  /api/todos/{id}/delete  — delete a todo"
+        Text "GET  /api/health         — health check"
+    End
 End
 
-Note: ── Start ──
+Note: ── List all todos ──
+Route "/api/todos" responds with
+    todos = db_query(db, "SELECT id, title, completed FROM todos ORDER BY id DESC")
+    Send json Map with success = True and data = todos
+End
+
+Note: ── Fetch one todo ──
+Route "/api/todos/{id}" responds with
+    todo = db_query_one(db, "SELECT id, title, completed FROM todos WHERE id = ?", [to_integer(id)])
+    If todo == nothing Then
+        Send json Map with success = False and error = "Not found"
+    Otherwise
+        Send json Map with success = True and data = todo
+    End
+End
+
+Note: ── Create a todo ──
+Route "/api/todos/add" responds with
+    data = web_request_data()
+    title = trim(data["title"])
+    If length(title) == 0 Then
+        Send json Map with success = False and error = "Title is required"
+    Otherwise
+        db_execute(db, "INSERT INTO todos (title) VALUES (?)", [title])
+        Send json Map with success = True and message = "Todo created"
+    End
+End
+
+Note: ── Toggle completed ──
+Route "/api/todos/{id}/toggle" responds with
+    db_execute(db, "UPDATE todos SET completed = CASE WHEN completed = 0 THEN 1 ELSE 0 END WHERE id = ?", [to_integer(id)])
+    Send json Map with success = True and message = "Todo toggled"
+End
+
+Note: ── Delete a todo ──
+Route "/api/todos/{id}/delete" responds with
+    db_execute(db, "DELETE FROM todos WHERE id = ?", [to_integer(id)])
+    Send json Map with success = True and message = "Todo deleted"
+End
+
+Note: ── Health check ──
+Route "/api/health" responds with
+    count = db_query_one(db, "SELECT COUNT(*) as total FROM todos")
+    Send json Map with status = "ok" and total_todos = count.total
+End
+
+Display "Todo API running at http://localhost:8000"
 Start app on port 8000

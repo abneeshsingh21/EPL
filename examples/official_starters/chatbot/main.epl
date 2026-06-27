@@ -1,53 +1,49 @@
-# EPL Official Starter: AI Chatbot
-# Full-stack chatbot with graceful fallback when no AI backend is running.
-#
-# Run:  epl serve examples/official_starters/chatbot/main.epl
-# Test: curl -X POST http://localhost:8081/api/chat -d '{"message":"Hello"}' -H 'Content-Type: application/json'
-#
-# Requires Ollama (ollama serve) or OPENAI_API_KEY environment variable.
-
-Import "epl.ai" As ai
+Note: Chatbot — a rule-based chat backend that runs out of the box
+Note: Run with: epl run examples/official_starters/chatbot/main.epl
+Note: Test:     curl -X POST http://localhost:8081/api/chat -d "{\"message\":\"hello\"}"
+Note:
+Note: This starter answers with simple rules so it works with zero setup. To use
+Note: a real model instead, replace the body of get_reply with a call out to your
+Note: AI provider (for example, shell out to `epl ai "<message>"`, or POST to an
+Note: Ollama / OpenAI endpoint) and return its text.
 
 Function get_reply takes message
-    If message == nothing Or message == "" Then
-        Return Map with ok = False and mode = "error" and reply = "Message cannot be empty"
+    lowered = lowercase(trim(message))
+    If length(lowered) == 0 Then
+        Return "Say something and I'll reply!"
     End
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    Try
-        answer = ai.chat(messages)
-        Return Map with ok = True and mode = "ai" and reply = answer
-    Catch error
-        fallback = "AI backend unavailable. Run: ollama serve"
-        Return Map with ok = False and mode = "fallback" and reply = fallback
+    If contains(lowered, "hello") Or contains(lowered, "hi") Then
+        Return "Hello there! How can I help you today?"
     End
+    If contains(lowered, "help") Then
+        Return "I'm a demo bot. Try saying hello, asking the time, or 'bye'."
+    End
+    If contains(lowered, "time") Then
+        Return "The server time is " + now()
+    End
+    If contains(lowered, "bye") Then
+        Return "Goodbye! 👋"
+    End
+    Return "You said: " + message
 End
 
-Note: web app
-# [AUTO-FIX] removed broken token
+Create webapp app
 
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-
-# [AUTO-FIX] removed broken token
+Note: ── Health check ──
+Route "/api/health" responds with
     Send json Map with status = "ok" and service = "epl-chatbot" and version = "1.0.0"
-# [AUTO-FIX] removed broken token
+End
 
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    response = get_reply(message)
-    Send json response
-# [AUTO-FIX] removed broken token
+Note: ── Chat  (body: {"message": "..."}) ──
+Route "/api/chat" responds with
+    data = web_request_data()
+    message = data["message"]
+    If message == nothing Then
+        Send json Map with ok = False and reply = "Message cannot be empty"
+    Otherwise
+        Send json Map with ok = True and reply = get_reply(message)
+    End
+End
 
 Say "Chatbot running at http://localhost:8081"
 Start app on port 8081
