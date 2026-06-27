@@ -2374,9 +2374,14 @@ class Interpreter:
             self._ensure_numeric(current, rhs, '/=', node.line)
             if rhs == 0:
                 raise EPLRuntimeError('Cannot divide by zero.', node.line)
-            result = current / rhs
+            # Same exact-int rule as plain `/`: use `//` for the even-int case
+            # (not int(current / rhs)) so large divisible ints keep full
+            # precision and `/=` stays byte-identical to the VM, which routes
+            # `/=` through Op.DIV.
             if isinstance(current, int) and isinstance(rhs, int) and current % rhs == 0:
-                result = int(result)
+                result = current // rhs
+            else:
+                result = current / rhs
         elif op == '%=':
             self._ensure_numeric(current, rhs, '%=', node.line)
             if rhs == 0:

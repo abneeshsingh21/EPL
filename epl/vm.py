@@ -378,15 +378,24 @@ class BytecodeCompiler:
                     op_fn = _FOLDABLE_OPS[code[i + 2].op]
                     try:
                         if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-                            result = op_fn(a, b)
-                            # Mirror _op_div: a whole-number division result is
-                            # an int, so folding matches runtime + interpreter.
+                            # Mirror _op_div: division collapses to int ONLY when
+                            # both operands are ints dividing evenly — use `//`,
+                            # not int(a / b). The old `result == int(result)` test
+                            # had BOTH bugs it fixes elsewhere: it collapsed a
+                            # float operand (200.0 / 4 -> 50) and lost precision on
+                            # large divisible ints. (b != 0 lets a real /0 fall
+                            # through to op_fn and the try/except, so the DIV stays
+                            # for the runtime VMError.)
                             if (
                                 code[i + 2].op == Op.DIV
-                                and isinstance(result, float)
-                                and result == int(result)
+                                and isinstance(a, int)
+                                and isinstance(b, int)
+                                and b != 0
+                                and a % b == 0
                             ):
-                                result = int(result)
+                                result = a // b
+                            else:
+                                result = op_fn(a, b)
                             result_idx = self._add_const(result)
                             old_to_new[i] = new_idx
                             old_to_new[i + 1] = new_idx

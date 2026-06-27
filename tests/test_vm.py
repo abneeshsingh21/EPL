@@ -1038,6 +1038,15 @@ class TestVMParityWithInterpreter(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['1000000000000000001'])
         self.assertEqual(vm.output_lines, self._interp(code))
 
+    def test_augmented_division_large_int_parity(self):
+        # `/=` must follow the same exact-int rule. The VM routes `/=` through
+        # Op.DIV (now `//`); the interpreter's `/=` previously used
+        # int(current / rhs) and lost precision, diverging from the VM.
+        code = 'n = 1000000000000000001\nn = n * 7\nn /= 7\nPrint n'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['1000000000000000001'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
     def test_file_write_append_read_roundtrip(self):
         import tempfile
 
@@ -1058,6 +1067,32 @@ class TestVMParityWithInterpreter(unittest.TestCase):
         self.assertEqual(vm.output_lines, self._interp(code))
         with open(path, encoding='utf-8') as f:
             self.assertEqual(f.read(), 'café ☕日本語 ñ\n')
+
+    def test_constant_fold_peephole_division_rule(self):
+        # The bytecode-level _constant_fold pass (distinct from the AST fold) has
+        # its own DIV branch. Exercise it directly — the AST fold front-runs it
+        # for simple literals, so a black-box program wouldn't reach it. It must
+        # follow the same exact-int rule: float operand keeps the float; large
+        # divisible ints use `//` (no precision loss); non-divisible stays float.
+        from epl.vm import Instruction, Op
+
+        def fold_div(a, b):
+            comp = BytecodeCompiler()
+            ia, ib = comp._add_const(a), comp._add_const(b)
+            code = [
+                Instruction(Op.LOAD_CONST, ia, 1),
+                Instruction(Op.LOAD_CONST, ib, 1),
+                Instruction(Op.DIV, None, 1),
+            ]
+            folded = comp._constant_fold(code)
+            self.assertEqual(len(folded), 1)
+            self.assertEqual(folded[0].op, Op.LOAD_CONST)
+            return comp.constants[folded[0].arg]
+
+        self.assertEqual(fold_div(200.0, 4), 50.0)  # float operand -> float
+        self.assertEqual(fold_div(9, 2), 4.5)  # not divisible -> float
+        big = fold_div(1000000000000000001 * 7, 7)  # even ints -> exact //
+        self.assertEqual(big, 1000000000000000001)
 
     def test_use_python_declines_at_compile_time(self):
         # The VM has no foreign-language bridge; it must raise at compile time
