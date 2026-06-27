@@ -14,6 +14,7 @@ Stack-based execution with call frames and local variable slots
 
 import math
 import operator
+import os
 import re as _re
 import time
 from dataclasses import dataclass, field
@@ -131,6 +132,8 @@ class Op(IntEnum):
     FILE_READ = auto()  # Read file expression
     SUPER_CALL = auto()  # Call parent class method
     MODULE_ACCESS = auto()  # Access module member (::)
+    CALL_MODULE_MEMBER = auto()  # Call a module member function (Module::func(args))
+    CALL_VALUE = auto()  # Call a function value on the stack (lambda/first-class fn)
 
 
 # ─── Bytecode Data Structures ────────────────────────────────
@@ -221,6 +224,34 @@ class VMError(Exception):
 # ─── Bytecode Compiler (AST → Bytecodes) ─────────────────────
 
 
+# Standard-library directory, resolved package-relative so stdlib imports work
+# when EPL is pip-installed (not only when run from the repo root).
+_STDLIB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stdlib')
+
+
+def _resolve_import_path(filepath):
+    """Resolve an import name to an absolute .epl path, or None.
+
+    Mirrors the interpreter's search order (local file, ``.epl`` extension,
+    ``examples/``, then the package stdlib dir) so the VM and interpreter agree
+    on which module a name refers to.
+    """
+    if os.path.isabs(filepath) and os.path.isfile(filepath):
+        return filepath
+    with_epl = filepath if filepath.endswith('.epl') else filepath + '.epl'
+    bare = filepath[:-4] if filepath.endswith('.epl') else filepath
+    candidates = [
+        with_epl,
+        filepath,
+        os.path.join('examples', with_epl),
+        os.path.join(_STDLIB_DIR, bare + '.epl'),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return os.path.abspath(c)
+    return None
+
+
 class BytecodeCompiler:
     """Compiles AST nodes into bytecode instructions."""
 
@@ -238,6 +269,50 @@ class BytecodeCompiler:
         # compiled. Enables implicit-`this`: a bare `name` inside a method
         # resolves to the instance field, matching the interpreter.
         self._current_method_props: set = set()
+        # Absolute paths of modules already inlined, so a diamond/repeat import
+        # is compiled once (matching the interpreter's import-once semantics).
+        self._inlined_imports: set = set()
+        # Aliases bound by `Import "mod" as Alias`, so both `Alias::member` and
+        # the dot form `Alias.member(...)` route to the inlined module member.
+        self._module_aliases: set = set()
+
+    def _inline_import(self, node):
+        """Compile an imported module into THIS compiler instance.
+
+        Inlining (rather than compiling the module separately and merging) is
+        deliberate: every CompiledFunction indexes into the single shared
+        constant pool, so a separately-compiled module's constant indices would
+        be meaningless here. Compiling the module's statements with ``self``
+        appends its top-level code and registers its functions/classes against
+        the same pools — no index rebasing, by construction.
+
+        A module name that cannot be resolved to a file raises, so the VM errors
+        before producing output and ``epl run`` falls back to the interpreter,
+        whose resolver also handles installed packages and auto-install.
+        """
+        abs_path = _resolve_import_path(node.filepath)
+        if not abs_path:
+            raise VMError(
+                f'Cannot find module "{node.filepath}".',
+                getattr(node, 'line', 0),
+            )
+        # Record the alias even on a repeat import so the dot form keeps working.
+        alias = getattr(node, 'alias', None)
+        if alias:
+            self._module_aliases.add(alias)
+        if abs_path in self._inlined_imports:
+            return  # already inlined — import-once
+        self._inlined_imports.add(abs_path)
+
+        from epl.lexer import Lexer
+        from epl.parser import Parser
+
+        with open(abs_path, 'r', encoding='utf-8') as f:
+            source = f.read()
+        module = Parser(Lexer(source).tokenize()).parse()
+        statements = module.statements if hasattr(module, 'statements') else module
+        for stmt in statements:
+            self._compile_stmt(stmt)
 
     def compile(self, program):
         """Compile a full AST program into bytecode."""
@@ -795,7 +870,10 @@ class BytecodeCompiler:
             else:
                 raise VMError('Continue outside of loop', self._current_line)
         elif isinstance(node, ast.ImportStatement):
-            self._emit(Op.IMPORT, node.path)
+            # Compile the module into this same unit (shared constant pool).
+            # Module functions become callable as ``Alias::member(...)`` via
+            # CALL_MODULE_MEMBER, which resolves them from the shared table.
+            self._inline_import(node)
         elif isinstance(node, ast.IndexSet):
             self._compile_index_assign(node)
         elif isinstance(node, ast.MatchStatement):
@@ -803,9 +881,13 @@ class BytecodeCompiler:
         elif isinstance(node, ast.EnumDef):
             self._compile_enum(node)
         elif isinstance(node, ast.ConstDeclaration):
+            # Scope like any other declaration: a top-level constant is a global
+            # (so functions — including a module's own functions after an import
+            # is inlined — can read it), a constant inside a function is a local.
+            # Previously this was always a local, so top-level constants were
+            # invisible inside functions (diverging from the interpreter).
             self._compile_expr(node.value)
-            idx = self._declare_local(node.name)
-            self._emit(Op.STORE_VAR, idx)
+            self._store_named(node.name)
         elif isinstance(node, ast.DestructureAssignment):
             self._compile_expr(node.value)
             for i, name in enumerate(node.names):
@@ -1631,7 +1713,18 @@ class BytecodeCompiler:
             self._compile_call(node)
 
         elif isinstance(node, ast.MethodCall):
-            self._compile_method_call(node)
+            # `Alias.member(args)` on a module alias is the dot spelling of
+            # `Alias::member(args)` — resolve it as a module member call.
+            obj = node.obj
+            if isinstance(obj, ast.Identifier) and obj.name in self._module_aliases:
+                for a in node.arguments:
+                    self._compile_expr(a)
+                self._emit(
+                    Op.CALL_MODULE_MEMBER,
+                    (obj.name, node.method_name, len(node.arguments)),
+                )
+            else:
+                self._compile_method_call(node)
 
         elif isinstance(node, ast.ListLiteral):
             for elem in node.elements:
@@ -1650,8 +1743,14 @@ class BytecodeCompiler:
             self._emit(Op.INDEX)
 
         elif isinstance(node, ast.PropertyAccess):
-            self._compile_expr(node.obj)
-            self._emit(Op.GET_ATTR, node.property_name)
+            # `Alias.member` on a module alias is the dot spelling of
+            # `Alias::member` — a bare member read, not an attribute lookup.
+            obj = node.obj
+            if isinstance(obj, ast.Identifier) and obj.name in self._module_aliases:
+                self._load_named(node.property_name)
+            else:
+                self._compile_expr(node.obj)
+                self._emit(Op.GET_ATTR, node.property_name)
 
         elif isinstance(node, ast.TernaryExpression):
             self._compile_expr(node.condition)
@@ -1710,8 +1809,21 @@ class BytecodeCompiler:
             self._emit(Op.SUPER_CALL, (node.method_name, len(node.arguments)))
 
         elif hasattr(ast, 'ModuleAccess') and isinstance(node, ast.ModuleAccess):
-            self._emit(Op.LOAD_GLOBAL, node.module_name)
-            self._emit(Op.GET_ATTR, node.member_name)
+            # Module::member — a plain member read, or a call when arguments
+            # are present (arguments is None for a variable, a list for a call).
+            args = getattr(node, 'arguments', None)
+            if args is None:
+                # A bare member read (``Alias::CONST``). Inlining flattens the
+                # module's top-level names into the current scope, so the member
+                # resolves by its bare name with the usual local-then-global rule.
+                self._load_named(node.member_name)
+            else:
+                for a in args:
+                    self._compile_expr(a)
+                self._emit(
+                    Op.CALL_MODULE_MEMBER,
+                    (node.module_name, node.member_name, len(args)),
+                )
 
         else:
             # Unknown expression type - push None
@@ -1963,8 +2075,14 @@ class BytecodeCompiler:
         # Check if it's a known function
         if name in self.functions:
             self._emit(Op.CALL, (name, len(args)))
+        elif self._resolve_local(name) is not None:
+            # A local/parameter holding a function value (a lambda passed in,
+            # e.g. `Call transform With item`). Load it and call the value.
+            self._emit(Op.LOAD_VAR, self._resolve_local(name))
+            self._emit(Op.CALL_VALUE, len(args))
         else:
-            # Could be a builtin or class constructor
+            # Could be a builtin, a class constructor, or a global holding a
+            # function value (resolved at runtime by _op_call_builtin).
             self._emit(Op.CALL_BUILTIN, (name, len(args)))
 
     def _compile_method_call(self, node):
@@ -1979,12 +2097,71 @@ class BytecodeCompiler:
         )
         self._emit(Op.CALL_METHOD, (method, len(args)))
 
+    def _collect_referenced_names(self, node, acc):
+        """Collect every identifier/call name referenced in an AST subtree.
+
+        Used to detect closure capture. Over-collecting (e.g. into a nested
+        lambda) only makes capture detection more conservative, never wrong.
+        """
+        from epl import ast_nodes as ast
+
+        if node is None:
+            return
+        if isinstance(node, ast.Identifier):
+            acc.add(node.name)
+            return
+        if isinstance(node, ast.FunctionCall):
+            nm = node.name if isinstance(node.name, str) else getattr(node.name, 'name', None)
+            if nm:
+                acc.add(nm)
+        if not hasattr(node, '__dict__'):
+            return
+        for v in vars(node).values():
+            if isinstance(v, list):
+                for item in v:
+                    if hasattr(item, '__dict__'):
+                        self._collect_referenced_names(item, acc)
+            elif hasattr(v, '__dict__'):
+                self._collect_referenced_names(v, acc)
+
+    def _lambda_captured_locals(self, node, param_names):
+        """Names the lambda reads from an enclosing *function* scope.
+
+        The VM has no working closure capture (the cells are never bound), so a
+        lambda that closes over an enclosing function's locals can't run
+        correctly. Detecting it lets the compiler raise, which makes `epl run`
+        fall back to the interpreter instead of silently computing nonsense.
+        Enclosing top-level names (globals) and the lambda's own params are
+        fine — only true function-local capture is the problem.
+        """
+        enclosing = set()
+        for scope in self.locals_stack[1:]:  # skip [0] = module/global scope
+            enclosing |= set(scope.keys())
+        if not enclosing:
+            return set()
+        refs = set()
+        self._collect_referenced_names(node.body, refs)
+        return (refs & enclosing) - set(param_names)
+
     def _compile_lambda(self, node):
+        params = node.params if hasattr(node, 'params') else getattr(node, 'parameters', [])
+        early_param_names = [
+            p if isinstance(p, str) else getattr(p, 'name', str(p)) for p in params
+        ]
+        captured = self._lambda_captured_locals(node, early_param_names)
+        if captured:
+            raise VMError(
+                'Lambda captures enclosing variable(s) '
+                f'{", ".join(sorted(captured))}; closures over function locals '
+                'are not supported by the bytecode VM (the interpreter handles '
+                'them).',
+                getattr(node, 'line', 0),
+            )
+
         outer_instr = self.instructions
         self.instructions = []
         self.locals_stack.append({})
 
-        params = node.params if hasattr(node, 'params') else getattr(node, 'parameters', [])
         param_names = []
         for p in params:
             name = p if isinstance(p, str) else getattr(p, 'name', str(p))
@@ -2097,7 +2274,6 @@ class VM:
         self._builtins = self._init_builtins()
         self._builtin_dispatch = self._build_builtin_dispatch()
         self._dispatch = self._build_dispatch_table()
-        self._imported_modules = set()  # Track imported files for dedup
         # Performance counters
         self.instruction_count = 0
         self.start_time = 0.0
@@ -2181,6 +2357,8 @@ class VM:
             Op.FILE_READ: self._op_file_read,
             Op.SUPER_CALL: self._op_super_call,
             Op.MODULE_ACCESS: self._op_module_access,
+            Op.CALL_MODULE_MEMBER: self._op_call_module_member,
+            Op.CALL_VALUE: self._op_call_value,
         }
         for op, handler in handlers.items():
             table[op.value] = handler
@@ -2272,7 +2450,14 @@ class VM:
                         self.instruction_count += instruction_count
                         return
                     # After CALL/RETURN, frame may have changed
-                    if inst.op in (Op.CALL, Op.RETURN, Op.CALL_METHOD, Op.CALL_BUILTIN):
+                    if inst.op in (
+                        Op.CALL,
+                        Op.RETURN,
+                        Op.CALL_METHOD,
+                        Op.CALL_BUILTIN,
+                        Op.CALL_MODULE_MEMBER,
+                        Op.CALL_VALUE,
+                    ):
                         if call_stack:
                             frame = call_stack[-1]
                             code = frame.func.code
@@ -2633,6 +2818,14 @@ class VM:
             self._call_constructor(cls, arg_count)
             return
 
+        # A global variable holding a function value — e.g. a top-level
+        # `f = lambda x -> x * 2` then `f(5)`, or `compose(...)`'s returned
+        # function. Call it like any other first-class function.
+        gval = self.globals.get(name)
+        if isinstance(gval, CompiledFunction):
+            self._call_function(gval, arg_count)
+            return
+
         # Pop args
         args = []
         for _ in range(arg_count):
@@ -2641,6 +2834,24 @@ class VM:
 
         result = self._exec_builtin(name, args, inst.line)
         self.stack.append(result)
+
+    def _op_call_value(self, inst):
+        """Call a first-class function value sitting on top of the stack.
+
+        Used when a call target is a variable rather than a named function — a
+        lambda passed as a parameter (``Call transform With item``) or stored in
+        a local. Args were pushed first, then the function value on top.
+        """
+        arg_count = inst.arg
+        func = self.stack.pop()
+        if isinstance(func, CompiledFunction):
+            self._call_function(func, arg_count)
+            return
+        # Not callable: drop the args and yield nothing, matching the
+        # interpreter's lenient handling of a mis-typed call target.
+        for _ in range(arg_count):
+            self.stack.pop()
+        self.stack.append(None)
 
     # Data structures
     def _op_build_list(self, inst):
@@ -2829,83 +3040,15 @@ class VM:
         args.reverse()
         self.stack.append(range(*[int(a) for a in args]))
 
-    # Import — full implementation
     def _op_import(self, inst):
-        """Execute import by reading, parsing, and compiling the imported file."""
-        filepath = inst.arg
-        if filepath in self._imported_modules:
-            return  # already imported
-        self._imported_modules.add(filepath)
+        """No-op: imports are resolved and inlined at compile time.
 
-        import os
-
-        # Try to resolve path
-        abs_path = filepath
-        if not os.path.isabs(filepath):
-            # Try relative to current working directory
-            if not filepath.endswith('.epl'):
-                filepath_epl = filepath + '.epl'
-            else:
-                filepath_epl = filepath
-            candidates = [
-                filepath_epl,
-                filepath,
-                os.path.join('examples', filepath_epl),
-                os.path.join('epl', 'stdlib', filepath_epl),
-            ]
-            for c in candidates:
-                if os.path.isfile(c):
-                    abs_path = os.path.abspath(c)
-                    break
-            else:
-                return  # file not found — silently skip (may be stdlib)
-
-        if not os.path.isfile(abs_path):
-            return
-
-        try:
-            with open(abs_path, 'r', encoding='utf-8') as f:
-                source = f.read()
-            from epl.lexer import Lexer
-            from epl.parser import Parser
-
-            tokens = Lexer(source).tokenize()
-            program = Parser(tokens).parse()
-            compiler = BytecodeCompiler()
-            compiled = compiler.compile(program)
-            # Execute the imported module's code in our VM
-            self._exec_compiled(compiled)
-        except Exception:
-            pass  # Import failure is non-fatal in VM — interpreter fallback handles it
-
-    def _exec_compiled(self, compiled):
-        """Execute a compiled program's instructions, merging its functions/classes."""
-        # Merge functions and classes
-        for name, func in compiled.functions.items():
-            self.functions[name] = func
-        for name, cls in compiled.classes.items():
-            self.classes[name] = cls
-        # Execute top-level code
-        if compiled.instructions:
-            old_ip = self.call_stack[-1].ip if self.call_stack else 0
-            old_code = self.call_stack[-1].code if self.call_stack else []
-            frame = CallFrame(
-                code=compiled.instructions,
-                ip=0,
-                locals={},
-                name='<import>',
-            )
-            self.call_stack.append(frame)
-            try:
-                while frame.ip < len(frame.code):
-                    inst = frame.code[frame.ip]
-                    frame.ip += 1
-                    self.instructions_executed += 1
-                    result = self._dispatch(inst)
-                    if result == '__HALT__':
-                        break
-            finally:
-                self.call_stack.pop()
+        ``Import`` statements are handled by ``BytecodeCompiler._inline_import``,
+        which compiles the module into the same unit (one shared constant pool).
+        Op.IMPORT is therefore never emitted; this handler stays only so any
+        stale bytecode referencing it cannot raise.
+        """
+        return
 
     # Halt
     def _op_halt(self, inst):
@@ -3106,6 +3249,19 @@ class VM:
             self.stack.append(mod[member_name])
         else:
             self.stack.append(None)
+
+    def _op_call_module_member(self, inst):
+        """Call a module member function: ``Module::func(args)``.
+
+        Args are already on the stack. Imports are inlined at compile time, so
+        the module's functions live in the shared function table by bare name;
+        resolve the member there and invoke it like any other call.
+        """
+        module_name, member_name, arg_count = inst.arg
+        func = self.functions.get(member_name)
+        if func is None:
+            raise VMError(f"Module '{module_name}' has no member '{member_name}'.", inst.line)
+        self._call_function(func, arg_count)
 
     # ─── Built-in functions ───────────────────────────────────
 

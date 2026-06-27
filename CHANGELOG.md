@@ -57,6 +57,31 @@ restored; and a new runtime test stops broken examples from shipping green again
   treats `::` as a slice separator (empty step allowed) when no member name
   follows, and still as module access when one does. Both engines (interpreter
   and VM) match Python slice semantics; explicit `[start:stop:step]` is unchanged.
+- **The bytecode VM crashed on `Import` and silently produced wrong results for
+  higher-order stdlib code.** Three connected VM gaps are fixed so the default
+  `epl run` engine matches the interpreter on module-using programs:
+  - *Imports now run on the VM.* `Import "string" as Str` then `Str::capitalize(...)`
+    (and the dot form `Str.capitalize(...)`) crashed the VM with an internal
+    error; `epl run` only worked by silently falling back to the interpreter.
+    The old path compiled the module separately and merged its functions, but
+    every function indexes into one shared constant pool, so the merged constant
+    indices were meaningless. The compiler now **inlines** an imported module into
+    the same compilation unit (one shared pool, no index rebasing); an
+    unresolvable module raises before any output so `epl run` still falls back to
+    the interpreter's fuller package/auto-install resolver. Imports are resolved
+    once (diamond-import safe).
+  - *Top-level `Constant`s are visible inside functions.* A module-level
+    `Constant` compiled to a main-frame local, so functions (including a module's
+    own functions) couldn't read it — diverging from the interpreter. Top-level
+    constants are now globals, like every other top-level binding.
+  - *First-class function values are callable.* `Call f With x` and `f(...)` where
+    `f` is a lambda held in a variable (a parameter or a global) silently returned
+    `nothing`, which broke every higher-order stdlib function (`map_list`,
+    `reduce_list`, …). The VM now calls function values via a new `CALL_VALUE`
+    path. Lambdas that **close over an enclosing function's locals** (e.g.
+    `compose`) raise at compile time — the VM has no working capture — so
+    `epl run` cleanly falls back to the interpreter instead of computing nonsense.
+    VM-vs-interpreter parity is verified across every shipped module example.
 
 ### Added — native build safety gate
 - **`epl build` now refuses to emit a binary it cannot prove type-correct,

@@ -347,6 +347,132 @@ class TestVMTopLevelScope(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['10', '20', '30', '10', '20', '30'])
 
 
+class TestVMModuleImports(unittest.TestCase):
+    """`Import "mod" as M` then `M::func(args)` must run on the VM, not only the
+    interpreter. Imports are inlined into the same compilation unit (one shared
+    constant pool), so module functions resolve by bare name and the constant
+    indices stay valid. Regression: the old runtime-merge path compiled the
+    module separately and its constant indices pointed into the wrong pool, so
+    every import silently crashed the VM (and de-optimised `epl run` to the
+    interpreter fallback).
+    """
+
+    def _interp_lines(self, code):
+        from epl.interpreter import Interpreter
+
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        return interp.output_lines
+
+    def test_aliased_member_call_runs_on_vm(self):
+        code = 'Import "string" as Str\nPrint Str::capitalize("hello")'
+        self.assertEqual(run_vm(code).output_lines, ['Hello'])
+
+    def test_member_call_with_multiple_args(self):
+        code = 'Import "string" as Str\nPrint Str::pad_left("7", 4, "0")'
+        self.assertEqual(run_vm(code).output_lines, ['0007'])
+
+    def test_two_modules_do_not_collide(self):
+        code = (
+            'Import "string" as Str\n'
+            'Print Str::word_count("the quick brown fox")\n'
+            'Print Str::pad_right("x", 3, ".")'
+        )
+        self.assertEqual(run_vm(code).output_lines, ['4', 'x..'])
+
+    def test_vm_matches_interpreter(self):
+        code = (
+            'Import "string" as Str\nPrint Str::capitalize("epl")\nPrint Str::pad_left("9", 3, "0")'
+        )
+        self.assertEqual(run_vm(code).output_lines, self._interp_lines(code))
+
+    def test_repeat_import_inlined_once(self):
+        # Importing the same module twice must not double-define or error.
+        code = 'Import "string" as Str\nImport "string" as Str2\nPrint Str::capitalize("ok")'
+        self.assertEqual(run_vm(code).output_lines, ['Ok'])
+
+    def test_unknown_member_raises(self):
+        from epl.vm import VMError
+
+        code = 'Import "string" as Str\nPrint Str::does_not_exist("x")'
+        with self.assertRaises(VMError):
+            run_vm(code)
+
+
+class TestVMFirstClassFunctions(unittest.TestCase):
+    """The VM can call a function value held in a variable — a lambda passed as
+    a parameter (`Call f With x`) or stored in a global — not only functions
+    referenced by their declared name. Regression: such calls silently returned
+    `nothing`, which made every higher-order stdlib function (map/reduce/filter)
+    produce wrong results once imports started running on the VM.
+    """
+
+    def test_call_lambda_passed_as_parameter(self):
+        vm = run_vm(
+            'Function apply takes f, x\n'
+            '    Return Call f With x\n'
+            'End\n'
+            'Print apply(lambda n -> n * 2, 5)'
+        )
+        self.assertEqual(vm.output_lines, ['10'])
+
+    def test_call_lambda_stored_in_global(self):
+        vm = run_vm('double = lambda x -> x * 2\nPrint double(21)')
+        self.assertEqual(vm.output_lines, ['42'])
+
+    def test_higher_order_map_over_list(self):
+        vm = run_vm(
+            'Function map_list takes items, transform\n'
+            '    Create result equal to []\n'
+            '    For Each item In items\n'
+            '        Add (Call transform With item) to result\n'
+            '    End\n'
+            '    Return result\n'
+            'End\n'
+            'Print map_list([1, 2, 3], lambda x -> x * 10)'
+        )
+        self.assertEqual(vm.output_lines, ['[10, 20, 30]'])
+
+    def test_top_level_constant_visible_inside_function(self):
+        # Regression: a top-level `Constant` was stored as a main-frame local,
+        # so functions couldn't see it (the interpreter could).
+        vm = run_vm(
+            'Constant PI = 3.14\nFunction area takes r\n    Return PI * r * r\nEnd\nPrint area(2)'
+        )
+        self.assertEqual(vm.output_lines, ['12.56'])
+
+
+class TestVMClosureCaptureGuard(unittest.TestCase):
+    """The VM has no working closure capture, so a lambda that closes over an
+    enclosing function's locals must raise at compile time rather than silently
+    compute nonsense — that makes `epl run` fall back to the interpreter, which
+    does support closures. A lambda that only uses its own params or globals is
+    fine and stays on the VM.
+    """
+
+    def test_capturing_lambda_raises(self):
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm(
+                'Function compose takes f, g\n'
+                '    Return lambda x -> Call f With (Call g With x)\n'
+                'End\n'
+                'h = compose(lambda a -> a + 1, lambda b -> b * 2)\n'
+                'Print Call h With 3'
+            )
+
+    def test_non_capturing_lambda_inside_function_is_fine(self):
+        vm = run_vm(
+            'Function run\n'
+            '    Create g equal to lambda x -> x + 1\n'
+            '    Return Call g With 9\n'
+            'End\n'
+            'Print run()'
+        )
+        self.assertEqual(vm.output_lines, ['10'])
+
+
 class TestVMSoftKeywordIdentifiers(unittest.TestCase):
     """GUI/web/style words (`label`, `menu`, `grid`, `start`, `row`, ...) are
     soft keywords: they head a statement only in their statement form. Used as a
