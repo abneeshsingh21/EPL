@@ -934,5 +934,175 @@ class TestVMCountedLoopControlFlow(unittest.TestCase):
         self.assertEqual(vm.output_lines, interp.output_lines)
 
 
+class TestVMParityWithInterpreter(unittest.TestCase):
+    """Regression tests for VM compile bugs that crashed `epl vm` on basic
+    features (Ternary, Match, file I/O) and a division-semantics divergence.
+
+    Before these fixes the VM compiler read AST attributes that don't exist
+    (node.true_value, node.value, node.path), so `epl vm` raised AttributeError
+    and only `epl run` worked — via the silent interpreter fallback. Each test
+    here forces the VM and, where output is deterministic, cross-checks it
+    against the interpreter so the two engines can't silently drift again.
+    """
+
+    def _interp(self, code):
+        from epl.interpreter import Interpreter
+
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        return interp.output_lines
+
+    def test_ternary_true_and_false_branches(self):
+        # `expr if condition otherwise other` — VM read .true_value/.false_value,
+        # the real fields are .true_expr/.false_expr.
+        for x, expected in ((9, 'big'), (2, 'small')):
+            code = f'x = {x}\nPrint "big" if x > 5 otherwise "small"'
+            vm = run_vm(code)
+            self.assertEqual(vm.output_lines, [expected])
+            self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_match_single_value_and_default(self):
+        code = (
+            'd = "Tue"\nMatch d\n  When "Mon"\n    Print "start"\n  Default\n    Print "other"\nEnd'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['other'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_match_multi_value_clause(self):
+        # A clause matches if the subject equals ANY of its values. The current
+        # surface parser folds `When 1 or 2 or 3` into one boolean expression
+        # (a separate limitation affecting both engines), so build the AST
+        # directly to exercise the multi-value path the old VM code ignored.
+        from epl import ast_nodes as ast
+        from epl.interpreter import Interpreter
+
+        def build(n):
+            return ast.Program(
+                [
+                    ast.VarDeclaration('n', ast.Literal(n)),
+                    ast.MatchStatement(
+                        ast.Identifier('n'),
+                        [
+                            ast.WhenClause(
+                                [ast.Literal(1), ast.Literal(2), ast.Literal(3)],
+                                [ast.PrintStatement(ast.Literal('low'))],
+                            )
+                        ],
+                        default_body=[ast.PrintStatement(ast.Literal('high'))],
+                    ),
+                ]
+            )
+
+        for n, expected in ((2, 'low'), (5, 'high')):
+            program = build(n)
+            vm = VM()
+            vm.execute(BytecodeCompiler().compile(program))
+            interp = Interpreter()
+            interp.execute(build(n))
+            self.assertEqual(vm.output_lines, [expected])
+            self.assertEqual(vm.output_lines, interp.output_lines)
+
+    def test_division_preserves_float_operand(self):
+        # 200.0 / 4 must stay 50.0 (float operand) — the old VM collapsed any
+        # whole-valued result to int, diverging from the interpreter.
+        code = 'p = 100.0\np = p * 2\nPrint p / 4'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['50.0'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_int_operands_still_collapse(self):
+        # Both operands int and evenly divisible -> int, matching interpreter.
+        code = 'Print 8 / 2\nPrint 7 / 2'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['4', '3.5'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_constant_folded_paths(self):
+        # Literal operands hit the compile-time constant-folding path (distinct
+        # from the runtime _op_div path). A float operand must keep the float;
+        # two evenly-dividing ints collapse to int — same rule, both paths.
+        code = 'Print 200.0 / 4\nPrint 9 / 3\nPrint 9 / 2'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['50.0', '3', '4.5'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_large_int_keeps_precision(self):
+        # Even-int division uses `//`, not int(a / b): the float round-trip
+        # loses precision for large divisible ints. A variable operand forces
+        # the runtime _op_div path (literals would constant-fold). Both engines
+        # must agree on the exact integer — this would diverge if only one used
+        # `//` (int((10**18 + 1) / 1) drops the +1).
+        code = 'n = 1000000000000000001\nPrint (n * 7) / 7'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['1000000000000000001'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_augmented_division_large_int_parity(self):
+        # `/=` must follow the same exact-int rule. The VM routes `/=` through
+        # Op.DIV (now `//`); the interpreter's `/=` previously used
+        # int(current / rhs) and lost precision, diverging from the VM.
+        code = 'n = 1000000000000000001\nn = n * 7\nn /= 7\nPrint n'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['1000000000000000001'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_file_write_append_read_roundtrip(self):
+        import tempfile
+
+        # Non-ASCII payload so this actually exercises the utf-8 fix — with the
+        # old platform-default encoding this would mojibake or raise on a
+        # non-utf-8 system (e.g. cp1252 Windows) instead of round-tripping.
+        path = os.path.join(tempfile.mkdtemp(), 'vm_io.txt')
+        epl_path = path.replace('\\', '/')
+        code = (
+            f'Write "café ☕" to file "{epl_path}"\n'
+            f'Append "日本語 ñ" to file "{epl_path}"\n'
+            f'c = Read file "{epl_path}"\n'
+            f'Print c'
+        )
+        vm = run_vm(code)
+        # Append adds a trailing newline (matching the interpreter), so the
+        # read-back is "café ☕日本語 ñ\n" -> two printed lines.
+        self.assertEqual(vm.output_lines, self._interp(code))
+        with open(path, encoding='utf-8') as f:
+            self.assertEqual(f.read(), 'café ☕日本語 ñ\n')
+
+    def test_constant_fold_peephole_division_rule(self):
+        # The bytecode-level _constant_fold pass (distinct from the AST fold) has
+        # its own DIV branch. Exercise it directly — the AST fold front-runs it
+        # for simple literals, so a black-box program wouldn't reach it. It must
+        # follow the same exact-int rule: float operand keeps the float; large
+        # divisible ints use `//` (no precision loss); non-divisible stays float.
+        from epl.vm import Instruction, Op
+
+        def fold_div(a, b):
+            comp = BytecodeCompiler()
+            ia, ib = comp._add_const(a), comp._add_const(b)
+            code = [
+                Instruction(Op.LOAD_CONST, ia, 1),
+                Instruction(Op.LOAD_CONST, ib, 1),
+                Instruction(Op.DIV, None, 1),
+            ]
+            folded = comp._constant_fold(code)
+            self.assertEqual(len(folded), 1)
+            self.assertEqual(folded[0].op, Op.LOAD_CONST)
+            return comp.constants[folded[0].arg]
+
+        self.assertEqual(fold_div(200.0, 4), 50.0)  # float operand -> float
+        self.assertEqual(fold_div(9, 2), 4.5)  # not divisible -> float
+        big = fold_div(1000000000000000001 * 7, 7)  # even ints -> exact //
+        self.assertEqual(big, 1000000000000000001)
+
+    def test_use_python_declines_at_compile_time(self):
+        # The VM has no foreign-language bridge; it must raise at compile time
+        # so `epl run` falls back to the interpreter (which does bridge), rather
+        # than failing mid-run with a cryptic error.
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('Use python "math"\nPrint "after"')
+
+
 if __name__ == '__main__':
     unittest.main()

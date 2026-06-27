@@ -82,6 +82,47 @@ restored; and a new runtime test stops broken examples from shipping green again
     `compose`) raise at compile time — the VM has no working capture — so
     `epl run` cleanly falls back to the interpreter instead of computing nonsense.
     VM-vs-interpreter parity is verified across every shipped module example.
+- **The bytecode VM crashed on ternary expressions, `Match` statements, and
+  file writes/reads/appends.** An empirical VM-vs-interpreter parity sweep over
+  every shipped example (forcing `epl vm`, which has no interpreter fallback)
+  found the VM compiler reading AST attributes that don't exist on the nodes, so
+  `epl vm` raised `AttributeError` and only `epl run` worked — via the silent
+  interpreter fallback. Four basic features are now genuinely executable on the
+  VM and covered by parity tests:
+  - *Ternary* `a if cond otherwise b` read `node.true_value`/`node.false_value`;
+    the real fields are `true_expr`/`false_expr`.
+  - *`Match`* read `node.value`/`node.cases`/`case.pattern`/`node.default` (none
+    of which exist) and ignored multi-value clauses entirely. `_compile_match`
+    is rewritten to mirror the interpreter: evaluate the subject once, match a
+    clause when the subject equals **any** of its values, then run the first
+    matching body or the `Default` body.
+  - *File I/O* (`Write`/`Append`/`Read … to/from file`) read `node.path`; the
+    real field is `node.filepath`. `Append` now also writes a trailing newline
+    and all file ops use `utf-8`, matching the interpreter byte-for-byte (the VM
+    previously concatenated appended lines and used the platform default
+    encoding).
+- **VM float division collapsed whole results to int.** `200.0 / 4` evaluated to
+  `50` on the VM but `50.0` in the interpreter, because the VM coerced any
+  whole-valued float result to `int`. Division now collapses to `int` only when
+  **both** operands are ints that divide evenly (matching the interpreter);
+  a float operand always preserves the float. The constant-folding path had the
+  same bug and is fixed identically.
+- **`Use python` / `Use javascript` failed mid-run on the VM instead of falling
+  back.** The foreign-language bridges live only in the interpreter; the VM
+  emitted a `__use_python__` builtin call that died later with a cryptic error.
+  The VM now declines these at compile time (like the closure-capture guard) so
+  `epl run` falls back to the interpreter cleanly, before any output.
+
+### Security
+- **`--sandbox` no longer bypassed by the bytecode VM.** Safe mode (file-write /
+  append / `exec` / download / dir & env mutation / `Use python` / `Load library`
+  blocking) is implemented only by the interpreter; the VM has no safe-mode
+  enforcement. `epl run` defaults to the VM, so sandboxed code was executed by an
+  engine that ignores the sandbox — previously masked only because the VM
+  happened to crash on the file-write op and fall back. Now that VM file I/O
+  works, `epl run --sandbox` routes to the interpreter unconditionally, so every
+  sandbox restriction is enforced again. (The VM is purely a speed optimization;
+  it must not run code it cannot secure.)
 
 ### Added — native build safety gate
 - **`epl build` now refuses to emit a binary it cannot prove type-correct,

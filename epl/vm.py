@@ -378,15 +378,24 @@ class BytecodeCompiler:
                     op_fn = _FOLDABLE_OPS[code[i + 2].op]
                     try:
                         if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-                            result = op_fn(a, b)
-                            # Mirror _op_div: a whole-number division result is
-                            # an int, so folding matches runtime + interpreter.
+                            # Mirror _op_div: division collapses to int ONLY when
+                            # both operands are ints dividing evenly — use `//`,
+                            # not int(a / b). The old `result == int(result)` test
+                            # had BOTH bugs it fixes elsewhere: it collapsed a
+                            # float operand (200.0 / 4 -> 50) and lost precision on
+                            # large divisible ints. (b != 0 lets a real /0 fall
+                            # through to op_fn and the try/except, so the DIV stays
+                            # for the runtime VMError.)
                             if (
                                 code[i + 2].op == Op.DIV
-                                and isinstance(result, float)
-                                and result == int(result)
+                                and isinstance(a, int)
+                                and isinstance(b, int)
+                                and b != 0
+                                and a % b == 0
                             ):
-                                result = int(result)
+                                result = a // b
+                            else:
+                                result = op_fn(a, b)
                             result_idx = self._add_const(result)
                             old_to_new[i] = new_idx
                             old_to_new[i + 1] = new_idx
@@ -925,12 +934,13 @@ class BytecodeCompiler:
             idx = self._declare_local(node.variable_name)
             self._emit(Op.STORE_VAR, idx)
         elif isinstance(node, ast.FileWrite):
-            self._compile_expr(node.path)
+            # write_file(path, content): push filepath first, then content.
+            self._compile_expr(node.filepath)
             self._compile_expr(node.content)
             self._emit(Op.CALL_BUILTIN, ('write_file', 2))
             self._emit(Op.POP)
         elif isinstance(node, ast.FileAppend):
-            self._compile_expr(node.path)
+            self._compile_expr(node.filepath)
             self._compile_expr(node.content)
             self._emit(Op.CALL_BUILTIN, ('append_file', 2))
             self._emit(Op.POP)
@@ -949,10 +959,17 @@ class BytecodeCompiler:
                 self._compile_expr(a)
             self._emit(Op.SUPER_CALL, (node.method_name, len(node.arguments)))
         elif hasattr(ast, 'UseStatement') and isinstance(node, ast.UseStatement):
-            # Use python "lib" as X — delegate to interpreter at runtime
-            self._emit(Op.LOAD_CONST, self._add_const(node.library))
-            alias = getattr(node, 'alias', None) or node.library
-            self._emit(Op.CALL_BUILTIN, ('__use_python__', alias))
+            # `Use python "lib"` / `Use javascript "pkg"` need the foreign-language
+            # bridges, which only the interpreter has. The VM has no working bridge
+            # (the old `__use_python__` builtin call failed later at runtime with a
+            # cryptic error). Refuse at compile time so `epl run` falls back to the
+            # interpreter cleanly, before any output — same contract as the
+            # closure-capture guard.
+            raise VMError(
+                f'`Use {node.library}` (foreign-language bridge) is not supported '
+                'by the bytecode VM; the interpreter handles it.',
+                getattr(node, 'line', 0),
+            )
         elif hasattr(ast, 'ModuleDef') and isinstance(node, ast.ModuleDef):
             # Module Name ... End Module — compile body, register as module
             for s in node.body:
@@ -1615,31 +1632,40 @@ class BytecodeCompiler:
                 self._compile_stmt(stmt)
 
     def _compile_match(self, node):
-        self._compile_expr(node.value)
-        end_jumps = []
+        # Mirrors the interpreter (_exec_match): evaluate the subject once, then
+        # a clause matches if the subject equals ANY of its `values`; the first
+        # matching clause's body runs, else `default_body`. The subject stays on
+        # the stack across clause tests (DUP per comparison) and is popped before
+        # a body runs or when nothing matches.
+        #
+        # The previous version read node.value/node.cases/case.pattern/node.default
+        # — none of which exist on MatchStatement — so `epl vm` crashed on every
+        # Match (and only `epl run` worked, via interpreter fallback). It also
+        # ignored multi-value clauses (`When 1, 2, 3`).
+        self._compile_expr(node.expression)
+        end_jumps = []  # jump here after a clause body runs
 
-        for case in node.cases:
-            self._emit(Op.DUP)
-            if hasattr(case, 'pattern'):
-                self._compile_expr(case.pattern)
-            elif isinstance(case, tuple):
-                self._compile_expr(case[0])
-            self._emit(Op.EQ)
-            next_case = self._emit_jump(Op.JUMP_IF_FALSE)
-
-            self._emit(Op.POP)  # Pop matched value
-            body = case.body if hasattr(case, 'body') else case[1]
-            for stmt in body if isinstance(body, list) else [body]:
+        for clause in node.when_clauses:
+            body_jumps = []  # jump into this clause's body when a value matches
+            for val_expr in clause.values:
+                self._emit(Op.DUP)  # keep the subject for the next test
+                self._compile_expr(val_expr)
+                self._emit(Op.EQ)
+                body_jumps.append(self._emit_jump(Op.JUMP_IF_TRUE))
+            # No value in this clause matched: skip its body.
+            skip = self._emit_jump(Op.JUMP)
+            for bj in body_jumps:
+                self._patch_jump(bj)
+            self._emit(Op.POP)  # discard the subject before running the body
+            for stmt in clause.body:
                 self._compile_stmt(stmt)
             end_jumps.append(self._emit_jump(Op.JUMP))
+            self._patch_jump(skip)
 
-            self._patch_jump(next_case)
-
-        self._emit(Op.POP)  # Pop unmatched value
-        # Default case
-        if hasattr(node, 'default') and node.default:
-            for stmt in node.default:
-                self._compile_stmt(stmt)
+        # No clause matched: discard the subject, then run the default body.
+        self._emit(Op.POP)
+        for stmt in node.default_body:
+            self._compile_stmt(stmt)
 
         for ej in end_jumps:
             self._patch_jump(ej)
@@ -1755,10 +1781,10 @@ class BytecodeCompiler:
         elif isinstance(node, ast.TernaryExpression):
             self._compile_expr(node.condition)
             false_jump = self._emit_jump(Op.JUMP_IF_FALSE)
-            self._compile_expr(node.true_value)
+            self._compile_expr(node.true_expr)
             end_jump = self._emit_jump(Op.JUMP)
             self._patch_jump(false_jump)
-            self._compile_expr(node.false_value)
+            self._compile_expr(node.false_expr)
             self._patch_jump(end_jump)
 
         elif isinstance(node, ast.LambdaExpression):
@@ -1796,7 +1822,7 @@ class BytecodeCompiler:
             self._emit(Op.NEW_INSTANCE, (node.class_name, len(node.arguments)))
 
         elif isinstance(node, ast.FileRead):
-            self._compile_expr(node.path)
+            self._compile_expr(node.filepath)
             self._emit(Op.FILE_READ)
 
         elif hasattr(ast, 'AwaitExpression') and isinstance(node, ast.AwaitExpression):
@@ -1971,16 +1997,18 @@ class BytecodeCompiler:
                         '//': operator.floordiv,
                         'FloorDivide': operator.floordiv,
                     }
-                    if op_str in fold_ops and (op_str not in ('/', 'Divide', 'DIVIDE') or rv != 0):
-                        result = fold_ops[op_str](lv, rv)
-                        # Mirror _op_div: whole-number division yields an int,
-                        # so folding matches runtime and the interpreter.
-                        if (
-                            op_str in ('/', 'Divide', 'DIVIDE')
-                            and isinstance(result, float)
-                            and result == int(result)
-                        ):
-                            result = int(result)
+                    is_div = op_str in ('/', 'Divide', 'DIVIDE')
+                    if op_str in fold_ops and (not is_div or rv != 0):
+                        # Mirror _op_div: division collapses to int ONLY when both
+                        # operands are ints dividing evenly; a float operand keeps
+                        # the float (200.0 / 4 == 50.0, not 50). Use `//` directly
+                        # for the even-int case — routing through float (int(a / b))
+                        # loses precision for large divisible ints, which would
+                        # diverge from runtime + the interpreter (both also `//`).
+                        if is_div and isinstance(lv, int) and isinstance(rv, int) and lv % rv == 0:
+                            result = lv // rv
+                        else:
+                            result = fold_ops[op_str](lv, rv)
                         idx = self._add_const(result)
                         self._emit(Op.LOAD_CONST, idx)
                         return
@@ -2568,10 +2596,16 @@ class VM:
         b, a = self.stack.pop(), self.stack.pop()
         if b == 0 or b == 0.0:
             raise VMError('Cannot divide by zero.', inst.line)
-        result = a / b
-        self.stack.append(
-            int(result) if isinstance(result, float) and result == int(result) else result
-        )
+        # Match the interpreter exactly: collapse to int ONLY when both operands
+        # are ints that divide evenly. If either operand is a float (e.g.
+        # 200.0 / 4), preserve the float result — the old `result == int(result)`
+        # test wrongly turned 50.0 into 50, diverging from `epl run --interpret`.
+        # Use `//` for the even-int case rather than int(a / b): the float
+        # round-trip loses precision for large divisible ints (e.g. 10**18 + 1).
+        if isinstance(a, int) and isinstance(b, int) and a % b == 0:
+            self.stack.append(a // b)
+            return
+        self.stack.append(a / b)
 
     def _op_mod(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
@@ -3500,11 +3534,17 @@ class VM:
             return input(str(args[0]) if args else '')
 
         def _read_file(args, line):
-            with open(str(args[0]), 'r') as f:
+            # utf-8 to match the writers (_write_file/_append_file) and the
+            # FILE_READ op — otherwise read_file() can mojibake or fail on files
+            # those wrote, on platforms whose default encoding isn't utf-8.
+            with open(str(args[0]), 'r', encoding='utf-8') as f:
                 return f.read()
 
         def _write_file(args, line):
-            with open(str(args[0]), 'w') as f:
+            # Match the interpreter (_exec_file_write): utf-8 so non-ASCII
+            # round-trips identically on every platform (the default encoding
+            # is cp1252 on Windows, which would diverge from `--interpret`).
+            with open(str(args[0]), 'w', encoding='utf-8') as f:
                 f.write(str(args[1]))
             return True
 
@@ -3516,8 +3556,12 @@ class VM:
             return True
 
         def _append_file(args, line):
-            with open(str(args[0]), 'a') as f:
-                f.write(str(args[1]))
+            # Match the interpreter (_exec_file_append): each Append writes a
+            # trailing newline, and utf-8 keeps non-ASCII identical across
+            # platforms. Without the '\n' the VM concatenated appended lines
+            # (e.g. files.epl read back "line 2line 3" instead of "line 2\nline 3").
+            with open(str(args[0]), 'a', encoding='utf-8') as f:
+                f.write(str(args[1]) + '\n')
             return True
 
         # JSON
