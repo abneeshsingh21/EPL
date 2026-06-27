@@ -41,6 +41,7 @@ import re
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -65,7 +66,25 @@ _ERROR_SIGNATURES = (
 )
 
 # How long to wait for a server to bind its port before declaring it dead.
-_BIND_TIMEOUT_S = 25.0
+# Generous because a loaded CI runner can be several times slower than local;
+# the deadline only matters when a server genuinely never boots.
+_BIND_TIMEOUT_S = 60.0
+
+
+def _free_port() -> int:
+    """Reserve an OS-assigned free port, then release it for the server to bind.
+
+    Each server example hard-codes a port (often the same 8000), so running them
+    on their literal ports makes the tests interfere — a slow teardown leaves the
+    port busy for the next server. Giving every run its own ephemeral port
+    removes that whole class of flake. (Tiny bind-after-release race, fine here.)
+    """
+    s = socket.socket()
+    try:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+    finally:
+        s.close()
 
 
 def _starter_mains():
@@ -153,52 +172,76 @@ def test_run_to_completion_example_exits_clean(example: Path):
 @pytest.mark.parametrize('example', _SERVER_EXAMPLES, ids=lambda p: p.parent.name)
 def test_server_example_boots_and_serves(example: Path):
     src = example.read_text(encoding='utf-8')
-    port = _server_port(src)
+    orig_port = _server_port(src)
     routes = _safe_get_routes(src)
     assert routes, f'{example.parent.name}: no body-less GET route to probe'
 
-    proc = subprocess.Popen(
-        [sys.executable, '-u', '-m', 'epl', 'run', str(example)],
-        cwd=str(_REPO_ROOT),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
+    # Run a COPY on a unique free port so server examples never contend for the
+    # same hard-coded port (three of them use 8000). Only the bind line needs to
+    # change; cosmetic `Say "… :8000"` lines are irrelevant to the probe. The
+    # copy lives in the repo root so its cwd-relative SQLite files behave exactly
+    # as they would for the real example.
+    port = _free_port()
+    patched = src.replace(f'Start app on port {orig_port}', f'Start app on port {port}', 1)
+    assert f'Start app on port {port}' in patched, 'failed to rewrite server port'
+
+    tmp = tempfile.NamedTemporaryFile(
+        mode='w',
+        suffix='.epl',
+        prefix=f'_smoke_{example.parent.name}_',
+        dir=str(_REPO_ROOT),
+        encoding='utf-8',
+        delete=False,
     )
     try:
-        deadline = time.monotonic() + _BIND_TIMEOUT_S
-        while time.monotonic() < deadline:
-            if proc.poll() is not None:
-                out = proc.stdout.read() if proc.stdout else ''
-                pytest.fail(
-                    f'{example.parent.name}/main.epl exited before binding port {port} '
-                    f'(rc={proc.returncode})\n--- output ---\n{out[-1500:]}'
-                )
-            if _port_open(port):
-                break
-            time.sleep(0.2)
-        else:
-            pytest.fail(f'{example.parent.name}/main.epl never opened port {port}')
-
-        # The server is up. Probe every safe GET route and require at least one
-        # clean 200 — proving the handlers actually execute, not just that the
-        # process is alive.
-        served_ok = 0
-        for path in routes:
-            url = f'http://127.0.0.1:{port}{path}'
-            try:
-                with urllib.request.urlopen(url, timeout=5) as resp:
-                    status = resp.status
-                    body = resp.read().decode('utf-8', 'replace')
-            except Exception as exc:  # noqa: BLE001
-                pytest.fail(f'{example.parent.name}: GET {path} raised {exc}')
-            _assert_clean_body(f'{example.parent.name} GET {path}', body)
-            if status == 200:
-                served_ok += 1
-        assert served_ok, f'{example.parent.name}: no probed route returned 200 (tried {routes})'
-    finally:
-        proc.terminate()
+        tmp.write(patched)
+        tmp.close()
+        proc = subprocess.Popen(
+            [sys.executable, '-u', '-m', 'epl', 'run', tmp.name],
+            cwd=str(_REPO_ROOT),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
         try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+            deadline = time.monotonic() + _BIND_TIMEOUT_S
+            while time.monotonic() < deadline:
+                if proc.poll() is not None:
+                    out = proc.stdout.read() if proc.stdout else ''
+                    pytest.fail(
+                        f'{example.parent.name}/main.epl exited before binding port {port} '
+                        f'(rc={proc.returncode})\n--- output ---\n{out[-1500:]}'
+                    )
+                if _port_open(port):
+                    break
+                time.sleep(0.2)
+            else:
+                pytest.fail(f'{example.parent.name}/main.epl never opened port {port}')
+
+            # The server is up. Probe every safe GET route and require at least
+            # one clean 200 — proving the handlers actually execute, not just
+            # that the process is alive.
+            served_ok = 0
+            for path in routes:
+                url = f'http://127.0.0.1:{port}{path}'
+                try:
+                    with urllib.request.urlopen(url, timeout=5) as resp:
+                        status = resp.status
+                        body = resp.read().decode('utf-8', 'replace')
+                except Exception as exc:  # noqa: BLE001
+                    pytest.fail(f'{example.parent.name}: GET {path} raised {exc}')
+                _assert_clean_body(f'{example.parent.name} GET {path}', body)
+                if status == 200:
+                    served_ok += 1
+            assert served_ok, (
+                f'{example.parent.name}: no probed route returned 200 (tried {routes})'
+            )
+        finally:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+    finally:
+        Path(tmp.name).unlink(missing_ok=True)
