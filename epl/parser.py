@@ -391,11 +391,19 @@ class Parser:
 
         # A soft keyword used as a bare variable target — `label = 5`,
         # `menu = "File"`, `start = 0`, `grid += 1` — is an assignment, not the
-        # GUI/web/style statement that shares the word. No real statement form
-        # places an assignment operator immediately after its leading keyword,
-        # so this peek is unambiguous and must run before those dispatches.
-        # (The genuine statement keywords already handled above — Set, Repeat,
-        # Say, Ask — are dispatched earlier and never reach here.)
+        # GUI/web/style statement that shares the word. The peek is limited to
+        # assignment operators on purpose: the soft-keyword set also contains
+        # English statement verbs (`Add`, `Sort`, `Reverse`, `Map`, `Say`) whose
+        # genuine statement forms legitimately begin with `(` or `[`
+        # (e.g. `Add (Call f With x) to result`), so widening this peek to those
+        # continuations would misparse them (verified: it breaks the stdlib
+        # higher-order examples). Property/index targets on a soft-keyword
+        # variable (`menu.text = …`, `grid[0] = …`) are therefore not supported;
+        # rename the variable. No real statement form places an assignment
+        # operator immediately after its leading keyword, so this peek is
+        # unambiguous and must run before those dispatches. (The genuine
+        # statement keywords — Set, Repeat, Say, Ask — are dispatched earlier and
+        # never reach here.)
         if tok.type in self._SOFT_KEYWORDS:
             nxt = self._peek()
             if nxt and nxt.type in _assign_types:
