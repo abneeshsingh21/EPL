@@ -1,91 +1,69 @@
-# EPL Official Starter: Auth API
-# A production-ready authentication API with user registration,
-# login, token generation, and password hashing using epl-db.
-#
-# Run:  epl serve examples/official_starters/auth_api/main.epl
-# Test: curl http://localhost:8080/api/health
+Note: Auth API — user registration and login with real password hashing
+Note: Run with: epl run examples/official_starters/auth_api/main.epl
+Note: Test:     curl http://localhost:8080/api/health
+Note:
+Note: Passwords are hashed with auth_hash_password (never stored in plain text)
+Note: and checked with auth_verify_password. Login issues a random session token
+Note: from auth_generate_token. Every query is parameterized ("?") so usernames
+Note: can't be injected.
 
-Note: database setup
-db = database_open(":memory:")
+Display "Starting Auth API..."
+db = db_open("auth_api.db")
+db_execute(db, "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL)")
 
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-
-Note: helpers
-
+Note: ── Helpers ──
 Function find_user takes username
-# [AUTO-FIX] removed broken token
-    If length(rows) is greater than 0 Then
-        Return rows[0]
-    End
-    Return nothing
+    Return db_query_one(db, "SELECT id, username, password_hash FROM users WHERE username = ?", [username])
 End
 
 Function register_user takes username, password
-    If username == "" Or password == "" Then
-        Return Map with ok = False and error = "Username and password are required"
-    End
-    If length(username) is less than 3 Then
+    If length(username) < 3 Then
         Return Map with ok = False and error = "Username must be at least 3 characters"
     End
-    If length(password) is less than 6 Then
+    If length(password) < 6 Then
         Return Map with ok = False and error = "Password must be at least 6 characters"
     End
-    Try
+    If find_user(username) == nothing Then
         hashed = auth_hash_password(password)
-# [AUTO-FIX] removed broken token
+        db_execute(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, hashed])
         token = auth_generate_token(48)
         Return Map with ok = True and user = username and token = token
-    Catch err
+    Otherwise
         Return Map with ok = False and error = "Username already exists"
     End
 End
 
 Function login_user takes username, password
     account = find_user(username)
-# [AUTO-FIX] removed broken token
+    If account == nothing Then
         Return Map with ok = False and error = "Invalid credentials"
     End
-    If auth_verify_password(password, account[2]) Then
+    If auth_verify_password(password, account.password_hash) Then
         token = auth_generate_token(48)
-        Return Map with ok = True and user = account[1] and token = token
+        Return Map with ok = True and user = account.username and token = token
+    Otherwise
+        Return Map with ok = False and error = "Invalid credentials"
     End
-    Return Map with ok = False and error = "Invalid credentials"
-# [AUTO-FIX] removed broken token
+End
 
-Note: web app
-# [AUTO-FIX] removed broken token
+Create webapp app
 
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-
-# [AUTO-FIX] removed broken token
+Note: ── Health check ──
+Route "/api/health" responds with
     Send json Map with status = "ok" and service = "epl-auth-api" and version = "1.0.0"
-# [AUTO-FIX] removed broken token
+End
 
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    res = register_user(username, password)
-    Send json res
-# [AUTO-FIX] removed broken token
+Note: ── Register  (body: {"username": "...", "password": "..."}) ──
+Route "/api/register" responds with
+    data = web_request_data()
+    Send json register_user(trim(data["username"]), data["password"])
+End
 
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    res = login_user(username, password)
-    Send json res
-# [AUTO-FIX] removed broken token
+Note: ── Login  (body: {"username": "...", "password": "..."}) ──
+Route "/api/login" responds with
+    data = web_request_data()
+    Send json login_user(trim(data["username"]), data["password"])
+End
 
 Say "Auth API running at http://localhost:8080"
 Start app on port 8080

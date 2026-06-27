@@ -1,36 +1,36 @@
-Note: Hello Web — Minimal EPL web server demo
-Note: Run with: epl serve examples/hello_web/main.epl
+Note: Hello Web — Minimal EPL web server
+Note: Run with: epl run examples/hello_web/main.epl
+Note: Then open http://localhost:8000 in your browser.
 
-Note: ── Create the app ──
-# [AUTO-FIX] removed broken token
+Create webapp app
 
-Note: ── Home page ──
-Page "/" renders
-    Title "Welcome to EPL"
-    Heading "Hello from EPL! 👋"
-    Paragraph "This is a production-ready web server built entirely in English."
-    Link "/about" shows "About this app"
+Note: ── Home page (server-rendered HTML) ──
+Route "/" shows
+    Page "Welcome to EPL"
+        Heading "Hello from EPL! 👋"
+        Text "This is a web server written entirely in plain English."
+        Link "About this app" to "/about"
+    End
 End
 
 Note: ── About page ──
-Page "/about" renders
-    Title "About"
-    Heading "About Hello Web"
-    Paragraph "EPL (English Programming Language) lets you write code in plain English."
-    Paragraph "This web server supports HTTPS, WebSocket, CORS, CSRF protection, rate limiting, and more."
-    Link "/" shows "Back to home"
+Route "/about" shows
+    Page "About"
+        Heading "About Hello Web"
+        Text "EPL (English Programming Language) lets you write servers in English."
+        Link "Back to home" to "/"
+    End
 End
 
-Note: ── Health check API ──
-# [AUTO-FIX] removed broken token
-    Return Map with status = "ok" and version = "1.0.0" and server = "EPL"
-# [AUTO-FIX] removed broken token
+Note: ── Health check (JSON API) ──
+Route "/api/health" responds with
+    Send json Map with status = "ok" and version = "1.0.0" and server = "EPL"
+End
 
-Note: ── JSON API endpoint ──
-# [AUTO-FIX] removed broken token
-    current_time = now()
-    Return Map with time = current_time and message = "Server is running"
-# [AUTO-FIX] removed broken token
+Note: ── Time endpoint (JSON API) ──
+Route "/api/time" responds with
+    Send json Map with time = now() and message = "Server is running"
+End
 
-Note: ── Start the server ──
+Say "Hello Web running at http://localhost:8000"
 Start app on port 8000

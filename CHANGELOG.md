@@ -147,6 +147,19 @@ restored; and a new runtime test stops broken examples from shipping green again
   files that *parsed* but crashed at runtime. Restored from their last-good
   revision and verified to run clean: `variables`, `varargs_test`,
   `error_handling`, `data_pipeline`, `data_tool`, `task_manager`, `text_analyzer`.
+- **The 7 per-folder starter examples the same AUTO-FIX pass corrupted** —
+  `calculator/`, `hello_web/`, `todo_app/`, `todo_api/`, and
+  `official_starters/{auth_api,chatbot,creative_frontend}`. These had no clean
+  revision to restore from, so each was **rewritten** to correct, idiomatic,
+  verified-working EPL on the maintained web dialect (`Create webapp` +
+  `Route … responds with`/`shows`, `Send json`/`Send text`, parameterized `db_*`
+  queries). Every one now boots, serves, or runs to completion cleanly:
+  `calculator` is a run-to-completion arithmetic showcase (it had been a stdin
+  REPL that could not run unattended); `auth_api` hashes passwords with
+  `auth_hash_password` / `auth_verify_password` and issues `auth_generate_token`
+  sessions; `chatbot` is a self-contained rule-based bot (the old
+  `Import "epl.ai"` has no working in-program import) with a documented hook for a
+  real model.
 
 ### Added
 - **`tests/test_examples_run.py`** — actually *runs* every run-to-completion
@@ -167,11 +180,19 @@ restored; and a new runtime test stops broken examples from shipping green again
   No prior test ever compiled the runtime or ran a binary, which is why the
   duplicate-symbol breakage shipped unnoticed. Skipped when no clang/LLVM
   toolchain is available.
+- **`tests/test_starter_examples.py`** — a runtime gate for the per-folder
+  starters (`examples/<name>/main.epl`), which fell through *both* the top-level
+  glob in `test_examples_run.py` and the `apps/` glob in `test_examples_parse.py`
+  — the exact blind spot that let the corruption above ship green. Run-to-completion
+  starters must exit 0; web servers must bind their port and serve their body-less
+  GET routes with no EPL error in the response *body* (a failed route handler
+  returns HTTP 200 with an error body, so a status-code check is not enough).
+  `discord_agent` is excluded (it needs the external `DISCORD_TOKEN` secret).
+  `test_examples_parse.py` additionally gained a recursive guard that parse-checks
+  every `examples/**/*.epl`, with documented exclusions for the Test-DSL and
+  JS-bridge files.
 
 ### Known issues (documented, not yet fixed)
-- 7 example apps added after v7.0.0 (`calculator/`, `hello_web/`, `todo_app/`,
-  `todo_api/`, `official_starters/*`) were corrupted at creation and have no
-  clean revision to restore from; they need rewriting.
 - **Native compilation (`epl build`) is correct only for type-annotated /
   numerically-typed programs.** Now that linking works, a measurement of the
   shipped run-to-completion examples found roughly 1 in 5 produce a correct

@@ -1,49 +1,51 @@
-Note: Calculator — CLI calculator demo
+Note: Calculator — EPL arithmetic showcase
 Note: Run with: epl run examples/calculator/main.epl
+Note:
+Note: EPL has no expression-eval builtin, so rather than a REPL that reads
+Note: arbitrary input, this demo computes every supported operation on a pair
+Note: of sample values and prints a clean result table. It runs to completion,
+Note: so the test suite can verify it stays correct on every release.
 
 Say "╔══════════════════════════════════╗"
 Say "║   EPL Calculator v1.0            ║"
-Say "║   Type an expression to evaluate ║"
-Say "║   Type 'quit' to exit            ║"
+Say "║   Arithmetic operations showcase ║"
 Say "╚══════════════════════════════════╝"
 Say ""
 
-running = True
-history = []
+a = 12
+b = 5
+Say "Using a = " + to_string(a) + ", b = " + to_string(b)
+Say ""
 
-While running
-# [AUTO-FIX] removed broken token
-    
-# [AUTO-FIX] removed broken token
-        Say "Goodbye!"
-        running = False
-# [AUTO-FIX] removed broken token
-        If length(history) == 0 Then
-            Say "  No calculations yet."
-        Otherwise
-            Say "  ── History ──"
-            For Each entry in history
-                Say "  " + entry
-            End
-        End
-# [AUTO-FIX] removed broken token
-        Say "  Supported operations:"
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-        Say "    pi, euler"
-        Say "  Commands: history, clear, help, quit"
-# [AUTO-FIX] removed broken token
-        history = []
-        Say "  History cleared."
-# [AUTO-FIX] removed broken token
-        Try
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-            Say "  = " + to_string(result)
-# [AUTO-FIX] removed broken token
-        Catch error
-            Say "  Error: " + to_string(error)
-        End
+Say "  Addition        a + b = " + to_string(a + b)
+Say "  Subtraction     a - b = " + to_string(a - b)
+Say "  Multiplication  a * b = " + to_string(a * b)
+Say "  Division        a / b = " + to_string(a / b)
+Say "  Floor division  a // b = " + to_string(a // b)
+Say "  Modulo          a % b = " + to_string(a % b)
+Say "  Power           a ** b = " + to_string(a ** b)
+Say ""
+
+Say "  ── Math functions ──"
+Say "    sqrt(b)     = " + to_string(sqrt(b))
+Say "    abs(b - a)  = " + to_string(abs(b - a))
+Say "    round(a / b) = " + to_string(round(a / b))
+Say "    max(a, b)   = " + to_string(max(a, b))
+Say "    min(a, b)   = " + to_string(min(a, b))
+Say ""
+
+Note: A small helper, to show functions and control flow too.
+Function classify takes n
+    If n % 2 == 0 Then
+        Return "even"
+    Otherwise
+        Return "odd"
     End
-# [AUTO-FIX] removed broken token
+End
+
+Say "  ── Parity of 1..6 ──"
+For Each n in [1, 2, 3, 4, 5, 6]
+    Say "    " + to_string(n) + " is " + classify(n)
+End
+Say ""
+Say "Done."

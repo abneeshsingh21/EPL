@@ -1,70 +1,60 @@
-# Todo App — Fullstack REST API in EPL
-# Demonstrates: ORM, web routes, JSON responses, database
-#
-# Run:  epl serve examples/todo_app/main.epl
-# Test: curl http://localhost:8000/todos
+Note: Todo App — SQLite-backed task tracker with a web UI + JSON API
+Note: Run with: epl run examples/todo_app/main.epl
+Note: Then open http://localhost:8000
+Note:
+Note: All write queries use parameterized SQL (the "?" placeholders) so user
+Note: input can never be interpreted as SQL — the injection-safe pattern.
 
-# ── Database setup ─────────────────────────────────────────
-db = orm_open("todos.db")
-Call orm_define_model(db, "Todo")
-Call orm_add_field(db, "Todo", "title",     "text")
-Call orm_add_field(db, "Todo", "done",      "boolean")
-Call orm_add_field(db, "Todo", "created_at","text")
-Call orm_migrate(db)
+Display "Initializing todo database..."
+db = db_open("todo_app.db")
+db_execute(db, "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, task TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0)")
 
-# ── Web app ────────────────────────────────────────────────
-# [AUTO-FIX] removed broken token
+Note: Seed a couple of rows the first time the app runs.
+existing = db_query_one(db, "SELECT count(*) as count FROM todos")
+If existing.count == 0 Then
+    db_execute(db, "INSERT INTO todos (task, done) VALUES (?, ?)", ["Learn EPL syntax", 1])
+    db_execute(db, "INSERT INTO todos (task, done) VALUES (?, ?)", ["Build a todo app", 0])
+End
 
-# GET /todos  — list all todos
-# [AUTO-FIX] removed broken token
-    items = orm_find(db, "Todo")
-    Return json_response(items)
-# [AUTO-FIX] removed broken token
+Create webapp app
 
-# GET /todos/:id — get one todo
-# [AUTO-FIX] removed broken token
-    item = orm_find_by_id(db, "Todo", request.params.id)
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    Return json_response(item)
-# [AUTO-FIX] removed broken token
+Note: ── Home page ──
+Route "/" shows
+    Page "EPL Todo Tracker"
+        Heading "EPL Todo Tracker ✅"
+        Text "A SQLite-backed task tracker written in plain English."
+        Link "View todos as JSON" to "/api/todos"
+    End
+End
 
-# POST /todos — create a todo
-# [AUTO-FIX] removed broken token
-    body = request_body()
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    Return json_response(todo, 201)
-# [AUTO-FIX] removed broken token
+Note: ── List all todos ──
+Route "/api/todos" responds with
+    Send json db_query(db, "SELECT id, task, done FROM todos ORDER BY id")
+End
 
-# PUT /todos/:id — update (toggle done)
-# [AUTO-FIX] removed broken token
-    item = orm_find_by_id(db, "Todo", request.params.id)
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    body = request_body()
-    updated = orm_update(db, "Todo", request.params.id, body)
-    Return json_response(updated)
-# [AUTO-FIX] removed broken token
+Note: ── Create a todo  (POST body: {"task": "..."}) ──
+Route "/api/add" responds with
+    data = web_request_data()
+    task = trim(data["task"])
+    If length(task) > 0 Then
+        db_execute(db, "INSERT INTO todos (task, done) VALUES (?, 0)", [task])
+        Send json Map with ok = True and message = "Added"
+    Otherwise
+        Send json Map with ok = False and error = "Task text is required"
+    End
+End
 
-# DELETE /todos/:id — delete a todo
-# [AUTO-FIX] removed broken token
-    item = orm_find_by_id(db, "Todo", request.params.id)
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-    Call orm_delete(db, "Todo", request.params.id)
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
+Note: ── Toggle a todo's done flag ──
+Route "/api/toggle/{id}" responds with
+    db_execute(db, "UPDATE todos SET done = CASE WHEN done = 0 THEN 1 ELSE 0 END WHERE id = ?", [to_integer(id)])
+    Send json Map with ok = True
+End
 
-# Start the server
-Call web_set_cors(app, "*")
+Note: ── Delete a todo ──
+Route "/api/delete/{id}" responds with
+    db_execute(db, "DELETE FROM todos WHERE id = ?", [to_integer(id)])
+    Send json Map with ok = True
+End
+
+Display "Todo app running at http://localhost:8000"
 Start app on port 8000
