@@ -934,5 +934,117 @@ class TestVMCountedLoopControlFlow(unittest.TestCase):
         self.assertEqual(vm.output_lines, interp.output_lines)
 
 
+class TestVMParityWithInterpreter(unittest.TestCase):
+    """Regression tests for VM compile bugs that crashed `epl vm` on basic
+    features (Ternary, Match, file I/O) and a division-semantics divergence.
+
+    Before these fixes the VM compiler read AST attributes that don't exist
+    (node.true_value, node.value, node.path), so `epl vm` raised AttributeError
+    and only `epl run` worked — via the silent interpreter fallback. Each test
+    here forces the VM and, where output is deterministic, cross-checks it
+    against the interpreter so the two engines can't silently drift again.
+    """
+
+    def _interp(self, code):
+        from epl.interpreter import Interpreter
+
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        return interp.output_lines
+
+    def test_ternary_true_and_false_branches(self):
+        # `expr if condition otherwise other` — VM read .true_value/.false_value,
+        # the real fields are .true_expr/.false_expr.
+        for x, expected in ((9, 'big'), (2, 'small')):
+            code = f'x = {x}\nPrint "big" if x > 5 otherwise "small"'
+            vm = run_vm(code)
+            self.assertEqual(vm.output_lines, [expected])
+            self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_match_single_value_and_default(self):
+        code = (
+            'd = "Tue"\nMatch d\n  When "Mon"\n    Print "start"\n  Default\n    Print "other"\nEnd'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['other'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_match_multi_value_clause(self):
+        # A clause matches if the subject equals ANY of its values. The current
+        # surface parser folds `When 1 or 2 or 3` into one boolean expression
+        # (a separate limitation affecting both engines), so build the AST
+        # directly to exercise the multi-value path the old VM code ignored.
+        from epl import ast_nodes as ast
+        from epl.interpreter import Interpreter
+
+        def build(n):
+            return ast.Program(
+                [
+                    ast.VarDeclaration('n', ast.Literal(n)),
+                    ast.MatchStatement(
+                        ast.Identifier('n'),
+                        [
+                            ast.WhenClause(
+                                [ast.Literal(1), ast.Literal(2), ast.Literal(3)],
+                                [ast.PrintStatement(ast.Literal('low'))],
+                            )
+                        ],
+                        default_body=[ast.PrintStatement(ast.Literal('high'))],
+                    ),
+                ]
+            )
+
+        for n, expected in ((2, 'low'), (5, 'high')):
+            program = build(n)
+            vm = VM()
+            vm.execute(BytecodeCompiler().compile(program))
+            interp = Interpreter()
+            interp.execute(build(n))
+            self.assertEqual(vm.output_lines, [expected])
+            self.assertEqual(vm.output_lines, interp.output_lines)
+
+    def test_division_preserves_float_operand(self):
+        # 200.0 / 4 must stay 50.0 (float operand) — the old VM collapsed any
+        # whole-valued result to int, diverging from the interpreter.
+        code = 'p = 100.0\np = p * 2\nPrint p / 4'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['50.0'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_int_operands_still_collapse(self):
+        # Both operands int and evenly divisible -> int, matching interpreter.
+        code = 'Print 8 / 2\nPrint 7 / 2'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['4', '3.5'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_file_write_append_read_roundtrip(self):
+        import tempfile
+
+        path = os.path.join(tempfile.mkdtemp(), 'vm_io.txt')
+        epl_path = path.replace('\\', '/')
+        code = (
+            f'Write "line1" to file "{epl_path}"\n'
+            f'Append "line2" to file "{epl_path}"\n'
+            f'c = Read file "{epl_path}"\n'
+            f'Print c'
+        )
+        vm = run_vm(code)
+        # Append adds a trailing newline (matching the interpreter), so the
+        # read-back is "line1line2\n" -> two printed lines.
+        self.assertEqual(vm.output_lines, self._interp(code))
+        with open(path, encoding='utf-8') as f:
+            self.assertEqual(f.read(), 'line1line2\n')
+
+    def test_use_python_declines_at_compile_time(self):
+        # The VM has no foreign-language bridge; it must raise at compile time
+        # so `epl run` falls back to the interpreter (which does bridge), rather
+        # than failing mid-run with a cryptic error.
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('Use python "math"\nPrint "after"')
+
+
 if __name__ == '__main__':
     unittest.main()
