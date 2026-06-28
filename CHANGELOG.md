@@ -139,6 +139,31 @@ restored; and a new runtime test stops broken examples from shipping green again
   sandbox restriction is enforced again. (The VM is purely a speed optimization;
   it must not run code it cannot secure.)
 
+### Added — `.env` auto-loading + correct multi-file imports
+- **EPL now auto-loads a `.env` file** before a program runs, so API keys and
+  other secrets live outside source (the standard Node/Deno/Bun/python-dotenv
+  experience). `env_get("OPENAI_API_KEY")` just works with a `.env` next to the
+  app — no manual `export`. Zero new dependencies (`epl/dotenv.py`). Semantics:
+  real environment variables always win over `.env` (so the same file is safe in
+  dev while CI/containers inject prod values); not loaded under `--sandbox`;
+  opt out with `EPL_NO_DOTENV=1`. Wired into both `epl run` and `epl serve`.
+- **Multi-file programs now run on the bytecode VM regardless of the working
+  directory.** The VM (the default `epl run` engine) resolved imports relative
+  to the *current working directory* while the interpreter resolved them
+  relative to the *importing file* — so `epl run sub/app.epl` that imported a
+  sibling silently fell back to the interpreter (losing the VM speed-up), and
+  `epl vm sub/app.epl` failed outright with "Cannot find module". The VM now
+  resolves relative to the importing file's directory (with correct per-module
+  resolution for nested imports), matching the interpreter. Regression coverage
+  in `tests/test_dotenv_and_imports.py`.
+
+### Fixed — example taught insecure/incorrect API key usage
+- **`examples/apps/chatbot/chatbot_app.epl`** hardcoded the Groq API key as a
+  source-literal placeholder and built request headers as a list of
+  `"Key: Value"` strings — a pattern that crashes, since `http_post` indexes
+  headers by key (requires a map). It now reads the key via
+  `env_get("GROQ_API_KEY")` and builds headers with `dict_from_lists(...)`.
+
 ### Added — enterprise server deployment hardening
 - **Every deployable EPL server is now secure-by-default and deploy-anywhere.**
   Previously the package registry bound to `0.0.0.0` (all interfaces) with no

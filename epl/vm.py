@@ -229,23 +229,31 @@ class VMError(Exception):
 _STDLIB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stdlib')
 
 
-def _resolve_import_path(filepath):
+def _resolve_import_path(filepath, base_dir=None):
     """Resolve an import name to an absolute .epl path, or None.
 
-    Mirrors the interpreter's search order (local file, ``.epl`` extension,
-    ``examples/``, then the package stdlib dir) so the VM and interpreter agree
-    on which module a name refers to.
+    Mirrors the interpreter's search order so the VM and interpreter agree on
+    which module a name refers to: relative to the importing file's directory
+    first (``base_dir``), then the CWD, then ``examples/``, then the package
+    stdlib dir. Resolving relative to ``base_dir`` is what lets a program import
+    a sibling module regardless of the directory the command was run from.
     """
     if os.path.isabs(filepath) and os.path.isfile(filepath):
         return filepath
     with_epl = filepath if filepath.endswith('.epl') else filepath + '.epl'
     bare = filepath[:-4] if filepath.endswith('.epl') else filepath
-    candidates = [
-        with_epl,
-        filepath,
-        os.path.join('examples', with_epl),
-        os.path.join(_STDLIB_DIR, bare + '.epl'),
-    ]
+    candidates = []
+    if base_dir:
+        candidates.append(os.path.join(base_dir, with_epl))
+        candidates.append(os.path.join(base_dir, filepath))
+    candidates.extend(
+        [
+            with_epl,
+            filepath,
+            os.path.join('examples', with_epl),
+            os.path.join(_STDLIB_DIR, bare + '.epl'),
+        ]
+    )
     for c in candidates:
         if os.path.isfile(c):
             return os.path.abspath(c)
@@ -255,7 +263,7 @@ def _resolve_import_path(filepath):
 class BytecodeCompiler:
     """Compiles AST nodes into bytecode instructions."""
 
-    def __init__(self):
+    def __init__(self, base_dir=None):
         self.instructions: list = []
         self.constants: list = []  # Constant pool
         self.functions: dict = {}  # name -> CompiledFunction
@@ -272,6 +280,10 @@ class BytecodeCompiler:
         # Absolute paths of modules already inlined, so a diamond/repeat import
         # is compiled once (matching the interpreter's import-once semantics).
         self._inlined_imports: set = set()
+        # Directory the source being compiled lives in. Imports resolve relative
+        # to it (matching the interpreter's source-file-relative resolution), so
+        # `epl run sub/app.epl` finds `sub/helper.epl` regardless of the CWD.
+        self._base_dir = base_dir or os.getcwd()
         # Aliases bound by `Import "mod" as Alias`, so both `Alias::member` and
         # the dot form `Alias.member(...)` route to the inlined module member.
         self._module_aliases: set = set()
@@ -290,7 +302,7 @@ class BytecodeCompiler:
         before producing output and ``epl run`` falls back to the interpreter,
         whose resolver also handles installed packages and auto-install.
         """
-        abs_path = _resolve_import_path(node.filepath)
+        abs_path = _resolve_import_path(node.filepath, self._base_dir)
         if not abs_path:
             raise VMError(
                 f'Cannot find module "{node.filepath}".',
@@ -311,8 +323,15 @@ class BytecodeCompiler:
             source = f.read()
         module = Parser(Lexer(source).tokenize()).parse()
         statements = module.statements if hasattr(module, 'statements') else module
-        for stmt in statements:
-            self._compile_stmt(stmt)
+        # A nested import inside this module resolves relative to the module's
+        # own directory, mirroring the interpreter's _current_file push/pop.
+        prev_base_dir = self._base_dir
+        self._base_dir = os.path.dirname(abs_path)
+        try:
+            for stmt in statements:
+                self._compile_stmt(stmt)
+        finally:
+            self._base_dir = prev_base_dir
 
     def compile(self, program):
         """Compile a full AST program into bytecode."""
@@ -4078,15 +4097,20 @@ class VM:
 # ─── Convenience functions ────────────────────────────────────
 
 
-def compile_and_run(source: str) -> dict:
-    """Compile and execute EPL source code using the bytecode VM."""
+def compile_and_run(source: str, base_dir=None) -> dict:
+    """Compile and execute EPL source code using the bytecode VM.
+
+    base_dir is the directory the source file lives in; imports resolve
+    relative to it so a program finds its sibling modules regardless of the
+    current working directory. Defaults to the CWD when not supplied.
+    """
     from epl.lexer import Lexer
     from epl.parser import Parser
 
     tokens = Lexer(source).tokenize()
     program = Parser(tokens).parse()
 
-    compiler = BytecodeCompiler()
+    compiler = BytecodeCompiler(base_dir=base_dir)
     compiled = compiler.compile(program)
 
     vm = VM()
@@ -4094,7 +4118,7 @@ def compile_and_run(source: str) -> dict:
     return result
 
 
-def compile_to_bytecode(source: str) -> dict:
+def compile_to_bytecode(source: str, base_dir=None) -> dict:
     """Compile EPL source to bytecode without execution."""
     from epl.lexer import Lexer
     from epl.parser import Parser
@@ -4102,11 +4126,11 @@ def compile_to_bytecode(source: str) -> dict:
     tokens = Lexer(source).tokenize()
     program = Parser(tokens).parse()
 
-    compiler = BytecodeCompiler()
+    compiler = BytecodeCompiler(base_dir=base_dir)
     return compiler.compile(program)
 
 
-def disassemble(source: str) -> str:
+def disassemble(source: str, base_dir=None) -> str:
     """Compile EPL source and return human-readable bytecode disassembly."""
     from epl.lexer import Lexer
     from epl.parser import Parser
@@ -4114,6 +4138,6 @@ def disassemble(source: str) -> str:
     tokens = Lexer(source).tokenize()
     program = Parser(tokens).parse()
 
-    compiler = BytecodeCompiler()
+    compiler = BytecodeCompiler(base_dir=base_dir)
     compiler.compile(program)
     return compiler.disassemble()

@@ -158,6 +158,12 @@ def run_file(
     with open(filepath, 'r', encoding='utf-8') as handle:
         source = handle.read()
 
+    # Auto-load .env so `env_get("API_KEY")` works without a manual `export`.
+    # Skipped in safe mode and when EPL_NO_DOTENV is set; real env vars win.
+    from epl.dotenv import load_for_program
+
+    load_for_program(filepath, safe_mode=safe_mode)
+
     if strict:
         from epl.type_checker import TypeChecker
 
@@ -222,7 +228,7 @@ def run_file(
         saved_stdout = sys.stdout
         sys.stdout = tee
         try:
-            compile_and_run(source)
+            compile_and_run(source, base_dir=os.path.dirname(os.path.abspath(filepath)))
             return True
         except (KeyboardInterrupt, SystemExit, MemoryError):
             raise

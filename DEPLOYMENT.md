@@ -73,6 +73,22 @@ network boundary or reverse proxy, and configure publish auth tokens.
 Set `EPL_MCP_CORS_ORIGIN=https://your-frontend.example.com` in production. Do
 **not** use `*` — pin it to your exact origin.
 
+### Application secrets (`.env`)
+
+`epl run` and `epl serve` auto-load a `.env` file from the program's directory
+and the current working directory, so your app reads secrets via
+`env_get("NAME")` with no manual `export`. Real environment variables (those
+injected by your platform/orchestrator) always take precedence over `.env`, so
+the same code runs in dev and prod unchanged.
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `EPL_NO_DOTENV` | Set to disable `.env` auto-loading | (unset = enabled) |
+
+- Commit a `.env.example` (blank values); add `.env` to `.gitignore`.
+- In production, prefer real env vars / a secret manager over shipping a `.env`.
+- `.env` is **not** loaded under `--sandbox`.
+
 ---
 
 ## Deployment recipes
