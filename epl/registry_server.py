@@ -376,10 +376,20 @@ class RegistryHandler(BaseHTTPRequestHandler):
 
 
 class ThreadedRegistryServer:
-    """Threaded HTTP server for the package registry."""
+    """Threaded HTTP server for the package registry.
 
-    def __init__(self, port=4873, data_dir=None, auth_tokens=None):
-        self.port = port
+    Environment variables:
+        EPL_REGISTRY_HOST - bind address (default: 127.0.0.1 for security)
+        EPL_REGISTRY_PORT or PORT - listen port (default: 4873)
+    """
+
+    def __init__(self, port=None, host=None, data_dir=None, auth_tokens=None):
+        self.host = host or os.environ.get('EPL_REGISTRY_HOST', '127.0.0.1')
+        if port is None:
+            env_port = os.environ.get('EPL_REGISTRY_PORT') or os.environ.get('PORT')
+            self.port = int(env_port) if env_port else 4873
+        else:
+            self.port = port
         self.storage = RegistryStorage(data_dir=data_dir)
         self.auth_tokens = set(auth_tokens) if auth_tokens else set()
         self._server = None
@@ -395,12 +405,21 @@ class ThreadedRegistryServer:
 
         from http.server import ThreadingHTTPServer
 
-        self._server = ThreadingHTTPServer(('0.0.0.0', self.port), RegistryHandler)
+        if self.host == '0.0.0.0':
+            import sys
+
+            print(
+                'WARNING: Binding to 0.0.0.0 exposes the registry to all network interfaces. '
+                'Use EPL_REGISTRY_HOST=127.0.0.1 for local-only access.',
+                file=sys.stderr,
+            )
+
+        self._server = ThreadingHTTPServer((self.host, self.port), RegistryHandler)
 
         print('\n  ╔══════════════════════════════════════╗')
         print('  ║  EPL Package Registry Server v1.0    ║')
         print('  ╠══════════════════════════════════════╣')
-        print(f'  ║  http://localhost:{self.port:<20} ║')
+        print(f'  ║  http://{self.host}:{self.port:<19} ║')
         print(f'  ║  Packages: {len(self.storage._index.get("packages", {})):<25}║')
         print(f'  ║  Storage: {self.storage.data_dir:<26}║')
         print(f'  ║  Auth: {"enabled" if self.auth_tokens else "open":<30}║')
@@ -533,11 +552,14 @@ class RegistryClient:
             return {'error': str(e)}
 
 
-def start_registry(port=4873, data_dir=None, auth_tokens=None, background=False):
+def start_registry(port=None, host=None, data_dir=None, auth_tokens=None, background=False):
     """Start the EPL package registry server.
 
     Args:
-        port: Port to listen on (default 4873)
+        port: Port to listen on. None falls back to EPL_REGISTRY_PORT/PORT
+            env vars, then 4873.
+        host: Bind address. None falls back to EPL_REGISTRY_HOST env var,
+            then 127.0.0.1 (local-only for security).
         data_dir: Directory for package storage (default ~/.epl/registry)
         auth_tokens: List of valid auth tokens for publishing (None = open)
         background: If True, run in a background thread
@@ -545,6 +567,8 @@ def start_registry(port=4873, data_dir=None, auth_tokens=None, background=False)
     Returns:
         ThreadedRegistryServer instance
     """
-    server = ThreadedRegistryServer(port=port, data_dir=data_dir, auth_tokens=auth_tokens)
+    server = ThreadedRegistryServer(
+        port=port, host=host, data_dir=data_dir, auth_tokens=auth_tokens
+    )
     server.start(background=background)
     return server

@@ -139,6 +139,34 @@ restored; and a new runtime test stops broken examples from shipping green again
   sandbox restriction is enforced again. (The VM is purely a speed optimization;
   it must not run code it cannot secure.)
 
+### Added — enterprise server deployment hardening
+- **Every deployable EPL server is now secure-by-default and deploy-anywhere.**
+  Previously the package registry bound to `0.0.0.0` (all interfaces) with no
+  way to change it, and the web server's host/port/workers were hardcoded —
+  production deployment required editing source. Now:
+  - **Secure defaults.** The registry and web dev server bind to `127.0.0.1`
+    (localhost only); binding publicly is an explicit opt-in that prints a
+    stderr warning.
+  - **Env-var config (deploy-anywhere).** Host, port, and worker count resolve
+    from environment variables, so the same artifact runs unchanged on Cloud
+    Run, Heroku, Azure App Service, Kubernetes, or bare metal. Platforms that
+    inject `PORT` work with zero config. Web: `EPL_WEB_HOST`/`EPL_WEB_PORT`/
+    `EPL_WEB_WORKERS` (and generic `PORT`/`WEB_CONCURRENCY`). Registry:
+    `EPL_REGISTRY_HOST`/`EPL_REGISTRY_PORT`. Precedence: explicit `EPL_*` →
+    platform `PORT`/`WEB_CONCURRENCY` → source/CLI value.
+  - **Generated `gunicorn_conf.py` rebinds at runtime** from `PORT`/`EPL_PORT`
+    and `WEB_CONCURRENCY`/`EPL_WORKERS` — a containerized app now honors a
+    runtime-injected port without rebuilding the image (previously baked in at
+    generation time).
+  - **`--host` flag** added to `epl serve` (parity with `epl registry start`).
+  - **Health endpoints on every HTTP server** for load-balancer/orchestrator
+    probes: web `/_health`, registry `/health`, playground `/health` & `/_health`,
+    MCP `/health`.
+  - **`DEPLOYMENT.md`** documents every server, env var, and deployment recipe
+    (Docker, Cloud Run/Heroku/Azure, Kubernetes) plus a security checklist.
+  - Tests: generated gunicorn config is now verified by executing it under
+    simulated platform env (`tests/test_deploy.py`).
+
 ### Added — native build safety gate
 - **`epl build` now refuses to emit a binary it cannot prove type-correct,
   instead of silently producing a segfaulting one.** Because the native backend

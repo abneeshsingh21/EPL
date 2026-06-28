@@ -2708,6 +2708,40 @@ _active_server = None
 _shutdown_event = threading.Event()
 
 
+def _resolve_server_config(host, port, workers):
+    """Resolve server bind config, letting env vars override caller values.
+
+    Enables deploy-anywhere: the same .epl source binds to whatever the
+    hosting platform dictates. Cloud platforms (Cloud Run, Heroku, Azure
+    App Service) inject ``PORT``; ``EPL_WEB_*`` are explicit overrides that
+    win over the generic ``PORT``.
+
+    Precedence (highest first): EPL_WEB_* env var, PORT env var (port only),
+    then the value passed by the caller.
+    """
+    env = os.environ
+
+    env_host = env.get('EPL_WEB_HOST') or env.get('EPL_HOST')
+    if env_host:
+        host = env_host
+
+    env_port = env.get('EPL_WEB_PORT') or env.get('PORT')
+    if env_port:
+        try:
+            port = int(env_port)
+        except (TypeError, ValueError):
+            _access_logger.warning('Ignoring non-integer port env var: %r', env_port)
+
+    env_workers = env.get('EPL_WEB_WORKERS')
+    if env_workers:
+        try:
+            workers = max(1, int(env_workers))
+        except (TypeError, ValueError):
+            _access_logger.warning('Ignoring non-integer workers env var: %r', env_workers)
+
+    return host, port, workers
+
+
 def _graceful_shutdown(signum, frame):
     """Signal handler for graceful shutdown."""
     _access_logger.info('Received shutdown signal, draining connections...')
@@ -2734,6 +2768,9 @@ def start_server(app, port=3000, host='127.0.0.1', interpreter=None, threaded=Tr
         # Backwards compatibility for start_server(app, 3000, interpreter)
         interpreter = host
         host = '127.0.0.1'
+
+    # Env vars override caller values for deploy-anywhere (PORT, EPL_WEB_*).
+    host, port, workers = _resolve_server_config(host, port, workers)
 
     if host == '0.0.0.0':
         print(
@@ -2779,7 +2816,7 @@ def start_server(app, port=3000, host='127.0.0.1', interpreter=None, threaded=Tr
     print(f'  ║  EPL Web Server v{_v:<21}║')
     print(f'  ║  {app.name:<36} ║')
     print('  ╠══════════════════════════════════════╣')
-    print(f'  ║  {protocol}://localhost:{port:<22} ║')
+    print(f'  ║  {protocol}://{host}:{port:<{max(1, 28 - len(host))}} ║')
     print(f'  ║  Routes: {total_routes:<28}║')
     print(f'  ║  Workers: {workers:<27}║')
     print(f'  ║  HTTPS: {"Yes" if protocol == "https" else "No":<29}║')
@@ -2854,6 +2891,9 @@ class AsyncEPLServer:
             # Backwards compatibility for AsyncEPLServer(app, 3000, interpreter)
             interpreter = host
             host = '127.0.0.1'
+
+        # Env vars override caller values for deploy-anywhere (PORT, EPL_WEB_*).
+        host, port, workers = _resolve_server_config(host, port, workers)
 
         if host == '0.0.0.0':
             print(
