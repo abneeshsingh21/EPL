@@ -2615,6 +2615,12 @@ def _serve(args):
     enable_observability = '--observability' in args
 
     try:
+        # Auto-load .env so web apps read secrets (DB URLs, API keys, JWT
+        # secrets) via env_get without a manual export. Real env vars win.
+        from epl.dotenv import load_for_program
+
+        load_for_program(filename)
+
         from epl.store_backends import configure_backends
 
         configure_backends(store=store_backend, session=session_backend)
@@ -3677,7 +3683,7 @@ def _run_vm(args, flags):
         source = _read_epl_source(filename)
         print(f'  EPL Bytecode VM — {os.path.basename(filename)}')
         print()
-        result = compile_and_run(source)
+        result = compile_and_run(source, base_dir=os.path.dirname(os.path.abspath(filename)))
         if result.get('error'):
             print(f'\nVM Error: {result["error"]}', file=sys.stderr)
             return 1
@@ -3807,14 +3813,15 @@ def _benchmark(args):
         print('  ' + '=' * 50)
 
         vm_time = None
+        _vm_base_dir = os.path.dirname(os.path.abspath(filename))
         try:
             for _ in range(warmup):
-                compile_and_run(source)
+                compile_and_run(source, base_dir=_vm_base_dir)
             times = []
             instructions_total = 0
             for _ in range(runs):
                 t0 = _time.perf_counter()
-                result = compile_and_run(source)
+                result = compile_and_run(source, base_dir=_vm_base_dir)
                 times.append(_time.perf_counter() - t0)
                 instructions_total += result.get('instructions_executed', 0)
             vm_time = min(times)

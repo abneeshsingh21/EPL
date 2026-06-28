@@ -6,20 +6,21 @@ Note: ════════════════════════�
 Display "Initializing Neural Framework components..."
 
 Note: ─── API Configuration ─────────────────────────────────
-Note: Add your LIVE Groq API Key below to enable true AI reasoning!
-GROQ_API_KEY = "gsk_PLease_Replace_This_With_Your_Actual_Groq_Token"
+Note: Never hardcode secrets. Set GROQ_API_KEY in your environment or a .env
+Note: file next to this app (EPL auto-loads .env): GROQ_API_KEY=gsk_your_token
+GROQ_API_KEY = env_get("GROQ_API_KEY", "")
 MODEL_NAME = "llama3-8b-8192"
 
 Note: ─── Core Logic ────────────────────────────────────────
 
 Function ask_groq takes query
-    If GROQ_API_KEY == "gsk_PLease_Replace_This_With_Your_Actual_Groq_Token" Then
-        Return "<b>SYSTEM ALERT:</b> Groq API Key not detected.<br><br>Please open <code>examples/apps/chatbot/chatbot_app.epl</code> and update the <b>GROQ_API_KEY</b> variable to proceed."
+    If GROQ_API_KEY == "" Then
+        Return "<b>SYSTEM ALERT:</b> Groq API Key not detected.<br><br>Set <b>GROQ_API_KEY</b> in your environment or a <code>.env</code> file next to this app, then restart."
     End
 
     url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = ["Authorization: Bearer " + GROQ_API_KEY, "Content-Type: application/json"]
-    
+    headers = dict_from_lists(["Authorization", "Content-Type"], ["Bearer " + GROQ_API_KEY, "application/json"])
+
     messages_array = [Map with role = "user" and content = query]
     payload = Map with model = MODEL_NAME and messages = messages_array
     

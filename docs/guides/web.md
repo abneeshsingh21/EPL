@@ -297,9 +297,46 @@ token = auth_jwt_create(payload, secret, 3600)
 verified = auth_jwt_verify(token, secret)
 ```
 
+### Secrets and API keys (`.env`)
+
+Read every secret from the environment with `env_get("NAME", "default")` — never
+hardcode it in source. EPL **auto-loads a `.env` file** from the program's
+directory (and the current working directory) before the program runs, so
+local development needs no manual `export`:
+
+```text
+# .env  (keep this out of version control)
+JWT_SECRET=change-me-in-prod
+OPENAI_API_KEY=sk-...
+DATABASE_URL=postgres://user:pass@localhost/app
+```
+
+```epl
+api_key = env_get("OPENAI_API_KEY", "")
+If api_key == "" Then
+    Display "OPENAI_API_KEY is not set"
+    exit_code(1)
+End
+```
+
+Rules:
+
+- **Real environment variables always win** over `.env` — so the same `.env`
+  works in dev while CI / your container platform inject the real values in prod.
+- `.env` is **not** loaded under `--sandbox` (and `env_get` is blocked there).
+- Disable auto-loading entirely with `EPL_NO_DOTENV=1`.
+- Add `.env` to `.gitignore`; commit a `.env.example` with blank values instead.
+
+To call an external API with the key, pass it in a headers **map**:
+
+```epl
+headers = dict_from_lists(["Authorization", "Content-Type"], ["Bearer " + api_key, "application/json"])
+response = http_post("https://api.example.com/v1/chat", json_stringify(payload), headers)
+```
+
 Production requirements:
 
-- keep secrets out of source
+- keep secrets out of source (use env vars / `.env` / a secret manager)
 - require TLS at the proxy/load balancer
 - set secure cookie/session policy
 - rate-limit login and token endpoints
