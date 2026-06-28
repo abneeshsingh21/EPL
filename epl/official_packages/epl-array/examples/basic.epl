@@ -10,13 +10,13 @@ Say "======================================="
 Note: Create arrays
 Say ""
 Say "--- Array Creation ---"
-Set numbers to create_array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+numbers = create_array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 Say "Created array: " + numbers
 
-Set zeros to array_of_zeros([3, 3])
+zeros = array_of_zeros([3, 3])
 Say "3x3 zeros matrix created"
 
-Set ones to array_of_ones([2, 4])
+ones = array_of_ones([2, 4])
 Say "2x4 ones matrix created"
 
 Note: Array properties
@@ -39,31 +39,31 @@ Say "Max: " + max_of_array(numbers)
 Note: Math operations
 Say ""
 Say "--- Math Operations ---"
-Set squared to power_array(numbers, 2)
+squared = power_array(numbers, 2)
 Say "Squared: " + squared
 
-Set roots to sqrt_array(numbers)
+roots = sqrt_array(numbers)
 Say "Square roots: " + roots
 
 Note: Linear algebra
 Say ""
 Say "--- Linear Algebra ---"
-Set matrix to create_array([[1, 2], [3, 4]])
+matrix = create_array([[1, 2], [3, 4]])
 Say "Matrix: " + matrix
 
-Set det to determinant_of(matrix)
+det = determinant_of(matrix)
 Say "Determinant: " + det
 
-Set inv to inverse_of(matrix)
+inv = inverse_of(matrix)
 Say "Inverse computed"
 
 Note: Random arrays
 Say ""
 Say "--- Random Arrays ---"
-Set random_nums to random_array([5])
+random_nums = random_array([5])
 Say "Random array: " + random_nums
 
-Set random_ints to random_integers(1, 100, [5])
+random_ints = random_integers(1, 100, [5])
 Say "Random integers: " + random_ints
 
 Say ""

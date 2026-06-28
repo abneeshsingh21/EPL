@@ -6,7 +6,7 @@ Say "=== EPL Cache Demo ==="
 Note: LRU Cache
 Say ""
 Say "--- LRU Cache (max 100 entries) ---"
-Set cache to create_lru_cache(100)
+cache = create_lru_cache(100)
 
 cache_put(cache, "user:1", "Alice")
 cache_put(cache, "user:2", "Bob")
@@ -18,7 +18,7 @@ Say "Cache size: " + cache_size(cache)
 Say "All keys: " + cache_keys(cache)
 
 Note: Get or default
-Set unknown to cache_get_or_default(cache, "user:99", "Not Found")
+unknown = cache_get_or_default(cache, "user:99", "Not Found")
 Say "user:99 = " + unknown
 
 Note: Increment counter
@@ -31,15 +31,15 @@ Say "Visit count: " + cache_get(cache, "visits")
 Note: TTL Cache
 Say ""
 Say "--- TTL Cache (60s default expiry) ---"
-Set session_store to create_ttl_cache(60)
+session_store = create_ttl_cache(60)
 
 ttl_put(session_store, "session:abc123", "user_42_data", 300)
 Say "Session stored with 300s TTL"
 
-Set remaining to ttl_remaining(session_store, "session:abc123")
+remaining = ttl_remaining(session_store, "session:abc123")
 Say "Time remaining: " + remaining + "s"
 
-Set session to ttl_get(session_store, "session:abc123")
+session = ttl_get(session_store, "session:abc123")
 Say "Session data: " + session
 
 Note: Extend TTL
@@ -49,7 +49,7 @@ Say "Extended by 120s"
 Note: Cache info
 Say ""
 Say "--- Cache Stats ---"
-Set info to cache_info(cache)
+info = cache_info(cache)
 Say "Stats: " + info
 
 Say ""

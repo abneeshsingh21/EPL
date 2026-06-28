@@ -2277,10 +2277,17 @@ class Parser:
     # ─── v0.3: Map Literal ───────────────────────────────
 
     def _parse_map_literal(self):
-        """Map with key = value and key2 = value2"""
+        """Map with key = value and key2 = value2
+
+        Bare ``Map`` (no ``with``) is the empty-map literal — EPL otherwise has
+        no way to write an empty map, which pushed users toward the nonexistent
+        ``dict()``.
+        """
         line = self._current().line
         self._advance()  # consume MAP
 
+        if not self._match(TokenType.WITH):
+            return ast.DictLiteral([], line)
         self._expect(TokenType.WITH, 'Expected "with" after "Map".')
         # Allow the first pair to start on the next line (multi-line map literal).
         self._skip_newlines()

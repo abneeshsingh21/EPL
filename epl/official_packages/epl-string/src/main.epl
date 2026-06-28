@@ -63,7 +63,7 @@ Define Function to_camel_case Takes s
     For i from 1 to length(words) - 1
         Create w equal to words[i]
         If length(w) > 0
-            Create first equal to w.char_at(0.uppercase)
+            Create first equal to w.char_at(0).uppercase
             Set result to result + first + w.substring(1, length(w))
         End
     End
@@ -75,7 +75,7 @@ Define Function to_pascal_case Takes txt
     Create result equal to ""
     For each w in words
         If length(w) > 0
-            Create first equal to w.char_at(0.uppercase)
+            Create first equal to w.char_at(0).uppercase
             Set result to result + first + w.substring(1, length(w))
         End
     End
@@ -105,7 +105,7 @@ Define Function to_title_case_smart Takes s
         Create w equal to words[i].lowercase
         If i == 0 or not small_words.contains(w)
             If length(w) > 0
-                Create first equal to w.char_at(0.uppercase)
+                Create first equal to w.char_at(0).uppercase
                 Add first + w.substring(1, length(w)) to result
             Otherwise
                 Add w to result

@@ -17,6 +17,20 @@ class TestSyntaxCompatibility(unittest.TestCase):
     def test_comment_alias_parses(self):
         _parse('Comment "hello"\nSay "ok"\n')
 
+    def test_bare_map_is_empty_map_literal(self):
+        """`Map` with no `with` is the empty-map literal (no other way to write one)."""
+        program = _parse('Create m equal to Map\n')
+        decl = program.statements[0]
+        self.assertIsInstance(decl.value, ast.DictLiteral)
+        self.assertEqual(decl.value.pairs, [])
+
+    def test_bare_map_in_argument_position(self):
+        _parse('Create t equal to create_token(Map, "secret", 24)\n')
+
+    def test_map_with_still_parses(self):
+        program = _parse('Create m equal to Map with a = 1 and b = 2\n')
+        self.assertEqual(len(program.statements[0].value.pairs), 2)
+
     def test_function_with_alias_parses(self):
         _parse('Function greet with name\n    Return name\nEnd\n')
 

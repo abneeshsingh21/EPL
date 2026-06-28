@@ -18,6 +18,25 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Added — empty-map literal (`Map`)
+- **`Map` with no `with` clause is now the empty-map literal.** EPL previously
+  had no way to write an empty map — `Map`, `{}`, and `{...}` all failed to
+  parse — which pushed package authors toward the nonexistent `dict()`. Bare
+  `Map` now produces `{}`; `Map with k = v ...` is unchanged.
+
+### Fixed — official-package examples and sources didn't run
+- **Restored the shipped official packages to a runnable state.** Many package
+  examples and sources used `Set name to ...` for a *first* assignment — but
+  EPL's `Set` is reassignment-only by design (it errors on an undeclared name
+  to catch typos); declaration is `Create`/`=`. The first-assignment `Set`s are
+  rewritten to `=` across the example/source files (real reassignments left
+  intact). Also: `epl-auth`/`epl-http` used `dict()` (now `Map`), and
+  `epl-string` called `.uppercase` on the integer `0` instead of on the first
+  character (`w.char_at(0).uppercase`). Combined with the `python_call` fix
+  below, the bulk of the official packages now run end-to-end. (Some remain
+  blocked by external setup — `epl-cloud` needs a file, `epl-email` needs SMTP
+  credentials — or by backend version drift; tracked separately.)
+
 ### Fixed — Python-backed packages were dead (`python_call` unbound)
 - **The 13 official packages that reach a Python backend now work.** Packages
   like `epl-array`, `epl-math`, `epl-stats`, `epl-learn`, and `epl-dataframe`
