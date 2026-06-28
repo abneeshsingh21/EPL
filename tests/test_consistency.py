@@ -199,6 +199,51 @@ Create myDog equal to new Dog()
 Print myDog.name
 Print myDog.speak()""",
     ),
+    (
+        'Set list index',
+        'Create xs equal to [10, 20, 30]\nSet xs[1] to 99\nPrint xs[0]\nPrint xs[1]\nPrint xs[2]',
+    ),
+    (
+        'Set map key',
+        'Create m equal to Map with a = "1"\nSet m["b"] to "2"\nPrint m["a"]\nPrint m["b"]',
+    ),
+    (
+        'Set map property',
+        'Create p equal to Map with name = "old"\nSet p.name to "new"\nPrint p["name"]',
+    ),
+    (
+        'Set index equals shorthand index',
+        # Both spellings must reach the same node and produce the same result.
+        'Create arr equal to [1, 2, 3]\narr[0] = 100\nSet arr[2] to 300\n'
+        'Print arr[0]\nPrint arr[1]\nPrint arr[2]',
+    ),
+    (
+        # `When 1 or 2 or 3` must match each alternative, not fold to `1`.
+        'Match multi-value numeric When',
+        'Create x equal to 2\nMatch x\n'
+        '  When 1 or 2 or 3\n    Print "small"\n'
+        '  When 4 or 5\n    Print "medium"\n'
+        '  Otherwise\n    Print "other"\nEnd',
+    ),
+    (
+        'Match multi-value string When',
+        'Create d equal to "Wed"\nMatch d\n'
+        '  When "Mon" or "Tue" or "Wed"\n    Print "weekday"\n'
+        '  Otherwise\n    Print "weekend"\nEnd',
+    ),
+    (
+        'Match falls through to Otherwise',
+        'Create x equal to 99\nMatch x\n'
+        '  When 1 or 2\n    Print "low"\n'
+        '  Otherwise\n    Print "high"\nEnd',
+    ),
+    (
+        # `Default` and `Otherwise` are interchangeable catch-alls.
+        'Match Default keyword',
+        'Create x equal to 7\nMatch x\n'
+        '  When 1\n    Print "one"\n'
+        '  Default\n    Print "other"\nEnd',
+    ),
 ]
 
 # All previously-documented VM divergences (continue, recursion, fizzbuzz,

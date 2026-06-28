@@ -5,7 +5,8 @@ Display "Creating database...".
 db = db_open("example_test.db").
 
 Display "Creating users table...".
-db_create_table(db, "users", "id INTEGER PRIMARY KEY, name TEXT, email TEXT, age INTEGER").
+columns = Map with id = "INTEGER PRIMARY KEY" and name = "TEXT" and email = "TEXT" and age = "INTEGER".
+db_create_table(db, "users", columns).
 
 Display "Inserting users...".
 db_execute(db, "INSERT INTO users (name, email, age) VALUES ('Alice', 'alice@example.com', 30)").
@@ -34,7 +35,7 @@ Display alice.
 
 Display "".
 Display "--- Update a User ---".
-db_execute(db, "UPDATE users age = 31 WHERE name = 'Alice'").
+db_execute(db, "UPDATE users SET age = 31 WHERE name = 'Alice'").
 updated = db_query_one(db, "SELECT name, age FROM users WHERE name = 'Alice'").
 Display "Alice updated: ".
 Display updated.

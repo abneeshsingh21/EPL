@@ -111,6 +111,10 @@ def start_playground(port: int = None, open_browser: bool = True, host: str = No
         def do_GET(self):
             if self.path == '/' or self.path == '/index.html':
                 self._serve_html()
+            elif self.path == '/health' or self.path == '/_health':
+                # Liveness probe for load balancers / orchestrators (Azure
+                # App Service, Kubernetes). No rate limiting, no work done.
+                self._json_response(200, {'status': 'ok', 'service': 'epl-playground'})
             elif self.path == '/api/examples':
                 self._serve_examples()
             elif self.path == '/api/syntax':

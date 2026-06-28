@@ -51,7 +51,7 @@ Try
   End
   Print "After inner try/catch"
 Catch e
-# [AUTO-FIX] removed broken token
+  Print "Outer catch (shouldn't reach here)"
 End
 
 Note: ─── Error in Functions ───

@@ -113,6 +113,9 @@ HELP = f"""\
   epl run <file.epl> [flags]       Run an EPL program
   epl new <name> [--template T]    Create a new EPL project
   epl build <file.epl>             Compile to native executable (.exe)
+                                   -o, --output PATH  Write the binary to PATH
+                                   --opt=N            Optimization level (0-3)
+                                   --target=TRIPLE    Cross-compile target
   epl wasm <file.epl>              Compile to WebAssembly (.wasm)
   epl test [dir|file]              Run EPL test suite
                                    --filter=PATTERN  Run only matching tests
@@ -201,7 +204,8 @@ HELP = f"""\
   --in-place     Write formatted output back to files
 
 {_bold('Serve Options:')}
-  --port N         Server port (default: 8000)
+  --port N         Server port (default: 8000; env PORT/EPL_WEB_PORT override)
+  --host ADDR      Bind address (default: 127.0.0.1 dev / 0.0.0.0 prod)
   --workers N      Number of workers (default: 4)
   --dev            Development mode (built-in server + hot-reload)
   --engine ENGINE  Production server: auto|waitress|gunicorn|uvicorn|hypercorn|builtin
@@ -1662,6 +1666,7 @@ def _build(args, flags, command='build'):
     opt_level = 2
     static_link = command == 'build'
     target = None
+    output = None
 
     i = 1
     while i < len(args):
@@ -1690,6 +1695,14 @@ def _build(args, flags, command='build'):
             target = arg.split('=', 1)[1]
             i += 1
             continue
+        if arg in ('-o', '--output') and i + 1 < len(args):
+            output = args[i + 1]
+            i += 2
+            continue
+        if arg.startswith('--output='):
+            output = arg.split('=', 1)[1]
+            i += 1
+            continue
         print(f'{_red("Error:")} Unknown {command} option: {arg}')
         return 1
 
@@ -1698,7 +1711,13 @@ def _build(args, flags, command='build'):
 
         return (
             0
-            if compile_file(filename, opt_level=opt_level, static=static_link, target=target)
+            if compile_file(
+                filename,
+                opt_level=opt_level,
+                static=static_link,
+                target=target,
+                output=output,
+            )
             else 1
         )
     except FileNotFoundError:
@@ -2529,6 +2548,7 @@ def _serve(args):
 
     filename = args[0]
     port = 8000
+    host = None  # None → mode default (127.0.0.1 dev / 0.0.0.0 prod); env can override
     workers = 4
     reload_mode = False
     dev_mode = False
@@ -2544,6 +2564,10 @@ def _serve(args):
             port = _parse_int(args[i + 1], 'port')
             if port is None:
                 return 1
+            i += 2
+            continue
+        if arg == '--host' and i + 1 < len(args):
+            host = args[i + 1]
             i += 2
             continue
         if arg == '--workers' and i + 1 < len(args):
@@ -2591,6 +2615,12 @@ def _serve(args):
     enable_observability = '--observability' in args
 
     try:
+        # Auto-load .env so web apps read secrets (DB URLs, API keys, JWT
+        # secrets) via env_get without a manual export. Real env vars win.
+        from epl.dotenv import load_for_program
+
+        load_for_program(filename)
+
         from epl.store_backends import configure_backends
 
         configure_backends(store=store_backend, session=session_backend)
@@ -2614,15 +2644,20 @@ def _serve(args):
                 attach(app)
                 print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
             print(f'  {_yellow("⚠ Development mode")} — not for production use')
+            dev_host = host or '127.0.0.1'
             if reload_mode:
                 try:
                     from epl.hot_reload import start_with_reload
 
                     start_with_reload(filename, port=port)
                 except ImportError:
-                    start_server(app, port=port, interpreter=interpreter, workers=workers)
+                    start_server(
+                        app, port=port, host=dev_host, interpreter=interpreter, workers=workers
+                    )
             else:
-                start_server(app, port=port, interpreter=interpreter, workers=workers)
+                start_server(
+                    app, port=port, host=dev_host, interpreter=interpreter, workers=workers
+                )
         else:
             # Production mode: use WSGI adapter with best available server
             from epl.deploy import WSGIAdapter, serve
@@ -2640,7 +2675,7 @@ def _serve(args):
 
             serve(
                 WSGIAdapter(app, interpreter=interpreter),
-                host='0.0.0.0',
+                host=host or '0.0.0.0',
                 port=port,
                 workers=workers,
                 reload=reload_mode,
@@ -3649,7 +3684,7 @@ def _run_vm(args, flags):
         source = _read_epl_source(filename)
         print(f'  EPL Bytecode VM — {os.path.basename(filename)}')
         print()
-        result = compile_and_run(source)
+        result = compile_and_run(source, base_dir=os.path.dirname(os.path.abspath(filename)))
         if result.get('error'):
             print(f'\nVM Error: {result["error"]}', file=sys.stderr)
             return 1
@@ -3779,14 +3814,15 @@ def _benchmark(args):
         print('  ' + '=' * 50)
 
         vm_time = None
+        _vm_base_dir = os.path.dirname(os.path.abspath(filename))
         try:
             for _ in range(warmup):
-                compile_and_run(source)
+                compile_and_run(source, base_dir=_vm_base_dir)
             times = []
             instructions_total = 0
             for _ in range(runs):
                 t0 = _time.perf_counter()
-                result = compile_and_run(source)
+                result = compile_and_run(source, base_dir=_vm_base_dir)
                 times.append(_time.perf_counter() - t0)
                 instructions_total += result.get('instructions_executed', 0)
             vm_time = min(times)
@@ -4713,7 +4749,11 @@ def _registry_server(args):
     if subcmd == 'start':
         from epl.registry_server import start_registry
 
-        port = 4873
+        # None lets registry_server resolve from EPL_REGISTRY_PORT/PORT and
+        # EPL_REGISTRY_HOST env vars (defaults: 4873 / 127.0.0.1). Explicit
+        # CLI flags take precedence over env vars.
+        port = None
+        host = None
         data_dir = None
         i = 1
         while i < len(args):
@@ -4724,14 +4764,17 @@ def _registry_server(args):
                     return 1
                 i += 2
                 continue
+            if arg == '--host' and i + 1 < len(args):
+                host = args[i + 1]
+                i += 2
+                continue
             if arg == '--data-dir' and i + 1 < len(args):
                 data_dir = args[i + 1]
                 i += 2
                 continue
             i += 1
 
-        print(f'{_bold("EPL Package Registry")} starting on port {port}')
-        start_registry(port=port, data_dir=data_dir)
+        start_registry(port=port, host=host, data_dir=data_dir)
         return 0
 
     if subcmd == 'status':

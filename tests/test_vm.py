@@ -213,6 +213,44 @@ class TestVMMethodsAndFormatting(unittest.TestCase):
         )
         self.assertEqual(vm.output_lines, ['[10, 30, 50, 70, 90]', '[20, 50, 80]'])
 
+    def test_omitted_bound_step_slices(self):
+        """Slices with omitted start/end around a `::` step — `[::2]`, `[::-1]`,
+        `[1::2]` — must parse and match Python semantics. The lexer emits `::` as
+        a single DOUBLE_COLON, so these once silently mis-parsed as module access.
+        """
+        n = '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]'
+        vm = run_vm(
+            f'n = {n}\n'
+            'Print n[::2]\n'  # every other from start
+            'Print n[::-1]\n'  # full reverse
+            'Print n[1::2]\n'  # odd indices
+            'Print n[:5]\n'  # first five (single-colon, end only)
+            'Print n[5:]\n'  # from five (single-colon, start only)
+        )
+        self.assertEqual(
+            vm.output_lines,
+            [
+                '[0, 2, 4, 6, 8]',
+                '[9, 8, 7, 6, 5, 4, 3, 2, 1, 0]',
+                '[1, 3, 5, 7, 9]',
+                '[0, 1, 2, 3, 4]',
+                '[5, 6, 7, 8, 9]',
+            ],
+        )
+
+    def test_module_access_still_parses_after_slice_fix(self):
+        """The `::` slice fix must not break real `Module::member` access: `::` is
+        module access only when a member name follows, a slice separator otherwise
+        (both forms share the single DOUBLE_COLON token). End-to-end proof via the
+        interpreter that `Str::capitalize` still resolves rather than mis-parsing.
+        """
+        from epl.interpreter import Interpreter
+
+        code = 'Import "string" as Str\nPrint Str::capitalize("hello")'
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(interp.output_lines, ['Hello'])
+
     def test_default_parameter_value(self):
         vm = run_vm(
             'Function greet takes name = "World"\n'
@@ -307,6 +345,166 @@ class TestVMTopLevelScope(unittest.TestCase):
             'End'
         )
         self.assertEqual(vm.output_lines, ['10', '20', '30', '10', '20', '30'])
+
+
+class TestVMModuleImports(unittest.TestCase):
+    """`Import "mod" as M` then `M::func(args)` must run on the VM, not only the
+    interpreter. Imports are inlined into the same compilation unit (one shared
+    constant pool), so module functions resolve by bare name and the constant
+    indices stay valid. Regression: the old runtime-merge path compiled the
+    module separately and its constant indices pointed into the wrong pool, so
+    every import silently crashed the VM (and de-optimised `epl run` to the
+    interpreter fallback).
+    """
+
+    def _interp_lines(self, code):
+        from epl.interpreter import Interpreter
+
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        return interp.output_lines
+
+    def test_aliased_member_call_runs_on_vm(self):
+        code = 'Import "string" as Str\nPrint Str::capitalize("hello")'
+        self.assertEqual(run_vm(code).output_lines, ['Hello'])
+
+    def test_member_call_with_multiple_args(self):
+        code = 'Import "string" as Str\nPrint Str::pad_left("7", 4, "0")'
+        self.assertEqual(run_vm(code).output_lines, ['0007'])
+
+    def test_two_modules_do_not_collide(self):
+        code = (
+            'Import "string" as Str\n'
+            'Print Str::word_count("the quick brown fox")\n'
+            'Print Str::pad_right("x", 3, ".")'
+        )
+        self.assertEqual(run_vm(code).output_lines, ['4', 'x..'])
+
+    def test_vm_matches_interpreter(self):
+        code = (
+            'Import "string" as Str\nPrint Str::capitalize("epl")\nPrint Str::pad_left("9", 3, "0")'
+        )
+        self.assertEqual(run_vm(code).output_lines, self._interp_lines(code))
+
+    def test_repeat_import_inlined_once(self):
+        # Importing the same module twice must not double-define or error.
+        code = 'Import "string" as Str\nImport "string" as Str2\nPrint Str::capitalize("ok")'
+        self.assertEqual(run_vm(code).output_lines, ['Ok'])
+
+    def test_unknown_member_raises(self):
+        from epl.vm import VMError
+
+        code = 'Import "string" as Str\nPrint Str::does_not_exist("x")'
+        with self.assertRaises(VMError):
+            run_vm(code)
+
+
+class TestVMFirstClassFunctions(unittest.TestCase):
+    """The VM can call a function value held in a variable — a lambda passed as
+    a parameter (`Call f With x`) or stored in a global — not only functions
+    referenced by their declared name. Regression: such calls silently returned
+    `nothing`, which made every higher-order stdlib function (map/reduce/filter)
+    produce wrong results once imports started running on the VM.
+    """
+
+    def test_call_lambda_passed_as_parameter(self):
+        vm = run_vm(
+            'Function apply takes f, x\n'
+            '    Return Call f With x\n'
+            'End\n'
+            'Print apply(lambda n -> n * 2, 5)'
+        )
+        self.assertEqual(vm.output_lines, ['10'])
+
+    def test_call_lambda_stored_in_global(self):
+        vm = run_vm('double = lambda x -> x * 2\nPrint double(21)')
+        self.assertEqual(vm.output_lines, ['42'])
+
+    def test_higher_order_map_over_list(self):
+        vm = run_vm(
+            'Function map_list takes items, transform\n'
+            '    Create result equal to []\n'
+            '    For Each item In items\n'
+            '        Add (Call transform With item) to result\n'
+            '    End\n'
+            '    Return result\n'
+            'End\n'
+            'Print map_list([1, 2, 3], lambda x -> x * 10)'
+        )
+        self.assertEqual(vm.output_lines, ['[10, 20, 30]'])
+
+    def test_top_level_constant_visible_inside_function(self):
+        # Regression: a top-level `Constant` was stored as a main-frame local,
+        # so functions couldn't see it (the interpreter could).
+        vm = run_vm(
+            'Constant PI = 3.14\nFunction area takes r\n    Return PI * r * r\nEnd\nPrint area(2)'
+        )
+        self.assertEqual(vm.output_lines, ['12.56'])
+
+
+class TestVMClosureCaptureGuard(unittest.TestCase):
+    """The VM has no working closure capture, so a lambda that closes over an
+    enclosing function's locals must raise at compile time rather than silently
+    compute nonsense — that makes `epl run` fall back to the interpreter, which
+    does support closures. A lambda that only uses its own params or globals is
+    fine and stays on the VM.
+    """
+
+    def test_capturing_lambda_raises(self):
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm(
+                'Function compose takes f, g\n'
+                '    Return lambda x -> Call f With (Call g With x)\n'
+                'End\n'
+                'h = compose(lambda a -> a + 1, lambda b -> b * 2)\n'
+                'Print Call h With 3'
+            )
+
+    def test_non_capturing_lambda_inside_function_is_fine(self):
+        vm = run_vm(
+            'Function run\n'
+            '    Create g equal to lambda x -> x + 1\n'
+            '    Return Call g With 9\n'
+            'End\n'
+            'Print run()'
+        )
+        self.assertEqual(vm.output_lines, ['10'])
+
+
+class TestVMSoftKeywordIdentifiers(unittest.TestCase):
+    """GUI/web/style words (`label`, `menu`, `grid`, `start`, `row`, ...) are
+    soft keywords: they head a statement only in their statement form. Used as a
+    bare variable target — `label = 5`, `grid += 1` — they must be plain
+    assignments, not a misfired widget/layout statement.
+    """
+
+    def test_label_as_variable(self):
+        vm = run_vm('label = 5\nPrint label')
+        self.assertEqual(vm.output_lines, ['5'])
+
+    def test_menu_as_variable(self):
+        vm = run_vm('menu = "File"\nPrint menu')
+        self.assertEqual(vm.output_lines, ['File'])
+
+    def test_soft_keyword_augmented_assignment(self):
+        vm = run_vm('start = 0\nstart += 3\ngrid = 10\ngrid *= 2\nPrint start\nPrint grid')
+        self.assertEqual(vm.output_lines, ['3', '20'])
+
+    def test_multiple_soft_keyword_vars_in_expression(self):
+        vm = run_vm('row = 1\ncolumn = 2\nPrint row + column')
+        self.assertEqual(vm.output_lines, ['3'])
+
+    def test_soft_keyword_var_matches_interpreter(self):
+        from epl.interpreter import Interpreter
+
+        code = 'label = 7\nmenu = "x"\nstyle = label * 2\nPrint style\nPrint menu'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, ['14', 'x'])
+        self.assertEqual(vm.output_lines, interp.output_lines)
 
 
 class TestVMStackHygiene(unittest.TestCase):
@@ -610,6 +808,300 @@ class TestVMPerformance(unittest.TestCase):
         elapsed = time.perf_counter() - start
         self.assertEqual(vm.output_lines, ['done'])
         self.assertLess(elapsed, 10.0)
+
+
+class TestVMCountedLoopControlFlow(unittest.TestCase):
+    """Counted loops (for-range, repeat) advance the counter *after* the body, so
+    a `Continue` must jump to the increment, not back to the condition. The VM
+    previously pointed `continue` at the condition, leaving the counter unchanged
+    and spinning forever (this hung `examples/constants_and_loops.epl`). Negative
+    steps were also always compiled with a `<=` test, so countdown loops never
+    ran a single iteration.
+    """
+
+    def test_for_continue_does_not_infinite_loop(self):
+        vm = run_vm('For i from 1 to 6\n  If i % 3 == 0 Then\n    Continue\n  End\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['1', '2', '4', '5'])
+
+    def test_repeat_continue_does_not_infinite_loop(self):
+        vm = run_vm(
+            'i = 0\nRepeat 5 times\n  Increase i by 1\n  If i == 3 Then\n    Continue\n  End\n  Print i\nEnd'
+        )
+        self.assertEqual(vm.output_lines, ['1', '2', '4', '5'])
+
+    def test_for_negative_step_counts_down(self):
+        vm = run_vm('For i from 5 to 1 step -1\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['5', '4', '3', '2', '1'])
+
+    def test_for_positive_step_still_works(self):
+        vm = run_vm('For i from 0 to 6 step 2\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['0', '2', '4', '6'])
+
+    def test_for_break_still_works(self):
+        vm = run_vm('For i from 1 to 10\n  If i > 3 Then\n    Break\n  End\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['1', '2', '3'])
+
+    def test_for_continue_matches_interpreter(self):
+        """VM and tree-walking interpreter must agree on counted-loop control flow."""
+        from epl.interpreter import Interpreter
+
+        code = (
+            'For i from 10 to 1 step -1\n  If i % 2 == 0 Then\n    Continue\n  End\n  Print i\nEnd'
+        )
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, [str(n) for n in (9, 7, 5, 3, 1)])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
+    def test_for_runtime_positive_step_counts_up(self):
+        """A step given by a variable (not a literal) must derive direction at runtime."""
+        vm = run_vm('s = 2\nFor i from 0 to 6 step s\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['0', '2', '4', '6'])
+
+    def test_for_runtime_negative_step_counts_down(self):
+        """A negative runtime step must count down, mirroring the interpreter."""
+        vm = run_vm('s = 0 - 1\nFor i from 5 to 1 step s\n  Print i\nEnd')
+        self.assertEqual(vm.output_lines, ['5', '4', '3', '2', '1'])
+
+    def test_for_constant_zero_step_raises(self):
+        """A compile-time-constant zero step would spin forever; reject it instead."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('For i from 1 to 5 step 0\n  Print i\nEnd')
+
+    def test_for_runtime_zero_step_raises(self):
+        """A runtime zero step must be rejected at execution time, not hang."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('s = 0\nFor i from 1 to 5 step s\n  Print i\nEnd')
+
+    def test_for_constant_fractional_step_raises(self):
+        """A fractional constant step must be rejected (interpreter wants an integer)."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('For i from 1 to 5 step 0.5\n  Print i\nEnd')
+
+    def test_for_runtime_fractional_step_raises(self):
+        """A fractional runtime step must be rejected at execution time."""
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('s = 0.5\nFor i from 1 to 5 step s\n  Print i\nEnd')
+
+    def test_for_whole_number_float_step_raises_like_interpreter(self):
+        """The interpreter rejects any non-int step via isinstance, so even a
+        whole-number float like 2.0 must be rejected by the VM for parity —
+        both as a constant literal and as a runtime variable."""
+        from epl.errors import EPLError
+        from epl.interpreter import Interpreter
+        from epl.vm import VMError
+
+        for code in (
+            'For i from 1 to 5 step 2.0\n  Print i\nEnd',
+            's = 2.0\nFor i from 1 to 5 step s\n  Print i\nEnd',
+        ):
+            with self.assertRaises(VMError):
+                run_vm(code)
+            interp = Interpreter()
+            with self.assertRaises(EPLError):
+                interp.execute(Parser(Lexer(code).tokenize()).parse())
+
+    def test_for_end_bound_snapshotted_like_interpreter(self):
+        """The end bound is evaluated once up front; mutating it in the body must
+        not change the loop's extent (matches the interpreter, avoids a hang)."""
+        from epl.interpreter import Interpreter
+
+        code = 'e = 3\nFor i from 1 to e\n  Print i\n  e = 10\nEnd'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, ['1', '2', '3'])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
+    def test_for_runtime_step_matches_interpreter(self):
+        """VM and interpreter must agree when the step is a runtime expression."""
+        from epl.interpreter import Interpreter
+
+        code = 's = 0 - 2\nFor i from 10 to 0 step s\n  Print i\nEnd'
+        vm = run_vm(code)
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        self.assertEqual(vm.output_lines, [str(n) for n in (10, 8, 6, 4, 2, 0)])
+        self.assertEqual(vm.output_lines, interp.output_lines)
+
+
+class TestVMParityWithInterpreter(unittest.TestCase):
+    """Regression tests for VM compile bugs that crashed `epl vm` on basic
+    features (Ternary, Match, file I/O) and a division-semantics divergence.
+
+    Before these fixes the VM compiler read AST attributes that don't exist
+    (node.true_value, node.value, node.path), so `epl vm` raised AttributeError
+    and only `epl run` worked — via the silent interpreter fallback. Each test
+    here forces the VM and, where output is deterministic, cross-checks it
+    against the interpreter so the two engines can't silently drift again.
+    """
+
+    def _interp(self, code):
+        from epl.interpreter import Interpreter
+
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        return interp.output_lines
+
+    def test_ternary_true_and_false_branches(self):
+        # `expr if condition otherwise other` — VM read .true_value/.false_value,
+        # the real fields are .true_expr/.false_expr.
+        for x, expected in ((9, 'big'), (2, 'small')):
+            code = f'x = {x}\nPrint "big" if x > 5 otherwise "small"'
+            vm = run_vm(code)
+            self.assertEqual(vm.output_lines, [expected])
+            self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_match_single_value_and_default(self):
+        code = (
+            'd = "Tue"\nMatch d\n  When "Mon"\n    Print "start"\n  Default\n    Print "other"\nEnd'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['other'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_match_multi_value_clause(self):
+        # A clause matches if the subject equals ANY of its values. The current
+        # surface parser folds `When 1 or 2 or 3` into one boolean expression
+        # (a separate limitation affecting both engines), so build the AST
+        # directly to exercise the multi-value path the old VM code ignored.
+        from epl import ast_nodes as ast
+        from epl.interpreter import Interpreter
+
+        def build(n):
+            return ast.Program(
+                [
+                    ast.VarDeclaration('n', ast.Literal(n)),
+                    ast.MatchStatement(
+                        ast.Identifier('n'),
+                        [
+                            ast.WhenClause(
+                                [ast.Literal(1), ast.Literal(2), ast.Literal(3)],
+                                [ast.PrintStatement(ast.Literal('low'))],
+                            )
+                        ],
+                        default_body=[ast.PrintStatement(ast.Literal('high'))],
+                    ),
+                ]
+            )
+
+        for n, expected in ((2, 'low'), (5, 'high')):
+            program = build(n)
+            vm = VM()
+            vm.execute(BytecodeCompiler().compile(program))
+            interp = Interpreter()
+            interp.execute(build(n))
+            self.assertEqual(vm.output_lines, [expected])
+            self.assertEqual(vm.output_lines, interp.output_lines)
+
+    def test_division_preserves_float_operand(self):
+        # 200.0 / 4 must stay 50.0 (float operand) — the old VM collapsed any
+        # whole-valued result to int, diverging from the interpreter.
+        code = 'p = 100.0\np = p * 2\nPrint p / 4'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['50.0'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_int_operands_still_collapse(self):
+        # Both operands int and evenly divisible -> int, matching interpreter.
+        code = 'Print 8 / 2\nPrint 7 / 2'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['4', '3.5'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_constant_folded_paths(self):
+        # Literal operands hit the compile-time constant-folding path (distinct
+        # from the runtime _op_div path). A float operand must keep the float;
+        # two evenly-dividing ints collapse to int — same rule, both paths.
+        code = 'Print 200.0 / 4\nPrint 9 / 3\nPrint 9 / 2'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['50.0', '3', '4.5'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_division_large_int_keeps_precision(self):
+        # Even-int division uses `//`, not int(a / b): the float round-trip
+        # loses precision for large divisible ints. A variable operand forces
+        # the runtime _op_div path (literals would constant-fold). Both engines
+        # must agree on the exact integer — this would diverge if only one used
+        # `//` (int((10**18 + 1) / 1) drops the +1).
+        code = 'n = 1000000000000000001\nPrint (n * 7) / 7'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['1000000000000000001'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_augmented_division_large_int_parity(self):
+        # `/=` must follow the same exact-int rule. The VM routes `/=` through
+        # Op.DIV (now `//`); the interpreter's `/=` previously used
+        # int(current / rhs) and lost precision, diverging from the VM.
+        code = 'n = 1000000000000000001\nn = n * 7\nn /= 7\nPrint n'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['1000000000000000001'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_file_write_append_read_roundtrip(self):
+        import tempfile
+
+        # Non-ASCII payload so this actually exercises the utf-8 fix — with the
+        # old platform-default encoding this would mojibake or raise on a
+        # non-utf-8 system (e.g. cp1252 Windows) instead of round-tripping.
+        path = os.path.join(tempfile.mkdtemp(), 'vm_io.txt')
+        epl_path = path.replace('\\', '/')
+        code = (
+            f'Write "café ☕" to file "{epl_path}"\n'
+            f'Append "日本語 ñ" to file "{epl_path}"\n'
+            f'c = Read file "{epl_path}"\n'
+            f'Print c'
+        )
+        vm = run_vm(code)
+        # Append adds a trailing newline (matching the interpreter), so the
+        # read-back is "café ☕日本語 ñ\n" -> two printed lines.
+        self.assertEqual(vm.output_lines, self._interp(code))
+        with open(path, encoding='utf-8') as f:
+            self.assertEqual(f.read(), 'café ☕日本語 ñ\n')
+
+    def test_constant_fold_peephole_division_rule(self):
+        # The bytecode-level _constant_fold pass (distinct from the AST fold) has
+        # its own DIV branch. Exercise it directly — the AST fold front-runs it
+        # for simple literals, so a black-box program wouldn't reach it. It must
+        # follow the same exact-int rule: float operand keeps the float; large
+        # divisible ints use `//` (no precision loss); non-divisible stays float.
+        from epl.vm import Instruction, Op
+
+        def fold_div(a, b):
+            comp = BytecodeCompiler()
+            ia, ib = comp._add_const(a), comp._add_const(b)
+            code = [
+                Instruction(Op.LOAD_CONST, ia, 1),
+                Instruction(Op.LOAD_CONST, ib, 1),
+                Instruction(Op.DIV, None, 1),
+            ]
+            folded = comp._constant_fold(code)
+            self.assertEqual(len(folded), 1)
+            self.assertEqual(folded[0].op, Op.LOAD_CONST)
+            return comp.constants[folded[0].arg]
+
+        self.assertEqual(fold_div(200.0, 4), 50.0)  # float operand -> float
+        self.assertEqual(fold_div(9, 2), 4.5)  # not divisible -> float
+        big = fold_div(1000000000000000001 * 7, 7)  # even ints -> exact //
+        self.assertEqual(big, 1000000000000000001)
+
+    def test_use_python_declines_at_compile_time(self):
+        # The VM has no foreign-language bridge; it must raise at compile time
+        # so `epl run` falls back to the interpreter (which does bridge), rather
+        # than failing mid-run with a cryptic error.
+        from epl.vm import VMError
+
+        with self.assertRaises(VMError):
+            run_vm('Use python "math"\nPrint "after"')
 
 
 if __name__ == '__main__':

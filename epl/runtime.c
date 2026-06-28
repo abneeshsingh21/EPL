@@ -6,6 +6,14 @@
  * Supports native, WASI, and Emscripten targets.
  */
 
+/* Request POSIX.1-2008 symbols (clock_gettime, CLOCK_REALTIME, CLOCK_MONOTONIC)
+ * before any include. They are visible under clang/gcc's default mode, but a
+ * strict ISO-C mode (-std=c11 without -D_DEFAULT_SOURCE) would leave them
+ * undeclared; defining this up front makes the non-Windows time path portable. */
+#if !defined(_WIN32) && !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1212,7 +1220,19 @@ double epl_random_float(void) {
  * Time Functions
  * ═══════════════════════════════════════════════════ */
 double epl_time_now(void) {
-    return (double)time(NULL);
+    /* Fractional seconds since the Unix epoch (sub-second precision). */
+#if defined(_WIN32)
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    uint64_t t = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
+    /* Convert from 100ns intervals since 1601 to seconds since 1970. */
+    t -= 116444736000000000ULL;
+    return (double)t / 10000000.0;
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
+#endif
 }
 
 int64_t epl_time_ms(void) {
@@ -1220,16 +1240,9 @@ int64_t epl_time_ms(void) {
     return (int64_t)time(NULL) * 1000LL;
 }
 
-void epl_sleep_ms(int64_t ms) {
-#ifdef _WIN32
-    Sleep((DWORD)ms);
-#else
-    struct timespec ts;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (ms % 1000) * 1000000L;
-    nanosleep(&ts, NULL);
-#endif
-}
+/* epl_sleep_ms is defined in the Threading section below with an int32_t
+   parameter, matching the compiler's declared signature (FunctionType i32).
+   A second int64_t definition here would conflict at compile time. */
 
 /* ════════════════════════════════════════════════════
  * List Sort (introsort — quicksort with fallback to insertion sort)
@@ -2175,22 +2188,7 @@ int32_t epl_os_env_set(const char* name, const char* value) {
 #endif
 }
 
-/* ── DateTime helpers ── */
-double epl_time_now(void) {
-    struct timespec ts;
-#if defined(_WIN32)
-    /* Windows: use clock_gettime if available, else fallback */
-    FILETIME ft;
-    GetSystemTimeAsFileTime(&ft);
-    uint64_t t = ((uint64_t)ft.dwHighDateTime << 32) | ft.dwLowDateTime;
-    /* Convert from 100ns intervals since 1601 to seconds since 1970 */
-    t -= 116444736000000000ULL;
-    return (double)t / 10000000.0;
-#else
-    clock_gettime(CLOCK_REALTIME, &ts);
-    return (double)ts.tv_sec + (double)ts.tv_nsec / 1e9;
-#endif
-}
+/* DateTime: epl_time_now is defined once in the Time Functions section above. */
 
 /* ── Encoding helpers ── */
 static const char b64_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -2256,47 +2254,10 @@ char* epl_hex_encode(const char* input, int32_t len) {
     return out;
 }
 
-/* ── File I/O helpers ── */
-char* epl_file_read(const char* path) {
-    FILE* f = fopen(path, "r");
-    if (!f) return NULL;
-    fseek(f, 0, SEEK_END);
-    long sz = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(sz + 1);
-    if (!buf) { fclose(f); return NULL; }
-    fread(buf, 1, sz, f);
-    buf[sz] = '\0';
-    fclose(f);
-    return buf;
-}
-
-int32_t epl_file_write(const char* path, const char* data) {
-    FILE* f = fopen(path, "w");
-    if (!f) return 0;
-    fputs(data, f);
-    fclose(f);
-    return 1;
-}
-
-int32_t epl_file_append(const char* path, const char* data) {
-    FILE* f = fopen(path, "a");
-    if (!f) return 0;
-    fputs(data, f);
-    fclose(f);
-    return 1;
-}
-
-int32_t epl_file_exists(const char* path) {
-    FILE* f = fopen(path, "r");
-    if (f) { fclose(f); return 1; }
-    return 0;
-}
-
-int32_t epl_file_delete(const char* path) {
-    return remove(path) == 0 ? 1 : 0;
-}
-
+/* ── File I/O helpers ──
+   epl_file_read/write/append/exists/delete are defined once in the File I/O
+   section above (binary-safe, NULL-free failure modes). Only epl_file_size is
+   unique to this section. */
 int64_t epl_file_size(const char* path) {
     FILE* f = fopen(path, "rb");
     if (!f) return -1;

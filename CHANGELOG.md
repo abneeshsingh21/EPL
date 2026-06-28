@@ -10,17 +10,34 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ---
 
-## [10.0.1] — 2026-06-26
+## [Unreleased]
 
+**The bytecode VM (the default `epl run` engine) now executes counted loops
+correctly.** A deep-research audit of the shipped examples surfaced two real VM
+control-flow bugs and a wave of example-file corruption. Both engine bugs are
+fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
+restored; and a new runtime test stops broken examples from shipping green again.
+
+### Added — native Android/Kotlin compilation (H1 db bridge + H3 type-correct transpile)
 **The transliterating Android/Kotlin target now produces code that actually
-compiles.** v10.0.0 told the truth about *what* it could port; this release fixes
-the cases it claimed to port but emitted uncompilable Kotlin for. Every fix below
-was verified against the real Kotlin compiler (`gradlew compileDebugKotlin` /
-`assembleDebug`) on four generated apps — a pure-logic app, a class-based app, a
-builtin-name-shadowing app, and the FocusFlow `db_*` app — not just by inspecting
-output. Finding **H3** (scope/type-correct transpile) from the omniapp audit.
+compiles**, including database apps. v10.0.0 told the truth about *what* it could
+port; this closes the cases it claimed to port but emitted uncompilable Kotlin
+for. Every fix below was verified against the real Kotlin compiler (`gradlew
+compileDebugKotlin` / `assembleDebug`) on four generated apps — a pure-logic app,
+a class-based app, a builtin-name-shadowing app, and the FocusFlow `db_*` app.
+Findings **H1** (native `db_*` bridge) and **H3** (scope/type-correct transpile)
+from the omniapp audit.
 
-### Fixed
+- **H1 — native `db_*` SQLite bridge.** The generated `EPLRuntime.kt` now ships
+  database functions, and `db_query`/`db_open`/`db_execute`/`db_close`/`db_count`/
+  `db_query_one` (plus their `_params` variants) are rewritten to
+  `EPLRuntime.dbQuery`/`dbOpen`/… with correct return types instead of being
+  emitted verbatim as unresolved references. Dynamic member/index access on
+  maps routes through `EPLRuntime.field(obj,"k")` / `EPLRuntime.at(obj,i)`. The
+  `db_*` FocusFlow app now compiles and assembles to an APK, so `epl`'s porting
+  report marks `db_*` as portable for the Android target.
+
+### Fixed — Kotlin transliteration emitted uncompilable code (H3)
 - **`Set x to …` on a never-declared name emitted a bare `x = …`** — an
   unresolved reference in Kotlin. EPL's `Set` is create-or-update, so the first
   sight of a name now emits a typed `var` declaration; a later `Set` of an
@@ -30,9 +47,8 @@ output. Finding **H3** (scope/type-correct transpile) from the omniapp audit.
   Parameters are now typed from body usage: true arithmetic (`-`, `*`, `/`, `%`,
   `//`, `**`), ordering comparisons against a numeric operand, and `+` *only*
   when the other operand is itself numeric. `+` against a string/dynamic operand
-  is ignored, since in EPL it doubles as string concatenation and says nothing
-  about the type — so `greet(name)` stays `Any` while `factorial(n)` and
-  `double(x)` resolve to `Int`.
+  is ignored, since in EPL it doubles as string concatenation — so `greet(name)`
+  stays `Any` while `factorial(n)` and `double(x)` resolve to `Int`.
 - **Recursive functions couldn't infer a return type** (the self-call resolved to
   nothing). The signature is now seeded from non-recursive (base-case) return
   paths first, then refined with all paths.
@@ -43,17 +59,273 @@ output. Finding **H3** (scope/type-correct transpile) from the omniapp audit.
   `{"name": "Alice", "age": 30}` became `MutableMap<String, String>`. Key and
   value types now collapse to `Any` when the entries disagree.
 - **`Any?` on the left of `+` (a dynamic map field) had no `plus` operator.**
-  String concatenation now coerces a non-`String` left operand with
-  `.toString()` so `field(m, "name") + " is "` compiles.
-- **A user function named like a builtin (`power`, `max`, …) was hijacked** by
-  the builtin call-rewriting. A defined function of the same name now shadows the
+  String concatenation now coerces a non-`String` left operand with `.toString()`
+  so `field(m, "name") + " is "` compiles.
+- **A user function named like a builtin (`power`, `max`, …) was hijacked** by the
+  builtin call-rewriting. A defined function of the same name now shadows the
   builtin.
 
-### Notes
-- Full suite green at the v10.0.0 baseline (**1953 passed, 5 skipped**); ruff and
-  mypy clean. No new tests regressed — two pre-existing tests that asserted the
-  old *uncompilable* output (`x: Any` receivers, bare `x = …` assignments) were
-  updated to expect the now-correct, compilable Kotlin.
+### Fixed
+- **`Set list[i] to value` and `Set obj.prop to value` now work.** The `Set`
+  parser only accepted bare variable names; subscript and property targets failed
+  with "Expected 'to' after variable name". `Set xs[1] to 99` and `Set m.key to
+  "val"` now emit the same `IndexSet`/`PropertySet` nodes as the `=` shorthand
+  form, so both spellings work identically under the interpreter and the VM.
+  Parity coverage added; `test_funcs.epl` (which used this syntax) now runs.
+- **`When 1 or 2 or 3` in a Match collapsed to a single boolean `1`.** The
+  surface parser consumed each `When` value with `_parse_expression()`, which
+  greedily folded `1 or 2 or 3` into one boolean-OR expression — so the match
+  only ever tested against `1`. Multi-value `When` now parses each alternative
+  at the `_parse_and()` precedence (just below `or`), so the `or` separators stay
+  as separators and all alternatives are tested. Parity coverage added.
+- **Match accepted only `Default`, not `Otherwise`.** The If statement accepts
+  both `Otherwise` and `else` for the catch-all branch, but Match only accepted
+  `Default`. All three keywords now work in Match for consistency.
+- **`Continue` inside a counted loop (`For … from … to …`, `Repeat … times`)
+  hung forever.** The VM pointed the loop's `continue` target at the condition
+  check, which runs *before* the counter is advanced — so a `Continue` looped
+  back with the counter unchanged and spun the loop infinitely (this hung
+  `examples/constants_and_loops.epl`). `Continue` now forward-jumps to the
+  increment, matching the tree-walking interpreter. The interpreter was already
+  correct; only the VM was affected.
+- **Negative-step `For` loops never ran.** The VM always compiled the loop test
+  as `var <= end`, so a countdown like `For i from 10 to 1 step -1` exited
+  immediately and printed nothing. Counted loops with a compile-time-constant
+  negative step now test `var >= end` and count down correctly.
+- **`epl build` (native compilation) could not link at all.** `epl/runtime.c`
+  had accumulated duplicate definitions of `epl_file_read` / `epl_file_write` /
+  `epl_file_append` / `epl_file_exists` / `epl_file_delete` and `epl_time_now`,
+  plus a second `epl_sleep_ms` with a conflicting signature. The runtime never
+  compiled, so *every* native build failed at link time with `undefined symbol:
+  epl_gc_root_depth`. The duplicates are removed (keeping the binary-safe,
+  NULL-free file-I/O implementations and the higher-precision `epl_time_now`),
+  and `epl_sleep_ms` is resolved to the `int32_t` signature the compiler emits.
+  A type-annotated program now builds and runs as a real native executable.
+- **`epl build` picked `gcc` when `clang` was absent and then failed
+  confusingly.** The native pipeline emits LLVM IR, which gcc cannot compile, so
+  the C-compiler probe no longer falls back to gcc; when no LLVM/clang toolchain
+  is present it prints a clear, per-OS install hint instead of a link error.
+- **Soft-keyword words could not be used as ordinary variables.** `label`,
+  `menu`, `grid`, `start`, `row`, `column` and the other GUI/web/style soft
+  keywords head a statement only in their statement form, yet the parser
+  dispatched them to the widget/layout parsers even when the very next token was
+  an assignment operator — so `label = 5` and `grid += 1` failed to parse. The
+  statement dispatcher now peeks past a leading soft keyword: an assignment
+  operator immediately after it means a plain assignment, never a GUI statement.
+  Genuine widget statements (`Label "text"`, `Menu "File"`) are unaffected.
+- **Omitted-bound step slices `[::2]` / `[::-1]` / `[1::2]` failed to parse.**
+  The lexer emits `::` as a single `DOUBLE_COLON` token, so a slice opening with
+  `::` was mis-read as module access (`Module::member`). The subscript parser now
+  treats `::` as a slice separator (empty step allowed) when no member name
+  follows, and still as module access when one does. Both engines (interpreter
+  and VM) match Python slice semantics; explicit `[start:stop:step]` is unchanged.
+- **The bytecode VM crashed on `Import` and silently produced wrong results for
+  higher-order stdlib code.** Three connected VM gaps are fixed so the default
+  `epl run` engine matches the interpreter on module-using programs:
+  - *Imports now run on the VM.* `Import "string" as Str` then `Str::capitalize(...)`
+    (and the dot form `Str.capitalize(...)`) crashed the VM with an internal
+    error; `epl run` only worked by silently falling back to the interpreter.
+    The old path compiled the module separately and merged its functions, but
+    every function indexes into one shared constant pool, so the merged constant
+    indices were meaningless. The compiler now **inlines** an imported module into
+    the same compilation unit (one shared pool, no index rebasing); an
+    unresolvable module raises before any output so `epl run` still falls back to
+    the interpreter's fuller package/auto-install resolver. Imports are resolved
+    once (diamond-import safe).
+  - *Top-level `Constant`s are visible inside functions.* A module-level
+    `Constant` compiled to a main-frame local, so functions (including a module's
+    own functions) couldn't read it — diverging from the interpreter. Top-level
+    constants are now globals, like every other top-level binding.
+  - *First-class function values are callable.* `Call f With x` and `f(...)` where
+    `f` is a lambda held in a variable (a parameter or a global) silently returned
+    `nothing`, which broke every higher-order stdlib function (`map_list`,
+    `reduce_list`, …). The VM now calls function values via a new `CALL_VALUE`
+    path. Lambdas that **close over an enclosing function's locals** (e.g.
+    `compose`) raise at compile time — the VM has no working capture — so
+    `epl run` cleanly falls back to the interpreter instead of computing nonsense.
+    VM-vs-interpreter parity is verified across every shipped module example.
+- **The bytecode VM crashed on ternary expressions, `Match` statements, and
+  file writes/reads/appends.** An empirical VM-vs-interpreter parity sweep over
+  every shipped example (forcing `epl vm`, which has no interpreter fallback)
+  found the VM compiler reading AST attributes that don't exist on the nodes, so
+  `epl vm` raised `AttributeError` and only `epl run` worked — via the silent
+  interpreter fallback. Four basic features are now genuinely executable on the
+  VM and covered by parity tests:
+  - *Ternary* `a if cond otherwise b` read `node.true_value`/`node.false_value`;
+    the real fields are `true_expr`/`false_expr`.
+  - *`Match`* read `node.value`/`node.cases`/`case.pattern`/`node.default` (none
+    of which exist) and ignored multi-value clauses entirely. `_compile_match`
+    is rewritten to mirror the interpreter: evaluate the subject once, match a
+    clause when the subject equals **any** of its values, then run the first
+    matching body or the `Default` body.
+  - *File I/O* (`Write`/`Append`/`Read … to/from file`) read `node.path`; the
+    real field is `node.filepath`. `Append` now also writes a trailing newline
+    and all file ops use `utf-8`, matching the interpreter byte-for-byte (the VM
+    previously concatenated appended lines and used the platform default
+    encoding).
+- **VM float division collapsed whole results to int.** `200.0 / 4` evaluated to
+  `50` on the VM but `50.0` in the interpreter, because the VM coerced any
+  whole-valued float result to `int`. Division now collapses to `int` only when
+  **both** operands are ints that divide evenly (matching the interpreter);
+  a float operand always preserves the float. The constant-folding path had the
+  same bug and is fixed identically.
+- **`Use python` / `Use javascript` failed mid-run on the VM instead of falling
+  back.** The foreign-language bridges live only in the interpreter; the VM
+  emitted a `__use_python__` builtin call that died later with a cryptic error.
+  The VM now declines these at compile time (like the closure-capture guard) so
+  `epl run` falls back to the interpreter cleanly, before any output.
+
+### Security
+- **`--sandbox` no longer bypassed by the bytecode VM.** Safe mode (file-write /
+  append / `exec` / download / dir & env mutation / `Use python` / `Load library`
+  blocking) is implemented only by the interpreter; the VM has no safe-mode
+  enforcement. `epl run` defaults to the VM, so sandboxed code was executed by an
+  engine that ignores the sandbox — previously masked only because the VM
+  happened to crash on the file-write op and fall back. Now that VM file I/O
+  works, `epl run --sandbox` routes to the interpreter unconditionally, so every
+  sandbox restriction is enforced again. (The VM is purely a speed optimization;
+  it must not run code it cannot secure.)
+
+### Added — `.env` auto-loading + correct multi-file imports
+- **EPL now auto-loads a `.env` file** before a program runs, so API keys and
+  other secrets live outside source (the standard Node/Deno/Bun/python-dotenv
+  experience). `env_get("OPENAI_API_KEY")` just works with a `.env` next to the
+  app — no manual `export`. Zero new dependencies (`epl/dotenv.py`). Semantics:
+  real environment variables always win over `.env` (so the same file is safe in
+  dev while CI/containers inject prod values); not loaded under `--sandbox`;
+  opt out with `EPL_NO_DOTENV=1`. Wired into both `epl run` and `epl serve`.
+- **Multi-file programs now run on the bytecode VM regardless of the working
+  directory.** The VM (the default `epl run` engine) resolved imports relative
+  to the *current working directory* while the interpreter resolved them
+  relative to the *importing file* — so `epl run sub/app.epl` that imported a
+  sibling silently fell back to the interpreter (losing the VM speed-up), and
+  `epl vm sub/app.epl` failed outright with "Cannot find module". The VM now
+  resolves relative to the importing file's directory (with correct per-module
+  resolution for nested imports), matching the interpreter. Regression coverage
+  in `tests/test_dotenv_and_imports.py`.
+
+### Fixed — example taught insecure/incorrect API key usage
+- **`examples/apps/chatbot/chatbot_app.epl`** hardcoded the Groq API key as a
+  source-literal placeholder and built request headers as a list of
+  `"Key: Value"` strings — a pattern that crashes, since `http_post` indexes
+  headers by key (requires a map). It now reads the key via
+  `env_get("GROQ_API_KEY")` and builds headers with `dict_from_lists(...)`.
+
+### Added — enterprise server deployment hardening
+- **Every deployable EPL server is now secure-by-default and deploy-anywhere.**
+  Previously the package registry bound to `0.0.0.0` (all interfaces) with no
+  way to change it, and the web server's host/port/workers were hardcoded —
+  production deployment required editing source. Now:
+  - **Secure defaults.** The registry and web dev server bind to `127.0.0.1`
+    (localhost only); binding publicly is an explicit opt-in that prints a
+    stderr warning.
+  - **Env-var config (deploy-anywhere).** Host, port, and worker count resolve
+    from environment variables, so the same artifact runs unchanged on Cloud
+    Run, Heroku, Azure App Service, Kubernetes, or bare metal. Platforms that
+    inject `PORT` work with zero config. Web: `EPL_WEB_HOST`/`EPL_WEB_PORT`/
+    `EPL_WEB_WORKERS` (and generic `PORT`/`WEB_CONCURRENCY`). Registry:
+    `EPL_REGISTRY_HOST`/`EPL_REGISTRY_PORT`. Precedence: explicit `EPL_*` →
+    platform `PORT`/`WEB_CONCURRENCY` → source/CLI value.
+  - **Generated `gunicorn_conf.py` rebinds at runtime** from `PORT`/`EPL_PORT`
+    and `WEB_CONCURRENCY`/`EPL_WORKERS` — a containerized app now honors a
+    runtime-injected port without rebuilding the image (previously baked in at
+    generation time).
+  - **`--host` flag** added to `epl serve` (parity with `epl registry start`).
+  - **Health endpoints on every HTTP server** for load-balancer/orchestrator
+    probes: web `/_health`, registry `/health`, playground `/health` & `/_health`,
+    MCP `/health`.
+  - **`DEPLOYMENT.md`** documents every server, env var, and deployment recipe
+    (Docker, Cloud Run/Heroku/Azure, Kubernetes) plus a security checklist.
+  - Tests: generated gunicorn config is now verified by executing it under
+    simulated platform env (`tests/test_deploy.py`).
+
+### Added — native build safety gate
+- **`epl build` now refuses to emit a binary it cannot prove type-correct,
+  instead of silently producing a segfaulting one.** Because the native backend
+  has no type inference, a function with an untyped parameter or an untyped
+  value-return defaults to string and miscompiles numeric code (often a crash).
+  `compile_file` now scans for these unprovable functions up front and stops
+  with an actionable message — naming each function, the reason, an example
+  annotation, and the `epl run` fallback that supports full dynamic typing — and
+  writes no executable. Measured effect across the shipped examples: native
+  segfaults dropped from 4 to 2, with 14 programs now getting a clean,
+  explanatory refusal instead of a build failure or crash. (The 2 remaining
+  crashes are top-level dynamic type-mixing such as `"len: " + name.length`,
+  which a static gate cannot catch without the full inference work; these run
+  correctly under `epl run`.)
+- Regression tests: `tests/test_native_safety_gate.py` (toolchain-independent —
+  the refusal happens before any compiler runs).
+
+### Restored
+- **7 example programs that an automated "AUTO-FIX" pass (v7.4.0) had silently
+  gutted** — it deleted variable declarations and other essential lines, leaving
+  files that *parsed* but crashed at runtime. Restored from their last-good
+  revision and verified to run clean: `variables`, `varargs_test`,
+  `error_handling`, `data_pipeline`, `data_tool`, `task_manager`, `text_analyzer`.
+- **The 7 per-folder starter examples the same AUTO-FIX pass corrupted** —
+  `calculator/`, `hello_web/`, `todo_app/`, `todo_api/`, and
+  `official_starters/{auth_api,chatbot,creative_frontend}`. These had no clean
+  revision to restore from, so each was **rewritten** to correct, idiomatic,
+  verified-working EPL on the maintained web dialect (`Create webapp` +
+  `Route … responds with`/`shows`, `Send json`/`Send text`, parameterized `db_*`
+  queries). Every one now boots, serves, or runs to completion cleanly:
+  `calculator` is a run-to-completion arithmetic showcase (it had been a stdin
+  REPL that could not run unattended); `auth_api` hashes passwords with
+  `auth_hash_password` / `auth_verify_password` and issues `auth_generate_token`
+  sessions; `chatbot` is a self-contained rule-based bot (the old
+  `Import "epl.ai"` has no working in-program import) with a documented hook for a
+  real model.
+
+### Added
+- **`epl build -o/--output PATH`** — the native-build command now accepts an
+  output path for the compiled binary (the same `-o` every transpile command
+  already had). `epl build main.epl -o dist/myapp` writes the executable to
+  `dist/myapp.exe` (Windows) or `dist/myapp` (Unix), auto-creating any
+  directories and auto-appending the platform extension when omitted. Without
+  `-o` the artifact still lands beside the cwd as `<basename><.exe>` (the
+  historical behavior). Parity coverage added.
+- **`tests/test_examples_run.py`** — actually *runs* every run-to-completion
+  example (not just parses it) and asserts a clean exit, so corruption like the
+  above cannot ship green again. Servers, interactive, Node-bridge, test-DSL and
+  blocking desktop-GUI examples are excluded by category; `_KNOWN_BROKEN` is now
+  empty — `lambdas`, `slicing` and `database_app` are enforced run-to-completion
+  (the parser fixes above closed the first two; `database_app` was rewritten to
+  the injection-safe map form of `db_create_table` and valid `UPDATE … SET` SQL,
+  the example having been wrong). `text_editor` parses now and moved to the new
+  `_GUI_APPS` category because it spins a blocking window event loop.
+- VM regression tests for counted-loop `Continue`, negative steps, and
+  `Break`, including a VM-vs-interpreter parity check; plus slice tests for the
+  omitted-bound `::` forms and soft-keyword-as-variable tests, both engines.
+- **`tests/test_native_build.py`** — the first end-to-end native test: it
+  compiles EPL programs through `compile_file` (the `epl build` path), links
+  against `runtime.c`, *runs* the resulting binary, and asserts its output.
+  No prior test ever compiled the runtime or ran a binary, which is why the
+  duplicate-symbol breakage shipped unnoticed. Skipped when no clang/LLVM
+  toolchain is available.
+- **`tests/test_starter_examples.py`** — a runtime gate for the per-folder
+  starters (`examples/<name>/main.epl`), which fell through *both* the top-level
+  glob in `test_examples_run.py` and the `apps/` glob in `test_examples_parse.py`
+  — the exact blind spot that let the corruption above ship green. Run-to-completion
+  starters must exit 0; web servers must bind their port and serve their body-less
+  GET routes with no EPL error in the response *body* (a failed route handler
+  returns HTTP 200 with an error body, so a status-code check is not enough).
+  `discord_agent` is excluded (it needs the external `DISCORD_TOKEN` secret).
+  `test_examples_parse.py` additionally gained a recursive guard that parse-checks
+  every `examples/**/*.epl`, with documented exclusions for the Test-DSL and
+  JS-bridge files.
+
+### Known issues (documented, not yet fixed)
+- **Native compilation (`epl build`) is correct only for type-annotated /
+  numerically-typed programs.** Now that linking works, a measurement of the
+  shipped run-to-completion examples found roughly 1 in 5 produce a correct
+  native binary; the rest fail to build, mismatch the interpreter, or crash.
+  The root cause is a single architectural gap: the native backend defaults
+  untyped values to `i8*` (string) and has no type inference, so idiomatic
+  dynamic code (`Function add takes a and b` used with both numbers and text)
+  generates wrong code. Making fully-dynamic EPL compile natively needs a
+  uniform tagged-value representation or whole-program type inference — a
+  dedicated backend effort tracked separately. The default `epl run`
+  (interpreter/VM) path is unaffected and runs this code correctly.
 
 ---
 

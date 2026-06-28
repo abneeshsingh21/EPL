@@ -419,11 +419,41 @@ class TestGunicornConfig(unittest.TestCase):
     """Test Gunicorn configuration generator."""
 
     def test_basic_config(self):
-        """Generates valid Python config."""
+        """Generates valid Python config that binds to the given port by default."""
         config = generate_gunicorn_config(app_name='TestApp', port=9000)
-        self.assertIn('bind = "0.0.0.0:9000"', config)
         self.assertIn('workers =', config)
         self.assertIn('TestApp', config)
+        # The config resolves bind/workers from env at runtime, falling back to
+        # the values baked at generation. With no env set, the baked port wins.
+        env_keys = ('EPL_HOST', 'EPL_PORT', 'PORT', 'EPL_WORKERS', 'WEB_CONCURRENCY')
+        saved = {k: os.environ.pop(k, None) for k in env_keys}
+        try:
+            ns = {}
+            exec(config, ns)
+            self.assertEqual(ns['bind'], '0.0.0.0:9000')
+        finally:
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
+
+    def test_runtime_env_overrides_bind(self):
+        """PORT/EPL_PORT/EPL_HOST injected at runtime override the baked bind."""
+        config = generate_gunicorn_config(app_name='TestApp', port=9000)
+        env_keys = ('EPL_HOST', 'EPL_PORT', 'PORT', 'EPL_WORKERS', 'WEB_CONCURRENCY')
+        saved = {k: os.environ.pop(k, None) for k in env_keys}
+        try:
+            os.environ['PORT'] = '8080'  # platform-injected (Cloud Run/Heroku)
+            ns = {}
+            exec(config, ns)
+            self.assertEqual(ns['bind'], '0.0.0.0:8080')
+
+            os.environ['EPL_PORT'] = '7000'  # explicit override wins over PORT
+            os.environ['EPL_HOST'] = '127.0.0.1'
+            ns = {}
+            exec(config, ns)
+            self.assertEqual(ns['bind'], '127.0.0.1:7000')
+        finally:
+            for k in ('PORT', 'EPL_PORT', 'EPL_HOST'):
+                os.environ.pop(k, None)
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
 
     def test_ssl_config(self):
         """SSL settings included when certs provided."""
@@ -432,9 +462,22 @@ class TestGunicornConfig(unittest.TestCase):
         self.assertIn('keyfile = "/etc/ssl/key.pem"', config)
 
     def test_worker_count(self):
-        """Explicit worker count honored."""
+        """Explicit worker count honored as the runtime fallback."""
         config = generate_gunicorn_config(workers=8)
-        self.assertIn('workers = 8', config)
+        env_keys = ('EPL_WORKERS', 'WEB_CONCURRENCY')
+        saved = {k: os.environ.pop(k, None) for k in env_keys}
+        try:
+            ns = {}
+            exec(config, ns)
+            self.assertEqual(ns['workers'], 8)
+            # WEB_CONCURRENCY (platform standard) overrides at runtime.
+            os.environ['WEB_CONCURRENCY'] = '12'
+            ns = {}
+            exec(config, ns)
+            self.assertEqual(ns['workers'], 12)
+        finally:
+            os.environ.pop('WEB_CONCURRENCY', None)
+            os.environ.update({k: v for k, v in saved.items() if v is not None})
 
     def test_timeout_setting(self):
         """Timeout setting included."""

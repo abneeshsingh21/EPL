@@ -12,8 +12,8 @@ Print "=============================="
 Print ""
 
 Note: --- Student Data ---
-students = ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace"]
-grades = [92, 67, 85, 45, 78, 91, 55]
+Create students equal to ["Alice", "Bob", "Charlie", "Diana", "Eve", "Frank", "Grace"]
+Create grades equal to [92, 67, 85, 45, 78, 91, 55]
 
 Note: --- Basic Stats ---
 Print "Students: " + to_text(length(students))
@@ -25,61 +25,61 @@ Print "Lowest:   " + to_text(min_of(grades))
 Note: --- Grade Classification ---
 Print ""
 Print "--- Grade Report ---"
-idx = 0
+Create idx equal to 0
 While idx < length(students)
-    name = students[idx]
-    grade = grades[idx]
-    letter = "F"
+    Create name equal to students[idx]
+    Create grade equal to grades[idx]
+    Create letter equal to "F"
     If grade >= 90 Then
-        letter = "A"
+        Set letter to "A"
     Otherwise If grade >= 80 Then
-        letter = "B"
+        Set letter to "B"
     Otherwise If grade >= 70 Then
-        letter = "C"
+        Set letter to "C"
     Otherwise If grade >= 60 Then
-        letter = "D"
+        Set letter to "D"
     End
-    padded = pad_right(name, 10, " ")
-# [AUTO-FIX] removed broken token
+    Create padded equal to pad_right(name, 10, " ")
+    Print "  " + padded + to_text(grade) + "  (" + letter + ")"
     Increase idx by 1
 End
 
 Note: --- Passing vs Failing ---
-passing = filter_list(grades, lambda g -> g >= 60)
-failing = filter_list(grades, lambda g -> g < 60)
+Create passing equal to filter_list(grades, lambda g -> g >= 60)
+Create failing equal to filter_list(grades, lambda g -> g < 60)
 Print ""
 Print "Passing: " + to_text(length(passing)) + " students"
 Print "Failing: " + to_text(length(failing)) + " students"
 Print "Pass rate: " + to_text(round(length(passing) * 100 / length(students))) + "%"
 
 Note: --- Top Performers ---
-sorted_grades = sorted(grades)
-top_3 = take(sorted_grades, 3)
+Create sorted_grades equal to sorted(grades)
+Create top_3 equal to take(sorted_grades, 3)
 Print ""
 Print "Bottom 3 scores: " + to_text(top_3)
 
 Note: --- Data Pipeline ---
 Print ""
 Print "--- Pipeline: grades -> curve +5 -> filter >=70 -> count ---"
-curved = map_list(grades, lambda g -> g + 5)
+Create curved equal to map_list(grades, lambda g -> g + 5)
 Print "After curve (+5): " + to_text(curved)
-curved_passing = filter_list(curved, lambda g -> g >= 70)
+Create curved_passing equal to filter_list(curved, lambda g -> g >= 70)
 Print "Passing after curve: " + to_text(length(curved_passing)) + " students"
 
 Note: --- Reduce for weighted average ---
-weighted_sum = reduce_list(grades, lambda acc, g -> acc + g, 0)
+Create weighted_sum equal to reduce_list(grades, lambda acc, g -> acc + g, 0)
 Print ""
 Print "Total points: " + to_text(weighted_sum)
 Print "Class average: " + to_text(round(weighted_sum / length(grades)))
 
 Note: --- Unique grades check ---
-unique_grades = unique(grades)
+Create unique_grades equal to unique(grades)
 Print "Unique scores: " + to_text(length(unique_grades)) + " out of " + to_text(length(grades))
 
 Note: --- Every / Some checks ---
-all_passing = every(grades, lambda g -> g >= 60)
+Create all_passing equal to every(grades, lambda g -> g >= 60)
 Print "All passing? " + to_text(all_passing)
-any_excellent = some(grades, lambda g -> g >= 90)
+Create any_excellent equal to some(grades, lambda g -> g >= 90)
 Print "Any excellent (>=90)? " + to_text(any_excellent)
 
 Print ""

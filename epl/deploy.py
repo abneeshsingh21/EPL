@@ -1036,6 +1036,23 @@ def serve(
     """
     import platform
 
+    # Deploy-anywhere: let the hosting platform dictate the bind. Cloud Run,
+    # Heroku and Azure App Service inject PORT; EPL_WEB_* are explicit
+    # overrides that win over the generic PORT.
+    host = os.environ.get('EPL_WEB_HOST') or os.environ.get('EPL_HOST') or host
+    _env_port = os.environ.get('EPL_WEB_PORT') or os.environ.get('PORT')
+    if _env_port:
+        try:
+            port = int(_env_port)
+        except (TypeError, ValueError):
+            pass
+    _env_workers = os.environ.get('EPL_WEB_WORKERS')
+    if _env_workers:
+        try:
+            workers = max(1, int(_env_workers))
+        except (TypeError, ValueError):
+            pass
+
     app, wsgi_app, asgi_app = _resolve_server_apps(app_or_wsgi, interpreter=interpreter)
     selected_engine = (engine or 'auto').lower()
 
@@ -1193,13 +1210,24 @@ def generate_gunicorn_config(
             gunicorn wsgi:application -w {workers} -b {bind}:{port}
         """
         import multiprocessing
+        import os
 
         # ─── Server Socket ────────────────────────────────
-        bind = "{bind}:{port}"
+        # Runtime env wins so the same image deploys anywhere: Cloud Run,
+        # Heroku and Azure App Service inject PORT; EPL_PORT/EPL_HOST are
+        # explicit overrides. Falls back to the values baked at generation.
+        _host = os.environ.get("EPL_HOST", "{bind}")
+        _port = os.environ.get("EPL_PORT") or os.environ.get("PORT") or "{port}"
+        bind = "{{}}:{{}}".format(_host, _port)
         backlog = 2048
 
         # ─── Worker Processes ─────────────────────────────
-        workers = {workers}
+        # WEB_CONCURRENCY is the platform-standard worker knob (Heroku et al.).
+        workers = int(
+            os.environ.get("EPL_WORKERS")
+            or os.environ.get("WEB_CONCURRENCY")
+            or {workers}
+        )
         worker_class = "sync"         # Use "gevent" or "uvicorn.workers.UvicornWorker" for async
         worker_connections = 1000
         max_requests = {max_requests}       # Restart workers after N requests (prevent memory leaks)

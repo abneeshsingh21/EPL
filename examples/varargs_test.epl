@@ -1,19 +1,19 @@
-# [AUTO-FIX] removed broken token
+Define function sum_all that takes rest numbers and returns nothing.
     Create total = 0.
     For each item in numbers
-        total = total + item.
+        Set total to total + item.
     End
     Display total.
-# [AUTO-FIX] removed broken token
+End function.
 
 Call sum_all with 1 and 2 and 3.
 Call sum_all with 10 and 20.
 Call sum_all.
 
-# [AUTO-FIX] removed broken token
+Define function greet_all that takes text greeting and rest names and returns nothing.
     For each name in names
         Display greeting + " " + name.
     End
-# [AUTO-FIX] removed broken token
+End function.
 
 Call greet_all with "Hello" and "Alice" and "Bob" and "Charlie".

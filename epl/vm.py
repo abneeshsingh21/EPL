@@ -14,6 +14,7 @@ Stack-based execution with call frames and local variable slots
 
 import math
 import operator
+import os
 import re as _re
 import time
 from dataclasses import dataclass, field
@@ -131,6 +132,8 @@ class Op(IntEnum):
     FILE_READ = auto()  # Read file expression
     SUPER_CALL = auto()  # Call parent class method
     MODULE_ACCESS = auto()  # Access module member (::)
+    CALL_MODULE_MEMBER = auto()  # Call a module member function (Module::func(args))
+    CALL_VALUE = auto()  # Call a function value on the stack (lambda/first-class fn)
 
 
 # ─── Bytecode Data Structures ────────────────────────────────
@@ -221,10 +224,46 @@ class VMError(Exception):
 # ─── Bytecode Compiler (AST → Bytecodes) ─────────────────────
 
 
+# Standard-library directory, resolved package-relative so stdlib imports work
+# when EPL is pip-installed (not only when run from the repo root).
+_STDLIB_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stdlib')
+
+
+def _resolve_import_path(filepath, base_dir=None):
+    """Resolve an import name to an absolute .epl path, or None.
+
+    Mirrors the interpreter's search order so the VM and interpreter agree on
+    which module a name refers to: relative to the importing file's directory
+    first (``base_dir``), then the CWD, then ``examples/``, then the package
+    stdlib dir. Resolving relative to ``base_dir`` is what lets a program import
+    a sibling module regardless of the directory the command was run from.
+    """
+    if os.path.isabs(filepath) and os.path.isfile(filepath):
+        return filepath
+    with_epl = filepath if filepath.endswith('.epl') else filepath + '.epl'
+    bare = filepath[:-4] if filepath.endswith('.epl') else filepath
+    candidates = []
+    if base_dir:
+        candidates.append(os.path.join(base_dir, with_epl))
+        candidates.append(os.path.join(base_dir, filepath))
+    candidates.extend(
+        [
+            with_epl,
+            filepath,
+            os.path.join('examples', with_epl),
+            os.path.join(_STDLIB_DIR, bare + '.epl'),
+        ]
+    )
+    for c in candidates:
+        if os.path.isfile(c):
+            return os.path.abspath(c)
+    return None
+
+
 class BytecodeCompiler:
     """Compiles AST nodes into bytecode instructions."""
 
-    def __init__(self):
+    def __init__(self, base_dir=None):
         self.instructions: list = []
         self.constants: list = []  # Constant pool
         self.functions: dict = {}  # name -> CompiledFunction
@@ -238,6 +277,61 @@ class BytecodeCompiler:
         # compiled. Enables implicit-`this`: a bare `name` inside a method
         # resolves to the instance field, matching the interpreter.
         self._current_method_props: set = set()
+        # Absolute paths of modules already inlined, so a diamond/repeat import
+        # is compiled once (matching the interpreter's import-once semantics).
+        self._inlined_imports: set = set()
+        # Directory the source being compiled lives in. Imports resolve relative
+        # to it (matching the interpreter's source-file-relative resolution), so
+        # `epl run sub/app.epl` finds `sub/helper.epl` regardless of the CWD.
+        self._base_dir = base_dir or os.getcwd()
+        # Aliases bound by `Import "mod" as Alias`, so both `Alias::member` and
+        # the dot form `Alias.member(...)` route to the inlined module member.
+        self._module_aliases: set = set()
+
+    def _inline_import(self, node):
+        """Compile an imported module into THIS compiler instance.
+
+        Inlining (rather than compiling the module separately and merging) is
+        deliberate: every CompiledFunction indexes into the single shared
+        constant pool, so a separately-compiled module's constant indices would
+        be meaningless here. Compiling the module's statements with ``self``
+        appends its top-level code and registers its functions/classes against
+        the same pools — no index rebasing, by construction.
+
+        A module name that cannot be resolved to a file raises, so the VM errors
+        before producing output and ``epl run`` falls back to the interpreter,
+        whose resolver also handles installed packages and auto-install.
+        """
+        abs_path = _resolve_import_path(node.filepath, self._base_dir)
+        if not abs_path:
+            raise VMError(
+                f'Cannot find module "{node.filepath}".',
+                getattr(node, 'line', 0),
+            )
+        # Record the alias even on a repeat import so the dot form keeps working.
+        alias = getattr(node, 'alias', None)
+        if alias:
+            self._module_aliases.add(alias)
+        if abs_path in self._inlined_imports:
+            return  # already inlined — import-once
+        self._inlined_imports.add(abs_path)
+
+        from epl.lexer import Lexer
+        from epl.parser import Parser
+
+        with open(abs_path, 'r', encoding='utf-8') as f:
+            source = f.read()
+        module = Parser(Lexer(source).tokenize()).parse()
+        statements = module.statements if hasattr(module, 'statements') else module
+        # A nested import inside this module resolves relative to the module's
+        # own directory, mirroring the interpreter's _current_file push/pop.
+        prev_base_dir = self._base_dir
+        self._base_dir = os.path.dirname(abs_path)
+        try:
+            for stmt in statements:
+                self._compile_stmt(stmt)
+        finally:
+            self._base_dir = prev_base_dir
 
     def compile(self, program):
         """Compile a full AST program into bytecode."""
@@ -303,15 +397,24 @@ class BytecodeCompiler:
                     op_fn = _FOLDABLE_OPS[code[i + 2].op]
                     try:
                         if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-                            result = op_fn(a, b)
-                            # Mirror _op_div: a whole-number division result is
-                            # an int, so folding matches runtime + interpreter.
+                            # Mirror _op_div: division collapses to int ONLY when
+                            # both operands are ints dividing evenly — use `//`,
+                            # not int(a / b). The old `result == int(result)` test
+                            # had BOTH bugs it fixes elsewhere: it collapsed a
+                            # float operand (200.0 / 4 -> 50) and lost precision on
+                            # large divisible ints. (b != 0 lets a real /0 fall
+                            # through to op_fn and the try/except, so the DIV stays
+                            # for the runtime VMError.)
                             if (
                                 code[i + 2].op == Op.DIV
-                                and isinstance(result, float)
-                                and result == int(result)
+                                and isinstance(a, int)
+                                and isinstance(b, int)
+                                and b != 0
+                                and a % b == 0
                             ):
-                                result = int(result)
+                                result = a // b
+                            else:
+                                result = op_fn(a, b)
                             result_idx = self._add_const(result)
                             old_to_new[i] = new_idx
                             old_to_new[i + 1] = new_idx
@@ -780,11 +883,25 @@ class BytecodeCompiler:
                 raise VMError('Break outside of loop', self._current_line)
         elif isinstance(node, ast.ContinueStatement):
             if self.loop_stack:
-                self._emit(Op.LOOP_BACK, self.loop_stack[-1]['continue'])
+                top = self.loop_stack[-1]
+                target = top.get('continue')
+                if target is not None:
+                    # Loops whose back-edge already runs the advance step (while,
+                    # for-each): jump straight back to the loop head.
+                    self._emit(Op.LOOP_BACK, target)
+                else:
+                    # Counted loops (for-range, repeat) advance *after* the body,
+                    # so a continue must land on the increment, not the condition
+                    # check — otherwise the counter never moves and we spin
+                    # forever. Forward-patch it like a break.
+                    top['continues'].append(self._emit_jump(Op.JUMP))
             else:
                 raise VMError('Continue outside of loop', self._current_line)
         elif isinstance(node, ast.ImportStatement):
-            self._emit(Op.IMPORT, node.path)
+            # Compile the module into this same unit (shared constant pool).
+            # Module functions become callable as ``Alias::member(...)`` via
+            # CALL_MODULE_MEMBER, which resolves them from the shared table.
+            self._inline_import(node)
         elif isinstance(node, ast.IndexSet):
             self._compile_index_assign(node)
         elif isinstance(node, ast.MatchStatement):
@@ -792,9 +909,13 @@ class BytecodeCompiler:
         elif isinstance(node, ast.EnumDef):
             self._compile_enum(node)
         elif isinstance(node, ast.ConstDeclaration):
+            # Scope like any other declaration: a top-level constant is a global
+            # (so functions — including a module's own functions after an import
+            # is inlined — can read it), a constant inside a function is a local.
+            # Previously this was always a local, so top-level constants were
+            # invisible inside functions (diverging from the interpreter).
             self._compile_expr(node.value)
-            idx = self._declare_local(node.name)
-            self._emit(Op.STORE_VAR, idx)
+            self._store_named(node.name)
         elif isinstance(node, ast.DestructureAssignment):
             self._compile_expr(node.value)
             for i, name in enumerate(node.names):
@@ -832,12 +953,13 @@ class BytecodeCompiler:
             idx = self._declare_local(node.variable_name)
             self._emit(Op.STORE_VAR, idx)
         elif isinstance(node, ast.FileWrite):
-            self._compile_expr(node.path)
+            # write_file(path, content): push filepath first, then content.
+            self._compile_expr(node.filepath)
             self._compile_expr(node.content)
             self._emit(Op.CALL_BUILTIN, ('write_file', 2))
             self._emit(Op.POP)
         elif isinstance(node, ast.FileAppend):
-            self._compile_expr(node.path)
+            self._compile_expr(node.filepath)
             self._compile_expr(node.content)
             self._emit(Op.CALL_BUILTIN, ('append_file', 2))
             self._emit(Op.POP)
@@ -856,10 +978,17 @@ class BytecodeCompiler:
                 self._compile_expr(a)
             self._emit(Op.SUPER_CALL, (node.method_name, len(node.arguments)))
         elif hasattr(ast, 'UseStatement') and isinstance(node, ast.UseStatement):
-            # Use python "lib" as X — delegate to interpreter at runtime
-            self._emit(Op.LOAD_CONST, self._add_const(node.library))
-            alias = getattr(node, 'alias', None) or node.library
-            self._emit(Op.CALL_BUILTIN, ('__use_python__', alias))
+            # `Use python "lib"` / `Use javascript "pkg"` need the foreign-language
+            # bridges, which only the interpreter has. The VM has no working bridge
+            # (the old `__use_python__` builtin call failed later at runtime with a
+            # cryptic error). Refuse at compile time so `epl run` falls back to the
+            # interpreter cleanly, before any output — same contract as the
+            # closure-capture guard.
+            raise VMError(
+                f'`Use {node.library}` (foreign-language bridge) is not supported '
+                'by the bytecode VM; the interpreter handles it.',
+                getattr(node, 'line', 0),
+            )
         elif hasattr(ast, 'ModuleDef') and isinstance(node, ast.ModuleDef):
             # Module Name ... End Module — compile body, register as module
             for s in node.body:
@@ -1071,37 +1200,133 @@ class BytecodeCompiler:
         for brk in loop_info['breaks']:
             self._patch_jump(brk)
 
+    _ZERO_STEP_MSG = 'For range step must be a non-zero integer.'
+
+    @staticmethod
+    def _const_step_value(step_val):
+        """The numeric value of a compile-time-constant step (``Literal(n)`` or
+        ``-Literal(n)``), or ``None`` when the step is a runtime expression.
+        A missing step means the default of ``1``."""
+        from epl import ast_nodes as ast
+
+        if step_val is None:
+            return 1
+        if isinstance(step_val, ast.Literal) and isinstance(step_val.value, (int, float)):
+            return step_val.value
+        if (
+            isinstance(step_val, ast.UnaryOp)
+            and step_val.operator == '-'
+            and isinstance(step_val.operand, ast.Literal)
+            and isinstance(step_val.operand.value, (int, float))
+        ):
+            return -step_val.operand.value
+        return None
+
     def _compile_for(self, node):
         # Compile: For <var> From <start> To <end> [Step <step>]
         start_val = node.start if hasattr(node, 'start') else node.range_start
         end_val = node.end if hasattr(node, 'end') else node.range_end
         step_val = getattr(node, 'step', None)
-
-        # Initialize counter (global at top level so it's visible like the
-        # interpreter; local inside a function).
-        self._compile_expr(start_val)
         var_name = node.var_name if hasattr(node, 'var_name') else node.variable
+
+        const_step = self._const_step_value(step_val)
+
+        # A constant step must be a non-zero integer, exactly like the
+        # interpreter (which does `not isinstance(step, int) or step == 0`).
+        # Zero never advances the counter (infinite loop); any float literal —
+        # including a whole-number one like `step 2.0` — is rejected, matching
+        # the interpreter's strict int-type check rather than its value.
+        if const_step is not None and (not isinstance(const_step, int) or const_step == 0):
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            return
+
+        # Evaluate the bounds ONCE, up front, in source order (start, end, then
+        # step) and snapshot end + a runtime step into locals — the interpreter
+        # does the same. Recomputing end each iteration would let a body that
+        # mutates the end/step variable change the loop's extent mid-flight,
+        # which can diverge from the interpreter or hang.
+        start_local = self._declare_local(f'__for_start_{self._label_counter}')
+        self._label_counter += 1
+        self._compile_expr(start_val)
+        self._emit(Op.STORE_VAR, start_local)
+
+        end_local = self._declare_local(f'__for_end_{self._label_counter}')
+        self._label_counter += 1
+        self._compile_expr(end_val)
+        self._emit(Op.STORE_VAR, end_local)
+
+        # For a runtime (non-constant) step, evaluate it once into a temp and
+        # reject a zero or non-integer value (the interpreter requires a non-zero
+        # integer). The loop direction is then derived from its sign on every
+        # iteration. A constant step uses the cheaper fixed comparison below.
+        step_local = None
+        if const_step is None:
+            step_local = self._declare_local(f'__step_{self._label_counter}')
+            self._label_counter += 1
+            self._compile_expr(step_val)
+            self._emit(Op.STORE_VAR, step_local)
+            # Reject step == 0 (would spin forever).
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.LOAD_CONST, self._add_const(0))
+            self._emit(Op.EQ)
+            nonzero_jump = self._emit_jump(Op.JUMP_IF_FALSE)
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            self._patch_jump(nonzero_jump)
+            # Reject a non-integer step, e.g. a 0.5 or 2.0 variable. `is_integer`
+            # mirrors the interpreter's `isinstance(step, int)` (excludes floats
+            # and bools), so a whole-number float like 2.0 is rejected too.
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.CALL_BUILTIN, ('is_integer', 1))
+            integer_jump = self._emit_jump(Op.JUMP_IF_TRUE)
+            self._emit(Op.LOAD_CONST, self._add_const(self._ZERO_STEP_MSG))
+            self._emit(Op.THROW)
+            self._patch_jump(integer_jump)
+
+        # Bind the loop variable to the snapshotted start (global at top level so
+        # it's visible like the interpreter; local inside a function).
+        self._emit(Op.LOAD_VAR, start_local)
         self._store_named(var_name)
 
         loop_start = len(self.instructions)
-        self.loop_stack.append({'continue': loop_start, 'breaks': []})
+        # 'continue' is None so that a Continue inside the body forward-jumps to
+        # the increment below (see ContinueStatement), instead of looping back to
+        # the condition with the counter unchanged.
+        self.loop_stack.append({'continue': None, 'continues': [], 'breaks': []})
 
-        # Check condition: var <= end
-        self._load_named(var_name)
-        self._compile_expr(end_val)
-        self._emit(Op.LTE)
+        # Check the loop condition. A counted loop with a negative step counts
+        # *down* (`var >= end`); a positive step counts *up* (`var <= end`).
+        if const_step is None:
+            # Direction-agnostic test that works for either sign of a runtime
+            # step: `(end - var) * step >= 0` (zero step already rejected above).
+            self._emit(Op.LOAD_VAR, end_local)
+            self._load_named(var_name)
+            self._emit(Op.SUB)
+            self._emit(Op.LOAD_VAR, step_local)
+            self._emit(Op.MUL)
+            self._emit(Op.LOAD_CONST, self._add_const(0))
+            self._emit(Op.GTE)
+        else:
+            self._load_named(var_name)
+            self._emit(Op.LOAD_VAR, end_local)
+            self._emit(Op.GTE if const_step < 0 else Op.LTE)
         exit_jump = self._emit_jump(Op.JUMP_IF_FALSE)
 
         # Body
         for stmt in node.body:
             self._compile_stmt(stmt)
 
+        # Continue lands here, on the increment, so the counter still advances.
+        for cont in self.loop_stack[-1]['continues']:
+            self._patch_jump(cont)
+
         # Increment
         self._load_named(var_name)
-        if step_val:
-            self._compile_expr(step_val)
+        if const_step is None:
+            self._emit(Op.LOAD_VAR, step_local)
         else:
-            self._emit(Op.LOAD_CONST, self._add_const(1))
+            self._emit(Op.LOAD_CONST, self._add_const(const_step))
         self._emit(Op.ADD)
         self._store_named(var_name)
 
@@ -1151,7 +1376,9 @@ class BytecodeCompiler:
         self._emit(Op.STORE_VAR, iter_idx)
 
         loop_start = len(self.instructions)
-        self.loop_stack.append({'continue': loop_start, 'breaks': []})
+        # 'continue' is None so a Continue forward-jumps to the `iter += 1` step
+        # below rather than back to the condition (which would spin forever).
+        self.loop_stack.append({'continue': None, 'continues': [], 'breaks': []})
 
         # Check: iter < count
         self._emit(Op.LOAD_VAR, iter_idx)
@@ -1161,6 +1388,10 @@ class BytecodeCompiler:
 
         for stmt in node.body:
             self._compile_stmt(stmt)
+
+        # Continue lands here, on the increment, so the counter still advances.
+        for cont in self.loop_stack[-1]['continues']:
+            self._patch_jump(cont)
 
         # iter += 1
         self._emit(Op.LOAD_VAR, iter_idx)
@@ -1420,31 +1651,40 @@ class BytecodeCompiler:
                 self._compile_stmt(stmt)
 
     def _compile_match(self, node):
-        self._compile_expr(node.value)
-        end_jumps = []
+        # Mirrors the interpreter (_exec_match): evaluate the subject once, then
+        # a clause matches if the subject equals ANY of its `values`; the first
+        # matching clause's body runs, else `default_body`. The subject stays on
+        # the stack across clause tests (DUP per comparison) and is popped before
+        # a body runs or when nothing matches.
+        #
+        # The previous version read node.value/node.cases/case.pattern/node.default
+        # — none of which exist on MatchStatement — so `epl vm` crashed on every
+        # Match (and only `epl run` worked, via interpreter fallback). It also
+        # ignored multi-value clauses (`When 1, 2, 3`).
+        self._compile_expr(node.expression)
+        end_jumps = []  # jump here after a clause body runs
 
-        for case in node.cases:
-            self._emit(Op.DUP)
-            if hasattr(case, 'pattern'):
-                self._compile_expr(case.pattern)
-            elif isinstance(case, tuple):
-                self._compile_expr(case[0])
-            self._emit(Op.EQ)
-            next_case = self._emit_jump(Op.JUMP_IF_FALSE)
-
-            self._emit(Op.POP)  # Pop matched value
-            body = case.body if hasattr(case, 'body') else case[1]
-            for stmt in body if isinstance(body, list) else [body]:
+        for clause in node.when_clauses:
+            body_jumps = []  # jump into this clause's body when a value matches
+            for val_expr in clause.values:
+                self._emit(Op.DUP)  # keep the subject for the next test
+                self._compile_expr(val_expr)
+                self._emit(Op.EQ)
+                body_jumps.append(self._emit_jump(Op.JUMP_IF_TRUE))
+            # No value in this clause matched: skip its body.
+            skip = self._emit_jump(Op.JUMP)
+            for bj in body_jumps:
+                self._patch_jump(bj)
+            self._emit(Op.POP)  # discard the subject before running the body
+            for stmt in clause.body:
                 self._compile_stmt(stmt)
             end_jumps.append(self._emit_jump(Op.JUMP))
+            self._patch_jump(skip)
 
-            self._patch_jump(next_case)
-
-        self._emit(Op.POP)  # Pop unmatched value
-        # Default case
-        if hasattr(node, 'default') and node.default:
-            for stmt in node.default:
-                self._compile_stmt(stmt)
+        # No clause matched: discard the subject, then run the default body.
+        self._emit(Op.POP)
+        for stmt in node.default_body:
+            self._compile_stmt(stmt)
 
         for ej in end_jumps:
             self._patch_jump(ej)
@@ -1518,7 +1758,18 @@ class BytecodeCompiler:
             self._compile_call(node)
 
         elif isinstance(node, ast.MethodCall):
-            self._compile_method_call(node)
+            # `Alias.member(args)` on a module alias is the dot spelling of
+            # `Alias::member(args)` — resolve it as a module member call.
+            obj = node.obj
+            if isinstance(obj, ast.Identifier) and obj.name in self._module_aliases:
+                for a in node.arguments:
+                    self._compile_expr(a)
+                self._emit(
+                    Op.CALL_MODULE_MEMBER,
+                    (obj.name, node.method_name, len(node.arguments)),
+                )
+            else:
+                self._compile_method_call(node)
 
         elif isinstance(node, ast.ListLiteral):
             for elem in node.elements:
@@ -1537,16 +1788,22 @@ class BytecodeCompiler:
             self._emit(Op.INDEX)
 
         elif isinstance(node, ast.PropertyAccess):
-            self._compile_expr(node.obj)
-            self._emit(Op.GET_ATTR, node.property_name)
+            # `Alias.member` on a module alias is the dot spelling of
+            # `Alias::member` — a bare member read, not an attribute lookup.
+            obj = node.obj
+            if isinstance(obj, ast.Identifier) and obj.name in self._module_aliases:
+                self._load_named(node.property_name)
+            else:
+                self._compile_expr(node.obj)
+                self._emit(Op.GET_ATTR, node.property_name)
 
         elif isinstance(node, ast.TernaryExpression):
             self._compile_expr(node.condition)
             false_jump = self._emit_jump(Op.JUMP_IF_FALSE)
-            self._compile_expr(node.true_value)
+            self._compile_expr(node.true_expr)
             end_jump = self._emit_jump(Op.JUMP)
             self._patch_jump(false_jump)
-            self._compile_expr(node.false_value)
+            self._compile_expr(node.false_expr)
             self._patch_jump(end_jump)
 
         elif isinstance(node, ast.LambdaExpression):
@@ -1584,7 +1841,7 @@ class BytecodeCompiler:
             self._emit(Op.NEW_INSTANCE, (node.class_name, len(node.arguments)))
 
         elif isinstance(node, ast.FileRead):
-            self._compile_expr(node.path)
+            self._compile_expr(node.filepath)
             self._emit(Op.FILE_READ)
 
         elif hasattr(ast, 'AwaitExpression') and isinstance(node, ast.AwaitExpression):
@@ -1597,8 +1854,21 @@ class BytecodeCompiler:
             self._emit(Op.SUPER_CALL, (node.method_name, len(node.arguments)))
 
         elif hasattr(ast, 'ModuleAccess') and isinstance(node, ast.ModuleAccess):
-            self._emit(Op.LOAD_GLOBAL, node.module_name)
-            self._emit(Op.GET_ATTR, node.member_name)
+            # Module::member — a plain member read, or a call when arguments
+            # are present (arguments is None for a variable, a list for a call).
+            args = getattr(node, 'arguments', None)
+            if args is None:
+                # A bare member read (``Alias::CONST``). Inlining flattens the
+                # module's top-level names into the current scope, so the member
+                # resolves by its bare name with the usual local-then-global rule.
+                self._load_named(node.member_name)
+            else:
+                for a in args:
+                    self._compile_expr(a)
+                self._emit(
+                    Op.CALL_MODULE_MEMBER,
+                    (node.module_name, node.member_name, len(args)),
+                )
 
         else:
             # Unknown expression type - push None
@@ -1746,16 +2016,18 @@ class BytecodeCompiler:
                         '//': operator.floordiv,
                         'FloorDivide': operator.floordiv,
                     }
-                    if op_str in fold_ops and (op_str not in ('/', 'Divide', 'DIVIDE') or rv != 0):
-                        result = fold_ops[op_str](lv, rv)
-                        # Mirror _op_div: whole-number division yields an int,
-                        # so folding matches runtime and the interpreter.
-                        if (
-                            op_str in ('/', 'Divide', 'DIVIDE')
-                            and isinstance(result, float)
-                            and result == int(result)
-                        ):
-                            result = int(result)
+                    is_div = op_str in ('/', 'Divide', 'DIVIDE')
+                    if op_str in fold_ops and (not is_div or rv != 0):
+                        # Mirror _op_div: division collapses to int ONLY when both
+                        # operands are ints dividing evenly; a float operand keeps
+                        # the float (200.0 / 4 == 50.0, not 50). Use `//` directly
+                        # for the even-int case — routing through float (int(a / b))
+                        # loses precision for large divisible ints, which would
+                        # diverge from runtime + the interpreter (both also `//`).
+                        if is_div and isinstance(lv, int) and isinstance(rv, int) and lv % rv == 0:
+                            result = lv // rv
+                        else:
+                            result = fold_ops[op_str](lv, rv)
                         idx = self._add_const(result)
                         self._emit(Op.LOAD_CONST, idx)
                         return
@@ -1850,8 +2122,14 @@ class BytecodeCompiler:
         # Check if it's a known function
         if name in self.functions:
             self._emit(Op.CALL, (name, len(args)))
+        elif self._resolve_local(name) is not None:
+            # A local/parameter holding a function value (a lambda passed in,
+            # e.g. `Call transform With item`). Load it and call the value.
+            self._emit(Op.LOAD_VAR, self._resolve_local(name))
+            self._emit(Op.CALL_VALUE, len(args))
         else:
-            # Could be a builtin or class constructor
+            # Could be a builtin, a class constructor, or a global holding a
+            # function value (resolved at runtime by _op_call_builtin).
             self._emit(Op.CALL_BUILTIN, (name, len(args)))
 
     def _compile_method_call(self, node):
@@ -1866,12 +2144,71 @@ class BytecodeCompiler:
         )
         self._emit(Op.CALL_METHOD, (method, len(args)))
 
+    def _collect_referenced_names(self, node, acc):
+        """Collect every identifier/call name referenced in an AST subtree.
+
+        Used to detect closure capture. Over-collecting (e.g. into a nested
+        lambda) only makes capture detection more conservative, never wrong.
+        """
+        from epl import ast_nodes as ast
+
+        if node is None:
+            return
+        if isinstance(node, ast.Identifier):
+            acc.add(node.name)
+            return
+        if isinstance(node, ast.FunctionCall):
+            nm = node.name if isinstance(node.name, str) else getattr(node.name, 'name', None)
+            if nm:
+                acc.add(nm)
+        if not hasattr(node, '__dict__'):
+            return
+        for v in vars(node).values():
+            if isinstance(v, list):
+                for item in v:
+                    if hasattr(item, '__dict__'):
+                        self._collect_referenced_names(item, acc)
+            elif hasattr(v, '__dict__'):
+                self._collect_referenced_names(v, acc)
+
+    def _lambda_captured_locals(self, node, param_names):
+        """Names the lambda reads from an enclosing *function* scope.
+
+        The VM has no working closure capture (the cells are never bound), so a
+        lambda that closes over an enclosing function's locals can't run
+        correctly. Detecting it lets the compiler raise, which makes `epl run`
+        fall back to the interpreter instead of silently computing nonsense.
+        Enclosing top-level names (globals) and the lambda's own params are
+        fine — only true function-local capture is the problem.
+        """
+        enclosing = set()
+        for scope in self.locals_stack[1:]:  # skip [0] = module/global scope
+            enclosing |= set(scope.keys())
+        if not enclosing:
+            return set()
+        refs = set()
+        self._collect_referenced_names(node.body, refs)
+        return (refs & enclosing) - set(param_names)
+
     def _compile_lambda(self, node):
+        params = node.params if hasattr(node, 'params') else getattr(node, 'parameters', [])
+        early_param_names = [
+            p if isinstance(p, str) else getattr(p, 'name', str(p)) for p in params
+        ]
+        captured = self._lambda_captured_locals(node, early_param_names)
+        if captured:
+            raise VMError(
+                'Lambda captures enclosing variable(s) '
+                f'{", ".join(sorted(captured))}; closures over function locals '
+                'are not supported by the bytecode VM (the interpreter handles '
+                'them).',
+                getattr(node, 'line', 0),
+            )
+
         outer_instr = self.instructions
         self.instructions = []
         self.locals_stack.append({})
 
-        params = node.params if hasattr(node, 'params') else getattr(node, 'parameters', [])
         param_names = []
         for p in params:
             name = p if isinstance(p, str) else getattr(p, 'name', str(p))
@@ -1984,7 +2321,6 @@ class VM:
         self._builtins = self._init_builtins()
         self._builtin_dispatch = self._build_builtin_dispatch()
         self._dispatch = self._build_dispatch_table()
-        self._imported_modules = set()  # Track imported files for dedup
         # Performance counters
         self.instruction_count = 0
         self.start_time = 0.0
@@ -2068,6 +2404,8 @@ class VM:
             Op.FILE_READ: self._op_file_read,
             Op.SUPER_CALL: self._op_super_call,
             Op.MODULE_ACCESS: self._op_module_access,
+            Op.CALL_MODULE_MEMBER: self._op_call_module_member,
+            Op.CALL_VALUE: self._op_call_value,
         }
         for op, handler in handlers.items():
             table[op.value] = handler
@@ -2159,7 +2497,14 @@ class VM:
                         self.instruction_count += instruction_count
                         return
                     # After CALL/RETURN, frame may have changed
-                    if inst.op in (Op.CALL, Op.RETURN, Op.CALL_METHOD, Op.CALL_BUILTIN):
+                    if inst.op in (
+                        Op.CALL,
+                        Op.RETURN,
+                        Op.CALL_METHOD,
+                        Op.CALL_BUILTIN,
+                        Op.CALL_MODULE_MEMBER,
+                        Op.CALL_VALUE,
+                    ):
                         if call_stack:
                             frame = call_stack[-1]
                             code = frame.func.code
@@ -2270,10 +2615,16 @@ class VM:
         b, a = self.stack.pop(), self.stack.pop()
         if b == 0 or b == 0.0:
             raise VMError('Cannot divide by zero.', inst.line)
-        result = a / b
-        self.stack.append(
-            int(result) if isinstance(result, float) and result == int(result) else result
-        )
+        # Match the interpreter exactly: collapse to int ONLY when both operands
+        # are ints that divide evenly. If either operand is a float (e.g.
+        # 200.0 / 4), preserve the float result — the old `result == int(result)`
+        # test wrongly turned 50.0 into 50, diverging from `epl run --interpret`.
+        # Use `//` for the even-int case rather than int(a / b): the float
+        # round-trip loses precision for large divisible ints (e.g. 10**18 + 1).
+        if isinstance(a, int) and isinstance(b, int) and a % b == 0:
+            self.stack.append(a // b)
+            return
+        self.stack.append(a / b)
 
     def _op_mod(self, inst):
         b, a = self.stack.pop(), self.stack.pop()
@@ -2520,6 +2871,14 @@ class VM:
             self._call_constructor(cls, arg_count)
             return
 
+        # A global variable holding a function value — e.g. a top-level
+        # `f = lambda x -> x * 2` then `f(5)`, or `compose(...)`'s returned
+        # function. Call it like any other first-class function.
+        gval = self.globals.get(name)
+        if isinstance(gval, CompiledFunction):
+            self._call_function(gval, arg_count)
+            return
+
         # Pop args
         args = []
         for _ in range(arg_count):
@@ -2528,6 +2887,24 @@ class VM:
 
         result = self._exec_builtin(name, args, inst.line)
         self.stack.append(result)
+
+    def _op_call_value(self, inst):
+        """Call a first-class function value sitting on top of the stack.
+
+        Used when a call target is a variable rather than a named function — a
+        lambda passed as a parameter (``Call transform With item``) or stored in
+        a local. Args were pushed first, then the function value on top.
+        """
+        arg_count = inst.arg
+        func = self.stack.pop()
+        if isinstance(func, CompiledFunction):
+            self._call_function(func, arg_count)
+            return
+        # Not callable: drop the args and yield nothing, matching the
+        # interpreter's lenient handling of a mis-typed call target.
+        for _ in range(arg_count):
+            self.stack.pop()
+        self.stack.append(None)
 
     # Data structures
     def _op_build_list(self, inst):
@@ -2716,83 +3093,15 @@ class VM:
         args.reverse()
         self.stack.append(range(*[int(a) for a in args]))
 
-    # Import — full implementation
     def _op_import(self, inst):
-        """Execute import by reading, parsing, and compiling the imported file."""
-        filepath = inst.arg
-        if filepath in self._imported_modules:
-            return  # already imported
-        self._imported_modules.add(filepath)
+        """No-op: imports are resolved and inlined at compile time.
 
-        import os
-
-        # Try to resolve path
-        abs_path = filepath
-        if not os.path.isabs(filepath):
-            # Try relative to current working directory
-            if not filepath.endswith('.epl'):
-                filepath_epl = filepath + '.epl'
-            else:
-                filepath_epl = filepath
-            candidates = [
-                filepath_epl,
-                filepath,
-                os.path.join('examples', filepath_epl),
-                os.path.join('epl', 'stdlib', filepath_epl),
-            ]
-            for c in candidates:
-                if os.path.isfile(c):
-                    abs_path = os.path.abspath(c)
-                    break
-            else:
-                return  # file not found — silently skip (may be stdlib)
-
-        if not os.path.isfile(abs_path):
-            return
-
-        try:
-            with open(abs_path, 'r', encoding='utf-8') as f:
-                source = f.read()
-            from epl.lexer import Lexer
-            from epl.parser import Parser
-
-            tokens = Lexer(source).tokenize()
-            program = Parser(tokens).parse()
-            compiler = BytecodeCompiler()
-            compiled = compiler.compile(program)
-            # Execute the imported module's code in our VM
-            self._exec_compiled(compiled)
-        except Exception:
-            pass  # Import failure is non-fatal in VM — interpreter fallback handles it
-
-    def _exec_compiled(self, compiled):
-        """Execute a compiled program's instructions, merging its functions/classes."""
-        # Merge functions and classes
-        for name, func in compiled.functions.items():
-            self.functions[name] = func
-        for name, cls in compiled.classes.items():
-            self.classes[name] = cls
-        # Execute top-level code
-        if compiled.instructions:
-            old_ip = self.call_stack[-1].ip if self.call_stack else 0
-            old_code = self.call_stack[-1].code if self.call_stack else []
-            frame = CallFrame(
-                code=compiled.instructions,
-                ip=0,
-                locals={},
-                name='<import>',
-            )
-            self.call_stack.append(frame)
-            try:
-                while frame.ip < len(frame.code):
-                    inst = frame.code[frame.ip]
-                    frame.ip += 1
-                    self.instructions_executed += 1
-                    result = self._dispatch(inst)
-                    if result == '__HALT__':
-                        break
-            finally:
-                self.call_stack.pop()
+        ``Import`` statements are handled by ``BytecodeCompiler._inline_import``,
+        which compiles the module into the same unit (one shared constant pool).
+        Op.IMPORT is therefore never emitted; this handler stays only so any
+        stale bytecode referencing it cannot raise.
+        """
+        return
 
     # Halt
     def _op_halt(self, inst):
@@ -2993,6 +3302,19 @@ class VM:
             self.stack.append(mod[member_name])
         else:
             self.stack.append(None)
+
+    def _op_call_module_member(self, inst):
+        """Call a module member function: ``Module::func(args)``.
+
+        Args are already on the stack. Imports are inlined at compile time, so
+        the module's functions live in the shared function table by bare name;
+        resolve the member there and invoke it like any other call.
+        """
+        module_name, member_name, arg_count = inst.arg
+        func = self.functions.get(member_name)
+        if func is None:
+            raise VMError(f"Module '{module_name}' has no member '{member_name}'.", inst.line)
+        self._call_function(func, arg_count)
 
     # ─── Built-in functions ───────────────────────────────────
 
@@ -3231,11 +3553,17 @@ class VM:
             return input(str(args[0]) if args else '')
 
         def _read_file(args, line):
-            with open(str(args[0]), 'r') as f:
+            # utf-8 to match the writers (_write_file/_append_file) and the
+            # FILE_READ op — otherwise read_file() can mojibake or fail on files
+            # those wrote, on platforms whose default encoding isn't utf-8.
+            with open(str(args[0]), 'r', encoding='utf-8') as f:
                 return f.read()
 
         def _write_file(args, line):
-            with open(str(args[0]), 'w') as f:
+            # Match the interpreter (_exec_file_write): utf-8 so non-ASCII
+            # round-trips identically on every platform (the default encoding
+            # is cp1252 on Windows, which would diverge from `--interpret`).
+            with open(str(args[0]), 'w', encoding='utf-8') as f:
                 f.write(str(args[1]))
             return True
 
@@ -3247,8 +3575,12 @@ class VM:
             return True
 
         def _append_file(args, line):
-            with open(str(args[0]), 'a') as f:
-                f.write(str(args[1]))
+            # Match the interpreter (_exec_file_append): each Append writes a
+            # trailing newline, and utf-8 keeps non-ASCII identical across
+            # platforms. Without the '\n' the VM concatenated appended lines
+            # (e.g. files.epl read back "line 2line 3" instead of "line 2\nline 3").
+            with open(str(args[0]), 'a', encoding='utf-8') as f:
+                f.write(str(args[1]) + '\n')
             return True
 
         # JSON
@@ -3765,15 +4097,20 @@ class VM:
 # ─── Convenience functions ────────────────────────────────────
 
 
-def compile_and_run(source: str) -> dict:
-    """Compile and execute EPL source code using the bytecode VM."""
+def compile_and_run(source: str, base_dir=None) -> dict:
+    """Compile and execute EPL source code using the bytecode VM.
+
+    base_dir is the directory the source file lives in; imports resolve
+    relative to it so a program finds its sibling modules regardless of the
+    current working directory. Defaults to the CWD when not supplied.
+    """
     from epl.lexer import Lexer
     from epl.parser import Parser
 
     tokens = Lexer(source).tokenize()
     program = Parser(tokens).parse()
 
-    compiler = BytecodeCompiler()
+    compiler = BytecodeCompiler(base_dir=base_dir)
     compiled = compiler.compile(program)
 
     vm = VM()
@@ -3781,7 +4118,7 @@ def compile_and_run(source: str) -> dict:
     return result
 
 
-def compile_to_bytecode(source: str) -> dict:
+def compile_to_bytecode(source: str, base_dir=None) -> dict:
     """Compile EPL source to bytecode without execution."""
     from epl.lexer import Lexer
     from epl.parser import Parser
@@ -3789,11 +4126,11 @@ def compile_to_bytecode(source: str) -> dict:
     tokens = Lexer(source).tokenize()
     program = Parser(tokens).parse()
 
-    compiler = BytecodeCompiler()
+    compiler = BytecodeCompiler(base_dir=base_dir)
     return compiler.compile(program)
 
 
-def disassemble(source: str) -> str:
+def disassemble(source: str, base_dir=None) -> str:
     """Compile EPL source and return human-readable bytecode disassembly."""
     from epl.lexer import Lexer
     from epl.parser import Parser
@@ -3801,6 +4138,6 @@ def disassemble(source: str) -> str:
     tokens = Lexer(source).tokenize()
     program = Parser(tokens).parse()
 
-    compiler = BytecodeCompiler()
+    compiler = BytecodeCompiler(base_dir=base_dir)
     compiler.compile(program)
     return compiler.disassemble()

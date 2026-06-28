@@ -61,7 +61,7 @@ status = "adult" if age >= 18 otherwise "minor"
 Print status
 
 x = 10
-# [AUTO-FIX] removed broken token
+label = "positive" if x > 0 otherwise "non-positive"
 Print label
 
 Note: ─── Ternary in Print ───

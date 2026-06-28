@@ -313,6 +313,11 @@ epl desktop app.epl
 epl build app.epl
 # → LLVM-compiled native binary
 ```
+> Requires an LLVM/clang toolchain. The native backend compiles
+> **type-annotated** programs (e.g. `takes integer a and returns integer`);
+> functions left fully dynamic are refused with a clear message rather than
+> miscompiled — run those with `epl run`, which supports the full dynamic
+> language. Broad untyped-code native compilation is in progress.
 
 **☸️ Kubernetes Deployment**
 ```bash

@@ -1,89 +1,55 @@
-# EPL Official Starter: Creative Frontend
-# A server-rendered multi-page UI showcasing EPL's native
-# web DSL with dynamic routing, loops, and page generation.
-#
-# Run:  epl serve examples/official_starters/creative_frontend/main.epl
-# Open: http://localhost:8082
+Note: Creative Frontend — a server-rendered page built from data
+Note: Run with: epl run examples/official_starters/creative_frontend/main.epl
+Note: Open:     http://localhost:8082
+Note:
+Note: Shows how to generate HTML from EPL data: a list of feature maps is looped
+Note: over to build cards, which are injected into a full page. The same data is
+Note: also served as JSON at /api/features.
 
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
+Note: A list literal must stay on one line, so each feature is built first and
+Note: then collected — keeping the data readable without a multi-line literal.
+feature_a = Map with title = "Plain English" and body = "Write programs in readable English sentences."
+feature_b = Map with title = "Batteries Included" and body = "Web server, database, and auth are built in."
+feature_c = Map with title = "One File to Ship" and body = "Run, serve, or build to native from a single file."
+features = [feature_a, feature_b, feature_c]
 
 Function build_feature_cards takes items
     html = ""
     For Each f In items
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
+        html = html + "<div class='card'><h3>" + f["title"] + "</h3><p>" + f["body"] + "</p></div>"
     End
     Return html
 End
 
-# [AUTO-FIX] removed broken token
-
-# [AUTO-FIX] removed broken token
+Function render_page
     cards = build_feature_cards(features)
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-age = 20
-If age is greater than 18 Then
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
+    doc = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>EPL Creative Frontend</title>"
+    doc = doc + "<style>body{font-family:system-ui;margin:40px;background:#0b0f17;color:#e6edf3}"
+    doc = doc + ".card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:20px;margin:16px 0}"
+    doc = doc + "h1{font-size:2rem}h3{margin:0 0 8px;color:#58a6ff}</style></head><body>"
+    doc = doc + "<h1>Built with EPL ✨</h1><p>This whole page was generated server-side from EPL data.</p>"
+    doc = doc + cards
+    doc = doc + "<p><a style='color:#58a6ff' href='/api/features'>View the same data as JSON →</a></p>"
+    doc = doc + "</body></html>"
+    Return doc
 End
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
-# [AUTO-FIX] removed broken token
 
-# [AUTO-FIX] removed broken token
+Create webapp app
+
+Note: ── Home page (server-rendered from the features list) ──
+Route "/" responds with
+    Send text render_page()
+End
+
+Note: ── Same data as JSON ──
+Route "/api/features" responds with
     Send json features
-# [AUTO-FIX] removed broken token
+End
 
-# [AUTO-FIX] removed broken token
+Note: ── Health check ──
+Route "/api/health" responds with
     Send json Map with status = "ok" and service = "epl-creative-frontend" and version = "1.0.0"
-# [AUTO-FIX] removed broken token
+End
 
 Say "Creative Frontend running at http://localhost:8082"
 Start app on port 8082
