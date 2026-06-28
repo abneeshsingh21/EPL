@@ -204,7 +204,8 @@ HELP = f"""\
   --in-place     Write formatted output back to files
 
 {_bold('Serve Options:')}
-  --port N         Server port (default: 8000)
+  --port N         Server port (default: 8000; env PORT/EPL_WEB_PORT override)
+  --host ADDR      Bind address (default: 127.0.0.1 dev / 0.0.0.0 prod)
   --workers N      Number of workers (default: 4)
   --dev            Development mode (built-in server + hot-reload)
   --engine ENGINE  Production server: auto|waitress|gunicorn|uvicorn|hypercorn|builtin
@@ -2547,6 +2548,7 @@ def _serve(args):
 
     filename = args[0]
     port = 8000
+    host = None  # None → mode default (127.0.0.1 dev / 0.0.0.0 prod); env can override
     workers = 4
     reload_mode = False
     dev_mode = False
@@ -2562,6 +2564,10 @@ def _serve(args):
             port = _parse_int(args[i + 1], 'port')
             if port is None:
                 return 1
+            i += 2
+            continue
+        if arg == '--host' and i + 1 < len(args):
+            host = args[i + 1]
             i += 2
             continue
         if arg == '--workers' and i + 1 < len(args):
@@ -2632,15 +2638,20 @@ def _serve(args):
                 attach(app)
                 print(f'  {_green("✓")} Observability endpoints: /_health, /_ready, /_metrics')
             print(f'  {_yellow("⚠ Development mode")} — not for production use')
+            dev_host = host or '127.0.0.1'
             if reload_mode:
                 try:
                     from epl.hot_reload import start_with_reload
 
                     start_with_reload(filename, port=port)
                 except ImportError:
-                    start_server(app, port=port, interpreter=interpreter, workers=workers)
+                    start_server(
+                        app, port=port, host=dev_host, interpreter=interpreter, workers=workers
+                    )
             else:
-                start_server(app, port=port, interpreter=interpreter, workers=workers)
+                start_server(
+                    app, port=port, host=dev_host, interpreter=interpreter, workers=workers
+                )
         else:
             # Production mode: use WSGI adapter with best available server
             from epl.deploy import WSGIAdapter, serve
@@ -2658,7 +2669,7 @@ def _serve(args):
 
             serve(
                 WSGIAdapter(app, interpreter=interpreter),
-                host='0.0.0.0',
+                host=host or '0.0.0.0',
                 port=port,
                 workers=workers,
                 reload=reload_mode,
@@ -4730,7 +4741,11 @@ def _registry_server(args):
     if subcmd == 'start':
         from epl.registry_server import start_registry
 
-        port = 4873
+        # None lets registry_server resolve from EPL_REGISTRY_PORT/PORT and
+        # EPL_REGISTRY_HOST env vars (defaults: 4873 / 127.0.0.1). Explicit
+        # CLI flags take precedence over env vars.
+        port = None
+        host = None
         data_dir = None
         i = 1
         while i < len(args):
@@ -4741,14 +4756,17 @@ def _registry_server(args):
                     return 1
                 i += 2
                 continue
+            if arg == '--host' and i + 1 < len(args):
+                host = args[i + 1]
+                i += 2
+                continue
             if arg == '--data-dir' and i + 1 < len(args):
                 data_dir = args[i + 1]
                 i += 2
                 continue
             i += 1
 
-        print(f'{_bold("EPL Package Registry")} starting on port {port}')
-        start_registry(port=port, data_dir=data_dir)
+        start_registry(port=port, host=host, data_dir=data_dir)
         return 0
 
     if subcmd == 'status':
