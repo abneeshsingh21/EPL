@@ -36,9 +36,6 @@ _PARSE_EXCLUSIONS = {
     'test_strings.epl': 'Test/expect DSL, run via `epl test`',
     # `Use javascript "…"` foreign-code bridge — needs the JS bridge enabled.
     'js_bridge_demo.epl': 'JavaScript bridge (Use javascript), needs Node runtime',
-    # Pre-existing dev scratch helper using unsupported `Set m["k"] to …`
-    # indexed-assignment syntax (fails under `epl run` too). Not a shipped demo.
-    'discord_agent/test_funcs.epl': 'scratch helper using unsupported indexed Set',
 }
 
 

@@ -139,3 +139,36 @@ def test_native_negative_step_counts_down(tmp_path):
     """A negative-step `For` loop must actually iterate downward natively."""
     src = 'For i from 5 to 1 step -1\n  Print i\nEnd\n'
     assert _build_and_run(src, tmp_path).split() == ['5', '4', '3', '2', '1']
+
+
+def test_native_build_output_flag(tmp_path):
+    """`epl build -o path` must write the binary to the specified path and create
+    any required directories."""
+    from epl.runtime_support import compile_file
+
+    prev = os.getcwd()
+    os.chdir(tmp_path)
+    try:
+        src_path = os.path.join(tmp_path, 'prog.epl')
+        with open(src_path, 'w', encoding='utf-8') as handle:
+            handle.write('Print "from -o"\n')
+
+        clang_dir = os.path.dirname(_CLANG)
+        if clang_dir and clang_dir not in os.environ.get('PATH', ''):
+            os.environ['PATH'] = clang_dir + os.pathsep + os.environ.get('PATH', '')
+
+        # Build into a subdir that does not exist yet.
+        ok = compile_file('prog.epl', opt_level=2, static=True, output='dist/myapp')
+        assert ok, 'compile_file reported failure'
+
+        # The platform extension must be auto-appended.
+        exe = os.path.join(tmp_path, 'dist', 'myapp.exe')
+        if not os.path.exists(exe):
+            exe = os.path.join(tmp_path, 'dist', 'myapp')
+        assert os.path.exists(exe), f'output binary not found at {exe}'
+
+        result = subprocess.run([exe], capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, f'binary exited {result.returncode}'
+        assert result.stdout.strip() == 'from -o'
+    finally:
+        os.chdir(prev)

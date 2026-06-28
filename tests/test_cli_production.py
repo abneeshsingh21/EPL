@@ -109,7 +109,7 @@ class TestCLIProduction(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             compile_file.assert_called_once_with(
-                'src/main.epl', opt_level=2, static=True, target=None
+                'src/main.epl', opt_level=2, static=True, target=None, output=None
             )
         finally:
             os.chdir(old_cwd)
@@ -131,7 +131,7 @@ class TestCLIProduction(unittest.TestCase):
 
             self.assertEqual(exit_code, 0)
             compile_file.assert_called_once_with(
-                'src/main.epl', opt_level=2, static=False, target=None
+                'src/main.epl', opt_level=2, static=False, target=None, output=None
             )
         finally:
             os.chdir(old_cwd)
@@ -151,6 +151,7 @@ class TestCLIProduction(unittest.TestCase):
             opt_level=3,
             static=True,
             target='linux-x64',
+            output=None,
         )
 
     @_skip_no_main
@@ -161,7 +162,9 @@ class TestCLIProduction(unittest.TestCase):
             exit_code = main_module.legacy_main(['build', 'src/main.epl'])
 
         self.assertEqual(exit_code, 1)
-        compile_file.assert_called_once_with('src/main.epl', opt_level=2, static=True, target=None)
+        compile_file.assert_called_once_with(
+            'src/main.epl', opt_level=2, static=True, target=None, output=None
+        )
 
     @_skip_no_main
     def test_legacy_main_delegates_to_cli_main(self):

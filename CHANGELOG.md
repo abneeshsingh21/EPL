@@ -19,6 +19,21 @@ fixed and covered by VM-vs-interpreter parity tests; the recoverable examples ar
 restored; and a new runtime test stops broken examples from shipping green again.
 
 ### Fixed
+- **`Set list[i] to value` and `Set obj.prop to value` now work.** The `Set`
+  parser only accepted bare variable names; subscript and property targets failed
+  with "Expected 'to' after variable name". `Set xs[1] to 99` and `Set m.key to
+  "val"` now emit the same `IndexSet`/`PropertySet` nodes as the `=` shorthand
+  form, so both spellings work identically under the interpreter and the VM.
+  Parity coverage added; `test_funcs.epl` (which used this syntax) now runs.
+- **`When 1 or 2 or 3` in a Match collapsed to a single boolean `1`.** The
+  surface parser consumed each `When` value with `_parse_expression()`, which
+  greedily folded `1 or 2 or 3` into one boolean-OR expression — so the match
+  only ever tested against `1`. Multi-value `When` now parses each alternative
+  at the `_parse_and()` precedence (just below `or`), so the `or` separators stay
+  as separators and all alternatives are tested. Parity coverage added.
+- **Match accepted only `Default`, not `Otherwise`.** The If statement accepts
+  both `Otherwise` and `else` for the catch-all branch, but Match only accepted
+  `Default`. All three keywords now work in Match for consistency.
 - **`Continue` inside a counted loop (`For … from … to …`, `Repeat … times`)
   hung forever.** The VM pointed the loop's `continue` target at the condition
   check, which runs *before* the counter is advanced — so a `Continue` looped
@@ -162,6 +177,13 @@ restored; and a new runtime test stops broken examples from shipping green again
   real model.
 
 ### Added
+- **`epl build -o/--output PATH`** — the native-build command now accepts an
+  output path for the compiled binary (the same `-o` every transpile command
+  already had). `epl build main.epl -o dist/myapp` writes the executable to
+  `dist/myapp.exe` (Windows) or `dist/myapp` (Unix), auto-creating any
+  directories and auto-appending the platform extension when omitted. Without
+  `-o` the artifact still lands beside the cwd as `<basename><.exe>` (the
+  historical behavior). Parity coverage added.
 - **`tests/test_examples_run.py`** — actually *runs* every run-to-completion
   example (not just parses it) and asserts a clean exit, so corruption like the
   above cannot ship green again. Servers, interactive, Node-bridge, test-DSL and

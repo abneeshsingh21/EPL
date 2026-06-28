@@ -427,13 +427,14 @@ def test_build_command_uses_native():
     calls = {}
     original_compile_file = runtime_support.compile_file
 
-    def fake_compile_file(filename, opt_level=2, static=False, target=None):
+    def fake_compile_file(filename, opt_level=2, static=False, target=None, output=None):
         calls.update(
             {
                 'filename': filename,
                 'opt_level': opt_level,
                 'static': static,
                 'target': target,
+                'output': output,
             }
         )
         return True
