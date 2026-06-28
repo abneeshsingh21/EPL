@@ -383,8 +383,32 @@ def _native_unsafe_functions(program) -> list:
     return problems
 
 
+def _resolve_output_path(output: Optional[str], base: str, ext: str) -> str:
+    """Decide the final artifact path for the native/WASM build.
+
+    Without ``-o`` the artifact lands beside the cwd as ``<base><ext>`` (the
+    historical behavior). With ``-o path`` the user's path wins verbatim — we
+    only append the platform extension when it is missing (so ``-o dist/app``
+    yields ``dist/app.exe`` on Windows) and create any leading directories so
+    ``-o dist/app`` doesn't fail because ``dist/`` does not exist yet.
+    """
+    if not output:
+        return base + ext
+    path = output
+    if ext and not path.lower().endswith(ext.lower()):
+        path += ext
+    out_dir = os.path.dirname(path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+    return path
+
+
 def compile_file(
-    filepath: str, opt_level: int = 2, static: bool = False, target: Optional[str] = None
+    filepath: str,
+    opt_level: int = 2,
+    static: bool = False,
+    target: Optional[str] = None,
+    output: Optional[str] = None,
 ) -> bool:
     if not os.path.exists(filepath):
         raise FileNotFoundError(filepath)
@@ -441,7 +465,7 @@ def compile_file(
         runtime_c = os.path.join(script_dir, 'runtime.c')
 
         if target == 'wasm32':
-            wasm_path = base + '.wasm'
+            wasm_path = _resolve_output_path(output, base, '.wasm')
             try:
                 cmd = [
                     'emcc',
@@ -503,7 +527,7 @@ def compile_file(
             exe_ext = '.exe'
         else:
             exe_ext = ''
-        exe_path = base + exe_ext
+        exe_path = _resolve_output_path(output, base, exe_ext)
 
         rt_obj = base + '_rt.o'
         rt_cmd = [cc, '-c', f'-O{opt_level}', '-o', rt_obj, runtime_c]

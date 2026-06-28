@@ -113,6 +113,9 @@ HELP = f"""\
   epl run <file.epl> [flags]       Run an EPL program
   epl new <name> [--template T]    Create a new EPL project
   epl build <file.epl>             Compile to native executable (.exe)
+                                   -o, --output PATH  Write the binary to PATH
+                                   --opt=N            Optimization level (0-3)
+                                   --target=TRIPLE    Cross-compile target
   epl wasm <file.epl>              Compile to WebAssembly (.wasm)
   epl test [dir|file]              Run EPL test suite
                                    --filter=PATTERN  Run only matching tests
@@ -1662,6 +1665,7 @@ def _build(args, flags, command='build'):
     opt_level = 2
     static_link = command == 'build'
     target = None
+    output = None
 
     i = 1
     while i < len(args):
@@ -1690,6 +1694,14 @@ def _build(args, flags, command='build'):
             target = arg.split('=', 1)[1]
             i += 1
             continue
+        if arg in ('-o', '--output') and i + 1 < len(args):
+            output = args[i + 1]
+            i += 2
+            continue
+        if arg.startswith('--output='):
+            output = arg.split('=', 1)[1]
+            i += 1
+            continue
         print(f'{_red("Error:")} Unknown {command} option: {arg}')
         return 1
 
@@ -1698,7 +1710,13 @@ def _build(args, flags, command='build'):
 
         return (
             0
-            if compile_file(filename, opt_level=opt_level, static=static_link, target=target)
+            if compile_file(
+                filename,
+                opt_level=opt_level,
+                static=static_link,
+                target=target,
+                output=output,
+            )
             else 1
         )
     except FileNotFoundError:

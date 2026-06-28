@@ -1039,12 +1039,37 @@ class Parser:
     # ─── Variable Assignment ──────────────────────────────
 
     def _parse_var_assignment(self):
-        """Set age to 25"""
+        """Set age to 25  /  Set items[i] to 99  /  Set obj.prop to value
+
+        The bare ``name = value`` form (``_parse_shorthand_assignment``) already
+        supports subscript and property targets via ``IndexSet`` / ``PropertySet``;
+        ``Set … to …`` now mirrors it so both spellings reach the same nodes — and
+        therefore behave identically under the interpreter and the VM."""
         line = self._current().line
         self._advance()  # consume SET
 
         name_tok = self._expect_identifier('Expected a variable name after "Set".')
         var_name = name_tok.value
+
+        # Set items[i] to value  → IndexSet (same node the "=" path emits)
+        if self._match(TokenType.LBRACKET):
+            self._advance()  # consume [
+            index_expr = self._parse_expression()
+            self._expect(TokenType.RBRACKET, 'Expected "]".')
+            self._expect(TokenType.TO, 'Expected "to" after index in Set statement.')
+            value = self._parse_expression()
+            self._end_statement()
+            return ast.IndexSet(ast.Identifier(var_name, line), index_expr, value, line)
+
+        # Set obj.prop to value  → PropertySet
+        if self._match(TokenType.DOT):
+            self._advance()  # consume .
+            prop_tok = self._expect_identifier('Expected property name after ".".')
+            prop_name = prop_tok.value
+            self._expect(TokenType.TO, 'Expected "to" after property in Set statement.')
+            value = self._parse_expression()
+            self._end_statement()
+            return ast.PropertySet(ast.Identifier(var_name, line), prop_name, value, line)
 
         self._expect(TokenType.TO, 'Expected "to" after variable name in Set statement.')
 
@@ -2204,16 +2229,24 @@ class Parser:
             if self._match(TokenType.WHEN):
                 self._advance()  # consume WHEN
                 # Parse values: When "Monday" or "Tuesday"
-                values = [self._parse_expression()]
+                # Parse each value just BELOW the boolean-`or` precedence so the
+                # `or` separating alternatives is treated as a value separator,
+                # not folded into a single boolean expression (which would make
+                # `When 1 or 2 or 3` evaluate to `1` and only ever match 1).
+                values = [self._parse_and()]
                 while self._match(TokenType.OR):
                     self._advance()
-                    values.append(self._parse_expression())
+                    values.append(self._parse_and())
                 self._end_statement()
                 self._skip_newlines()
 
                 body = []
                 while not self._match(
-                    TokenType.WHEN, TokenType.DEFAULT, TokenType.END, TokenType.EOF
+                    TokenType.WHEN,
+                    TokenType.DEFAULT,
+                    TokenType.OTHERWISE,
+                    TokenType.END,
+                    TokenType.EOF,
                 ):
                     stmt = self._parse_statement()
                     if stmt:
@@ -2222,8 +2255,10 @@ class Parser:
 
                 when_clauses.append(ast.WhenClause(values, body, line=self._current().line))
 
-            elif self._match(TokenType.DEFAULT):
-                self._advance()  # consume DEFAULT
+            elif self._match(TokenType.DEFAULT, TokenType.OTHERWISE):
+                # `Default`, `Otherwise`, and `else` all introduce the catch-all
+                # branch — matching the `If` statement's vocabulary.
+                self._advance()  # consume DEFAULT / OTHERWISE
                 self._end_statement()
                 self._skip_newlines()
 
