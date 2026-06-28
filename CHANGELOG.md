@@ -18,6 +18,53 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Added — native Android/Kotlin compilation (H1 db bridge + H3 type-correct transpile)
+**The transliterating Android/Kotlin target now produces code that actually
+compiles**, including database apps. v10.0.0 told the truth about *what* it could
+port; this closes the cases it claimed to port but emitted uncompilable Kotlin
+for. Every fix below was verified against the real Kotlin compiler (`gradlew
+compileDebugKotlin` / `assembleDebug`) on four generated apps — a pure-logic app,
+a class-based app, a builtin-name-shadowing app, and the FocusFlow `db_*` app.
+Findings **H1** (native `db_*` bridge) and **H3** (scope/type-correct transpile)
+from the omniapp audit.
+
+- **H1 — native `db_*` SQLite bridge.** The generated `EPLRuntime.kt` now ships
+  database functions, and `db_query`/`db_open`/`db_execute`/`db_close`/`db_count`/
+  `db_query_one` (plus their `_params` variants) are rewritten to
+  `EPLRuntime.dbQuery`/`dbOpen`/… with correct return types instead of being
+  emitted verbatim as unresolved references. Dynamic member/index access on
+  maps routes through `EPLRuntime.field(obj,"k")` / `EPLRuntime.at(obj,i)`. The
+  `db_*` FocusFlow app now compiles and assembles to an APK, so `epl`'s porting
+  report marks `db_*` as portable for the Android target.
+
+### Fixed — Kotlin transliteration emitted uncompilable code (H3)
+- **`Set x to …` on a never-declared name emitted a bare `x = …`** — an
+  unresolved reference in Kotlin. EPL's `Set` is create-or-update, so the first
+  sight of a name now emits a typed `var` declaration; a later `Set` of an
+  already-declared name stays a bare reassignment, and class properties still
+  assign through `this`.
+- **Untyped function parameters became `Any` receivers no operator applied to.**
+  Parameters are now typed from body usage: true arithmetic (`-`, `*`, `/`, `%`,
+  `//`, `**`), ordering comparisons against a numeric operand, and `+` *only*
+  when the other operand is itself numeric. `+` against a string/dynamic operand
+  is ignored, since in EPL it doubles as string concatenation — so `greet(name)`
+  stays `Any` while `factorial(n)` and `double(x)` resolve to `Int`.
+- **Recursive functions couldn't infer a return type** (the self-call resolved to
+  nothing). The signature is now seeded from non-recursive (base-case) return
+  paths first, then refined with all paths.
+- **References to body-local variables broke param/return inference.** Local
+  variable types (e.g. a loop counter) are pre-scanned so `i < exp` resolves
+  `exp` to `Int` even though `i` isn't emitted yet.
+- **Heterogeneous map literals were typed from only the first entry** — e.g.
+  `{"name": "Alice", "age": 30}` became `MutableMap<String, String>`. Key and
+  value types now collapse to `Any` when the entries disagree.
+- **`Any?` on the left of `+` (a dynamic map field) had no `plus` operator.**
+  String concatenation now coerces a non-`String` left operand with `.toString()`
+  so `field(m, "name") + " is "` compiles.
+- **A user function named like a builtin (`power`, `max`, …) was hijacked** by the
+  builtin call-rewriting. A defined function of the same name now shadows the
+  builtin.
+
 ### Fixed
 - **`Set list[i] to value` and `Set obj.prop to value` now work.** The `Set`
   parser only accepted bare variable names; subscript and property targets failed

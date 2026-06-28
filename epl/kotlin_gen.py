@@ -187,6 +187,9 @@ class KotlinGenerator:
             self._line('')
             self._emit_android_widgets()
             self._line('')
+            # Logic + local functions BEFORE event bindings so handlers are in scope
+            self._emit_program_logic(program.statements)
+            self._line('')
             self._emit_event_bindings()
             self._line('')
             self._line('scrollView.addView(mainLayout)')
@@ -194,16 +197,10 @@ class KotlinGenerator:
         else:
             self._line('setContentView(R.layout.activity_main)')
             self._line('')
+            self._emit_program_logic(program.statements)
 
-        # Emit non-GUI statements
-        for s in program.statements:
-            if not self._is_gui_node(s):
-                self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
-
-        # Generate helper methods for event handlers
-        self._emit_handler_methods(program.statements)
 
         self.indent -= 1
         self._line('}')
@@ -687,6 +684,17 @@ class KotlinGenerator:
             elif isinstance(s, ast.WindowCreate):
                 self._emit_handler_methods(s.body)
 
+    def _emit_program_logic(self, stmts):
+        """Emit non-GUI top-level statements in source order.
+
+        FunctionDefs become local functions inside onCreate (single emission —
+        no duplicate class-level copies), so they close over locals such as a
+        `db` handle and are in scope for event-binding lambdas emitted after.
+        """
+        for s in stmts:
+            if not self._is_gui_node(s):
+                self._emit_stmt(s)
+
     # ─── Helper ──────────────────────────────────────────
 
     def _line(self, text):
@@ -920,8 +928,19 @@ class KotlinGenerator:
         self._line(f'var {node.name}: {kt_type} = {self._expr(node.value)}')
 
     def _emit_var_assign(self, node):
-        prefix = 'this.' if (self.in_class and node.name in self.class_properties) else ''
-        self._line(f'{prefix}{node.name} = {self._expr(node.value)}')
+        # `Set x to ...` in EPL is create-or-update. A class property assigns
+        # through `this`; an already-declared local is a bare reassignment;
+        # otherwise this is the first sight of the name and must declare it,
+        # else Kotlin reports an unresolved reference.
+        if self.in_class and node.name in self.class_properties:
+            self._line(f'this.{node.name} = {self._expr(node.value)}')
+            return
+        if self.symbols.lookup(node.name) is not None:
+            self._line(f'{node.name} = {self._expr(node.value)}')
+            return
+        kt_type = self._infer_kotlin_type(node.value)
+        self.symbols.define(node.name, kt_type)
+        self._line(f'var {node.name}: {kt_type} = {self._expr(node.value)}')
 
     def _emit_print(self, node):
         self._line(f'println({self._expr(node.expression)})')
@@ -984,6 +1003,9 @@ class KotlinGenerator:
                 self._line(f'for ({node.var_name} in {start}..{end} step {step}) {{')
         else:
             self._line(f'for ({node.var_name} in {start}..{end}) {{')
+        # Register the loop variable so a reassignment inside the body is a
+        # bare assignment, not a spurious `var` re-declaration.
+        self.symbols.define(node.var_name, 'Int')
         self.indent += 1
         for s in node.body:
             self._emit_stmt(s)
@@ -992,6 +1014,13 @@ class KotlinGenerator:
 
     def _emit_for_each(self, node):
         self._line(f'for ({node.var_name} in {self._expr(node.iterable)}) {{')
+        # Element type of the iterable, falling back to Any for dynamic values.
+        iter_type = self._infer_kotlin_type(node.iterable)
+        if iter_type.startswith(('MutableList<', 'List<')):
+            elem_type = iter_type[iter_type.index('<') + 1 : -1]
+        else:
+            elem_type = 'Any'
+        self.symbols.define(node.var_name, elem_type)
         self.indent += 1
         for s in node.body:
             self._emit_stmt(s)
@@ -1001,17 +1030,22 @@ class KotlinGenerator:
     def _emit_function(self, node):
         # Filter out 'self' param (not needed in Kotlin)
         real_params = [p for p in node.params if p[0] != 'self']
-        params = ', '.join(self._format_param(p) for p in real_params)
-        ret_type = self._infer_return_type(node)
-        # Register in symbol table
-        param_types = [(p[0], self._infer_param_type(p)) for p in real_params]
+        param_types = self._resolve_param_types(real_params, node.body)
+        # Seed the signature from non-recursive returns first so a recursive
+        # self-call resolves to a concrete type, then refine with all paths.
+        seed_ret = self._infer_return_type(node, param_types, skip_recursive=True)
+        self.symbols.define_function(node.name, param_types, seed_ret)
+        ret_type = self._infer_return_type(node, param_types)
         self.symbols.define_function(node.name, param_types, ret_type)
+        params = ', '.join(
+            self._format_param_typed(p, pt) for p, (_, pt) in zip(real_params, param_types)
+        )
         self._line(f'fun {node.name}({params}): {ret_type} {{')
         self.indent += 1
         prev_symbols = self.symbols
         self.symbols = self.symbols.child()
-        for p in real_params:
-            self.symbols.define(p[0], self._infer_param_type(p))
+        for name, pt in param_types:
+            self.symbols.define(name, pt)
         for s in node.body:
             self._emit_stmt(s)
         if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
@@ -1025,15 +1059,18 @@ class KotlinGenerator:
     def _emit_class_method(self, node):
         """Emit a method inside a class, with this. prefixing for properties."""
         real_params = [p for p in node.params if p[0] != 'self']
-        params = ', '.join(self._format_param(p) for p in real_params)
-        ret_type = self._infer_return_type(node)
+        param_types = self._resolve_param_types(real_params, node.body)
+        ret_type = self._infer_return_type(node, param_types)
         modifier = 'open ' if self.in_class else ''
+        params = ', '.join(
+            self._format_param_typed(p, pt) for p, (_, pt) in zip(real_params, param_types)
+        )
         self._line(f'{modifier}fun {node.name}({params}): {ret_type} {{')
         self.indent += 1
         prev_symbols = self.symbols
         self.symbols = self.symbols.child()
-        for p in real_params:
-            self.symbols.define(p[0], self._infer_param_type(p))
+        for name, pt in param_types:
+            self.symbols.define(name, pt)
         for s in node.body:
             self._emit_stmt(s)
         if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
@@ -1067,12 +1104,19 @@ class KotlinGenerator:
             return 'MutableList<Any>'
         if isinstance(node, ast.DictLiteral):
             if node.pairs:
-                key_type = self._infer_kotlin_type(
-                    ast.Literal(node.pairs[0][0], 0)
-                    if isinstance(node.pairs[0][0], (int, float, str, bool))
-                    else node.pairs[0][0]
-                )
-                val_type = self._infer_kotlin_type(node.pairs[0][1])
+
+                def _key_type(k):
+                    return self._infer_kotlin_type(
+                        ast.Literal(k, 0) if isinstance(k, (int, float, str, bool)) else k
+                    )
+
+                key_types = {_key_type(k) for k, _ in node.pairs}
+                val_types = {self._infer_kotlin_type(v) for _, v in node.pairs}
+                # A map literal compiles to a single Kotlin type — collapse to
+                # Any when the keys (or values) aren't all the same, else the
+                # declared type won't match the inferred element types.
+                key_type = next(iter(key_types)) if len(key_types) == 1 else 'Any'
+                val_type = next(iter(val_types)) if len(val_types) == 1 else 'Any'
                 return f'MutableMap<{key_type}, {val_type}>'
             return 'MutableMap<String, Any>'
         if isinstance(node, ast.Identifier):
@@ -1107,6 +1151,19 @@ class KotlinGenerator:
             fn_info = self.symbols.lookup_function(node.name)
             if fn_info:
                 return fn_info['return']
+            # db_* builtins (native SQLite bridge)
+            db_ret = {
+                'db_query': 'MutableList<Map<String, Any?>>',
+                'db_query_params': 'MutableList<Map<String, Any?>>',
+                'db_query_one': 'Map<String, Any?>?',
+                'db_count': 'Long',
+                'db_open': 'Any',
+                'db_execute': 'Unit',
+                'db_execute_params': 'Unit',
+                'db_close': 'Unit',
+            }
+            if node.name in db_ret:
+                return db_ret[node.name]
             # Built-in return types
             builtin_types = {
                 'length': 'Int',
@@ -1180,20 +1237,30 @@ class KotlinGenerator:
             obj_type = self._infer_kotlin_type(node.obj)
             if obj_type == 'String':
                 return 'Char'
-            if obj_type.startswith('MutableList<'):
-                inner = obj_type[len('MutableList<') : -1]
+            if obj_type.startswith('MutableList<') or obj_type.startswith('List<'):
+                inner = obj_type[obj_type.index('<') + 1 : -1]
                 return inner
-            if obj_type.startswith('MutableMap<'):
-                parts = obj_type[len('MutableMap<') : -1].split(', ', 1)
+            if obj_type.startswith('MutableMap<') or obj_type.startswith('Map<'):
+                parts = obj_type[obj_type.index('<') + 1 : -1].split(', ', 1)
                 if len(parts) == 2:
                     return parts[1]
+            if obj_type in ('Any', 'Any?'):
+                # dynamic index access goes through EPLRuntime.at → nullable
+                return 'Any?'
         if isinstance(node, ast.PropertyAccess):
-            cls_info = self.symbols.lookup_class(
-                self._infer_kotlin_type(node.obj) if hasattr(node.obj, 'name') else ''
-            )
+            obj_type = self._infer_kotlin_type(node.obj)
+            cls_info = self.symbols.lookup_class(obj_type)
             if cls_info and node.property_name in cls_info.get('properties', {}):
                 return cls_info['properties'][node.property_name]
+            if self._is_dynamic_or_map(obj_type):
+                # dynamic field access (map row / Any) goes through EPLRuntime.field
+                return 'Any?'
         return 'Any'
+
+    @staticmethod
+    def _is_dynamic_or_map(t: str) -> bool:
+        """A Kotlin type that EPL treats as a dynamic key/value bag (map or Any)."""
+        return t in ('Any', 'Any?') or t.startswith('Map<') or t.startswith('MutableMap<')
 
     def _infer_param_type(self, param) -> str:
         """Infer Kotlin type for a function parameter."""
@@ -1215,13 +1282,122 @@ class KotlinGenerator:
 
     def _format_param(self, p) -> str:
         """Format a parameter with type and optional default value."""
-        kt_type = self._infer_param_type(p)
+        return self._format_param_typed(p, self._infer_param_type(p))
+
+    def _format_param_typed(self, p, kt_type) -> str:
+        """Format a parameter with a pre-resolved Kotlin type + optional default."""
         if len(p) > 2 and p[2] is not None:
             return f'{p[0]}: {kt_type} = {self._expr(p[2])}'
         return f'{p[0]}: {kt_type}'
 
-    def _infer_return_type(self, node) -> str:
-        """Infer return type from function body by scanning all return paths."""
+    def _resolve_param_types(self, params, body):
+        """Resolve each param's Kotlin type: annotation wins, else infer from usage.
+
+        Returns a list of (name, kotlin_type). An unannotated parameter is typed
+        from how `body` uses it (arithmetic/comparison ⇒ numeric, string concat ⇒
+        String), so untyped EPL functions still emit compilable Kotlin instead of
+        `Any` receivers that no operator applies to. Body-local variable types are
+        pre-scanned so a parameter compared/combined with a local (e.g. a loop
+        counter) resolves even though the local isn't emitted yet.
+        """
+        prev = self.symbols
+        self.symbols = self.symbols.child()
+        for lname, lt in self._scan_local_types(body).items():
+            self.symbols.define(lname, lt)
+        try:
+            resolved = []
+            for p in params:
+                if len(p) > 1 and p[1]:
+                    resolved.append((p[0], self._infer_param_type(p)))
+                else:
+                    resolved.append((p[0], self._infer_param_from_usage(p[0], body)))
+            return resolved
+        finally:
+            self.symbols = prev
+
+    def _scan_local_types(self, body):
+        """Best-effort map of body-local name → Kotlin type from its first simple
+        assignment. Lets param/return inference resolve references to locals that
+        haven't been emitted into the symbol table yet. Values that infer to Any
+        (e.g. assigned from an as-yet-untyped param) are skipped."""
+        types: dict = {}
+        for n in self._walk_ast(body):
+            if isinstance(n, (ast.VarAssignment, ast.VarDeclaration)) and n.name not in types:
+                t = self._infer_kotlin_type(n.value)
+                if t not in ('Any', 'Any?'):
+                    types[n.name] = t
+        return types
+
+    def _infer_param_from_usage(self, name, body) -> str:
+        """Infer an unannotated parameter's type from how the body uses it.
+
+        Only *reliable* numeric signals are used: true arithmetic (`-`, `*`, `/`,
+        `%`, `//`, `**`), ordering comparisons against a numeric operand, and `+`
+        *only* when the other operand is itself numeric (so it's addition, not
+        string concatenation). A bare `+` against a string/dynamic operand is
+        ignored — in EPL `+` doubles as concat and stringifies any value, so it
+        says nothing about the parameter's type. Anything inconclusive stays `Any`.
+        """
+        arith_int = {'-', '*', '%', '//'}
+        arith_dbl = {'/', '**'}
+        compare = {'<', '>', '<=', '>='}
+        evidence = set()
+        for n in self._walk_ast(body):
+            if not isinstance(n, ast.BinaryOp):
+                continue
+            left_is = self._is_identifier(n.left, name)
+            right_is = self._is_identifier(n.right, name)
+            if not (left_is or right_is):
+                continue
+            other_t = self._infer_kotlin_type(n.right if left_is else n.left)
+            if n.operator in arith_dbl:
+                evidence.add('Double')
+            elif n.operator in arith_int:
+                evidence.add('Double' if other_t == 'Double' else 'Int')
+            elif n.operator == '+' and other_t in ('Int', 'Double'):
+                evidence.add(other_t)
+            elif n.operator in compare and other_t in ('Int', 'Double'):
+                evidence.add(other_t)
+        if 'Double' in evidence:
+            return 'Double'
+        if 'Int' in evidence:
+            return 'Int'
+        return 'Any'
+
+    @staticmethod
+    def _is_identifier(node, name) -> bool:
+        return isinstance(node, ast.Identifier) and node.name == name
+
+    def _walk_ast(self, node):
+        """Yield every AST node in the subtree (lists are descended into)."""
+        if isinstance(node, list):
+            for item in node:
+                yield from self._walk_ast(item)
+            return
+        if not hasattr(node, '__dict__'):
+            return
+        yield node
+        for v in vars(node).values():
+            if isinstance(v, list):
+                for item in v:
+                    if hasattr(item, '__dict__'):
+                        yield from self._walk_ast(item)
+            elif hasattr(v, '__dict__'):
+                yield from self._walk_ast(v)
+
+    def _calls_function(self, expr, name) -> bool:
+        """True if `expr` contains a call to the named function (recursion check)."""
+        return any(isinstance(n, ast.FunctionCall) and n.name == name for n in self._walk_ast(expr))
+
+    def _infer_return_type(self, node, param_types=None, skip_recursive=False) -> str:
+        """Infer return type from function body by scanning all return paths.
+
+        With `param_types` (list of (name, kt_type)), the parameters are placed in
+        a temporary scope so return expressions that use them resolve correctly.
+        With `skip_recursive`, return expressions that call this function are
+        ignored — used to seed the signature from non-recursive (base-case) paths
+        before a second pass resolves the recursive ones.
+        """
         # Check explicit return type annotation
         if hasattr(node, 'return_type') and node.return_type:
             type_map = {
@@ -1238,8 +1414,23 @@ class KotlinGenerator:
             }
             return type_map.get(str(node.return_type).lower(), 'Any')
 
-        return_types: set = set()
-        self._collect_return_types(node.body, return_types)
+        prev_symbols = self.symbols
+        if param_types is not None:
+            self.symbols = self.symbols.child()
+            for name, pt in param_types:
+                self.symbols.define(name, pt)
+            # Body-local types help resolve `return <local>` expressions.
+            for lname, lt in self._scan_local_types(node.body).items():
+                if self.symbols.lookup(lname) is None:
+                    self.symbols.define(lname, lt)
+        try:
+            return_types: set = set()
+            skip_fn = getattr(node, 'name', None) if skip_recursive else None
+            self._collect_return_types(node.body, return_types, skip_fn)
+        finally:
+            self.symbols = prev_symbols
+
+        return_types.discard(None)
         if not return_types:
             return 'Unit'
         # Remove Unit from mixed returns
@@ -1253,27 +1444,33 @@ class KotlinGenerator:
             return 'Double'
         return 'Any'
 
-    def _collect_return_types(self, stmts, types):
-        """Recursively collect return types from statement list."""
+    def _collect_return_types(self, stmts, types, skip_fn=None):
+        """Recursively collect return types from statement list.
+
+        `skip_fn`: if set, return expressions containing a call to that function
+        name are skipped (recursion seeding — see `_infer_return_type`).
+        """
         for s in stmts:
             if isinstance(s, ast.ReturnStatement):
                 if s.value:
+                    if skip_fn and self._calls_function(s.value, skip_fn):
+                        continue
                     types.add(self._infer_kotlin_type(s.value))
                 else:
                     types.add('Unit')
             elif isinstance(s, ast.IfStatement):
-                self._collect_return_types(s.then_body, types)
+                self._collect_return_types(s.then_body, types, skip_fn)
                 if s.else_body:
-                    self._collect_return_types(s.else_body, types)
+                    self._collect_return_types(s.else_body, types, skip_fn)
             elif isinstance(s, ast.WhileLoop):
-                self._collect_return_types(s.body, types)
+                self._collect_return_types(s.body, types, skip_fn)
             elif isinstance(s, ast.ForRange):
-                self._collect_return_types(s.body, types)
+                self._collect_return_types(s.body, types, skip_fn)
             elif isinstance(s, ast.ForEachLoop):
-                self._collect_return_types(s.body, types)
+                self._collect_return_types(s.body, types, skip_fn)
             elif isinstance(s, ast.TryCatch):
-                self._collect_return_types(s.try_body, types)
-                self._collect_return_types(s.catch_body, types)
+                self._collect_return_types(s.try_body, types, skip_fn)
+                self._collect_return_types(s.catch_body, types, skip_fn)
 
     def _emit_return(self, node):
         if node.value:
@@ -1504,11 +1701,15 @@ class KotlinGenerator:
         """Emit async function as Kotlin coroutine."""
         self.imports.add('kotlinx.coroutines.*')
         real_params = [p for p in node.params if p[0] != 'self']
-        params = ', '.join(self._format_param(p) for p in real_params)
-        ret_type = self._infer_return_type(node)
+        param_types = self._resolve_param_types(real_params, node.body)
         # Register in symbol table before body (supports recursion)
-        param_types = [(p[0], self._infer_param_type(p)) for p in real_params]
+        seed_ret = self._infer_return_type(node, param_types, skip_recursive=True)
+        self.symbols.define_function(node.name, param_types, seed_ret)
+        ret_type = self._infer_return_type(node, param_types)
         self.symbols.define_function(node.name, param_types, ret_type)
+        params = ', '.join(
+            self._format_param_typed(p, pt) for p, (_, pt) in zip(real_params, param_types)
+        )
         self._line(f'suspend fun {node.name}({params}): {ret_type} {{')
         self.indent += 1
         for s in node.body:
@@ -1545,11 +1746,21 @@ class KotlinGenerator:
         if isinstance(node, ast.FunctionCall):
             return self._expr_call(node)
         if isinstance(node, ast.PropertyAccess):
-            return f'{self._expr(node.obj)}.{node.property_name}'
+            obj_code = self._expr(node.obj)
+            obj_type = self._infer_kotlin_type(node.obj)
+            # On a map/db-row/Any, `row.field` means key lookup, not a Kotlin member.
+            if self._is_dynamic_or_map(obj_type):
+                return f'EPLRuntime.field({obj_code}, "{node.property_name}")'
+            return f'{obj_code}.{node.property_name}'
         if isinstance(node, ast.MethodCall):
             return self._expr_method(node)
         if isinstance(node, ast.IndexAccess):
-            return f'{self._expr(node.obj)}[{self._expr(node.index)}]'
+            obj_code = self._expr(node.obj)
+            obj_type = self._infer_kotlin_type(node.obj)
+            # Indexing an Any value has no static get operator — go through the bridge.
+            if obj_type in ('Any', 'Any?'):
+                return f'EPLRuntime.at({obj_code}, {self._expr(node.index)})'
+            return f'{obj_code}[{self._expr(node.index)}]'
         if isinstance(node, ast.ListLiteral):
             return f'mutableListOf({", ".join(self._expr(e) for e in node.elements)})'
         if isinstance(node, ast.DictLiteral):
@@ -1619,6 +1830,15 @@ class KotlinGenerator:
         if op == '//':
             self.imports.add('kotlin.math.floor')
             return f'floor({l}.toDouble() / {r}.toDouble()).toInt()'
+        if op == '+':
+            lt = self._infer_kotlin_type(node.left)
+            rt = self._infer_kotlin_type(node.right)
+            # Kotlin string concatenation only resolves when the LEFT operand is
+            # a String (String.plus accepts Any?). When concatenating but the left
+            # is a dynamic/non-String value (e.g. a map field typed Any?), coerce
+            # it so `+` compiles instead of "no plus on Any?".
+            if (lt == 'String' or rt == 'String') and lt != 'String':
+                l = f'({l}).toString()'
         return f'({l} {m.get(op, op)} {r})'
 
     def _expr_unary(self, node):
@@ -1628,6 +1848,24 @@ class KotlinGenerator:
 
     def _expr_call(self, node):
         args = ', '.join(self._expr(a) for a in node.arguments)
+        # db_* builtins → native SQLite bridge in EPLRuntime (see _epl_runtime_kt)
+        db_map = {
+            'db_open': 'EPLRuntime.dbOpen',
+            'db_close': 'EPLRuntime.dbClose',
+            'db_execute': 'EPLRuntime.dbExecute',
+            'db_execute_params': 'EPLRuntime.dbExecute',
+            'db_query': 'EPLRuntime.dbQuery',
+            'db_query_params': 'EPLRuntime.dbQuery',
+            'db_query_one': 'EPLRuntime.dbQueryOne',
+            'db_count': 'EPLRuntime.dbCount',
+        }
+        if node.name in db_map:
+            return f'{db_map[node.name]}({args})'
+        # A user-defined function shadows a builtin of the same name (e.g. a
+        # function literally called `power` or `max`), so don't rewrite its call
+        # into the builtin form.
+        if self.symbols.lookup_function(node.name):
+            return f'{node.name}({args})'
         m = {
             'length': lambda: f'{self._expr(node.arguments[0])}.length',
             'to_integer': lambda: f'{self._expr(node.arguments[0])}.toString().toInt()',
@@ -2782,6 +3020,72 @@ object EPLRuntime {{
     fun startsWith(s: String, prefix: String): Boolean = s.startsWith(prefix)
     fun endsWith(s: String, suffix: String): Boolean = s.endsWith(suffix)
     fun substring(s: String, start: Int, end: Int): String = s.substring(start, minOf(end, s.length))
+
+    // ─── Dynamic access (EPL maps, lists, db rows) ───
+    fun field(obj: Any?, name: String): Any? = when (obj) {{
+        is Map<*, *> -> obj[name]
+        else -> null
+    }}
+
+    fun at(obj: Any?, index: Any?): Any? = when (obj) {{
+        is List<*> -> obj[(index as Number).toInt()]
+        is Map<*, *> -> obj[index]
+        is String -> obj[(index as Number).toInt()].toString()
+        else -> null
+    }}
+
+    // ─── SQLite bridge (db_* builtins) ───
+    fun dbOpen(name: String): android.database.sqlite.SQLiteDatabase {{
+        val ctx = EPLApplication.instance.applicationContext
+        return ctx.openOrCreateDatabase(name, android.content.Context.MODE_PRIVATE, null)
+    }}
+
+    fun dbExecute(db: Any?, sql: String, params: List<Any?> = emptyList<Any?>()) {{
+        val database = db as android.database.sqlite.SQLiteDatabase
+        if (params.isEmpty()) database.execSQL(sql)
+        else database.execSQL(sql, params.toTypedArray())
+    }}
+
+    fun dbQuery(
+        db: Any?,
+        sql: String,
+        params: List<Any?> = emptyList<Any?>(),
+    ): MutableList<Map<String, Any?>> {{
+        val database = db as android.database.sqlite.SQLiteDatabase
+        val args = params.map {{ it?.toString() }}.toTypedArray()
+        val rows = mutableListOf<Map<String, Any?>>()
+        database.rawQuery(sql, args).use {{ c ->
+            while (c.moveToNext()) {{
+                val row = LinkedHashMap<String, Any?>()
+                for (i in 0 until c.columnCount) {{
+                    row[c.getColumnName(i)] = when (c.getType(i)) {{
+                        android.database.Cursor.FIELD_TYPE_INTEGER -> c.getLong(i)
+                        android.database.Cursor.FIELD_TYPE_FLOAT -> c.getDouble(i)
+                        android.database.Cursor.FIELD_TYPE_NULL -> null
+                        android.database.Cursor.FIELD_TYPE_BLOB -> c.getBlob(i)
+                        else -> c.getString(i)
+                    }}
+                }}
+                rows.add(row)
+            }}
+        }}
+        return rows
+    }}
+
+    fun dbQueryOne(
+        db: Any?,
+        sql: String,
+        params: List<Any?> = emptyList<Any?>(),
+    ): Map<String, Any?>? = dbQuery(db, sql, params).firstOrNull()
+
+    fun dbCount(db: Any?, table: String): Long {{
+        val rows = dbQuery(db, "SELECT count(*) AS c FROM " + table)
+        return (rows.firstOrNull()?.get("c") as? Number)?.toLong() ?: 0L
+    }}
+
+    fun dbClose(db: Any?) {{
+        (db as? android.database.sqlite.SQLiteDatabase)?.close()
+    }}
 }}
 """
 
