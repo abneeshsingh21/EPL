@@ -1027,6 +1027,25 @@ class Interpreter:
                 arg_values = [self._eval(arg, env) for arg in node.arguments]
                 return self._call_callable(val, arg_values, env, node.line)
 
+        # `python_call(module, function, *args)` is the bridge the official
+        # packages use to reach their Python backends. The work already lives in
+        # self._python_call; it just isn't a normal BUILTINS entry because of its
+        # (module, function, *args) calling convention. Blocked in safe mode
+        # since it executes Python code (same policy as `Use python`).
+        if node.name == 'python_call':
+            if self.safe_mode:
+                raise EPLRuntimeError(
+                    "'python_call' is not available in safe mode (--sandbox).", node.line
+                )
+            arg_values = [self._eval(arg, env) for arg in node.arguments]
+            if len(arg_values) < 2:
+                raise EPLRuntimeError(
+                    'python_call(module, function, ...args) requires at least a '
+                    'module name and a function name.',
+                    node.line,
+                )
+            return self._python_call(arg_values[0], arg_values[1], arg_values[2:], node.line)
+
         # Check for built-ins
         if node.name in BUILTINS:
             arg_values = [self._eval(arg, env) for arg in node.arguments]

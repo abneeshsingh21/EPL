@@ -83,6 +83,28 @@ def wrap_python_result(value, *, epl_dict_type, python_module_type=PythonModule,
         if isinstance(value, bytes):
             return value.decode('utf-8', errors='replace')
 
+        # NumPy (and other array-API) scalars/arrays, detected by duck-typing
+        # so this module never hard-depends on numpy. A 0-d scalar exposes
+        # ``.item()`` (-> native Python number); an N-d array exposes
+        # ``.tolist()`` (-> nested Python list). Without this, numeric-package
+        # results leak out as opaque ``<python module int64>`` wrappers — and a
+        # numpy array iterated element-wise yields a list of those wrappers.
+        if hasattr(value, 'dtype'):
+            if getattr(value, 'ndim', None) == 0 and hasattr(value, 'item'):
+                return wrap_python_result(
+                    value.item(),
+                    epl_dict_type=epl_dict_type,
+                    python_module_type=python_module_type,
+                    _seen=_seen,
+                )
+            if hasattr(value, 'tolist'):
+                return wrap_python_result(
+                    value.tolist(),
+                    epl_dict_type=epl_dict_type,
+                    python_module_type=python_module_type,
+                    _seen=_seen,
+                )
+
         type_name = type(value).__name__
         if hasattr(value, '__iter__') and not isinstance(value, str):
             try:

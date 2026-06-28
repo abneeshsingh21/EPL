@@ -18,6 +18,23 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Fixed — Python-backed packages were dead (`python_call` unbound)
+- **The 13 official packages that reach a Python backend now work.** Packages
+  like `epl-array`, `epl-math`, `epl-stats`, `epl-learn`, and `epl-dataframe`
+  call their backends through `python_call(module, function, ...args)` — but no
+  name was ever bound to that bridge, so every such call raised
+  *"Function python_call has not been defined."* `python_call` is now a real
+  interpreter builtin (routing to the existing `_python_call` machinery). It is
+  **blocked under `--sandbox`** (it executes Python, same policy as
+  `Use python`), and the bytecode VM **refuses it at compile time** so `epl run`
+  falls back to the interpreter cleanly instead of silently returning null.
+- **NumPy results no longer leak as `<python module int64>`.** The Python-bridge
+  result wrapper now duck-types NumPy-style scalars/arrays (via `.dtype` +
+  `.item()`/`.tolist()`, with no hard dependency on numpy) and converts them to
+  native EPL numbers/lists — so numeric packages return `[1, 2, 3]` and `15`
+  instead of opaque wrapper objects. Regression coverage in
+  `tests/test_python_call_bridge.py`.
+
 ### Added — native Android/Kotlin compilation (H1 db bridge + H3 type-correct transpile)
 **The transliterating Android/Kotlin target now produces code that actually
 compiles**, including database apps. v10.0.0 told the truth about *what* it could
