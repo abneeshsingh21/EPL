@@ -114,9 +114,13 @@ class Parser:
         TokenType.MULTIPLY_KW,
         TokenType.DIVIDE_KW,
         TokenType.GIVEN,
+        # Common nouns that are also keywords, usable as identifiers in context
+        # (e.g. `constant` is the standard K-combinator name in FP libraries).
+        TokenType.CONSTANT,
         # v1.4: GUI/web/async keywords usable as identifiers in context
         TokenType.ROW,
         TokenType.COLUMN,
+        TokenType.WINDOW,
         TokenType.LABEL,
         TokenType.TAB,
         TokenType.TREE,
@@ -2975,7 +2979,13 @@ class Parser:
     # ─── v0.7: English List Operations ───────────────────
 
     def _parse_add_to(self):
-        """Add 5 to myList  /  Add "hello" to items"""
+        """Add 5 to myList  /  Add [a, b] to graph[key]  /  Add x to obj.items
+
+        The target may be a bare name, a subscript (``list[i]`` / ``map[key]``),
+        or a property (``obj.items``) — the same lvalues ``Set`` and ``=`` accept
+        — so you can append straight into a nested collection. EPL collections
+        are reference types, so ``.add`` mutates the referenced list in place.
+        """
         line = self._current().line
         self._advance()  # consume ADD
 
@@ -2983,11 +2993,24 @@ class Parser:
 
         self._expect(TokenType.TO, 'Expected "to" after value in "Add X to list".')
 
-        list_name_tok = self._expect_identifier('Expected list name after "to".')
-        list_name = list_name_tok.value
+        target_tok = self._expect_identifier('Expected list name after "to".')
+        target = ast.Identifier(target_tok.value, line)
+        while True:
+            if self._match(TokenType.LBRACKET):
+                self._advance()  # consume [
+                target = self._parse_subscript(target)
+            elif self._match(TokenType.DOT) and (
+                self._peek().type == TokenType.IDENTIFIER
+                or self._peek().type in self._SOFT_KEYWORDS
+            ):
+                self._advance()  # consume .
+                prop_tok = self._expect_identifier('Expected property name after ".".')
+                target = ast.PropertyAccess(target, prop_tok.value, line)
+            else:
+                break
 
         self._end_statement()
-        return ast.MethodCall(ast.Identifier(list_name, line), 'add', [value], line)
+        return ast.MethodCall(target, 'add', [value], line)
 
     def _parse_sort_statement(self):
         """Sort myList"""

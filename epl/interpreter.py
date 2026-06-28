@@ -3156,6 +3156,10 @@ class Interpreter:
         if op == '+':
             if isinstance(left, str) or isinstance(right, str):
                 return str(self._format_value(left)) + str(self._format_value(right))
+            # List concatenation returns a NEW list (no mutation of either operand),
+            # matching the universal `+` behaviour users expect from Python/JS.
+            if isinstance(left, list) and isinstance(right, list):
+                return left + right
             if isinstance(left, (int, float)) and isinstance(right, (int, float)):
                 result = left + right
                 return int(result) if isinstance(left, int) and isinstance(right, int) else result

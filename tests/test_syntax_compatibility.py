@@ -31,6 +31,25 @@ class TestSyntaxCompatibility(unittest.TestCase):
         program = _parse('Create m equal to Map with a = 1 and b = 2\n')
         self.assertEqual(len(program.statements[0].value.pairs), 2)
 
+    def test_window_usable_as_identifier(self):
+        """`window` (a GUI block keyword) works as a function/param name in context."""
+        _parse('Function f takes numbers, window\n    Return window\nEnd\n')
+        _parse('Create r equal to window([1, 2, 3], 3)\n')
+
+    def test_constant_usable_as_function_name(self):
+        """`constant` (the K-combinator) works as a function name."""
+        _parse('Define Function constant Takes value\n    Return value\nEnd\n')
+
+    def test_constant_declaration_still_works(self):
+        program = _parse('Constant PI = 3.14\n')
+        self.assertEqual(program.statements[0].name, 'PI')
+
+    def test_add_to_subscript_target_parses(self):
+        _parse('Add 5 to graph["a"]\n')
+
+    def test_add_to_property_target_parses(self):
+        _parse('Add 5 to obj.items\n')
+
     def test_function_with_alias_parses(self):
         _parse('Function greet with name\n    Return name\nEnd\n')
 

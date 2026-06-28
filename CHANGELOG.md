@@ -24,6 +24,21 @@ restored; and a new runtime test stops broken examples from shipping green again
   parse — which pushed package authors toward the nonexistent `dict()`. Bare
   `Map` now produces `{}`; `Map with k = v ...` is unchanged.
 
+### Added / Fixed — list concatenation, `Add` into nested collections, more usable keywords
+- **List concatenation with `+` now works in the interpreter** (e.g.
+  `[1] + path`), returning a new list without mutating either operand. The VM
+  already supported this; the interpreter raised *"Cannot add list and list"* —
+  the two engines now agree.
+- **`Add X to <target>` accepts subscript and property targets**, not just bare
+  names — `Add 5 to graph[key]`, `Add v to obj.items`. EPL collections are
+  reference types, so the referenced list is appended in place. Mirrors the
+  lvalues `Set`/`=` already accept.
+- **`window` and `constant` are usable as ordinary identifiers** (function
+  names, parameters, variables). They are block/declaration keywords (`Window`
+  GUI block; `Constant` declaration) but, like the already-soft `Row`/`Column`,
+  are common identifiers — `window` is a standard sliding-window helper and
+  `constant` is the FP K-combinator. Their statement-level meaning is unchanged.
+
 ### Fixed — official-package examples and sources didn't run
 - **Restored the shipped official packages to a runnable state.** Many package
   examples and sources used `Set name to ...` for a *first* assignment — but
