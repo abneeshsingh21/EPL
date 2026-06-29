@@ -10,79 +10,79 @@ Say "======================================="
 Note: Load the Iris dataset
 Say ""
 Say "--- Loading Iris Dataset ---"
-Set iris to load_iris_dataset()
-Set X to iris["X"]
-Set y to iris["y"]
+iris = load_iris_dataset()
+X = iris["X"]
+y = iris["y"]
 Say "Loaded " + length(X) + " samples"
 Say "Features: " + iris["feature_names"]
 
 Note: Split data
 Say ""
 Say "--- Train/Test Split ---"
-Set split to split_data(X, y, 0.3)
+split = split_data(X, y, 0.3)
 Say "Training samples: " + length(split["X_train"])
 Say "Test samples: " + length(split["X_test"])
 
 Note: Preprocess data
 Say ""
 Say "--- Preprocessing ---"
-Set X_train_scaled to scale_data(split["X_train"])
-Set X_test_scaled to scale_data(split["X_test"])
+X_train_scaled = scale_data(split["X_train"])
+X_test_scaled = scale_data(split["X_test"])
 Say "Data scaled to zero mean, unit variance"
 
 Note: Train a Random Forest Classifier
 Say ""
 Say "--- Training Random Forest ---"
-Set rf to create_random_forest_classifier(100, 10)
+rf = create_random_forest_classifier(100, 10)
 train_model(rf, X_train_scaled, split["y_train"])
 Say "Random Forest trained with 100 trees"
 
 Note: Make predictions
 Say ""
 Say "--- Predictions ---"
-Set predictions to predict(rf, X_test_scaled)
+predictions = predict(rf, X_test_scaled)
 Say "Predictions made on test set"
 
 Note: Evaluate the model
 Say ""
 Say "--- Model Evaluation ---"
-Set acc to accuracy_score(split["y_test"], predictions)
+acc = accuracy_score(split["y_test"], predictions)
 Say "Accuracy: " + acc
 
-Set prec to precision_score(split["y_test"], predictions)
+prec = precision_score(split["y_test"], predictions)
 Say "Precision: " + prec
 
-Set rec to recall_score(split["y_test"], predictions)
+rec = recall_score(split["y_test"], predictions)
 Say "Recall: " + rec
 
-Set f1 to f1_score(split["y_test"], predictions)
+f1 = f1_score(split["y_test"], predictions)
 Say "F1 Score: " + f1
 
 Say ""
 Say "Confusion Matrix:"
-Set cm to confusion_matrix(split["y_test"], predictions)
+cm = confusion_matrix(split["y_test"], predictions)
 Say cm
 
 Note: Cross-validation
 Say ""
 Say "--- Cross-Validation ---"
-Set cv_results to cross_validate(rf, X, y, 5)
+cv_results = cross_validate(rf, X, y, 5)
 Say "5-fold CV Mean Accuracy: " + cv_results["mean"]
 Say "5-fold CV Std: " + cv_results["std"]
 
 Note: Clustering example
 Say ""
 Say "--- K-Means Clustering ---"
-Set kmeans to kmeans_cluster(X, 3)
-Set cluster_labels to get_cluster_labels(kmeans)
+kmeans = kmeans_cluster(X, 3)
+cluster_labels = get_cluster_labels(kmeans)
 Say "Clustered data into 3 groups"
-Set centers to get_cluster_centers(kmeans)
+centers = get_cluster_centers(kmeans)
 Say "Found " + length(centers) + " cluster centers"
 
 Note: Feature importance
 Say ""
 Say "--- Feature Importance ---"
-Set importance to feature_importance(rf)
+importance = feature_importance(rf)
 Say "Feature importances: " + importance
 
 Say ""

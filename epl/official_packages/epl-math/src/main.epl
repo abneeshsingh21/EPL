@@ -39,7 +39,7 @@ Define Function prime_factors Takes n
     While d * d <= n
         While n % d == 0
             Add d to factors
-            Set n to n / d
+            n = n / d
         End
         Set d to d + 1
     End
@@ -134,12 +134,12 @@ End
 
 Define Function modular_pow Takes base, exp, mod
     Create result equal to 1
-    Set base to base % mod
+    base = base % mod
     While exp > 0
         If exp % 2 == 1
             Set result to (result * base) % mod
         End
-        Set exp to floor(exp / 2)
+        exp = floor(exp / 2)
         Set base to (base * base) % mod
     End
     Return result
@@ -472,9 +472,9 @@ Define Function bisection Takes f, a, b, tolerance
             Return mid
         End
         If fa * fmid < 0
-            Set b to mid
+            b = mid
         Otherwise
-            Set a to mid
+            a = mid
             Set fa to fmid
         End
         Set iter to iter + 1

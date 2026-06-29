@@ -185,3 +185,44 @@ class TestWebAppExpressionError:
     def test_correct_webapp_statement_parses(self):
         # Should not raise.
         parse_epl('Create WebApp called app\n')
+
+
+# ═══════════════════════════════════════════════════════════════
+# List concatenation with `+` and `Add … to <collection target>`
+# ═══════════════════════════════════════════════════════════════
+
+
+class TestListConcatenation:
+    def test_list_plus_list_concatenates(self):
+        out = run_epl('Create xs equal to [1, 2]\nCreate ys equal to [3, 4]\nSay xs + ys\n')
+        assert out[-1] == '[1, 2, 3, 4]'
+
+    def test_list_concat_does_not_mutate_operands(self):
+        out = run_epl(
+            'Create xs equal to [1, 2]\n'
+            'Create ys equal to [3]\n'
+            'Create zs equal to xs + ys\n'
+            'Say xs\n'
+        )
+        assert out[-1] == '[1, 2]'  # left operand unchanged
+
+    def test_prepend_via_concat(self):
+        # The epl-algo pattern: Set path to [current] + path
+        out = run_epl('Create path equal to [2, 3]\nSet path to [1] + path\nSay path\n')
+        assert out[-1] == '[1, 2, 3]'
+
+
+class TestAddToCollectionTarget:
+    def test_add_to_map_subscript(self):
+        out = run_epl(
+            'Create g equal to Map\ng["a"] = []\nAdd 5 to g["a"]\nAdd 6 to g["a"]\nSay g\n'
+        )
+        assert out[-1] == '{a: [5, 6]}'
+
+    def test_add_to_property(self):
+        out = run_epl('Create g equal to Map with items = []\nAdd 1 to g.items\nSay g\n')
+        assert out[-1] == '{items: [1]}'
+
+    def test_add_to_bare_list_still_works(self):
+        out = run_epl('Create xs equal to []\nAdd 9 to xs\nSay xs\n')
+        assert out[-1] == '[9]'

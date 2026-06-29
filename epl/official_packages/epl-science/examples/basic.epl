@@ -11,24 +11,24 @@ Say "======================================="
 Note: Statistical distributions
 Say ""
 Say "--- Random Distributions ---"
-Set normal_samples to normal_random(0, 1, 10)
+normal_samples = normal_random(0, 1, 10)
 Say "Normal samples (mean=0, std=1): " + normal_samples
 
-Set uniform_samples to uniform_random(0, 100, 10)
+uniform_samples = uniform_random(0, 100, 10)
 Say "Uniform samples (0-100): " + uniform_samples
 
 Note: Statistical tests
 Say ""
 Say "--- Statistical Tests ---"
-Set group_a to [23, 25, 28, 24, 26, 27, 25]
-Set group_b to [30, 32, 29, 31, 33, 28, 31]
+group_a = [23, 25, 28, 24, 26, 27, 25]
+group_b = [30, 32, 29, 31, 33, 28, 31]
 
-Set t_result to t_test(group_a, group_b)
+t_result = t_test(group_a, group_b)
 Say "T-test between groups:"
 Say "  Statistic: " + t_result["statistic"]
 Say "  P-value: " + t_result["pvalue"]
 
-Set normality to normality_test(group_a)
+normality = normality_test(group_a)
 Say ""
 Say "Normality test (Shapiro-Wilk):"
 Say "  P-value: " + normality["pvalue"]
@@ -36,29 +36,29 @@ Say "  P-value: " + normality["pvalue"]
 Note: Correlation
 Say ""
 Say "--- Correlation ---"
-Set x_vals to [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-Set y_vals to [2.1, 4.2, 5.8, 8.1, 10.2, 11.9, 14.1, 16.0, 18.2, 20.1]
-Set corr to correlation_test(x_vals, y_vals)
+x_vals = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+y_vals = [2.1, 4.2, 5.8, 8.1, 10.2, 11.9, 14.1, 16.0, 18.2, 20.1]
+corr = correlation_test(x_vals, y_vals)
 Say "Pearson correlation: " + corr["correlation"]
 Say "P-value: " + corr["pvalue"]
 
 Note: Distance calculations
 Say ""
 Say "--- Distance Calculations ---"
-Set point_a to [0, 0, 0]
-Set point_b to [1, 1, 1]
+point_a = [0, 0, 0]
+point_b = [1, 1, 1]
 Say "Euclidean distance: " + euclidean_distance(point_a, point_b)
 Say "Manhattan distance: " + manhattan_distance(point_a, point_b)
 
-Set vec_a to [1, 0, 1]
-Set vec_b to [0, 1, 1]
+vec_a = [1, 0, 1]
+vec_b = [0, 1, 1]
 Say "Cosine similarity: " + cosine_similarity(vec_a, vec_b)
 
 Note: Signal processing
 Say ""
 Say "--- Signal Processing ---"
-Set signal to [0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1]
-Set spectrum to fourier_transform(signal)
+signal = [0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1, 0, 1, 0, -1]
+spectrum = fourier_transform(signal)
 Say "FFT computed for signal of length " + length(signal)
 
 Note: Special functions

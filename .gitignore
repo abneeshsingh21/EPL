@@ -187,3 +187,8 @@ _tmpdoc/
 /data.json
 /data.txt
 /output.txt
+
+# Generated chart artifacts from epl-plot examples
+*_chart.png
+*_plot.png
+scatter_plot.png

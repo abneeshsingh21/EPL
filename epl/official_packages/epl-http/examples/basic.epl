@@ -5,12 +5,12 @@ Say "=== EPL HTTP Package Demo ==="
 
 Note: Simple GET request
 Say "Fetching data from API..."
-Set response to http_get("https://jsonplaceholder.typicode.com/posts/1")
-Set status to response_status(response)
+response = http_get("https://jsonplaceholder.typicode.com/posts/1")
+status = response_status(response)
 Say "Status: " + status
 
 If response_is_ok(response) then
-    Set data to response_json(response)
+    data = response_json(response)
     Say "Post fetched successfully!"
 End
 
@@ -21,14 +21,14 @@ Set response to http_with_bearer_token("https://jsonplaceholder.typicode.com/pos
 Say "Auth request status: " + response_status(response)
 
 Note: Build URL with parameters
-Set search_url to build_url("https://api.example.com", "/search", dict())
+search_url = build_url("https://api.example.com", "/search", Map)
 Say ""
 Say "Built URL: " + search_url
 
 Note: URL encoding
-Set encoded to encode_url("hello world & more")
+encoded = encode_url("hello world & more")
 Say "Encoded: " + encoded
-Set decoded to decode_url(encoded)
+decoded = decode_url(encoded)
 Say "Decoded: " + decoded
 
 Say ""

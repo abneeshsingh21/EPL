@@ -2116,6 +2116,18 @@ class BytecodeCompiler:
         )
         args = node.args if hasattr(node, 'args') else getattr(node, 'arguments', [])
 
+        # `python_call(module, function, *args)` reaches a package's Python
+        # backend through the interpreter-only bridge. The VM has no bridge, so
+        # refuse at compile time (before any output) → `epl run` falls back to
+        # the interpreter cleanly, same contract as the `Use python` guard.
+        # Without this the VM silently returns null for every package call.
+        if name == 'python_call':
+            raise VMError(
+                'python_call (Python-backend bridge) is not supported by the '
+                'bytecode VM; the interpreter handles it.',
+                getattr(node, 'line', 0),
+            )
+
         for arg in args:
             self._compile_expr(arg)
 

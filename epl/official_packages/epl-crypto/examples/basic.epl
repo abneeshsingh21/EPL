@@ -6,58 +6,58 @@ Say "=== EPL Crypto Demo ==="
 Note: AES Encryption
 Say ""
 Say "--- AES-256 Encryption ---"
-Set secret_key to aes_generate_key()
+secret_key = aes_generate_key()
 Say "Key generated: " + secret_key
 
-Set encrypted to aes_encrypt("Hello from EPL! This is secret.", secret_key)
+encrypted = aes_encrypt("Hello from EPL! This is secret.", secret_key)
 Say "Encrypted: " + encrypted
 
-Set decrypted to aes_decrypt(encrypted, secret_key)
+decrypted = aes_decrypt(encrypted, secret_key)
 Say "Decrypted: " + decrypted
 
 Note: Password-based encryption
 Say ""
 Say "--- Password Encryption ---"
-Set sealed to password_encrypt("Top secret project data", "my_strong_password")
+sealed = password_encrypt("Top secret project data", "my_strong_password")
 Say "Password encrypted: " + sealed
 
-Set opened to password_decrypt(sealed, "my_strong_password")
+opened = password_decrypt(sealed, "my_strong_password")
 Say "Password decrypted: " + opened
 
 Note: RSA Key Pair
 Say ""
 Say "--- RSA Encryption ---"
-Set keys to rsa_generate_keypair(2048)
-Set pub_key to rsa_public_key_from(keys)
-Set priv_key to rsa_private_key_from(keys)
+keys = rsa_generate_keypair(2048)
+pub_key = rsa_public_key_from(keys)
+priv_key = rsa_private_key_from(keys)
 Say "RSA keypair generated (2048-bit)"
 
-Set rsa_encrypted to rsa_encrypt("Secret for recipient", pub_key)
+rsa_encrypted = rsa_encrypt("Secret for recipient", pub_key)
 Say "RSA encrypted: " + rsa_encrypted
 
-Set rsa_decrypted to rsa_decrypt(rsa_encrypted, priv_key)
+rsa_decrypted = rsa_decrypt(rsa_encrypted, priv_key)
 Say "RSA decrypted: " + rsa_decrypted
 
 Note: Digital Signature
 Say ""
 Say "--- Digital Signatures ---"
-Set msg to "This document is authentic"
-Set signature to sign_message(msg, priv_key)
+msg = "This document is authentic"
+signature = sign_message(msg, priv_key)
 Say "Signature: " + signature
 
-Set is_valid to verify_signature(msg, signature, pub_key)
+is_valid = verify_signature(msg, signature, pub_key)
 Say "Signature valid: " + is_valid
 
 Note: Encoding
 Say ""
 Say "--- Base64 Encoding ---"
-Set b64 to to_base64("Hello EPL Crypto!")
+b64 = to_base64("Hello EPL Crypto!")
 Say "Base64: " + b64
-Set decoded to from_base64(b64)
+decoded = from_base64(b64)
 Say "Decoded: " + decoded
 
 Note: Secure Random
-Set random_token to secure_random_hex(32)
+random_token = secure_random_hex(32)
 Say ""
 Say "Random token: " + random_token
 

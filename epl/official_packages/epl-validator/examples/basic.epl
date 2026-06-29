@@ -32,26 +32,26 @@ Say "Is 200 in range 0-150: " + is_in_range(200, 0, 150)
 Note: Pattern Matching
 Say ""
 Say "--- Pattern Matching ---"
-Set phone_valid to matches_pattern("1234567890", "^[0-9]{10}$")
+phone_valid = matches_pattern("1234567890", "^[0-9]{10}$")
 Say "Is '1234567890' a 10-digit phone: " + phone_valid
 
 Note: Sanitization
 Say ""
 Say "--- Sanitization ---"
-Set dirty to "  <script>alert('xss')</script> Hello!  "
-Set clean to sanitize_string(dirty)
+dirty = "  <script>alert('xss')</script> Hello!  "
+clean = sanitize_string(dirty)
 Say "Sanitized: '" + clean + "'"
 
-Set html_safe to sanitize_html("<b>Bold</b> & 'quoted'")
+html_safe = sanitize_html("<b>Bold</b> & 'quoted'")
 Say "HTML escaped: " + html_safe
 
-Set trimmed to trim_string("   spaces everywhere   ")
+trimmed = trim_string("   spaces everywhere   ")
 Say "Trimmed: '" + trimmed + "'"
 
-Set normalized to normalize_whitespace("too    many     spaces")
+normalized = normalize_whitespace("too    many     spaces")
 Say "Normalized: '" + normalized + "'"
 
-Set short to truncate_string("This is a very long string that should be shortened", 20)
+short = truncate_string("This is a very long string that should be shortened", 20)
 Say "Truncated: '" + short + "'"
 
 Say ""

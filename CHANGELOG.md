@@ -18,6 +18,57 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Added — empty-map literal (`Map`)
+- **`Map` with no `with` clause is now the empty-map literal.** EPL previously
+  had no way to write an empty map — `Map`, `{}`, and `{...}` all failed to
+  parse — which pushed package authors toward the nonexistent `dict()`. Bare
+  `Map` now produces `{}`; `Map with k = v ...` is unchanged.
+
+### Added / Fixed — list concatenation, `Add` into nested collections, more usable keywords
+- **List concatenation with `+` now works in the interpreter** (e.g.
+  `[1] + path`), returning a new list without mutating either operand. The VM
+  already supported this; the interpreter raised *"Cannot add list and list"* —
+  the two engines now agree.
+- **`Add X to <target>` accepts subscript and property targets**, not just bare
+  names — `Add 5 to graph[key]`, `Add v to obj.items`. EPL collections are
+  reference types, so the referenced list is appended in place. Mirrors the
+  lvalues `Set`/`=` already accept.
+- **`window` and `constant` are usable as ordinary identifiers** (function
+  names, parameters, variables). They are block/declaration keywords (`Window`
+  GUI block; `Constant` declaration) but, like the already-soft `Row`/`Column`,
+  are common identifiers — `window` is a standard sliding-window helper and
+  `constant` is the FP K-combinator. Their statement-level meaning is unchanged.
+
+### Fixed — official-package examples and sources didn't run
+- **Restored the shipped official packages to a runnable state.** Many package
+  examples and sources used `Set name to ...` for a *first* assignment — but
+  EPL's `Set` is reassignment-only by design (it errors on an undeclared name
+  to catch typos); declaration is `Create`/`=`. The first-assignment `Set`s are
+  rewritten to `=` across the example/source files (real reassignments left
+  intact). Also: `epl-auth`/`epl-http` used `dict()` (now `Map`), and
+  `epl-string` called `.uppercase` on the integer `0` instead of on the first
+  character (`w.char_at(0).uppercase`). Combined with the `python_call` fix
+  below, the bulk of the official packages now run end-to-end. (Some remain
+  blocked by external setup — `epl-cloud` needs a file, `epl-email` needs SMTP
+  credentials — or by backend version drift; tracked separately.)
+
+### Fixed — Python-backed packages were dead (`python_call` unbound)
+- **The 13 official packages that reach a Python backend now work.** Packages
+  like `epl-array`, `epl-math`, `epl-stats`, `epl-learn`, and `epl-dataframe`
+  call their backends through `python_call(module, function, ...args)` — but no
+  name was ever bound to that bridge, so every such call raised
+  *"Function python_call has not been defined."* `python_call` is now a real
+  interpreter builtin (routing to the existing `_python_call` machinery). It is
+  **blocked under `--sandbox`** (it executes Python, same policy as
+  `Use python`), and the bytecode VM **refuses it at compile time** so `epl run`
+  falls back to the interpreter cleanly instead of silently returning null.
+- **NumPy results no longer leak as `<python module int64>`.** The Python-bridge
+  result wrapper now duck-types NumPy-style scalars/arrays (via `.dtype` +
+  `.item()`/`.tolist()`, with no hard dependency on numpy) and converts them to
+  native EPL numbers/lists — so numeric packages return `[1, 2, 3]` and `15`
+  instead of opaque wrapper objects. Regression coverage in
+  `tests/test_python_call_bridge.py`.
+
 ### Added — native Android/Kotlin compilation (H1 db bridge + H3 type-correct transpile)
 **The transliterating Android/Kotlin target now produces code that actually
 compiles**, including database apps. v10.0.0 told the truth about *what* it could

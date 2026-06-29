@@ -6,7 +6,7 @@ Say "=== EPL Collections Demo ==="
 Note: Stack
 Say ""
 Say "--- Stack (LIFO) ---"
-Set my_stack to create_stack()
+my_stack = create_stack()
 stack_push(my_stack, "first")
 stack_push(my_stack, "second")
 stack_push(my_stack, "third")
@@ -18,7 +18,7 @@ Say "New top: " + stack_peek(my_stack)
 Note: Queue
 Say ""
 Say "--- Queue (FIFO) ---"
-Set task_queue to create_queue()
+task_queue = create_queue()
 enqueue(task_queue, "Send email")
 enqueue(task_queue, "Process payment")
 enqueue(task_queue, "Generate report")
@@ -29,7 +29,7 @@ Say "After that: " + dequeue(task_queue)
 Note: Priority Queue
 Say ""
 Say "--- Priority Queue ---"
-Set pq to create_priority_queue()
+pq = create_priority_queue()
 pq_push(pq, "Low priority bug", 5)
 pq_push(pq, "Critical security fix", 1)
 pq_push(pq, "Feature request", 3)
@@ -39,7 +39,7 @@ Say "Next: " + pq_pop(pq)
 Note: Linked List
 Say ""
 Say "--- Linked List ---"
-Set ll to create_linked_list()
+ll = create_linked_list()
 ll_append(ll, "Alice")
 ll_append(ll, "Bob")
 ll_append(ll, "Charlie")
@@ -47,13 +47,13 @@ ll_prepend(ll, "Zara")
 Say "Size: " + ll_size(ll)
 Say "First: " + ll_get(ll, 0)
 Say "Contains Bob: " + ll_contains(ll, "Bob")
-Set arr to ll_to_array(ll)
+arr = ll_to_array(ll)
 Say "As array: " + arr
 
 Note: HashMap
 Say ""
 Say "--- HashMap ---"
-Set cache to create_hashmap()
+cache = create_hashmap()
 hm_set(cache, "user:1", "Alice")
 hm_set(cache, "user:2", "Bob")
 hm_set(cache, "user:3", "Charlie")
@@ -65,7 +65,7 @@ Say "Size: " + hm_size(cache)
 Note: Binary Search Tree
 Say ""
 Say "--- Binary Search Tree ---"
-Set bst to create_tree()
+bst = create_tree()
 tree_insert(bst, 50)
 tree_insert(bst, 30)
 tree_insert(bst, 70)
@@ -82,7 +82,7 @@ Say "Height: " + tree_height(bst)
 Note: Graph
 Say ""
 Say "--- Graph ---"
-Set g to create_graph(False)
+g = create_graph(False)
 graph_add_node(g, "Paris")
 graph_add_node(g, "London")
 graph_add_node(g, "Berlin")
