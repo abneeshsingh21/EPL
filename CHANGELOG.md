@@ -18,6 +18,20 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Fixed — VM optimizer skipped function/method bodies; corrected speed claims
+- **The bytecode optimizer (constant-fold, peephole, dead-code) now runs on
+  every function and class-method body, not just top-level code.** Function and
+  method bodies compile into their own instruction streams, so the passes never
+  touched them — foldable constants and dead code after `Return` survived inside
+  every callable. Bodies are now optimized via a shared `_optimize_code` pipeline
+  (with the constructor de-duped by identity against its `Constructor` method).
+  VM-vs-interpreter parity is preserved; covered in `tests/test_vm.py`.
+- **Removed the inaccurate "10-50x faster than tree-walking" VM claim.** Measured
+  with `epl benchmark`, the Python-hosted VM is *not* uniformly faster — on tight
+  arithmetic loops the dispatch layer makes it somewhat slower, and on call-heavy
+  code the two engines are roughly on par. The large speedups come from native
+  compilation (`epl build`, via LLVM), not the VM. The docstring now says so.
+
 ### Fixed — transpile commands ignored `-o`/`--output`
 - **`epl python`/`js`/`node`/`kotlin`/`micropython` now honor `-o`/`--output`.**
   They previously ignored the flag and always wrote `<basename>.<ext>` into the

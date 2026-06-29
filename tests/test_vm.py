@@ -25,6 +25,66 @@ def run_vm(code):
     return vm
 
 
+def compile_only(code):
+    """Helper: lex, parse, and compile (no execution) — returns the compiled dict."""
+    return BytecodeCompiler().compile(Parser(Lexer(code).tokenize()).parse())
+
+
+class TestVMFunctionBodyOptimization(unittest.TestCase):
+    """The optimization passes (const-fold / peephole / dead-code) run on function
+    and method bodies, not just the top-level stream (regression: they used to be
+    skipped entirely for anything compiled into its own instruction list).
+
+    Note: these assert *dead-code elimination* rather than constant folding. A
+    literal*literal like ``2 * 3`` is folded at AST-compile time (in
+    ``_compile_expr``) regardless of the per-callable pipeline, so a "MUL absent"
+    check would pass even with ``_optimize_callables`` removed. Dropping code after
+    a ``Return`` is a bytecode-level pass (``_dead_code_eliminate``) that ONLY runs
+    via the per-callable pipeline — so these fail loudly if that wiring regresses."""
+
+    def test_dead_code_removed_after_return_in_function(self):
+        compiled = compile_only(
+            'Function f takes n\n    Return n\n    Say "dead"\n    Say "also dead"\nEnd\nSay f(1)\n'
+        )
+        fn = compiled['functions']['f']
+        # The two unreachable Says compile to PRINT ops; the pipeline must drop them.
+        self.assertNotIn(Op.PRINT, [i.op for i in fn.code], 'dead code after Return not eliminated')
+        ret_positions = [idx for idx, i in enumerate(fn.code) if i.op == Op.RETURN]
+        # Everything after the first reachable RETURN (the explicit one) is dead and dropped;
+        # only the auto-appended fallthrough RETURN may remain at the tail.
+        self.assertTrue(ret_positions)
+        self.assertLessEqual(len(fn.code) - 1, ret_positions[0] + 1)
+
+    def test_dead_code_removed_after_return_in_method(self):
+        compiled = compile_only(
+            'Class C\n    Function m takes x\n        Return x\n        Say "dead"\n    End\nEnd\n'
+        )
+        method = compiled['classes']['C'].methods['m']
+        # Unreachable Say inside a *method* body — only optimized because
+        # _optimize_callables reaches into cls.methods, not just top-level code.
+        self.assertNotIn(Op.PRINT, [i.op for i in method.code], 'method dead code not eliminated')
+
+    def test_function_optimization_preserves_behavior(self):
+        vm = run_vm(
+            'Function fib takes n\n'
+            '    If n < 2\n        Return n\n    End\n'
+            '    Return fib(n - 1) + fib(n - 2)\n'
+            'End\n'
+            'Say fib(10)\n'
+        )
+        self.assertEqual(vm.output_lines, ['55'])
+
+    def test_method_optimization_preserves_behavior(self):
+        vm = run_vm(
+            'Class Calc\n'
+            '    Function double takes x\n        Return x * 2\n        Say "dead"\n    End\n'
+            'End\n'
+            'Create c equal to new Calc()\n'
+            'Say c.double(21)\n'
+        )
+        self.assertEqual(vm.output_lines, ['42'])
+
+
 class TestVMBasicOps(unittest.TestCase):
     """Test basic VM operations."""
 
