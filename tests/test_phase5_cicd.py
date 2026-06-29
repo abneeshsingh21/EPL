@@ -298,11 +298,43 @@ def test_ci_mypy_job():
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+def _ci_run_commands(src):
+    """Shell command strings from every ``run:`` step in ci.yml.
+
+    Parses the YAML when PyYAML is available (robust to block scalars / nesting);
+    falls back to a regex line-scan otherwise so the guard still works in a minimal
+    environment where PyYAML is not installed. Only real ``run:`` commands are
+    returned — comments and ``echo`` text elsewhere in the file are excluded, so a
+    later assertion can't be satisfied by a stray substring."""
+    try:
+        import yaml
+    except ImportError:
+        # Capture the text after each `run:` key, including following indented
+        # lines of a block scalar. Coarser than the YAML walk but still scoped to
+        # run steps rather than the whole file.
+        cmds = []
+        for m in re.finditer(r'^[ \t]*run:[ \t]*\|?[ \t]*\n((?:[ \t]+.*\n?)+)', src, re.MULTILINE):
+            cmds.append(m.group(1))
+        for m in re.finditer(r'^[ \t]*run:[ \t]+(?!\|)(\S.*)$', src, re.MULTILINE):
+            cmds.append(m.group(1))
+        return cmds
+
+    data = yaml.safe_load(src)
+    cmds = []
+    for job in (data.get('jobs') or {}).values():
+        for step in job.get('steps') or []:
+            run = step.get('run') if isinstance(step, dict) else None
+            if isinstance(run, str):
+                cmds.append(run)
+    return cmds
+
+
 @_tracked_test
 def test_ci_security_tests_included():
     print('\n=== P5-5: ci.yml — full suite runs (security tests included by construction) ===')
 
     src = open(CI_YML, encoding='utf-8').read()
+    run_cmds = _ci_run_commands(src)
 
     # Phase 3 consolidation replaced the hardcoded per-file whitelist (which
     # silently dropped any newly-added test file, including security ones) with
@@ -310,10 +342,20 @@ def test_ci_security_tests_included():
     # reliability tests must execute in CI" — is now satisfied *by construction*:
     # `pytest tests/` collects every test_*.py, so no file can be omitted.
     #
-    # Assert the stronger guarantee instead of the brittle whitelist: CI runs the
-    # whole tests/ directory and does NOT re-introduce a curated file list.
-    runs_full_suite = bool(re.search(r'pytest\s+tests/(?:\s|$)', src, re.MULTILINE))
-    check('ci.yml runs the full `pytest tests/` suite', runs_full_suite)
+    # Assert against the ACTUAL `run:` commands (not a raw file substring, which a
+    # comment or echo could satisfy): some step must invoke the whole tests/ dir.
+    runs_full_suite = any(re.search(r'\bpytest\s+tests/(?:\s|$)', c) for c in run_cmds)
+    check('a ci.yml run step invokes the full `pytest tests/` suite', runs_full_suite)
+
+    # And no step may have reverted to per-file invocation (`pytest tests/test_*.py
+    # ...`) — that is exactly the brittle whitelist this consolidation removed, and
+    # it would let CI stop collecting new tests while this guard stayed green.
+    per_file = [c for c in run_cmds if re.search(r'\bpytest\b[^\n]*\btests/test_\w+\.py\b', c)]
+    check(
+        'no per-file pytest invocation re-introduced in ci.yml',
+        not per_file,
+        f'per-file run steps: {per_file}',
+    )
 
     # The previously-omitted security/reliability suites are real files that the
     # full run therefore covers. Confirm they still exist on disk (a rename would
@@ -329,7 +371,7 @@ def test_ci_security_tests_included():
             os.path.isfile(os.path.join(tests_dir, tf)),
         )
 
-    # Guard against regression: the brittle hardcoded whitelist must not return.
+    # Guard against regression: the old curated-list step name must not return.
     check('no per-file test whitelist re-introduced', 'Run stable test suite' not in src)
 
 

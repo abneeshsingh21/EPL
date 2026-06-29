@@ -41,8 +41,9 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
   Dormant until a `v*` tag is pushed; requires a one-time PyPI trusted-publisher
   registration (documented in the workflow header).
 
-### Added — native build (`epl build`) now infers types for untyped functions
+### Fixed — bytecode VM counted-loop / control-flow correctness
 
+**The bytecode VM (the default `epl run` engine) now executes counted loops
 correctly.** A deep-research audit of the shipped examples surfaced two real VM
 control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
