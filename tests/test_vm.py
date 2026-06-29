@@ -33,31 +33,36 @@ def compile_only(code):
 class TestVMFunctionBodyOptimization(unittest.TestCase):
     """The optimization passes (const-fold / peephole / dead-code) run on function
     and method bodies, not just the top-level stream (regression: they used to be
-    skipped entirely for anything compiled into its own instruction list)."""
+    skipped entirely for anything compiled into its own instruction list).
 
-    def test_constant_folded_in_function_body(self):
-        compiled = compile_only('Function f takes n\n    Return n + 2 * 3\nEnd\nSay f(1)\n')
-        ops = [i.op for i in compiled['functions']['f'].code]
-        self.assertNotIn(Op.MUL, ops, '2 * 3 should be folded to 6 inside the function')
+    Note: these assert *dead-code elimination* rather than constant folding. A
+    literal*literal like ``2 * 3`` is folded at AST-compile time (in
+    ``_compile_expr``) regardless of the per-callable pipeline, so a "MUL absent"
+    check would pass even with ``_optimize_callables`` removed. Dropping code after
+    a ``Return`` is a bytecode-level pass (``_dead_code_eliminate``) that ONLY runs
+    via the per-callable pipeline — so these fail loudly if that wiring regresses."""
 
     def test_dead_code_removed_after_return_in_function(self):
         compiled = compile_only(
             'Function f takes n\n    Return n\n    Say "dead"\n    Say "also dead"\nEnd\nSay f(1)\n'
         )
         fn = compiled['functions']['f']
+        # The two unreachable Says compile to PRINT ops; the pipeline must drop them.
+        self.assertNotIn(Op.PRINT, [i.op for i in fn.code], 'dead code after Return not eliminated')
         ret_positions = [idx for idx, i in enumerate(fn.code) if i.op == Op.RETURN]
         # Everything after the first reachable RETURN (the explicit one) is dead and dropped;
         # only the auto-appended fallthrough RETURN may remain at the tail.
         self.assertTrue(ret_positions)
         self.assertLessEqual(len(fn.code) - 1, ret_positions[0] + 1)
 
-    def test_method_body_is_optimized(self):
+    def test_dead_code_removed_after_return_in_method(self):
         compiled = compile_only(
-            'Class C\n    Function m takes x\n        Return x + 4 * 5\n    End\nEnd\n'
+            'Class C\n    Function m takes x\n        Return x\n        Say "dead"\n    End\nEnd\n'
         )
         method = compiled['classes']['C'].methods['m']
-        ops = [i.op for i in method.code]
-        self.assertNotIn(Op.MUL, ops, '4 * 5 should be folded inside the method body')
+        # Unreachable Say inside a *method* body — only optimized because
+        # _optimize_callables reaches into cls.methods, not just top-level code.
+        self.assertNotIn(Op.PRINT, [i.op for i in method.code], 'method dead code not eliminated')
 
     def test_function_optimization_preserves_behavior(self):
         vm = run_vm(
