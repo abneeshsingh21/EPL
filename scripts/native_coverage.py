@@ -92,14 +92,18 @@ def classify(path, clang):
         clang_dir = os.path.dirname(clang)
         if clang_dir and clang_dir not in env.get('PATH', ''):
             env['PATH'] = clang_dir + os.pathsep + env.get('PATH', '')
-        build = subprocess.run(
-            [sys.executable, '-m', 'epl', 'build', prog],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            env=env,
-            cwd=td,
-        )
+        try:
+            build = subprocess.run(
+                [sys.executable, '-m', 'epl', 'build', prog],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+                cwd=td,
+            )
+        except subprocess.TimeoutExpired:
+            # A single hung build must not abort the whole coverage run.
+            return 'buildfail', 'build-timeout'
         out_txt = (build.stdout + build.stderr).lower()
         if 'cannot guarantee a correct binary' in out_txt:
             return 'refused', ''
@@ -125,8 +129,11 @@ def main():
     if not clang:
         print('no clang; cannot measure native coverage')
         return 1
-    pattern = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'examples', '*.epl')
-    files = sorted(glob.glob(pattern))
+    # Accept multiple positional args so a shell-expanded glob (examples/*.epl)
+    # is measured in full, not truncated to the first path. Each arg is itself
+    # globbed so an unexpanded pattern still works; results are de-duplicated.
+    patterns = sys.argv[1:] or [os.path.join(ROOT, 'examples', '*.epl')]
+    files = sorted({path for pattern in patterns for path in glob.glob(pattern)})
     counts = {}
     for path in files:
         cat, detail = classify(path, clang)

@@ -1744,8 +1744,10 @@ class Compiler:
             ret_type = func.return_value.type
             if isinstance(ret_type, ir.PointerType):
                 self.builder.ret(ir.Constant(self.i8_ptr, None))
-            elif isinstance(ret_type, ir.IntType) and ret_type.width == 64:
-                self.builder.ret(ir.Constant(self.i64, 0))
+            elif isinstance(ret_type, ir.IntType):
+                # Any integer width (incl. i1 booleans, now produced by inference)
+                # — emitting an i8* null here would be invalid IR for non-i64.
+                self.builder.ret(ir.Constant(ret_type, 0))
             elif isinstance(ret_type, ir.DoubleType):
                 self.builder.ret(ir.Constant(self.f64, 0.0))
             else:
@@ -1892,7 +1894,14 @@ class Compiler:
                 ir.Constant(self.i8, 0), self.builder.gep(buf, [ir.Constant(self.i64, 1)])
             )
             return buf
-        return ir.Constant(self.i64, 0)
+        # The name is in NATIVE_BUILTIN_NAMES (so it routed here and shadows any
+        # user function) but has no native lowering — silently returning `i64 0`
+        # would miscompile (e.g. `sum`, `random`, `typeof`, `is_*`). Fail fast
+        # with a clear error instead; the native-inference safety gate also
+        # refuses such programs upstream, this guards direct/fully-typed builds.
+        raise EPLRuntimeError(
+            f'native build does not implement builtin "{n}"', getattr(node, 'line', 0)
+        )
 
     def _compile_return(self, node):
         # Restore GC root stack before returning from function

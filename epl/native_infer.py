@@ -32,6 +32,7 @@ can never turn a passing program into a worse one, nor admit a crash.
 from __future__ import annotations
 
 from epl import ast_nodes as ast
+from epl.native_names import NATIVE_BUILTIN_NAMES
 from epl.native_names import NATIVE_SHADOWED_NAMES as _RESERVED_RUNTIME_NAMES
 
 # Concrete native types (EPL type-name strings, matching _infer_param_type).
@@ -281,7 +282,12 @@ class _Inferencer:
         return UNKNOWN
 
     def _infer_call(self, node, env):
-        if node.name in _BUILTIN_RET:
+        # Only names the native compiler actually dispatches as builtins count in
+        # *call* position. ``_BUILTIN_RET`` also holds method/property-only names
+        # (e.g. ``to_string``, ``trim``) that the backend does NOT treat as
+        # function-call builtins, so gating on NATIVE_BUILTIN_NAMES keeps call
+        # inference aligned with the compiler's real dispatch contract.
+        if node.name in _BUILTIN_RET and node.name in NATIVE_BUILTIN_NAMES:
             return _BUILTIN_RET[node.name]
         if node.name in self.sig:
             s = self.sig[node.name]
@@ -370,7 +376,20 @@ class _SafetyChecker:
         # conflict). `needs` is recorded from the *source*, so a function whose
         # types inference could not pin still blocks admission here.
         for name, fn in self.inf.funcs.items():
-            if self.inf.sig[name]['needs'] and name not in resolved:
+            if name in _RESERVED_RUNTIME_NAMES:
+                # Shadows a native builtin or collides with a runtime symbol. This
+                # must block admission regardless of annotation: a *fully typed*
+                # `Function power ...` is never in `resolved` either, yet without
+                # this the compiler would still hit the duplicate-symbol /
+                # builtin-shadowing divergence this pass exists to refuse.
+                self.reasons.append(
+                    (
+                        name,
+                        getattr(fn, 'line', 0),
+                        'name shadows a native builtin or runtime symbol',
+                    )
+                )
+            elif self.inf.sig[name]['needs'] and name not in resolved:
                 self.reasons.append(
                     (name, getattr(fn, 'line', 0), 'parameter/return types could not be inferred')
                 )
@@ -419,11 +438,13 @@ class _SafetyChecker:
             self._require(node.count, env, node)
             self._check_body(node.body, env, fn)
         elif isinstance(node, ast.ForRange):
-            # Loop var is int; bounds/step must be numeric.
-            self._require(node.start, env, node)
-            self._require(node.end, env, node)
+            # Loop var is int; bounds/step must be numeric. `_require` alone would
+            # accept a concrete-but-non-numeric type (e.g. a string bound), which
+            # the native counted loop cannot lower — so require numeric explicitly.
+            self._require_numeric(node.start, env, node)
+            self._require_numeric(node.end, env, node)
             if getattr(node, 'step', None) is not None:
-                self._require(node.step, env, node)
+                self._require_numeric(node.step, env, node)
             self._check_body(node.body, {**env, node.var_name: INT}, fn)
         elif isinstance(node, ast.FunctionCall):
             self._check_call(node, env)
@@ -436,6 +457,13 @@ class _SafetyChecker:
             )
 
     def _check_call(self, node, env):
+        # Validate the callee, not just its arguments: a standalone
+        # `Call missing(1)` has concrete args but no target the backend can emit.
+        # A callee is admissible only if it is a user function in the program or a
+        # builtin the native compiler dispatches.
+        if node.name not in self.inf.funcs and node.name not in NATIVE_BUILTIN_NAMES:
+            self._fail(node, f'call to unknown function "{node.name}"')
+            return
         for arg in node.arguments:
             self._require(arg, env, node)
 
@@ -443,6 +471,11 @@ class _SafetyChecker:
         t = self.inf.infer(expr, env)
         if t in (UNKNOWN, CONFLICT):
             self._fail(node, 'expression type could not be proven native-safe')
+
+    def _require_numeric(self, expr, env, node):
+        t = self.inf.infer(expr, env)
+        if t not in _NUMERIC:
+            self._fail(node, 'expression must be numeric for a native counted loop')
 
 
 def _normalize_type(t):

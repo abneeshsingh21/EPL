@@ -19,6 +19,7 @@ fixed and covered by VM-vs-interpreter parity tests; the recoverable examples ar
 restored; and a new runtime test stops broken examples from shipping green again.
 
 ### Added — native build (`epl build`) now infers types for untyped functions
+
 - **Conservative monomorphic type inference (`epl/native_infer.py`).** The native
   LLVM backend has no per-expression type inference, so an untyped function
   (`Function add takes a and b` / `Return a + b`) defaulted every parameter to a

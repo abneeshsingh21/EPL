@@ -444,6 +444,7 @@ def compile_file(
             # EPL_DISABLE_NATIVE_INFER escape hatch skips inference (operator
             # safety valve / A-B measurement), refusing as the bare gate would.
             admit = False
+            inference_reasons = []
             if not os.environ.get('EPL_DISABLE_NATIVE_INFER'):
                 from epl.native_infer import analyze
 
@@ -451,11 +452,16 @@ def compile_file(
                 if analysis.admit:
                     inferred_sigs = analysis.func_sigs
                     admit = True
+                else:
+                    # Prefer inference's specific blockers (conflicting call-site
+                    # types, unsupported operators, shadowed names, ...) over the
+                    # coarse "untyped function" list when available.
+                    inference_reasons = analysis.reasons
             if not admit:
                 print('\n  Native build cannot guarantee a correct binary for this program.')
                 print('  The native compiler needs explicit types; these functions are not')
                 print('  fully typed and could not be inferred, so they would miscompile:\n')
-                for name, line, reason in unsafe:
+                for name, line, reason in inference_reasons or unsafe:
                     print(f'    - {name} (line {line}): {reason}')
                 print('\n  Add type annotations, for example:')
                 print('      Function add takes integer a and integer b and returns integer')

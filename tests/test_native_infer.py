@@ -26,11 +26,11 @@ def test_reserved_runtime_names_stay_in_sync_with_compiler():
     ``epl_<name>`` symbol the compiler actually declares, or a colliding user
     function would slip through to a duplicate-symbol build failure. Skipped when
     llvmlite is unavailable (the compiler can't be instantiated)."""
-    try:
-        from epl.compiler import Compiler
-    except ImportError:
-        pytest.skip('llvmlite not available')
-
+    # Skip ONLY when llvmlite itself is missing — a blanket `except ImportError`
+    # would also swallow a genuine regression in epl.compiler's import and turn
+    # this drift guard into a false green.
+    pytest.importorskip('llvmlite')
+    from epl.compiler import Compiler
     from epl.native_names import RESERVED_RUNTIME_NAMES
 
     compiler = Compiler()
@@ -140,6 +140,29 @@ def test_builtin_shadowing_function_refused():
     a = _analyze(src)
     assert not a.admit
     assert 'sum' not in a.func_sigs
+
+
+def test_fully_typed_shadowing_function_refused():
+    # Even with EXPLICIT annotations, a user function named `power` shadows a
+    # runtime/builtin symbol — the compiler would hit a duplicate-symbol /
+    # builtin-shadowing divergence. `needs` is false here, so this only refuses
+    # because shadowed names are a hard reject regardless of annotation.
+    src = (
+        'Function power takes integer a and integer b and returns integer\n'
+        '  Return a + b\n'
+        'End\n'
+        'Print power(2, 3)\n'
+    )
+    a = _analyze(src)
+    assert not a.admit
+    assert 'power' not in a.func_sigs
+
+
+def test_for_range_non_numeric_bound_refused():
+    # A counted loop whose bound is a (concrete) string is not lowerable by the
+    # native backend; it must refuse rather than admit on "concrete != unknown".
+    src = 'For i from 1 to "ten"\n  Print i\nEnd\n'
+    assert not _analyze(src).admit
 
 
 def test_unsupported_construct_refused():
