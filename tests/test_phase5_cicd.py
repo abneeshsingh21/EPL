@@ -7,8 +7,8 @@ Verifies statically (no network, no CI runner) that:
   3. mypy is declared in [dev] optional deps.
   4. ci.yml test matrix includes Python 3.9 and 3.10.
   5. ci.yml contains a mypy / typecheck job.
-  6. ci.yml test whitelist includes the security/reliability test files that
-     were previously excluded.
+  6. ci.yml runs the full `pytest tests/` suite (so security/reliability test
+     files are included by construction, not via a brittle per-file whitelist).
   7. pyproject.toml requires-python is consistent with the CI matrix.
 """
 
@@ -300,40 +300,30 @@ def test_ci_mypy_job():
 
 @_tracked_test
 def test_ci_security_tests_included():
-    print('\n=== P5-5: ci.yml — security test files in test whitelist ===')
+    print('\n=== P5-5: ci.yml — full suite runs (security tests included by construction) ===')
 
     src = open(CI_YML, encoding='utf-8').read()
 
-    # Files that must be in the whitelist
-    required_test_files = [
-        'test_phase3_reliability.py',
-        'test_phase4_security.py',
-        'test_security_hardening.py',
-    ]
+    # Phase 3 consolidation replaced the hardcoded per-file whitelist (which
+    # silently dropped any newly-added test file, including security ones) with
+    # a single full-suite run. The original intent of this test — "security and
+    # reliability tests must execute in CI" — is now satisfied *by construction*:
+    # `pytest tests/` collects every test_*.py, so no file can be omitted.
+    #
+    # Assert the stronger guarantee instead of the brittle whitelist: CI runs the
+    # whole tests/ directory and does NOT re-introduce a curated file list.
+    runs_full_suite = bool(re.search(r'pytest\s+tests/(?:\s|$)', src, re.MULTILINE))
+    check('ci.yml runs the full `pytest tests/` suite', runs_full_suite)
 
-    for tf in required_test_files:
-        check(f'{tf} in ci.yml test whitelist', tf in src)
+    # The previously-omitted security/reliability suites are real files that the
+    # full run therefore covers. Confirm they still exist on disk (a rename would
+    # otherwise silently shrink coverage without any whitelist to flag it).
+    tests_dir = os.path.join(REPO_ROOT, 'tests')
+    for tf in ('test_phase3_reliability.py', 'test_phase4_security.py', 'test_security_hardening.py'):
+        check(f'{tf} exists and is collected by `pytest tests/`', os.path.isfile(os.path.join(tests_dir, tf)))
 
-    # T4: test_phase3_reliability.py appears in the stable test run command
-    in_stable_run = bool(
-        re.search(r'Run stable test suite.*?test_phase3_reliability\.py', src, re.DOTALL)
-    )
-    check('test_phase3_reliability.py in stable run step', in_stable_run)
-
-    # T5: test_phase4_security.py appears in the stable test run command
-    in_stable_run2 = bool(
-        re.search(r'Run stable test suite.*?test_phase4_security\.py', src, re.DOTALL)
-    )
-    check('test_phase4_security.py in stable run step', in_stable_run2)
-
-    # T6: security tests also appear in coverage run (Ubuntu 3.12 only)
-    in_coverage = bool(re.search(r'Run coverage.*?test_phase4_security\.py', src, re.DOTALL))
-    check('test_phase4_security.py in coverage step', in_coverage)
-
-    # T7: Previously excluded files are now present
-    # Confirm test_phase3_reliability was NOT already there before Phase 5
-    # (we can only confirm it IS there now)
-    check('test_phase3_reliability.py present in ci.yml', 'test_phase3_reliability.py' in src)
+    # Guard against regression: the brittle hardcoded whitelist must not return.
+    check('no per-file test whitelist re-introduced', 'Run stable test suite' not in src)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
