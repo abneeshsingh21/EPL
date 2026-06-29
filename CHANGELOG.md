@@ -18,6 +18,23 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Fixed — bare math/boolean constants diverged between the two engines
+- **`pi`, `euler`, `infinity`, `on`, and `off` now resolve identically under
+  `epl run` (VM) and `epl run --interpret`.** The VM had a bare-constant table but
+  the interpreter did not, so `Say pi` printed `3.141592653589793` on the default
+  VM yet `"pi"` (or errored, for `infinity`/`on`/`off`) under the interpreter. Both
+  engines now read a single shared `stdlib.BARE_CONSTANTS`, so they can't drift; a
+  user `Create pi ...` still shadows the constant. Covered by VM↔interpreter parity
+  tests in `tests/test_vm.py`.
+
+### Docs — reconciled platform claims with verified reality
+- **iOS/SwiftUI generation and the WASM target are now labeled experimental** in
+  the README (not yet validated against a Swift toolchain / Emscripten in CI), and
+  the native-build matrix entry notes it covers the type-annotated subset. The
+  architecture diagram's native-output note is narrowed to the verified target
+  (x86-64). No code behavior changed — this corrects documentation that ran ahead
+  of what is currently CI-verified.
+
 ### Fixed — VM optimizer skipped function/method bodies; corrected speed claims
 - **The bytecode optimizer (constant-fold, peephole, dead-code) now runs on
   every function and class-method body, not just top-level code.** Function and

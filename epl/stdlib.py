@@ -39,6 +39,27 @@ from epl.errors import RuntimeError as EPLRuntimeError
 _install_lock = _threading.Lock()
 _module_cache: dict = {}
 
+# Bare-identifier constants — words that resolve to a fixed value when used as a
+# plain identifier (no call, no `Create`). Shared by BOTH execution engines (the
+# bytecode VM and the tree-walking interpreter) so they can never drift apart:
+# `Say pi` must mean the same thing regardless of which engine runs it. Booleans
+# (`true`/`false`/`yes`/`no`/`on`/`off`) and the null words are language literals;
+# `pi`/`euler`/`infinity` are the math constants. (`pi`/`euler` also remain callable
+# as stdlib functions — this only governs the bare, un-called identifier form.)
+BARE_CONSTANTS = {
+    'true': True,
+    'false': False,
+    'none': None,
+    'null': None,
+    'yes': True,
+    'no': False,
+    'on': True,
+    'off': False,
+    'pi': _math.pi,
+    'euler': _math.e,
+    'infinity': _math.inf,
+}
+
 
 def _require_module(module_name, pip_name=None, feature_name=None):
     """Lazy-import an EPL or Python module with clear error messages on failure.

@@ -994,6 +994,40 @@ class TestVMCountedLoopControlFlow(unittest.TestCase):
         self.assertEqual(vm.output_lines, interp.output_lines)
 
 
+class TestBareConstantParity(unittest.TestCase):
+    """Bare constant identifiers (pi, euler, infinity, on, off) must resolve to the
+    same value in the VM and the interpreter. Regression: the VM had a constants
+    dict but the interpreter did not, so `Say pi` printed 3.14159 on the default VM
+    yet "pi" (or errored) under --interpret. Both now share stdlib.BARE_CONSTANTS.
+    """
+
+    def _interp(self, code):
+        from epl.interpreter import Interpreter
+
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        return interp.output_lines
+
+    def test_math_and_boolean_constants_match(self):
+        for name in ('pi', 'euler', 'infinity', 'on', 'off', 'yes', 'no'):
+            code = f'Say {name}'
+            with self.subTest(constant=name):
+                vm = run_vm(code)
+                self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_pi_is_numeric_not_string(self):
+        # The whole point of the fix: bare `pi` is the number, usable in arithmetic.
+        vm = run_vm('Say pi > 3')
+        self.assertEqual(vm.output_lines, ['true'])
+        self.assertEqual(vm.output_lines, self._interp('Say pi > 3'))
+
+    def test_user_variable_shadows_constant(self):
+        code = 'Create pi equal to 42\nSay pi'
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['42'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+
 class TestVMParityWithInterpreter(unittest.TestCase):
     """Regression tests for VM compile bugs that crashed `epl vm` on basic
     features (Ternary, Match, file I/O) and a division-semantics divergence.
