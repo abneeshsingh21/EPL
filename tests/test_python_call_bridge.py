@@ -122,9 +122,7 @@ class PythonResultConversionTests(unittest.TestCase):
     def test_plain_values_unchanged(self):
         for value in (None, True, 3, 4.5, 'hi'):
             self.assertEqual(
-                wrap_python_result(
-                    value, epl_dict_type=EPLDict, python_module_type=PythonModule
-                ),
+                wrap_python_result(value, epl_dict_type=EPLDict, python_module_type=PythonModule),
                 value,
             )
 
