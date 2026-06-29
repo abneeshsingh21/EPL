@@ -319,8 +319,15 @@ def test_ci_security_tests_included():
     # full run therefore covers. Confirm they still exist on disk (a rename would
     # otherwise silently shrink coverage without any whitelist to flag it).
     tests_dir = os.path.join(REPO_ROOT, 'tests')
-    for tf in ('test_phase3_reliability.py', 'test_phase4_security.py', 'test_security_hardening.py'):
-        check(f'{tf} exists and is collected by `pytest tests/`', os.path.isfile(os.path.join(tests_dir, tf)))
+    for tf in (
+        'test_phase3_reliability.py',
+        'test_phase4_security.py',
+        'test_security_hardening.py',
+    ):
+        check(
+            f'{tf} exists and is collected by `pytest tests/`',
+            os.path.isfile(os.path.join(tests_dir, tf)),
+        )
 
     # Guard against regression: the brittle hardcoded whitelist must not return.
     check('no per-file test whitelist re-introduced', 'Run stable test suite' not in src)
