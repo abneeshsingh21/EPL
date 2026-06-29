@@ -25,6 +25,61 @@ def run_vm(code):
     return vm
 
 
+def compile_only(code):
+    """Helper: lex, parse, and compile (no execution) — returns the compiled dict."""
+    return BytecodeCompiler().compile(Parser(Lexer(code).tokenize()).parse())
+
+
+class TestVMFunctionBodyOptimization(unittest.TestCase):
+    """The optimization passes (const-fold / peephole / dead-code) run on function
+    and method bodies, not just the top-level stream (regression: they used to be
+    skipped entirely for anything compiled into its own instruction list)."""
+
+    def test_constant_folded_in_function_body(self):
+        compiled = compile_only('Function f takes n\n    Return n + 2 * 3\nEnd\nSay f(1)\n')
+        ops = [i.op for i in compiled['functions']['f'].code]
+        self.assertNotIn(Op.MUL, ops, '2 * 3 should be folded to 6 inside the function')
+
+    def test_dead_code_removed_after_return_in_function(self):
+        compiled = compile_only(
+            'Function f takes n\n    Return n\n    Say "dead"\n    Say "also dead"\nEnd\nSay f(1)\n'
+        )
+        fn = compiled['functions']['f']
+        ret_positions = [idx for idx, i in enumerate(fn.code) if i.op == Op.RETURN]
+        # Everything after the first reachable RETURN (the explicit one) is dead and dropped;
+        # only the auto-appended fallthrough RETURN may remain at the tail.
+        self.assertTrue(ret_positions)
+        self.assertLessEqual(len(fn.code) - 1, ret_positions[0] + 1)
+
+    def test_method_body_is_optimized(self):
+        compiled = compile_only(
+            'Class C\n    Function m takes x\n        Return x + 4 * 5\n    End\nEnd\n'
+        )
+        method = compiled['classes']['C'].methods['m']
+        ops = [i.op for i in method.code]
+        self.assertNotIn(Op.MUL, ops, '4 * 5 should be folded inside the method body')
+
+    def test_function_optimization_preserves_behavior(self):
+        vm = run_vm(
+            'Function fib takes n\n'
+            '    If n < 2\n        Return n\n    End\n'
+            '    Return fib(n - 1) + fib(n - 2)\n'
+            'End\n'
+            'Say fib(10)\n'
+        )
+        self.assertEqual(vm.output_lines, ['55'])
+
+    def test_method_optimization_preserves_behavior(self):
+        vm = run_vm(
+            'Class Calc\n'
+            '    Function double takes x\n        Return x * 2\n        Say "dead"\n    End\n'
+            'End\n'
+            'Create c equal to new Calc()\n'
+            'Say c.double(21)\n'
+        )
+        self.assertEqual(vm.output_lines, ['42'])
+
+
 class TestVMBasicOps(unittest.TestCase):
     """Test basic VM operations."""
 

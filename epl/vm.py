@@ -1,9 +1,17 @@
 """
 EPL Bytecode Virtual Machine v1.0
 =================================
-A stack-based bytecode compiler + VM for EPL programs.
-10-50x faster than tree-walking interpretation by eliminating
-AST traversal overhead and using direct instruction dispatch.
+A stack-based bytecode compiler + VM for EPL programs. Compiles the AST once to
+bytecode and executes it with direct opcode dispatch, after constant-folding,
+peephole, and dead-code passes over every function and method body.
+
+Note on performance: because both this VM and the tree-walking interpreter run
+in CPython, the VM is *not* uniformly faster — on tight arithmetic loops the
+extra dispatch layer makes it somewhat slower, and on call-heavy code the two
+are roughly on par (`epl benchmark <file>` reports the real ratio per program).
+The large speedups come from native compilation (`epl build`, via LLVM), not
+from this Python-hosted VM. The VM exists as a portable, dependency-free engine
+and the lowering target for that native path.
 
 Architecture:
   Source → Lexer → Parser → AST → BytecodeCompiler → Bytecode → VM → Output
@@ -344,10 +352,12 @@ class BytecodeCompiler:
                 self._compile_stmt(stmt)
         self._emit(Op.HALT)
 
-        # Optimization passes
-        self.instructions = self._constant_fold(self.instructions)
-        self.instructions = self._peephole_with_reindex(self.instructions)
-        self.instructions = self._dead_code_eliminate(self.instructions)
+        # Optimization passes — top level, then every function and method body.
+        # Function/method bodies compile into their own instruction streams, so
+        # before this they were never optimized: dead code after RETURN and
+        # foldable constants survived inside every function and class method.
+        self.instructions = self._optimize_code(self.instructions)
+        self._optimize_callables()
 
         return {
             'code': self.instructions,
@@ -355,6 +365,41 @@ class BytecodeCompiler:
             'functions': self.functions,
             'classes': self.classes,
         }
+
+    def _optimize_code(self, code):
+        """Run the constant-fold, peephole, and dead-code passes over one code array.
+
+        Each pass is self-contained (it reindexes its own jump targets and only
+        reads the shared constant pool), so the same pipeline is safe to apply to
+        a top-level stream or to an isolated function/method body.
+        """
+        code = self._constant_fold(code)
+        code = self._peephole_with_reindex(code)
+        code = self._dead_code_eliminate(code)
+        return code
+
+    def _optimize_callables(self):
+        """Apply the optimization pipeline to every compiled function and method body.
+
+        These compile into their own instruction streams, so the top-level passes
+        never touched them. A class constructor is the same object as its
+        ``Constructor`` method entry, so we de-dupe by function identity to avoid
+        optimizing one body twice.
+        """
+        seen = set()
+
+        def _opt(func):
+            if func is None or id(func) in seen:
+                return
+            seen.add(id(func))
+            func.code = self._optimize_code(func.code)
+
+        for func in self.functions.values():
+            _opt(func)
+        for cls in self.classes.values():
+            for method in cls.methods.values():
+                _opt(method)
+            _opt(cls.constructor)
 
     def _constant_fold(self, code):
         """Constant folding optimization: evaluate compile-time constant expressions.
