@@ -297,6 +297,7 @@ _TARGET_OPTION_FLAGS = {
     '--height',
     '--mode',
     '--output',
+    '-o',
     '--host',
     '--runs',
     '--warmup',
@@ -2538,9 +2539,15 @@ def _extract_output_path(args):
 
     Used by the single-file transpile commands so ``epl python app.epl -o out/app.py``
     writes where the user asked instead of always dropping ``app.py`` in the CWD.
+
+    Raises ``ValueError`` when the flag is given without a real path (a bare ``-o``
+    at the end, or one followed by another flag) so the caller fails with a clear
+    message instead of silently using the default name or writing to ``--json``.
     """
     for i, arg in enumerate(args):
-        if arg in ('-o', '--output') and i + 1 < len(args):
+        if arg in ('-o', '--output'):
+            if i + 1 >= len(args) or args[i + 1].startswith('-'):
+                raise ValueError(f'{arg} requires an output path')
             return args[i + 1]
     return None
 
@@ -3767,7 +3774,10 @@ def _micropython(args):
             target = args[i + 1]
             i += 2
             continue
-        if arg in ('-o', '--output') and i + 1 < len(args):
+        if arg in ('-o', '--output'):
+            if i + 1 >= len(args) or args[i + 1].startswith('-'):
+                print(f'{_red("Error:")} {arg} requires an output path')
+                return 1
             output_path = args[i + 1]
             i += 2
             continue

@@ -24,7 +24,10 @@ restored; and a new runtime test stops broken examples from shipping green again
   current directory (and `micropython` rejected `-o` outright while `android`
   accepted it). All single-file transpile commands now write to the given path,
   creating parent directories as needed; with no flag the prior CWD behavior is
-  unchanged. Coverage in `tests/test_cli_production.py`.
+  unchanged. A bare `-o` (or one followed by another flag) is rejected with a
+  clear error instead of silently using the default name, and `-o` is recognized
+  in project mode (`epl python -o dist/app.py` against an `epl.toml` entry).
+  Coverage in `tests/test_cli_production.py`.
 
 ### Added — empty-map literal (`Map`)
 - **`Map` with no `with` clause is now the empty-map literal.** EPL previously

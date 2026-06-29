@@ -1218,6 +1218,70 @@ class TestTranspileOutputFlag(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(out.exists())
 
+    def test_node_transpile_honors_output_flag(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Create x equal to 5\n', encoding='utf-8')
+            out = Path(tmpdir) / 'nested' / 'out.node.js'
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'node', str(source), '-o', str(out)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out.exists())
+            self.assertIn('let x = 5', out.read_text(encoding='utf-8'))
+
+    def test_kotlin_transpile_honors_output_flag(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "hi"\n', encoding='utf-8')
+            out = Path(tmpdir) / 'nested' / 'Out.kt'
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'kotlin', str(source), '--output', str(out)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out.exists())
+
+    def test_output_flag_without_value_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "x"\n', encoding='utf-8')
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'python', str(source), '-o'],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('requires an output path', result.stdout + result.stderr)
+            self.assertFalse((Path(tmpdir) / 'app.py').exists())
+
+    def test_output_flag_followed_by_flag_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "x"\n', encoding='utf-8')
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'micropython', str(source), '-o', '--target'],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('requires an output path', result.stdout + result.stderr)
+
     def test_transpile_without_output_flag_writes_to_cwd(self):
         with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
             source = Path(tmpdir) / 'demo.epl'
