@@ -35,6 +35,11 @@ restored; and a new runtime test stops broken examples from shipping green again
   the interpreter rather than capturing a stale value — output is never wrong.
   Nested (multi-level) capture also falls back. Covered by VM↔interpreter parity
   tests in `tests/test_vm.py`.
+- **Closures work through list helpers and across the divergent edge cases.** A
+  captured closure passed to `.map`/`.filter`/`.reduce`/`.find`/`.every`/`.some`
+  now dispatches correctly (previously returned `nothing`). Capturing a loop
+  variable (rebound each iteration) or a variable from a non-immediate enclosing
+  function falls back to the interpreter, so output always matches.
 
 ### Fixed — bare math/boolean constants diverged between the two engines
 - **`pi`, `euler`, `infinity`, `on`, and `off` now resolve identically under

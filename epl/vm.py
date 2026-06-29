@@ -2279,6 +2279,12 @@ class BytecodeCompiler:
             acc.add(node.name)
         elif isinstance(node, ast.DestructureAssignment):
             acc.update(node.names)
+        elif isinstance(node, (ast.ForEachLoop, ast.ForRange)):
+            # The loop header rebinds the loop variable every iteration, so a
+            # closure that captures it must fall back to the interpreter (which
+            # late-binds): by-value capture would snapshot per-iteration values
+            # while the interpreter sees the final value in all closures.
+            acc.add(node.var_name)
         if not hasattr(node, '__dict__'):
             return
         for v in vars(node).values():
@@ -2298,22 +2304,40 @@ class BytecodeCompiler:
         return names
 
     def _lambda_captured_locals(self, node, param_names):
-        """Names the lambda reads from an enclosing *function* scope.
+        """Free variables the lambda reads from its *immediate* enclosing scope.
 
-        These are the closure's free variables: the VM captures their values
-        into closure cells (see `_compile_lambda`). Enclosing top-level names
-        (globals) and the lambda's own params are not captured — globals are
-        visible directly and params are locals. Returned sorted so the cell
-        order is deterministic across compiles.
+        These are captured by value into closure cells (see `_compile_lambda`).
+        Only the immediate enclosing scope (``locals_stack[-1]``) is captured,
+        because the capture LOADs use `_load_named`, which resolves that scope.
+        Names from a deeper enclosing function (`_deeper_captured_refs`) cannot
+        be loaded correctly and force a fallback instead. Top-level names are
+        globals (visible directly) and the lambda's own params are its locals;
+        neither is captured. Returned sorted for deterministic cell order.
         """
-        enclosing = set()
-        for scope in self.locals_stack[1:]:  # skip [0] = module/global scope
-            enclosing |= set(scope.keys())
-        if not enclosing:
+        immediate = set(self.locals_stack[-1].keys()) if len(self.locals_stack) > 1 else set()
+        if not immediate:
             return []
         refs: set = set()
         self._collect_referenced_names(node.body, refs)
-        return sorted((refs & enclosing) - set(param_names))
+        return sorted((refs & immediate) - set(param_names))
+
+    def _deeper_captured_refs(self, node, param_names):
+        """Names the lambda reads from an enclosing function that is NOT the
+        immediate one (two or more levels out). The VM can't load these into a
+        closure cell, so their presence forces an interpreter fallback rather
+        than a wrong (LOAD_GLOBAL) read."""
+        if len(self.locals_stack) <= 2:
+            return set()
+        deeper: set = set()
+        for scope in self.locals_stack[1:-1]:  # enclosing fns above the immediate one
+            deeper |= set(scope.keys())
+        immediate = set(self.locals_stack[-1].keys())
+        deeper -= immediate  # a name in the immediate scope is captured normally
+        if not deeper:
+            return set()
+        refs: set = set()
+        self._collect_referenced_names(node.body, refs)
+        return (refs & deeper) - set(param_names)
 
     def _compile_lambda(self, node):
         params = node.params if hasattr(node, 'params') else getattr(node, 'parameters', [])
@@ -2322,9 +2346,21 @@ class BytecodeCompiler:
         ]
         captured = self._lambda_captured_locals(node, early_param_names)
 
+        # A reference to a variable two-or-more enclosing functions out can't be
+        # captured by the VM (the LOAD would resolve as a global) → fall back.
+        deeper = self._deeper_captured_refs(node, early_param_names)
+        if deeper:
+            raise VMError(
+                'Lambda captures variable(s) '
+                f'{", ".join(sorted(deeper))} from a non-immediate enclosing '
+                'scope; the interpreter handles this closure form.',
+                getattr(node, 'line', 0),
+            )
+
         # By-value capture diverges from the interpreter only if the enclosing
         # scope reassigns a captured name after the closure is built. If any
-        # captured name is reassigned anywhere in an enclosing body, bail so
+        # captured name is reassigned anywhere in an enclosing body (including a
+        # loop variable, which the loop header rebinds each iteration), bail so
         # `epl run` falls back to the interpreter (correct, never wrong output).
         risky = set(captured) & self._enclosing_reassigned()
         if risky:
@@ -3969,13 +4005,21 @@ class VM:
         return val
 
     def _call_vm_function(self, func, args):
-        """Call a compiled function synchronously and return result."""
+        """Call a compiled function/closure synchronously and return its result.
+
+        Used by list-helper callbacks (`.map`, `.filter`, `.reduce`, `.find`,
+        `.every`, `.some`), so a captured closure passed to one of them must be
+        unwrapped to its function + cells, not just a bare CompiledFunction.
+        """
+        cells = None
+        if isinstance(func, VMClosure):
+            func, cells = func.func, func.cells
         if isinstance(func, CompiledFunction):
             # Save stack state
             stack_len = len(self.stack)
             for a in args:
                 self.stack.append(a)
-            self._call_function(func, len(args))
+            self._call_function(func, len(args), cells)
             # Run until this function returns
             while len(self.call_stack) > 1:
                 frame = self.call_stack[-1]

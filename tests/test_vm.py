@@ -569,6 +569,61 @@ class TestVMClosures(unittest.TestCase):
         )
         self.assertEqual(vm.output_lines, ['10'])
 
+    def test_captured_closure_passed_to_map(self):
+        # A captured closure handed to a list helper (.map) must dispatch
+        # through the closure-aware call path, not return nothing.
+        code = (
+            'Function makeAdder takes n\n    Return given x -> x + n\nEnd\n'
+            'Create add2 equal to makeAdder(2)\n'
+            'Say [10, 20, 30].map(add2)'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['[12, 22, 32]'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_loop_variable_capture_falls_back(self):
+        # Inside a function the loop variable is a rebinding local; by-value
+        # capture would snapshot [1, 2, 3] but the interpreter late-binds to
+        # [3, 3, 3]. The compiler must refuse so the answer matches.
+        from epl.vm import VMError
+
+        code = (
+            'Function build\n'
+            '    Create fns equal to []\n'
+            '    For each n in [1, 2, 3]\n'
+            '        Add (given -> n) to fns\n'
+            '    End\n'
+            '    Return fns\n'
+            'End\n'
+            'Create out equal to []\n'
+            'For each f in build()\n'
+            '    Add f() to out\n'
+            'End\n'
+            'Say out'
+        )
+        with self.assertRaises(VMError):
+            run_vm(code)
+        self.assertEqual(self._interp(code), ['[3, 3, 3]'])
+
+    def test_nonimmediate_enclosing_capture_falls_back(self):
+        # A lambda capturing a variable from a non-immediate enclosing function
+        # can't be loaded into a cell by the VM → must fall back, not LOAD_GLOBAL.
+        from epl.vm import VMError
+
+        code = (
+            'Function outer takes x\n'
+            '    Function inner\n'
+            '        Return given -> x\n'
+            '    End\n'
+            '    Return inner()\n'
+            'End\n'
+            'Create g equal to outer(7)\n'
+            'Say g()'
+        )
+        with self.assertRaises(VMError):
+            run_vm(code)
+        self.assertEqual(self._interp(code), ['7'])
+
     def test_reassigned_capture_falls_back_to_interpreter(self):
         # By-value VM capture would snapshot x=1; the interpreter (by reference)
         # sees x=99. The compiler must refuse this so `epl run` produces the
