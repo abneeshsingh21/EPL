@@ -4,6 +4,35 @@ All notable changes to the EPL VS Code extension are documented here.
 The extension version tracks the extension itself; language features are
 provided by the `eplang` Language Server (the `epl` CLI on your PATH).
 
+## [2.9.0] — 2026-06-30
+
+Tracks `eplang` **10.1.0** (VM closures, native type inference, CI/supply-chain
+hardening).
+
+### Fixed
+
+- **Unified bare constants are now highlighted.** EPL 10.1.0 made the bare
+  word constants resolve identically across the interpreter, bytecode VM, and
+  native build. The TextMate grammar's constant groups had drifted behind the
+  language, so several were rendered as plain identifiers:
+  - `on` / `off` are now colored as boolean constants alongside
+    `true` / `false` / `yes` / `no`.
+  - `none` is now colored as a null constant alongside `nothing` / `null`.
+  - the mathematical constants `pi`, `euler`, and `infinity` are now
+    highlighted (previously uncolored).
+
+  Genuinely ambiguous English words (`the`, `a`, `of`, `at`, `than`, `type`,
+  `file`, …) are still intentionally left uncolored — highlighting them as
+  keywords would regress EPL's prose-like source.
+
+### Notes
+
+- The 10.1.0 engine work — real closures / capturing lambdas on the bytecode
+  VM and whole-program type inference in the native build — introduces no new
+  surface syntax, so no grammar change was required for those features. The
+  LSP-driven completions, diagnostics, hover, rename, and find-references all
+  track whichever `eplang` CLI is on your PATH automatically.
+
 ## [2.8.0] — 2026-06-23
 
 Tracks `eplang` **9.8.0** (interpreter ↔ bytecode-VM backend parity).

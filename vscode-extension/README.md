@@ -5,7 +5,7 @@
 **Full IDE support for the English Programming Language**
 
 [![Version](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
-[![EPL](https://img.shields.io/badge/EPL-v9.8.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
+[![EPL](https://img.shields.io/badge/EPL-v10.1.0-3572A5?style=flat-square)](https://pypi.org/project/eplang/)
 
 </div>
 
@@ -24,7 +24,7 @@
 | ✏️ **Token-aware Rename** | Safe workspace rename (`F2`) that only touches real identifiers — never matches inside strings or comments |
 | 🔗 **Find References** | Token-aware find-all-references across the workspace |
 | ▶️ **Run from Editor** | Execute `.epl` files directly with `Ctrl+Shift+R` |
-| ⚡ **Bytecode VM Backend** | Run with the bytecode VM (`epl vm`) — verified byte-for-byte parity with the interpreter as of v9.8.0 |
+| ⚡ **Bytecode VM Backend** | Run with the bytecode VM (the default `epl run` engine) — verified parity with the interpreter, including real closures / capturing lambdas as of v10.1.0 |
 | 🔧 **Type Checking** | Static type analysis via `epl check` |
 | 📐 **Formatting** | Auto-format EPL source files |
 | 🧪 **Linting** | Code quality analysis |
