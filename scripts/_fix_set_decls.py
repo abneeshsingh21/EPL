@@ -26,13 +26,29 @@ _REMEMBER = re.compile(r'^\s*Remember\s+([A-Za-z_]\w*)\s+as\s')
 _FOREACH = re.compile(r'^\s*For\s+each\s+([A-Za-z_]\w*)\s+in\b')
 _FUNC = re.compile(r'^\s*Function\s+\w+\s+takes\s+(.+)$')
 
+# Conditional/loop block openers and closers. A first `Set` that lands inside one
+# of these is NOT safe to turn into a declaration: the branch may not execute, so
+# a `Set` on the alternate path would reference an undeclared name. (Function
+# bodies are intentionally excluded — a first assignment there always runs.)
+# Continuations (Else/Otherwise/Case/When) stay inside the already-open block and
+# must NOT change the depth, or it would never return to 0.
+_BRANCH_OPEN = re.compile(r'^\s*(If|While|For|Repeat|Match|Try)\b')
+_BRANCH_CLOSE = re.compile(r'^\s*End(\s+(if|while|for|repeat|match|try))?\b', re.I)
+
 
 def fix_text(text: str) -> tuple[str, int]:
     seen: set[str] = set()
     out: list[str] = []
     changes = 0
+    branch_depth = 0  # >0 means we are inside a conditional/loop region
     for line in text.splitlines(keepends=True):
         body = line.rstrip('\n')
+        # Track conditional/loop nesting so a first `Set` inside a branch is left
+        # untouched (fail closed) rather than rewritten to a path-dependent decl.
+        if _BRANCH_CLOSE.match(body):
+            branch_depth = max(0, branch_depth - 1)
+        elif _BRANCH_OPEN.match(body):
+            branch_depth += 1
         m = _CREATE.match(body) or _REMEMBER.match(body) or _FOREACH.match(body)
         if m:
             seen.add(m.group(1))
@@ -55,11 +71,15 @@ def fix_text(text: str) -> tuple[str, int]:
         if s:
             indent, name, rhs = s.group(1), s.group(2), s.group(3)
             if name not in seen:
-                seen.add(name)
-                nl = '\n' if line.endswith('\n') else ''
-                out.append(f'{indent}{name} = {rhs}{nl}')
-                changes += 1
-                continue
+                # Fail closed: only a first `Set` at function/module top level is
+                # safe to turn into a declaration. Inside a branch it may not run.
+                if branch_depth == 0:
+                    seen.add(name)
+                    nl = '\n' if line.endswith('\n') else ''
+                    out.append(f'{indent}{name} = {rhs}{nl}')
+                    changes += 1
+                    continue
+                # else: leave the Set as-is; mark seen so later Sets aren't touched
             seen.add(name)
         out.append(line)
     return ''.join(out), changes
