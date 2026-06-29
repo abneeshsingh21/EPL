@@ -12,6 +12,15 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+## [10.1.0] — 2026-06-30
+
+Headline: the default `epl run` engine (the bytecode VM) gains **real closures**
+and reaches full counted-loop / control-flow parity with the interpreter, the
+native `epl build` backend now **infers types for untyped functions** (so many
+previously-refused programs compile correctly), and the CI / release /
+supply-chain pipeline is hardened end-to-end. Engine parity is exact across both
+runtimes — no silent divergence.
+
 ### Changed — CI / release / supply-chain hardening
 
 - **One source of truth for CI.** The three overlapping workflows (`ci.yml`,

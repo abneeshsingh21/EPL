@@ -317,10 +317,12 @@ epl build app.epl
 # → LLVM-compiled native binary
 ```
 > Requires an LLVM/clang toolchain. The native backend compiles
-> **type-annotated** programs (e.g. `takes integer a and returns integer`);
-> functions left fully dynamic are refused with a clear message rather than
-> miscompiled — run those with `epl run`, which supports the full dynamic
-> language. Broad untyped-code native compilation is in progress.
+> **type-annotated** programs (e.g. `takes integer a and returns integer`) and,
+> as of v10.1.0, also **infers types for untyped functions** when every parameter
+> and return collapses to a single concrete type across the program's call sites —
+> so many previously-refused programs now build. Genuinely dynamic or polymorphic
+> functions are still refused with a clear message rather than miscompiled — run
+> those with `epl run`, which supports the full dynamic language.
 
 **☸️ Kubernetes Deployment**
 ```bash
@@ -419,10 +421,11 @@ Tools
 | LSP / IDE support | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Type checking | ✅ Gradual | ✅ mypy | ✅ TS | ✅ | ✅ |
 
-> † Native (`epl build`) currently compiles **type-annotated** programs; fully
-> dynamic functions are safely refused (run them with `epl run`) — broader
-> support is in progress. 🧪 ‡ = **experimental / not yet CI-verified** against
-> the target toolchain (Emscripten for WASM, Swift for iOS).
+> † Native (`epl build`) compiles **type-annotated** programs and infers types
+> for untyped functions where they resolve to a single concrete type (v10.1.0);
+> genuinely dynamic/polymorphic functions are safely refused (run them with
+> `epl run`). 🧪 ‡ = **experimental / not yet CI-verified** against the target
+> toolchain (Emscripten for WASM, Swift for iOS).
 
 ---
 

@@ -53,8 +53,8 @@ Source Code (.epl)
 | Backend | File | Description |
 |---------|------|-------------|
 | Interpreter | `epl/interpreter.py` (~2100+ lines) | Tree-walking interpreter. Visits each AST node, evaluates in `Environment`. Supports the full EPL feature set including classes, closures, file I/O, web, GUI |
-| Bytecode VM | `epl/vm.py` (~2400+ lines) | `BytecodeCompiler` compiles AST → opcodes (68 types). `VM` executes stack-based bytecode. 10-50x faster than tree-walking. Includes peephole optimizer, dead code elimination, comparison folding, dict-based builtin dispatch |
-| LLVM Compiler | `epl/compiler.py` (~1850 lines) | Compiles AST → LLVM IR via `llvmlite`. Produces native executables. Supports integers, floats, strings, print, conditionals, loops, functions |
+| Bytecode VM | `epl/vm.py` (~2400+ lines) | `BytecodeCompiler` compiles AST → stack-based opcodes; the `VM` executes them. Default `epl run` engine, with exact interpreter parity (incl. real closures / capturing lambdas via `MAKE_CLOSURE`/`LOAD_FREE`). Peephole optimizer, dead-code elimination, comparison folding, and dict-based builtin dispatch run on every function and method body. (Both engines run on CPython, so the VM is not uniformly faster than the interpreter — the large speedups come from native compilation below.) |
+| LLVM Compiler | `epl/compiler.py` (~1850 lines) | Compiles AST → LLVM IR via `llvmlite`, producing native executables. Compiles type-annotated programs and, via a whole-program inference pass (`epl/native_infer.py`), untyped functions whose types resolve to a single concrete type; anything it cannot prove native-safe is refused rather than miscompiled |
 
 ### Transpilers
 
