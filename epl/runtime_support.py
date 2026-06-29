@@ -430,25 +430,43 @@ def compile_file(
         triple = CROSS_TARGETS.get(target, target) if target else None
         program = Parser(Lexer(source).tokenize()).parse()
 
-        # Safety gate: the native backend has no type inference, so functions
-        # with untyped parameters or an untyped value return compile to wrong
-        # (often segfaulting) code. Refuse to emit a binary we cannot prove is
-        # correct, with an actionable message, rather than shipping a crash.
+        # Safety gate: the native backend has no per-expression type inference,
+        # so functions with untyped parameters or an untyped value return would
+        # default to string and miscompile (often into a segfaulting binary).
+        inferred_sigs = {}
         unsafe = _native_unsafe_functions(program)
         if unsafe:
-            print('\n  Native build cannot guarantee a correct binary for this program.')
-            print('  The native compiler needs explicit types; these functions are not')
-            print('  fully typed and would miscompile:\n')
-            for name, line, reason in unsafe:
-                print(f'    - {name} (line {line}): {reason}')
-            print('\n  Add type annotations, for example:')
-            print('      Function add takes integer a and integer b and returns integer')
-            print('\n  ...or run it directly — the interpreter/VM supports full dynamic')
-            print('  typing with no annotations required:')
-            print(f'      epl run {os.path.basename(filepath)}')
-            return False
+            # Recover the safe slice via conservative whole-program monomorphic
+            # inference (epl.native_infer). It admits the program ONLY when every
+            # untyped function resolves to concrete types AND the entire program
+            # type-checks native-safe — so this can only turn a refused program
+            # into a correct binary, never admit a crash. The
+            # EPL_DISABLE_NATIVE_INFER escape hatch skips inference (operator
+            # safety valve / A-B measurement), refusing as the bare gate would.
+            admit = False
+            if not os.environ.get('EPL_DISABLE_NATIVE_INFER'):
+                from epl.native_infer import analyze
 
-        compiler = Compiler(opt_level=opt_level, source_filename=filepath)
+                analysis = analyze(program)
+                if analysis.admit:
+                    inferred_sigs = analysis.func_sigs
+                    admit = True
+            if not admit:
+                print('\n  Native build cannot guarantee a correct binary for this program.')
+                print('  The native compiler needs explicit types; these functions are not')
+                print('  fully typed and could not be inferred, so they would miscompile:\n')
+                for name, line, reason in unsafe:
+                    print(f'    - {name} (line {line}): {reason}')
+                print('\n  Add type annotations, for example:')
+                print('      Function add takes integer a and integer b and returns integer')
+                print('\n  ...or run it directly — the interpreter/VM supports full dynamic')
+                print('  typing with no annotations required:')
+                print(f'      epl run {os.path.basename(filepath)}')
+                return False
+
+        compiler = Compiler(
+            opt_level=opt_level, source_filename=filepath, inferred_sigs=inferred_sigs
+        )
         if triple:
             compiler.module.triple = triple
         llvm_ir = compiler.compile(program)

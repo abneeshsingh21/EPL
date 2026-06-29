@@ -18,6 +18,35 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Added — native build (`epl build`) now infers types for untyped functions
+- **Conservative monomorphic type inference (`epl/native_infer.py`).** The native
+  LLVM backend has no per-expression type inference, so an untyped function
+  (`Function add takes a and b` / `Return a + b`) defaulted every parameter to a
+  string pointer and miscompiled numeric code — the safety gate therefore refused
+  to build it at all. A new whole-program pass now infers each untyped function's
+  parameter and return types from its call sites and body. A function is resolved
+  only when every parameter and the return collapse to a *single* concrete native
+  type across all call sites; the resolved signatures are fed to the compiler so
+  the function builds with correct types instead of the miscompiling default.
+- **Sound by construction — it can only help, never harm.** Inference runs *only*
+  on a program the safety gate would otherwise refuse, and admits it only when the
+  **entire** program (top level included) type-checks to concrete native types.
+  Anything uncertain or known-divergent falls back to the existing clean refusal:
+  conflicting call-site types, int division (native truncates; the interpreter
+  yields a float), `**` (native is always float), string/float or string/bool
+  concatenation, a user function whose name shadows a native builtin or collides
+  with a runtime symbol, or any unmodeled construct. So this turns *refused*
+  programs into correct native binaries without introducing a single new
+  miscompile or crash (verified: zero new mismatches/segfaults across the example
+  suite; previously-refused fully-typed-by-inference programs such as the
+  `functions` example now build and match the interpreter exactly).
+- **Operator escape hatch.** `EPL_DISABLE_NATIVE_INFER=1` skips inference and
+  refuses as the bare gate did, for A/B measurement or as a safety valve.
+- Covered by `tests/test_native_infer.py` (analysis: what it resolves and, for
+  soundness, everything it refuses) and clang-gated end-to-end builds in
+  `tests/test_native_build.py`. `scripts/native_coverage.py` measures native-vs-
+  interpreter coverage across the examples.
+
 ### Added — the bytecode VM now runs closures (capturing lambdas)
 - **Capturing lambdas execute on the default VM instead of forcing an
   interpreter fallback.** A lambda that closes over an enclosing function's

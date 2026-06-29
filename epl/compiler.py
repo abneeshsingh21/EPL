@@ -43,6 +43,7 @@ except Exception:
 from epl import __version__
 from epl import ast_nodes as ast
 from epl.errors import RuntimeError as EPLRuntimeError
+from epl.native_names import NATIVE_BUILTIN_NAMES
 
 TAG_INT = 0
 TAG_FLOAT = 1
@@ -77,7 +78,7 @@ class Compiler:
     #   3 = aggressive (all of O2 + loop unrolling, auto-vectorization)
     VALID_OPT_LEVELS = (0, 1, 2, 3)
 
-    def __init__(self, opt_level=2, debug=False, source_filename='<input>'):
+    def __init__(self, opt_level=2, debug=False, source_filename='<input>', inferred_sigs=None):
         if not HAS_LLVM:
             raise ImportError(
                 'llvmlite is required for compilation. Install with: pip install llvmlite'
@@ -109,6 +110,12 @@ class Compiler:
         self.break_block = None
         self.continue_block = None
         self.var_types = {}
+        # Monomorphic types recovered by epl.native_infer for functions whose
+        # parameters/return were left untyped in the source. Maps
+        # ``function_name -> ([param_epl_type, ...], return_epl_type)``. Consumed
+        # by ``_register_function`` so inferred functions compile with concrete
+        # types instead of the (miscompiling) i8*/string default.
+        self.inferred_sigs = inferred_sigs or {}
         self.lambda_counter = 0
         # Debug info state
         self._di_file = None
@@ -1643,12 +1650,32 @@ class Compiler:
         # Default: use i8* (generic pointer) for untyped params
         return self.i8_ptr, 'string'
 
+    def _epl_type_to_llvm(self, epl_type):
+        """Map an inferred EPL type-name string to ``(llvm_type, epl_type)``."""
+        if epl_type in ('integer', 'int', 'number'):
+            return self.i64, 'int'
+        if epl_type in ('decimal', 'float', 'double'):
+            return self.f64, 'float'
+        if epl_type in ('boolean', 'bool'):
+            return self.i1, 'int'
+        if epl_type in ('list', 'array'):
+            return self.i8_ptr, 'list'
+        if epl_type in ('map', 'dict', 'dictionary'):
+            return self.i8_ptr, 'map'
+        return self.i8_ptr, 'string'
+
     def _register_function(self, node):
-        """Register a function with improved type inference from annotations."""
+        """Register a function, typing untyped params/return from monomorphic
+        inference (``self.inferred_sigs``) when available, else annotations."""
+        inferred = self.inferred_sigs.get(node.name)
         param_types = []
         param_epl_types = []
-        for param in node.params:
-            llvm_type, epl_type = self._infer_param_type(param)
+        for i, param in enumerate(node.params):
+            has_annotation = isinstance(param, tuple) and len(param) > 1 and param[1]
+            if not has_annotation and inferred and i < len(inferred[0]):
+                llvm_type, epl_type = self._epl_type_to_llvm(inferred[0][i])
+            else:
+                llvm_type, epl_type = self._infer_param_type(param)
             param_types.append(llvm_type)
             param_epl_types.append(epl_type)
 
@@ -1663,6 +1690,8 @@ class Compiler:
                 ret_type, ret_epl = self.f64, 'float'
             elif rt in ('boolean', 'bool'):
                 ret_type, ret_epl = self.i1, 'int'
+        elif inferred and inferred[1] and inferred[1] != 'void':
+            ret_type, ret_epl = self._epl_type_to_llvm(inferred[1])
 
         func_ty = ir.FunctionType(ret_type, param_types)
         func = ir.Function(self.module, func_ty, name=f'epl_{_mangle_name(node.name)}')
@@ -1727,42 +1756,7 @@ class Compiler:
         self.builder, self.func, self.variables, self.var_types = ob, of, ov, ot
 
     def _compile_function_call(self, node):
-        builtins = {
-            'length',
-            'type_of',
-            'typeof',
-            'to_integer',
-            'to_text',
-            'to_decimal',
-            'to_boolean',
-            'absolute',
-            'round',
-            'max',
-            'min',
-            'random',
-            'uppercase',
-            'lowercase',
-            'sqrt',
-            'power',
-            'floor',
-            'ceil',
-            'log',
-            'sin',
-            'cos',
-            'range',
-            'sum',
-            'sorted',
-            'reversed',
-            'is_integer',
-            'is_decimal',
-            'is_text',
-            'is_boolean',
-            'is_list',
-            'is_nothing',
-            'is_number',
-            'char_code',
-            'from_char_code',
-        }
+        builtins = NATIVE_BUILTIN_NAMES
         if node.name in builtins:
             return self._compile_builtin_call(node)
         if node.name in self.functions:
