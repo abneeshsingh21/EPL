@@ -569,6 +569,21 @@ class TestVMClosures(unittest.TestCase):
         )
         self.assertEqual(vm.output_lines, ['10'])
 
+    def test_capture_referenced_inside_dict_literal(self):
+        # The captured name is referenced inside a Map literal (whose pairs are
+        # stored as tuples). The free-var walk must recurse into tuples to see
+        # it, otherwise it compiles to a (wrong) global load.
+        code = (
+            'Function wrap takes label\n'
+            '    Return given v -> Map with name = label and value = v\n'
+            'End\n'
+            'Create w equal to wrap("x")\n'
+            'Say w(42)'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['{name: x, value: 42}'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
     def test_captured_closure_passed_to_map(self):
         # A captured closure handed to a list helper (.map) must dispatch
         # through the closure-aware call path, not return nothing.
@@ -601,7 +616,7 @@ class TestVMClosures(unittest.TestCase):
             'End\n'
             'Say out'
         )
-        with self.assertRaises(VMError):
+        with self.assertRaisesRegex(VMError, 'reassigned in the enclosing scope'):
             run_vm(code)
         self.assertEqual(self._interp(code), ['[3, 3, 3]'])
 
@@ -620,7 +635,7 @@ class TestVMClosures(unittest.TestCase):
             'Create g equal to outer(7)\n'
             'Say g()'
         )
-        with self.assertRaises(VMError):
+        with self.assertRaisesRegex(VMError, 'non-immediate enclosing scope'):
             run_vm(code)
         self.assertEqual(self._interp(code), ['7'])
 
@@ -640,7 +655,7 @@ class TestVMClosures(unittest.TestCase):
             'Create h equal to f()\n'
             'Say h()'
         )
-        with self.assertRaises(VMError):
+        with self.assertRaisesRegex(VMError, 'reassigned in the enclosing scope'):
             run_vm(code)
         # And the interpreter (the fallback) gives the correct answer.
         self.assertEqual(self._interp(code), ['99'])

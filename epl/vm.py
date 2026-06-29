@@ -2247,6 +2247,13 @@ class BytecodeCompiler:
 
         if node is None:
             return
+        # Recurse through both lists AND tuples: several AST nodes hold child
+        # bodies/values inside tuples (e.g. DictLiteral.pairs, TryCatchFinally
+        # .catch_clauses) — skipping tuples would miss references nested in them.
+        if isinstance(node, (list, tuple)):
+            for item in node:
+                self._collect_referenced_names(item, acc)
+            return
         if isinstance(node, ast.Identifier):
             acc.add(node.name)
             return
@@ -2257,12 +2264,7 @@ class BytecodeCompiler:
         if not hasattr(node, '__dict__'):
             return
         for v in vars(node).values():
-            if isinstance(v, list):
-                for item in v:
-                    if hasattr(item, '__dict__'):
-                        self._collect_referenced_names(item, acc)
-            elif hasattr(v, '__dict__'):
-                self._collect_referenced_names(v, acc)
+            self._collect_referenced_names(v, acc)
 
     def _collect_reassigned(self, node, acc):
         """Collect names a subtree *reassigns* (not initial `Create` binding).
@@ -2274,6 +2276,13 @@ class BytecodeCompiler:
         from epl import ast_nodes as ast
 
         if node is None:
+            return
+        # Recurse through lists AND tuples (catch_clauses etc. hold bodies in
+        # tuples) so a reassignment/loop nested in one isn't missed — missing it
+        # would skip the safety fallback and risk wrong output.
+        if isinstance(node, (list, tuple)):
+            for item in node:
+                self._collect_reassigned(item, acc)
             return
         if isinstance(node, (ast.VarAssignment, ast.AugmentedAssignment)):
             acc.add(node.name)
@@ -2288,12 +2297,7 @@ class BytecodeCompiler:
         if not hasattr(node, '__dict__'):
             return
         for v in vars(node).values():
-            if isinstance(v, list):
-                for item in v:
-                    if hasattr(item, '__dict__'):
-                        self._collect_reassigned(item, acc)
-            elif hasattr(v, '__dict__'):
-                self._collect_reassigned(v, acc)
+            self._collect_reassigned(v, acc)
 
     def _enclosing_reassigned(self):
         """Union of names reassigned across all enclosing function/method bodies
