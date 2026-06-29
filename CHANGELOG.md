@@ -12,7 +12,37 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
-**The bytecode VM (the default `epl run` engine) now executes counted loops
+### Changed — CI / release / supply-chain hardening
+
+- **One source of truth for CI.** The three overlapping workflows (`ci.yml`,
+  `lint.yml`, `tests.yml`) produced duplicated `lint` / `test (ubuntu-latest, 3.12)`
+  checks and, worse, `ci.yml`'s test job ran a *hardcoded list of test files* —
+  so a newly-added test file silently never gated. Consolidated into a single
+  `ci.yml` that runs the **full `pytest tests/` suite** on every matrix cell;
+  removed the duplicate `lint.yml` and `tests.yml`. Required-check names are
+  unchanged, so branch protection is unaffected.
+- **Enforced coverage floor (honest).** CI previously passed `--cov-fail-under=0`
+  while `pyproject.toml` advertised `fail_under = 60` — a floor that was never
+  reached *and* never enforced. Whole-suite coverage of `epl/` measures ~48%;
+  the floor is now a real, enforced ratchet at **45%** on the required ubuntu/3.12
+  job (a coverage regression now fails a required check), and the misleading
+  `60` was corrected to match reality.
+- **Build validation in CI.** A new `build` job runs `python -m build` +
+  `twine check` on every change, so a broken sdist/wheel (bad MANIFEST, metadata,
+  or packaging change) is caught in CI instead of at release time.
+- **Supply-chain.** All GitHub Actions are pinned to immutable commit SHAs (with
+  a version comment); a PR-gated `dependency-review` job blocks newly-introduced
+  vulnerable/disallowed dependencies (`fail-on-severity: high`), while the
+  existing `pip-audit` stays advisory (a fix-less transitive CVE must not wedge
+  every PR); least-privilege `permissions:` and `concurrency` cancellation added.
+- **Automated, tokenless releases.** New tag-triggered `release.yml`: build →
+  `twine check` → tag/version match guard → publish to PyPI via **trusted
+  publishing** (OIDC, no stored API token) → GitHub Release with artifacts.
+  Dormant until a `v*` tag is pushed; requires a one-time PyPI trusted-publisher
+  registration (documented in the workflow header).
+
+### Added — native build (`epl build`) now infers types for untyped functions
+
 correctly.** A deep-research audit of the shipped examples surfaced two real VM
 control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
