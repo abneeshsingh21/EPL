@@ -18,6 +18,24 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Added — the bytecode VM now runs closures (capturing lambdas)
+- **Capturing lambdas execute on the default VM instead of forcing an
+  interpreter fallback.** A lambda that closes over an enclosing function's
+  params or locals — `compose` returning `given x -> f(g(x))`, partial
+  application (`given x -> x + n`), captured multipliers used in a loop — now
+  compiles to real closures (`MAKE_CLOSURE` / `LOAD_FREE`) and runs on the
+  bytecode engine, matching the interpreter exactly. Previously the compiler
+  raised on any function-local capture so these programs fell back to the
+  tree-walking interpreter.
+- **Capture is by value, which is exact for EPL.** Lambda bodies are
+  expression-only, so a closure can never reassign a captured name; the only way
+  by-value capture could diverge from the interpreter's by-reference semantics is
+  the *enclosing* scope reassigning a captured name after the closure is built.
+  The compiler detects that one case and refuses it, so `epl run` falls back to
+  the interpreter rather than capturing a stale value — output is never wrong.
+  Nested (multi-level) capture also falls back. Covered by VM↔interpreter parity
+  tests in `tests/test_vm.py`.
+
 ### Fixed — bare math/boolean constants diverged between the two engines
 - **`pi`, `euler`, `infinity`, `on`, and `off` now resolve identically under
   `epl run` (VM) and `epl run --interpret`.** The VM had a bare-constant table but

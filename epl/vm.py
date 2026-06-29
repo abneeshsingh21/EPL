@@ -295,6 +295,19 @@ class BytecodeCompiler:
         # Aliases bound by `Import "mod" as Alias`, so both `Alias::member` and
         # the dot form `Alias.member(...)` route to the inlined module member.
         self._module_aliases: set = set()
+        # Closure compilation state. `_free_vars` maps a captured name -> its
+        # index in the current lambda's free-variable list; it is non-empty only
+        # while a capturing lambda's body is being compiled, so identifier/call
+        # resolution can emit LOAD_FREE instead of a (wrong) global lookup.
+        self._free_vars: dict = {}
+        # One entry per enclosing function/method body being compiled, holding
+        # the set of names that body *reassigns* (Set / += / destructure). EPL
+        # lambdas are expression-bodied so a closure can never write a capture;
+        # the only way by-value capture could diverge from the interpreter's
+        # by-reference semantics is the enclosing scope mutating a captured name
+        # after the closure is built. Detecting that lets the compiler bail to
+        # the interpreter (never wrong output) rather than capture a stale value.
+        self._reassigned_stack: list = []
 
     def _inline_import(self, node):
         """Compile an imported module into THIS compiler instance.
@@ -1494,6 +1507,10 @@ class BytecodeCompiler:
 
         # Compile body
         body = node.body if isinstance(node.body, list) else [node.body]
+        reassigned: set = set()
+        for stmt in body:
+            self._collect_reassigned(stmt, reassigned)
+        self._reassigned_stack.append(reassigned)
         for stmt in body:
             self._compile_stmt(stmt)
 
@@ -1513,6 +1530,7 @@ class BytecodeCompiler:
         func.rest_param_name = rest_param_name
 
         # Restore state
+        self._reassigned_stack.pop()
         self.instructions = outer_instructions
         self.locals_stack.pop()
 
@@ -1550,6 +1568,10 @@ class BytecodeCompiler:
             self._declare_local(param_names[-1])
 
         body = node.body if isinstance(node.body, list) else [node.body]
+        reassigned: set = set()
+        for stmt in body:
+            self._collect_reassigned(stmt, reassigned)
+        self._reassigned_stack.append(reassigned)
         for stmt in body:
             self._compile_stmt(stmt)
 
@@ -1567,6 +1589,7 @@ class BytecodeCompiler:
         )
         func.is_async = True  # Mark as async
 
+        self._reassigned_stack.pop()
         self.instructions = outer_instructions
         self.locals_stack.pop()
 
@@ -1619,6 +1642,10 @@ class BytecodeCompiler:
                     self._declare_local(name)
 
                 body = member.body if isinstance(member.body, list) else [member.body]
+                reassigned: set = set()
+                for stmt in body:
+                    self._collect_reassigned(stmt, reassigned)
+                self._reassigned_stack.append(reassigned)
                 for stmt in body:
                     self._compile_stmt(stmt)
 
@@ -1636,6 +1663,7 @@ class BytecodeCompiler:
                     is_method=True,
                 )
 
+                self._reassigned_stack.pop()
                 self.instructions = outer_instr
                 self.locals_stack.pop()
 
@@ -1781,6 +1809,9 @@ class BytecodeCompiler:
             idx = self._resolve_local(name)
             if idx is not None:
                 self._emit(Op.LOAD_VAR, idx)
+            elif name in self._free_vars:
+                # Captured variable inside a closure body.
+                self._emit(Op.LOAD_FREE, self._free_vars[name])
             else:
                 this_idx = self._resolve_method_prop(name)
                 if this_idx is not None:
@@ -2184,6 +2215,11 @@ class BytecodeCompiler:
             # e.g. `Call transform With item`). Load it and call the value.
             self._emit(Op.LOAD_VAR, self._resolve_local(name))
             self._emit(Op.CALL_VALUE, len(args))
+        elif name in self._free_vars:
+            # A captured function value called inside a closure body, e.g.
+            # `compose` returning `given x -> f(g(x))` calls captured `f`/`g`.
+            self._emit(Op.LOAD_FREE, self._free_vars[name])
+            self._emit(Op.CALL_VALUE, len(args))
         else:
             # Could be a builtin, a class constructor, or a global holding a
             # function value (resolved at runtime by _op_call_builtin).
@@ -2228,24 +2264,56 @@ class BytecodeCompiler:
             elif hasattr(v, '__dict__'):
                 self._collect_referenced_names(v, acc)
 
+    def _collect_reassigned(self, node, acc):
+        """Collect names a subtree *reassigns* (not initial `Create` binding).
+
+        Walks the whole body, including nested scopes — over-collecting only
+        makes the closure-capture safety check more conservative (it may fall
+        back to the interpreter for a closure it could in fact run), never wrong.
+        """
+        from epl import ast_nodes as ast
+
+        if node is None:
+            return
+        if isinstance(node, (ast.VarAssignment, ast.AugmentedAssignment)):
+            acc.add(node.name)
+        elif isinstance(node, ast.DestructureAssignment):
+            acc.update(node.names)
+        if not hasattr(node, '__dict__'):
+            return
+        for v in vars(node).values():
+            if isinstance(v, list):
+                for item in v:
+                    if hasattr(item, '__dict__'):
+                        self._collect_reassigned(item, acc)
+            elif hasattr(v, '__dict__'):
+                self._collect_reassigned(v, acc)
+
+    def _enclosing_reassigned(self):
+        """Union of names reassigned across all enclosing function/method bodies
+        currently being compiled."""
+        names: set = set()
+        for s in self._reassigned_stack:
+            names |= s
+        return names
+
     def _lambda_captured_locals(self, node, param_names):
         """Names the lambda reads from an enclosing *function* scope.
 
-        The VM has no working closure capture (the cells are never bound), so a
-        lambda that closes over an enclosing function's locals can't run
-        correctly. Detecting it lets the compiler raise, which makes `epl run`
-        fall back to the interpreter instead of silently computing nonsense.
-        Enclosing top-level names (globals) and the lambda's own params are
-        fine — only true function-local capture is the problem.
+        These are the closure's free variables: the VM captures their values
+        into closure cells (see `_compile_lambda`). Enclosing top-level names
+        (globals) and the lambda's own params are not captured — globals are
+        visible directly and params are locals. Returned sorted so the cell
+        order is deterministic across compiles.
         """
         enclosing = set()
         for scope in self.locals_stack[1:]:  # skip [0] = module/global scope
             enclosing |= set(scope.keys())
         if not enclosing:
-            return set()
-        refs = set()
+            return []
+        refs: set = set()
         self._collect_referenced_names(node.body, refs)
-        return (refs & enclosing) - set(param_names)
+        return sorted((refs & enclosing) - set(param_names))
 
     def _compile_lambda(self, node):
         params = node.params if hasattr(node, 'params') else getattr(node, 'parameters', [])
@@ -2253,18 +2321,39 @@ class BytecodeCompiler:
             p if isinstance(p, str) else getattr(p, 'name', str(p)) for p in params
         ]
         captured = self._lambda_captured_locals(node, early_param_names)
-        if captured:
+
+        # By-value capture diverges from the interpreter only if the enclosing
+        # scope reassigns a captured name after the closure is built. If any
+        # captured name is reassigned anywhere in an enclosing body, bail so
+        # `epl run` falls back to the interpreter (correct, never wrong output).
+        risky = set(captured) & self._enclosing_reassigned()
+        if risky:
             raise VMError(
                 'Lambda captures enclosing variable(s) '
-                f'{", ".join(sorted(captured))}; closures over function locals '
-                'are not supported by the bytecode VM (the interpreter handles '
-                'them).',
+                f'{", ".join(sorted(risky))} that are reassigned in the '
+                'enclosing scope; the interpreter handles this closure form.',
                 getattr(node, 'line', 0),
             )
 
+        # Nested capture (a lambda inside a lambda reaching past one level) would
+        # need cell chaining the VM does not build; bail to the interpreter.
+        if captured and self._free_vars:
+            raise VMError(
+                'Nested closure capture is not supported by the bytecode VM; '
+                'the interpreter handles it.',
+                getattr(node, 'line', 0),
+            )
+
+        # Emit the captured values (read from the *enclosing* scope) so they sit
+        # on the stack for MAKE_CLOSURE to box into cells, in `captured` order.
+        for name in captured:
+            self._load_named(name)
+
         outer_instr = self.instructions
+        outer_free = self._free_vars
         self.instructions = []
         self.locals_stack.append({})
+        self._free_vars = {name: i for i, name in enumerate(captured)}
 
         param_names = []
         for p in params:
@@ -2293,13 +2382,19 @@ class BytecodeCompiler:
             defaults=[],
             code=self.instructions,
             local_count=len(self.locals_stack[-1]),
+            free_vars=list(captured),
         )
 
         self.instructions = outer_instr
         self.locals_stack.pop()
+        self._free_vars = outer_free
 
         self.functions[lname] = func
-        self._emit(Op.LOAD_CONST, self._add_const(func))
+        if captured:
+            # Values for the cells are already on the stack (emitted above).
+            self._emit(Op.MAKE_CLOSURE, (lname, len(captured)))
+        else:
+            self._emit(Op.LOAD_CONST, self._add_const(func))
 
     def disassemble(self, code=None):
         """Return human-readable disassembly."""
@@ -2808,8 +2903,12 @@ class VM:
 
         self._call_function(func, arg_count)
 
-    def _call_function(self, func, arg_count):
-        """Set up call frame and execute function."""
+    def _call_function(self, func, arg_count, cells=None):
+        """Set up call frame and execute function.
+
+        `cells` carries a closure's captured values (from a VMClosure); they are
+        read by LOAD_FREE inside the body. Plain functions pass None.
+        """
         if len(self.call_stack) >= self.MAX_CALL_DEPTH:
             raise VMError(
                 f"Maximum recursion depth ({self.MAX_CALL_DEPTH}) exceeded in '{func.name}'.", 0
@@ -2853,9 +2952,21 @@ class VM:
             ip=0,
             base_pointer=len(self.stack),
             locals=locals_list,
-            cells=[],
+            cells=cells if cells is not None else [],
         )
         self.call_stack.append(frame)
+
+    def _invoke_value(self, callee, arg_count):
+        """Call a first-class callable (CompiledFunction or VMClosure) sitting in
+        a variable. Returns True if dispatched, False if `callee` isn't callable.
+        """
+        if isinstance(callee, VMClosure):
+            self._call_function(callee.func, arg_count, callee.cells)
+            return True
+        if isinstance(callee, CompiledFunction):
+            self._call_function(callee, arg_count)
+            return True
+        return False
 
     def _call_constructor(self, cls, arg_count):
         """Create new instance and call constructor."""
@@ -2930,10 +3041,9 @@ class VM:
 
         # A global variable holding a function value — e.g. a top-level
         # `f = lambda x -> x * 2` then `f(5)`, or `compose(...)`'s returned
-        # function. Call it like any other first-class function.
+        # closure. Call it like any other first-class function.
         gval = self.globals.get(name)
-        if isinstance(gval, CompiledFunction):
-            self._call_function(gval, arg_count)
+        if self._invoke_value(gval, arg_count):
             return
 
         # Pop args
@@ -2954,8 +3064,7 @@ class VM:
         """
         arg_count = inst.arg
         func = self.stack.pop()
-        if isinstance(func, CompiledFunction):
-            self._call_function(func, arg_count)
+        if self._invoke_value(func, arg_count):
             return
         # Not callable: drop the args and yield nothing, matching the
         # interpreter's lenient handling of a mis-typed call target.
@@ -3193,40 +3302,41 @@ class VM:
             raise VMError(f"Class '{cls_name}' not defined", inst.line)
 
     def _op_make_closure(self, inst):
-        """Create a closure capturing free variables."""
+        """Build a closure: pop the captured values and bind them to the lambda.
+
+        The compiler emits one LOAD for each captured value just before this op
+        (in free-var order), so they sit on the stack newest-last. Captured
+        values are stored directly as the closure's cells (by value): EPL lambda
+        bodies are expression-only and cannot reassign a capture, and the
+        compiler refuses any closure whose captures the enclosing scope mutates,
+        so the value snapshot always matches the interpreter.
+        """
         func_name, free_var_count = inst.arg
-        # Pop the free variable values from the stack
         cells = []
         for _ in range(free_var_count):
             cells.append(self.stack.pop())
         cells.reverse()
-        # Look up the function
         func = self.functions.get(func_name)
         if not func:
-            frame = self.call_stack[-1]
-            func = frame.locals.get(func_name)
-        if not func:
             raise VMError(f"Cannot create closure: function '{func_name}' not found", inst.line)
-        # Create closure wrapper
-        closure = VMClosure(func, cells)
-        self.stack.append(closure)
+        self.stack.append(VMClosure(func, cells))
 
     def _op_load_free(self, inst):
-        """Load a variable from the closure's captured cells."""
+        """Load a captured value from the current frame's closure cells."""
         frame = self.call_stack[-1]
-        closure = getattr(frame, 'closure', None)
-        if closure and inst.arg < len(closure.cells):
-            self.stack.append(closure.cells[inst.arg])
+        cells = frame.cells
+        if inst.arg < len(cells):
+            self.stack.append(cells[inst.arg])
         else:
             self.stack.append(None)
 
     def _op_store_free(self, inst):
-        """Store a value into the closure's captured cells."""
+        """Store into the current frame's closure cells (kept for completeness;
+        EPL's expression-bodied lambdas never emit this)."""
         frame = self.call_stack[-1]
-        closure = getattr(frame, 'closure', None)
         val = self.stack.pop()
-        if closure and inst.arg < len(closure.cells):
-            closure.cells[inst.arg] = val
+        if inst.arg < len(frame.cells):
+            frame.cells[inst.arg] = val
 
     # ─── Augmented assignment opcodes ─────────────────────────
 

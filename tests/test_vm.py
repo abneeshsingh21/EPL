@@ -502,25 +502,62 @@ class TestVMFirstClassFunctions(unittest.TestCase):
         self.assertEqual(vm.output_lines, ['12.56'])
 
 
-class TestVMClosureCaptureGuard(unittest.TestCase):
-    """The VM has no working closure capture, so a lambda that closes over an
-    enclosing function's locals must raise at compile time rather than silently
-    compute nonsense — that makes `epl run` fall back to the interpreter, which
-    does support closures. A lambda that only uses its own params or globals is
-    fine and stays on the VM.
+class TestVMClosures(unittest.TestCase):
+    """The bytecode VM captures closures by value: a lambda that closes over an
+    enclosing function's locals/params runs on the VM and matches the
+    interpreter. Because EPL lambdas are expression-bodied (they can never
+    reassign a capture), by-value capture is exact — *except* when the enclosing
+    scope reassigns a captured name after the closure is built, which the
+    compiler detects and refuses so `epl run` falls back to the interpreter.
     """
 
-    def test_capturing_lambda_raises(self):
-        from epl.vm import VMError
+    def _interp(self, code):
+        from epl.interpreter import Interpreter
 
-        with self.assertRaises(VMError):
-            run_vm(
-                'Function compose takes f, g\n'
-                '    Return lambda x -> Call f With (Call g With x)\n'
-                'End\n'
-                'h = compose(lambda a -> a + 1, lambda b -> b * 2)\n'
-                'Print Call h With 3'
-            )
+        interp = Interpreter()
+        interp.execute(Parser(Lexer(code).tokenize()).parse())
+        return interp.output_lines
+
+    def test_compose_captures_params(self):
+        code = (
+            'Function compose takes f and g\n'
+            '    Return given x -> f(g(x))\n'
+            'End\n'
+            'Function inc takes n\n    Return n + 1\nEnd\n'
+            'Function dbl takes n\n    Return n * 2\nEnd\n'
+            'Create h equal to compose(inc, dbl)\n'
+            'Say h(10)'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['21'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_partial_application_captures_local(self):
+        code = (
+            'Function adder takes n\n    Return given x -> x + n\nEnd\n'
+            'Create add5 equal to adder(5)\n'
+            'Say add5(100)\n'
+            'Say add5(1)'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['105', '6'])
+        self.assertEqual(vm.output_lines, self._interp(code))
+
+    def test_captured_closure_used_in_loop(self):
+        code = (
+            'Function makeMultiplier takes factor\n'
+            '    Return given x -> x * factor\n'
+            'End\n'
+            'Create triple equal to makeMultiplier(3)\n'
+            'Create out equal to []\n'
+            'For each n in [1, 2, 3, 4]\n'
+            '    Add triple(n) to out\n'
+            'End\n'
+            'Say out'
+        )
+        vm = run_vm(code)
+        self.assertEqual(vm.output_lines, ['[3, 6, 9, 12]'])
+        self.assertEqual(vm.output_lines, self._interp(code))
 
     def test_non_capturing_lambda_inside_function_is_fine(self):
         vm = run_vm(
@@ -531,6 +568,27 @@ class TestVMClosureCaptureGuard(unittest.TestCase):
             'Print run()'
         )
         self.assertEqual(vm.output_lines, ['10'])
+
+    def test_reassigned_capture_falls_back_to_interpreter(self):
+        # By-value VM capture would snapshot x=1; the interpreter (by reference)
+        # sees x=99. The compiler must refuse this so `epl run` produces the
+        # interpreter's answer rather than a stale value.
+        from epl.vm import VMError
+
+        code = (
+            'Function f\n'
+            '    Create x equal to 1\n'
+            '    Create g equal to given -> x\n'
+            '    Set x to 99\n'
+            '    Return g\n'
+            'End\n'
+            'Create h equal to f()\n'
+            'Say h()'
+        )
+        with self.assertRaises(VMError):
+            run_vm(code)
+        # And the interpreter (the fallback) gives the correct answer.
+        self.assertEqual(self._interp(code), ['99'])
 
 
 class TestVMSoftKeywordIdentifiers(unittest.TestCase):
