@@ -92,6 +92,7 @@ epl/.ai_config.json
 
 # ─── Test & Coverage ────────────────────────────────────
 .coverage
+coverage.xml
 htmlcov/
 .pytest_cache/
 .ruff_cache/

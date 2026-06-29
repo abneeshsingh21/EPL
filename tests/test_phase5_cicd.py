@@ -7,8 +7,8 @@ Verifies statically (no network, no CI runner) that:
   3. mypy is declared in [dev] optional deps.
   4. ci.yml test matrix includes Python 3.9 and 3.10.
   5. ci.yml contains a mypy / typecheck job.
-  6. ci.yml test whitelist includes the security/reliability test files that
-     were previously excluded.
+  6. ci.yml runs the full `pytest tests/` suite (so security/reliability test
+     files are included by construction, not via a brittle per-file whitelist).
   7. pyproject.toml requires-python is consistent with the CI matrix.
 """
 
@@ -298,42 +298,81 @@ def test_ci_mypy_job():
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+def _ci_run_commands(src):
+    """Shell command strings from every ``run:`` step in ci.yml.
+
+    Parses the YAML when PyYAML is available (robust to block scalars / nesting);
+    falls back to a regex line-scan otherwise so the guard still works in a minimal
+    environment where PyYAML is not installed. Only real ``run:`` commands are
+    returned — comments and ``echo`` text elsewhere in the file are excluded, so a
+    later assertion can't be satisfied by a stray substring."""
+    try:
+        import yaml
+    except ImportError:
+        # Capture the text after each `run:` key, including following indented
+        # lines of a block scalar. Coarser than the YAML walk but still scoped to
+        # run steps rather than the whole file.
+        cmds = []
+        for m in re.finditer(r'^[ \t]*run:[ \t]*\|?[ \t]*\n((?:[ \t]+.*\n?)+)', src, re.MULTILINE):
+            cmds.append(m.group(1))
+        for m in re.finditer(r'^[ \t]*run:[ \t]+(?!\|)(\S.*)$', src, re.MULTILINE):
+            cmds.append(m.group(1))
+        return cmds
+
+    data = yaml.safe_load(src)
+    cmds = []
+    for job in (data.get('jobs') or {}).values():
+        for step in job.get('steps') or []:
+            run = step.get('run') if isinstance(step, dict) else None
+            if isinstance(run, str):
+                cmds.append(run)
+    return cmds
+
+
 @_tracked_test
 def test_ci_security_tests_included():
-    print('\n=== P5-5: ci.yml — security test files in test whitelist ===')
+    print('\n=== P5-5: ci.yml — full suite runs (security tests included by construction) ===')
 
     src = open(CI_YML, encoding='utf-8').read()
+    run_cmds = _ci_run_commands(src)
 
-    # Files that must be in the whitelist
-    required_test_files = [
+    # Phase 3 consolidation replaced the hardcoded per-file whitelist (which
+    # silently dropped any newly-added test file, including security ones) with
+    # a single full-suite run. The original intent of this test — "security and
+    # reliability tests must execute in CI" — is now satisfied *by construction*:
+    # `pytest tests/` collects every test_*.py, so no file can be omitted.
+    #
+    # Assert against the ACTUAL `run:` commands (not a raw file substring, which a
+    # comment or echo could satisfy): some step must invoke the whole tests/ dir.
+    runs_full_suite = any(re.search(r'\bpytest\s+tests/(?:\s|$)', c) for c in run_cmds)
+    check('a ci.yml run step invokes the full `pytest tests/` suite', runs_full_suite)
+
+    # And no step may have reverted to per-file invocation (`pytest tests/test_*.py
+    # ...`) — that is exactly the brittle whitelist this consolidation removed, and
+    # it would let CI stop collecting new tests while this guard stayed green.
+    per_file = [c for c in run_cmds if re.search(r'\bpytest\b[^\n]*\btests/test_\w+\.py\b', c)]
+    check(
+        'no per-file pytest invocation re-introduced in ci.yml',
+        not per_file,
+        f'per-file run steps: {per_file}',
+    )
+
+    # The previously-omitted security/reliability suites are real files that the
+    # full run therefore covers. Confirm they still exist on disk (a rename would
+    # otherwise silently shrink coverage without any whitelist to flag it).
+    tests_dir = os.path.join(REPO_ROOT, 'tests')
+    for tf in (
         'test_phase3_reliability.py',
         'test_phase4_security.py',
         'test_security_hardening.py',
-    ]
+    ):
+        check(
+            f'{tf} exists and is collected by `pytest tests/`',
+            os.path.isfile(os.path.join(tests_dir, tf)),
+        )
 
-    for tf in required_test_files:
-        check(f'{tf} in ci.yml test whitelist', tf in src)
-
-    # T4: test_phase3_reliability.py appears in the stable test run command
-    in_stable_run = bool(
-        re.search(r'Run stable test suite.*?test_phase3_reliability\.py', src, re.DOTALL)
-    )
-    check('test_phase3_reliability.py in stable run step', in_stable_run)
-
-    # T5: test_phase4_security.py appears in the stable test run command
-    in_stable_run2 = bool(
-        re.search(r'Run stable test suite.*?test_phase4_security\.py', src, re.DOTALL)
-    )
-    check('test_phase4_security.py in stable run step', in_stable_run2)
-
-    # T6: security tests also appear in coverage run (Ubuntu 3.12 only)
-    in_coverage = bool(re.search(r'Run coverage.*?test_phase4_security\.py', src, re.DOTALL))
-    check('test_phase4_security.py in coverage step', in_coverage)
-
-    # T7: Previously excluded files are now present
-    # Confirm test_phase3_reliability was NOT already there before Phase 5
-    # (we can only confirm it IS there now)
-    check('test_phase3_reliability.py present in ci.yml', 'test_phase3_reliability.py' in src)
+    # Guard against regression: the old curated-list step name must not return.
+    check('no per-file test whitelist re-introduced', 'Run stable test suite' not in src)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
