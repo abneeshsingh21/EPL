@@ -1161,3 +1161,139 @@ print(module._force_interpret())
         self.assertEqual(exit_code, 0)
         self.assertIn('Installed Ollama Models', stdout.getvalue())
         self.assertIn('epl-coder:latest', stdout.getvalue())
+
+
+class TestTranspileOutputFlag(unittest.TestCase):
+    """Regression: transpile commands now honor -o/--output flag (writes to specified
+    path, creates parent dirs). Previously ignored → always wrote basename to CWD."""
+
+    def test_python_transpile_honors_output_flag(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "hello"\n', encoding='utf-8')
+            out = Path(tmpdir) / 'subdir' / 'custom.py'
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'python', str(source), '-o', str(out)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out.exists())
+            self.assertIn('hello', out.read_text(encoding='utf-8'))
+
+    def test_js_transpile_honors_output_flag(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Create x equal to 5\n', encoding='utf-8')
+            out = Path(tmpdir) / 'out.js'
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'js', str(source), '--output', str(out)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out.exists())
+            content = out.read_text(encoding='utf-8')
+            self.assertIn('let x = 5', content)
+
+    def test_micropython_transpile_honors_output_flag(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "micro"\n', encoding='utf-8')
+            out = Path(tmpdir) / 'custom_mpy.py'
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'micropython', str(source), '-o', str(out)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out.exists())
+
+    def test_node_transpile_honors_output_flag(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Create x equal to 5\n', encoding='utf-8')
+            out = Path(tmpdir) / 'nested' / 'out.node.js'
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'node', str(source), '-o', str(out)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out.exists())
+            self.assertIn('let x = 5', out.read_text(encoding='utf-8'))
+
+    def test_kotlin_transpile_honors_output_flag(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "hi"\n', encoding='utf-8')
+            out = Path(tmpdir) / 'nested' / 'Out.kt'
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'kotlin', str(source), '--output', str(out)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(out.exists())
+
+    def test_output_flag_without_value_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "x"\n', encoding='utf-8')
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'python', str(source), '-o'],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('requires an output path', result.stdout + result.stderr)
+            self.assertFalse((Path(tmpdir) / 'app.py').exists())
+
+    def test_output_flag_followed_by_flag_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'app.epl'
+            source.write_text('Say "x"\n', encoding='utf-8')
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'micropython', str(source), '-o', '--target'],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('requires an output path', result.stdout + result.stderr)
+
+    def test_transpile_without_output_flag_writes_to_cwd(self):
+        with tempfile.TemporaryDirectory(prefix='epl_transpile_') as tmpdir:
+            source = Path(tmpdir) / 'demo.epl'
+            source.write_text('Say "default"\n', encoding='utf-8')
+
+            result = subprocess.run(
+                [sys.executable, '-m', 'epl', 'python', str(source)],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            default_out = Path(tmpdir) / 'demo.py'
+            self.assertTrue(default_out.exists())

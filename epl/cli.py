@@ -162,10 +162,10 @@ HELP = f"""\
   epl upgrade                      Update EPL to latest version
   epl version                      Show EPL version
   epl debug <file.epl>             Debug with breakpoints
-  epl js <file.epl>                Transpile to JavaScript
-  epl node <file.epl>              Transpile to Node.js
-  epl kotlin <file.epl>            Transpile to Kotlin
-  epl python <file.epl>            Transpile to Python
+  epl js <file.epl> [-o out.js]    Transpile to JavaScript (-o sets output path)
+  epl node <file.epl> [-o f]       Transpile to Node.js (-o sets output path)
+  epl kotlin <file.epl> [-o f]     Transpile to Kotlin (-o sets output path)
+  epl python <file.epl> [-o f]     Transpile to Python (-o sets output path)
   epl android <file.epl>           Generate Android project
   epl ios <file.epl>               Generate iOS project
   epl desktop <file.epl>           Generate desktop app project
@@ -173,7 +173,7 @@ HELP = f"""\
   epl gui <file.epl>               Run with GUI support
   epl ir <file.epl>                Show LLVM IR
   epl vm <file.epl>                Run with bytecode VM (fast)
-  epl micropython <file.epl>       Transpile to MicroPython
+  epl micropython <file.epl> [-o f] Transpile to MicroPython (-o sets output path)
   epl benchmark <file.epl>         Benchmark VM vs interpreter
   epl profile <file.epl>           Profile execution
   epl bench                        Run benchmark suite
@@ -297,6 +297,7 @@ _TARGET_OPTION_FLAGS = {
     '--height',
     '--mode',
     '--output',
+    '-o',
     '--host',
     '--runs',
     '--warmup',
@@ -2533,8 +2534,32 @@ def _load_epl_program(filepath):
     return source, _parse_epl_program(source, filepath)
 
 
-def _write_generated_text(source_file, extension, content):
-    output_path = os.path.splitext(os.path.basename(source_file))[0] + extension
+def _extract_output_path(args):
+    """Return the value of a ``-o``/``--output`` flag in args, or None.
+
+    Used by the single-file transpile commands so ``epl python app.epl -o out/app.py``
+    writes where the user asked instead of always dropping ``app.py`` in the CWD.
+
+    Raises ``ValueError`` when the flag is given without a real path (a bare ``-o``
+    at the end, or one followed by another flag) so the caller fails with a clear
+    message instead of silently using the default name or writing to ``--json``.
+    """
+    for i, arg in enumerate(args):
+        if arg in ('-o', '--output'):
+            if i + 1 >= len(args) or args[i + 1].startswith('-'):
+                raise ValueError(f'{arg} requires an output path')
+            return args[i + 1]
+    return None
+
+
+def _write_generated_text(source_file, extension, content, output_path=None):
+    """Write generated code. Honors an explicit ``output_path`` (``-o``); otherwise
+    writes ``<basename-of-source><extension>`` into the current directory."""
+    if not output_path:
+        output_path = os.path.splitext(os.path.basename(source_file))[0] + extension
+    parent = os.path.dirname(output_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as handle:
         handle.write(content)
     return output_path
@@ -3117,7 +3142,9 @@ def _transpile_js(args):
         from epl.js_transpiler import transpile_to_js
 
         _, program = _load_epl_program(filename)
-        output_path = _write_generated_text(filename, '.js', transpile_to_js(program))
+        output_path = _write_generated_text(
+            filename, '.js', transpile_to_js(program), _extract_output_path(args)
+        )
         print(f'  JavaScript written to: {output_path}')
         return 0
     except FileNotFoundError:
@@ -3138,7 +3165,9 @@ def _transpile_node(args):
         from epl.js_transpiler import transpile_to_node
 
         _, program = _load_epl_program(filename)
-        output_path = _write_generated_text(filename, '.node.js', transpile_to_node(program))
+        output_path = _write_generated_text(
+            filename, '.node.js', transpile_to_node(program), _extract_output_path(args)
+        )
         print(f'  Node.js written to: {output_path}')
         return 0
     except FileNotFoundError:
@@ -3159,7 +3188,9 @@ def _transpile_kotlin(args):
         from epl.kotlin_gen import transpile_to_kotlin
 
         _, program = _load_epl_program(filename)
-        output_path = _write_generated_text(filename, '.kt', transpile_to_kotlin(program))
+        output_path = _write_generated_text(
+            filename, '.kt', transpile_to_kotlin(program), _extract_output_path(args)
+        )
         print(f'  Kotlin written to: {output_path}')
         return 0
     except FileNotFoundError:
@@ -3180,7 +3211,9 @@ def _transpile_python(args):
         from epl.python_transpiler import transpile_to_python
 
         _, program = _load_epl_program(filename)
-        output_path = _write_generated_text(filename, '.py', transpile_to_python(program))
+        output_path = _write_generated_text(
+            filename, '.py', transpile_to_python(program), _extract_output_path(args)
+        )
         print(f'  Python written to: {output_path}')
         return 0
     except FileNotFoundError:
@@ -3732,12 +3765,20 @@ def _micropython(args):
         return 1
     filename = args[0]
     target = 'esp32'
+    output_path = None
 
     i = 1
     while i < len(args):
         arg = args[i]
         if arg == '--target' and i + 1 < len(args):
             target = args[i + 1]
+            i += 2
+            continue
+        if arg in ('-o', '--output'):
+            if i + 1 >= len(args) or args[i + 1].startswith('-'):
+                print(f'{_red("Error:")} {arg} requires an output path')
+                return 1
+            output_path = args[i + 1]
             i += 2
             continue
         print(f'{_red("Error:")} Unknown micropython option: {arg}')
@@ -3753,7 +3794,11 @@ def _micropython(args):
 
         _, program = _load_epl_program(filename)
         rendered = transpile_to_micropython(program, target=target)
-        output_path = os.path.splitext(os.path.basename(filename))[0] + f'_{target}_mpy.py'
+        if not output_path:
+            output_path = os.path.splitext(os.path.basename(filename))[0] + f'_{target}_mpy.py'
+        _parent = os.path.dirname(output_path)
+        if _parent:
+            os.makedirs(_parent, exist_ok=True)
         with open(output_path, 'w', encoding='utf-8') as handle:
             handle.write(rendered)
         print(f'  MicroPython written to: {output_path}')
