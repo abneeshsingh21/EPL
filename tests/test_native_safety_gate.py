@@ -62,8 +62,12 @@ def test_compile_file_refuses_unsafe_program_without_emitting_binary(tmp_path, c
     os.chdir(tmp_path)
     try:
         src = os.path.join(tmp_path, 'prog.epl')
+        # `id` is called with both an int and a string — genuinely polymorphic, so
+        # monomorphic inference cannot resolve it and the build must still refuse.
+        # (A simple `add(2, 3)` is now inferable and would build, so it no longer
+        # exercises the refusal path.)
         with open(src, 'w', encoding='utf-8') as handle:
-            handle.write('Function add takes a and b\n  Return a + b\nEnd\nPrint add(2, 3)\n')
+            handle.write('Function id takes x\n  Return x\nEnd\nPrint id(1)\nPrint id("hi")\n')
 
         result = compile_file('prog.epl')
 

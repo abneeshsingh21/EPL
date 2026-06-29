@@ -141,6 +141,37 @@ def test_native_negative_step_counts_down(tmp_path):
     assert _build_and_run(src, tmp_path).split() == ['5', '4', '3', '2', '1']
 
 
+def test_native_infers_untyped_function(tmp_path):
+    """A function with NO type annotations, called only with integers, must now
+    build natively (via epl.native_infer) and compute the right value — this is
+    the case the bare safety gate used to refuse."""
+    src = 'Function add takes a and b\n  Return a + b\nEnd\nPrint add(2, 3)\n'
+    assert _build_and_run(src, tmp_path).strip() == '5'
+
+
+def test_native_infers_recursive_untyped_function(tmp_path):
+    """Untyped recursive fib, called with an int, builds and matches."""
+    src = (
+        'Function fib takes n\n'
+        '  If n < 2 Then\n    Return n\n  End\n'
+        '  Return fib(n - 1) + fib(n - 2)\n'
+        'End\n'
+        'Print fib(10)\n'
+    )
+    assert _build_and_run(src, tmp_path).strip() == '55'
+
+
+def test_native_infers_string_int_concat(tmp_path):
+    """Untyped function + string/int concatenation (matches the interpreter's
+    int formatting) builds and prints correctly."""
+    src = (
+        'Function add takes a and b\n  Return a + b\nEnd\n'
+        'Create r equal to add(5, 10)\n'
+        'Print "sum = " + r\n'
+    )
+    assert _build_and_run(src, tmp_path).strip() == 'sum = 15'
+
+
 def test_native_build_output_flag(tmp_path):
     """`epl build -o path` must write the binary to the specified path and create
     any required directories."""
