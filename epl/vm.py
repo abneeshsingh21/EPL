@@ -3376,19 +3376,12 @@ class VM:
     # ─── Built-in functions ───────────────────────────────────
 
     def _init_builtins(self):
-        return {
-            'true': True,
-            'false': False,
-            'none': None,
-            'null': None,
-            'yes': True,
-            'no': False,
-            'on': True,
-            'off': False,
-            'pi': math.pi,
-            'euler': math.e,
-            'infinity': math.inf,
-        }
+        # Sourced from the single shared definition so the VM and interpreter can
+        # never disagree on what a bare `pi`/`on`/etc. means. Copy so per-VM
+        # mutation (if any) can't leak into the module-level dict.
+        from epl.stdlib import BARE_CONSTANTS
+
+        return dict(BARE_CONSTANTS)
 
     def _build_builtin_dispatch(self):
         """Build name → handler dict for O(1) builtin dispatch."""

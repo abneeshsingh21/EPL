@@ -39,7 +39,7 @@ from epl.python_bridge import (
     unwrap_python_argument,
     wrap_python_result,
 )
-from epl.stdlib import STDLIB_FUNCTIONS, call_stdlib
+from epl.stdlib import BARE_CONSTANTS, STDLIB_FUNCTIONS, call_stdlib
 
 # Builtins disabled in safe/sandbox mode
 _UNSAFE_BUILTINS = frozenset(
@@ -2556,6 +2556,12 @@ class Interpreter:
                     return env.get_function(node.name)
                 except EPLNameError:
                     pass
+                # Bare constant identifiers (pi, euler, infinity, on, off, ...).
+                # Shared with the VM via stdlib.BARE_CONSTANTS so the two engines
+                # agree; a user `Create pi ...` still shadows it (handled above by
+                # get_variable winning first).
+                if node.name in BARE_CONSTANTS:
+                    return BARE_CONSTANTS[node.name]
                 # Check builtins
                 if node.name in BUILTINS:
                     return node.name  # return name as string for builtin reference

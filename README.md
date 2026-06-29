@@ -190,7 +190,7 @@ EPL is a multi-backend language with a unified frontend:
               │            │                │
               ▼            ▼                ▼
          Python host   Stack VM       .exe / .o
-                                    (x86, ARM, WASM)
+                                    (x86-64 verified)
 ```
 
 ### Compilation Targets
@@ -296,11 +296,14 @@ epl android app.epl
 # → Full Android Studio project with Kotlin
 ```
 
-**🍎 iOS Apps**
+**🍎 iOS Apps** *(experimental)*
 ```bash
 epl ios app.epl
 # → Xcode project with SwiftUI views
 ```
+> The iOS/SwiftUI generator emits an Xcode project, but the output is **not yet
+> verified against a Swift toolchain or a device/simulator** in CI. Treat it as
+> experimental until that validation lands.
 
 **🖥️ Desktop Apps**
 ```bash
@@ -410,11 +413,16 @@ Tools
 | Built-in web framework | ✅ | — | — | — | — |
 | Built-in AI module | ✅ | — | — | — | — |
 | Package manager | ✅ | pip | npm | go mod | Maven |
-| Native compilation | ✅ LLVM | — | — | ✅ | ✅ JIT |
-| WASM target | ✅ | — | ✅ | ✅ | — |
-| Mobile transpiler | ✅ Android + iOS | — | React Native | — | ✅ |
+| Native compilation | ✅ LLVM † | — | — | ✅ | ✅ JIT |
+| WASM target | 🧪 ‡ | — | ✅ | ✅ | — |
+| Mobile transpiler | ✅ Android · 🧪 iOS ‡ | — | React Native | — | ✅ |
 | LSP / IDE support | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Type checking | ✅ Gradual | ✅ mypy | ✅ TS | ✅ | ✅ |
+
+> † Native (`epl build`) currently compiles **type-annotated** programs; fully
+> dynamic functions are safely refused (run them with `epl run`) — broader
+> support is in progress. 🧪 ‡ = **experimental / not yet CI-verified** against
+> the target toolchain (Emscripten for WASM, Swift for iOS).
 
 ---
 
@@ -475,7 +483,7 @@ See [CONTRIBUTORS.md](CONTRIBUTORS.md) for the full list of contributors.
 - [x] Web framework — HTTP/WebSocket router, WSGI/ASGI, middleware
 - [x] Package manager — SemVer, lockfiles, checksums, dependency resolution
 - [x] Developer tooling — LSP server, debugger, REPL, formatter, linter
-- [x] Mobile targets — Android (Kotlin) and iOS (SwiftUI) transpilers
+- [x] Mobile targets — Android (Kotlin) transpiler · iOS (SwiftUI) generator (experimental, not yet toolchain-verified)
 - [x] Desktop target — Compose Multiplatform app generation
 - [x] Cloud deploy — AWS ECS, GCP Cloud Run, Azure, Kubernetes
 - [x] JavaScript/TypeScript bridge — Full NPM ecosystem interop
