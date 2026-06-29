@@ -288,11 +288,15 @@
       "patterns": [
         {
           "name": "constant.language.boolean.epl",
-          "match": "\\b(true|false|yes|no)\\b"
+          "match": "\\b(true|false|yes|no|on|off)\\b"
         },
         {
           "name": "constant.language.null.epl",
-          "match": "\\b(nothing|null)\\b"
+          "match": "\\b(nothing|null|none)\\b"
+        },
+        {
+          "name": "constant.language.numeric.epl",
+          "match": "\\b(pi|euler|infinity)\\b"
         }
       ]
     },
