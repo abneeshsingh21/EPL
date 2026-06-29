@@ -18,6 +18,14 @@ control-flow bugs and a wave of example-file corruption. Both engine bugs are
 fixed and covered by VM-vs-interpreter parity tests; the recoverable examples are
 restored; and a new runtime test stops broken examples from shipping green again.
 
+### Fixed — transpile commands ignored `-o`/`--output`
+- **`epl python`/`js`/`node`/`kotlin`/`micropython` now honor `-o`/`--output`.**
+  They previously ignored the flag and always wrote `<basename>.<ext>` into the
+  current directory (and `micropython` rejected `-o` outright while `android`
+  accepted it). All single-file transpile commands now write to the given path,
+  creating parent directories as needed; with no flag the prior CWD behavior is
+  unchanged. Coverage in `tests/test_cli_production.py`.
+
 ### Added — empty-map literal (`Map`)
 - **`Map` with no `with` clause is now the empty-map literal.** EPL previously
   had no way to write an empty map — `Map`, `{}`, and `{...}` all failed to
