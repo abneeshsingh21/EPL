@@ -73,7 +73,11 @@ def classify(path, clang):
     try:
         ref = subprocess.run(
             [sys.executable, '-m', 'epl', 'run', '--interpret', path],
-            capture_output=True, text=True, timeout=60, env=env, cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+            cwd=ROOT,
         )
     except subprocess.TimeoutExpired:
         return 'skip', 'interp-timeout'
@@ -90,7 +94,11 @@ def classify(path, clang):
             env['PATH'] = clang_dir + os.pathsep + env.get('PATH', '')
         build = subprocess.run(
             [sys.executable, '-m', 'epl', 'build', prog],
-            capture_output=True, text=True, timeout=120, env=env, cwd=td,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+            cwd=td,
         )
         out_txt = (build.stdout + build.stderr).lower()
         if 'cannot guarantee a correct binary' in out_txt:

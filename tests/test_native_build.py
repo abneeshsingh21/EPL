@@ -145,12 +145,7 @@ def test_native_infers_untyped_function(tmp_path):
     """A function with NO type annotations, called only with integers, must now
     build natively (via epl.native_infer) and compute the right value — this is
     the case the bare safety gate used to refuse."""
-    src = (
-        'Function add takes a and b\n'
-        '  Return a + b\n'
-        'End\n'
-        'Print add(2, 3)\n'
-    )
+    src = 'Function add takes a and b\n  Return a + b\nEnd\nPrint add(2, 3)\n'
     assert _build_and_run(src, tmp_path).strip() == '5'
 
 
