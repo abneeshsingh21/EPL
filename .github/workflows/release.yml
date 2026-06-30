@@ -3,7 +3,13 @@ name: Release
 # Tag-triggered release: build → validate → publish to PyPI (trusted publishing,
 # no API token) → cut a GitHub Release with the built artifacts attached.
 #
-# ── One-time setup required before the first tagged release ──────────────────
+# The publish step is IDEMPOTENT: it first checks whether that exact version is
+# already on PyPI and skips the upload if so (succeeding green). This makes the
+# whole workflow safe to re-run, and lets a version that was published out-of-band
+# (e.g. a manual `twine upload`) still be tagged and given a GitHub Release without
+# a spurious "file already exists" failure.
+#
+# ── One-time setup before the first OIDC-published release ───────────────────
 # Register a PyPI Trusted Publisher for the `eplang` project so the publish step
 # can mint a short-lived OIDC token instead of using a long-lived API token:
 #   PyPI → project `eplang` → Settings → Publishing → Add a pending publisher
@@ -11,8 +17,9 @@ name: Release
 #     Repository:   EPL
 #     Workflow:     release.yml
 #     Environment:  pypi
-# Until that publisher exists, pushing a v* tag will build + validate but the
-# publish job will fail (loudly, by design) — nothing is shipped half-way.
+# Until that publisher exists, tagging a version that is NOT already on PyPI will
+# build + validate but the publish step fails (loudly, by design) — nothing ships
+# half-way. Tagging a version that IS already on PyPI skips publish and is green.
 #
 # To release:  bump epl.__version__, commit on green main, then:
 #   git tag vX.Y.Z && git push origin vX.Y.Z
@@ -101,7 +108,25 @@ jobs:
         with:
           name: dist
           path: dist/
+      - name: Check whether this version is already on PyPI
+        id: pypi_state
+        # Idempotency guard: PyPI rejects re-uploading an existing version, which
+        # would fail a re-run or a tag for an out-of-band (manual) publish. Probe
+        # the JSON API — HTTP 200 = published, 404 = not yet — and only publish
+        # when the version is genuinely new.
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          code="$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/eplang/${VERSION}/json")"
+          if [ "$code" = "200" ]; then
+            echo "eplang ${VERSION} is already on PyPI — skipping publish (idempotent)."
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "eplang ${VERSION} not found on PyPI (HTTP ${code}) — will publish."
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Publish to PyPI
+        if: steps.pypi_state.outputs.already_published == 'false'
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
 
   github-release:
@@ -116,7 +141,17 @@ jobs:
         with:
           name: dist
           path: dist/
-      - name: Create GitHub Release
+      - name: Create or refresh the GitHub Release
+        # Idempotent like the publish step: create the Release on first run, or
+        # refresh its artifacts if it already exists (so a re-run never fails on a
+        # pre-existing release).
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists — refreshing artifacts."
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --generate-notes
+          fi
