@@ -50,7 +50,7 @@ Route "/api/users" responds with
 End
 
 Route "/health" responds with
-    Send json Map with status = "healthy" and version = "9.8.0"
+    Send json Map with status = "healthy" and version = "10.1.0"
 End
 ```
 
@@ -341,8 +341,8 @@ epl deploy k8s app.epl \
 
 | Category | Capabilities |
 |----------|-------------|
-| **Language** | OOP, generics, async/await, pattern matching, lambdas, generators, enums, decorators, type inference |
-| **Type System** | Static type checker (`epl check`), gradual typing, generic constraints |
+| **Language** | OOP, generics, async/await, pattern matching, lambdas & **closures** (capturing lambdas, executed on both the interpreter and the bytecode VM), generators, enums, decorators, type inference |
+| **Type System** | Static type checker (`epl check`), gradual typing, generic constraints, **whole-program type inference for native builds** (untyped functions that resolve to a single concrete type compile without annotations) |
 | **Performance** | Bytecode VM with constant folding, LLVM native compilation, dead code elimination, tail-call optimization |
 | **Web** | HTTP/WebSocket router, WSGI/ASGI adapters, middleware pipeline, sessions, templates, static files |
 | **Database** | SQLite ORM, Redis, PostgreSQL — `Store`/`Fetch`/`Delete` English APIs |
@@ -461,7 +461,7 @@ Install from the [VS Code Marketplace →](https://marketplace.visualstudio.com/
 
 ## Contributing
 
-We welcome contributions from the community. EPL maintains enterprise-grade code quality standards: every change is gated by a blocking CI pipeline — whole-tree `mypy` type-checking, Ruff lint + formatting, and the full test suite (1,700+ tests).
+We welcome contributions from the community. EPL maintains enterprise-grade code quality standards: every change is gated by a single consolidated, blocking CI pipeline — Ruff lint + formatting, whole-tree `mypy` type-checking, an enforced coverage floor, dependency-review, and the **full** test suite (2,100+ tests) run across Linux/Windows/macOS × Python 3.9–3.12. Releases publish to PyPI via tag-triggered OIDC trusted publishing (no stored tokens).
 
 ```bash
 git clone https://github.com/abneeshsingh21/EPL.git
