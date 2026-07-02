@@ -3241,9 +3241,7 @@ def _emit_porting_report(program, target, output_dir, strict=False, entry_path=N
     # (EPLRuntime.kt → SQLiteDatabase) and db_* apps compile, so db_* IS portable
     # there. ios (Swift) and desktop have no verified bridge yet, so stay honest
     # and keep reporting db_* as unportable for them.
-    report = analyze(
-        program, target, has_db_bridge=(target == 'android'), entry_path=entry_path
-    )
+    report = analyze(program, target, has_db_bridge=(target == 'android'), entry_path=entry_path)
     colors = {'red': _red, 'yellow': _yellow, 'green': _green, 'dim': _dim, 'bold': _bold}
     print(render_console(report, color=colors), file=sys.stderr)
     try:

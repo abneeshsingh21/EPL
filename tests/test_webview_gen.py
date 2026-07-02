@@ -165,7 +165,9 @@ def test_desktop_webview_bundles_local_imports(tmp_path):
     entry file imports other project files, they must be copied too — else the
     subprocess dies on its first `Import` before the port ever binds."""
     (tmp_path / 'utils').mkdir()
-    (tmp_path / 'utils' / 'api.epl').write_text('Function ping\n    Return "pong"\nEnd\n', encoding='utf-8')
+    (tmp_path / 'utils' / 'api.epl').write_text(
+        'Function ping\n    Return "pong"\nEnd\n', encoding='utf-8'
+    )
     entry_src = 'Import "utils/api"\n' + WEB_APP
     src = tmp_path / 'main.epl'
     src.write_text(entry_src, encoding='utf-8')
@@ -184,7 +186,9 @@ def test_desktop_webview_bundles_nested_imports(tmp_path):
     pkg = tmp_path / 'pkg'
     pkg.mkdir()
     (pkg / 'helpers.epl').write_text('Function h\n    Return 1\nEnd\n', encoding='utf-8')
-    (pkg / 'api.epl').write_text('Import "helpers"\nFunction a\n    Return h()\nEnd\n', encoding='utf-8')
+    (pkg / 'api.epl').write_text(
+        'Import "helpers"\nFunction a\n    Return h()\nEnd\n', encoding='utf-8'
+    )
     entry_src = 'Import "pkg/api"\n' + WEB_APP
     src = tmp_path / 'main.epl'
     src.write_text(entry_src, encoding='utf-8')

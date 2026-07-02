@@ -151,9 +151,7 @@ def test_analyze_follows_local_imports(tmp_path):
     assert not blind.has_blocking
 
     # Following the import graph surfaces the route/server hidden in api.epl.
-    report = analyze(
-        parse(entry.read_text(encoding='utf-8')), 'android', entry_path=str(entry)
-    )
+    report = analyze(parse(entry.read_text(encoding='utf-8')), 'android', entry_path=str(entry))
     assert report.has_blocking
     constructs = {i.construct for i in report.blocking}
     assert 'Route' in constructs
