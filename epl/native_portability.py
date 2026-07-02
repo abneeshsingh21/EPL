@@ -63,6 +63,12 @@ class PortabilityReport:
     # Counts of portable top-level logic that DID survive, for an honest summary.
     portable_functions: int = 0
     portable_statements: int = 0
+    # Internal: the file `analyze()` is currently walking as it follows the
+    # import graph. `_current_rel` (path relative to the entry) is stamped onto
+    # each issue via add(); `_current_file` anchors source-relative resolution
+    # of nested imports. Not part of the public report shape.
+    _current_file: 'str | None' = field(default=None, repr=False, compare=False)
+    _current_rel: str = field(default='', repr=False, compare=False)
 
     @property
     def blocking(self) -> list:
@@ -80,7 +86,7 @@ class PortabilityReport:
         # `source` defaults to whichever file the analyzer is currently walking
         # (set on the report during import recursion) so issues carry their file.
         if source is None:
-            source = getattr(self, '_current_rel', '')
+            source = self._current_rel
         self.issues.append(PortabilityIssue(line or 0, construct, detail, blocking, source))
 
 
