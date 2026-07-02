@@ -134,15 +134,22 @@ class DependencyScanner:
 
         import re
 
-        # Match: import "file.epl"
-        for m in re.finditer(r'import\s+"([^"]+)"', source):
-            dep_path = os.path.join(self.base_dir, m.group(1))
+        # Imports resolve relative to the *importing* file's directory
+        # (source-file-relative, matching the interpreter), so a nested module
+        # that imports a sibling is found instead of being looked up against the
+        # entry file's directory and silently missed.
+        file_dir = os.path.dirname(filepath)
+
+        # Match: Import "file.epl" — case-insensitive, because EPL keywords are
+        # (the lexer lowercases them), so real source uses capital `Import`.
+        for m in re.finditer(r'\bimport\s+"([^"]+)"', source, re.IGNORECASE):
+            dep_path = os.path.join(file_dir, m.group(1))
             if not dep_path.endswith('.epl'):
                 dep_path += '.epl'
             self._scan_file(dep_path)
 
-        # Match: use package_name
-        for m in re.finditer(r'use\s+(\w+)', source):
+        # Match: Use package_name
+        for m in re.finditer(r'\buse\s+(\w+)', source, re.IGNORECASE):
             pkg = m.group(1)
             if pkg not in self.epl_packages:
                 self.epl_packages.append(pkg)

@@ -22,6 +22,7 @@ tells the truth about what survived the port.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 from epl import ast_nodes as ast
@@ -52,6 +53,7 @@ class PortabilityIssue:
     construct: str  # short label, e.g. 'Route', 'Raw HTML'
     detail: str  # human-readable reason
     blocking: bool  # True = app cannot be a faithful native port
+    source: str = ''  # imported file (relative to entry) the issue lives in; '' = entry file
 
 
 @dataclass
@@ -74,8 +76,12 @@ class PortabilityReport:
     def has_blocking(self) -> bool:
         return any(i.blocking for i in self.issues)
 
-    def add(self, line, construct, detail, blocking=True):
-        self.issues.append(PortabilityIssue(line or 0, construct, detail, blocking))
+    def add(self, line, construct, detail, blocking=True, source=None):
+        # `source` defaults to whichever file the analyzer is currently walking
+        # (set on the report during import recursion) so issues carry their file.
+        if source is None:
+            source = getattr(self, '_current_rel', '')
+        self.issues.append(PortabilityIssue(line or 0, construct, detail, blocking, source))
 
 
 def _walk(node, visit):
@@ -100,14 +106,75 @@ _RAW_TAGS = {
 }
 
 
-def analyze(program: ast.Program, target: str, has_db_bridge: bool = True) -> PortabilityReport:
+def _resolve_local_import(filepath: str, current_file, entry_dir):
+    """Resolve an `Import "..."` target to an on-disk local .epl file, or None.
+
+    Mirrors the interpreter's *source-file-relative* resolution
+    (interpreter._resolve_import_path): try relative to the importing file first,
+    then the entry dir, then as an absolute/cwd path. Only real files are
+    returned — native modules, the stdlib, and installed packages resolve to
+    None so the checker stays scoped to the developer's own project and never
+    triggers a package auto-install just to analyze.
+    """
+    if not filepath:
+        return None
+    candidates = []
+
+    def add_candidate(path):
+        candidates.append(path)
+        if not path.endswith('.epl'):
+            candidates.append(path + '.epl')
+
+    if current_file:
+        add_candidate(os.path.join(os.path.dirname(current_file), filepath))
+    if entry_dir:
+        add_candidate(os.path.join(entry_dir, filepath))
+    add_candidate(filepath)
+
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return os.path.abspath(candidate)
+    return None
+
+
+def _rel_label(abs_path, entry_dir):
+    """Path shown in issues/reports: relative to the entry dir when possible."""
+    if not abs_path:
+        return ''
+    if entry_dir:
+        try:
+            return os.path.relpath(abs_path, entry_dir)
+        except ValueError:  # e.g. different drive on Windows
+            pass
+    return os.path.basename(abs_path)
+
+
+def analyze(
+    program: ast.Program,
+    target: str,
+    has_db_bridge: bool = True,
+    entry_path: str | None = None,
+) -> PortabilityReport:
     """Build a portability report for `program` against `target`.
 
     `has_db_bridge` reflects whether the target's generated runtime now ships a
     `db_*` implementation (True since v10.0.0 for android/desktop). When True,
     database calls are portable and not flagged.
+
+    `entry_path` is the path of the file `program` was parsed from. When given,
+    the analyzer follows the project's own `Import` graph: every local `.epl`
+    file reached via `Import` is parsed and analyzed too, so unportable
+    constructs living one function-call away in an imported module are reported
+    instead of silently passing as "✓ portable" (omniapp finding: the guarantee
+    used to hold only for single-file programs). Without `entry_path`, behavior
+    is unchanged (entry file only) — keeping the older call signature working.
     """
     report = PortabilityReport(target=target)
+    entry_abs = os.path.abspath(entry_path) if entry_path else None
+    entry_dir = os.path.dirname(entry_abs) if entry_abs else None
+    report._current_file = entry_abs
+    report._current_rel = ''
+    visited = {entry_abs} if entry_abs else set()
 
     def visit(node):
         if isinstance(node, ast.Route):
@@ -176,14 +243,47 @@ def analyze(program: ast.Program, target: str, has_db_bridge: bool = True) -> Po
                     f'{name}()',
                     f'No database bridge in the {target} runtime; this call will not compile.',
                 )
+        # Follow the project's own import graph: an imported module's body is
+        # where the unportable code usually lives (a simple entry file just
+        # calls into it). Only followed when we know the entry path.
+        if isinstance(node, ast.ImportStatement) and entry_dir is not None:
+            _follow_import(node)
 
-    _walk(program, visit)
+    def _follow_import(node):
+        resolved = _resolve_local_import(node.filepath, report._current_file, entry_dir)
+        if not resolved or resolved in visited:
+            return  # non-local (native/stdlib/package), missing, or already seen
+        visited.add(resolved)
+        rel = _rel_label(resolved, entry_dir)
+        try:
+            from epl.lexer import Lexer
+            from epl.parser import Parser
 
-    for stmt in getattr(program, 'statements', []) or []:
-        if isinstance(stmt, ast.FunctionDef):
-            report.portable_functions += 1
-        elif not _is_web_only_toplevel(stmt):
-            report.portable_statements += 1
+            with open(resolved, encoding='utf-8') as fh:
+                imported = Parser(Lexer(fh.read()).tokenize()).parse()
+        except Exception:
+            report.add(
+                node.line,
+                'Import',
+                f'Imported file "{node.filepath}" could not be parsed, so its '
+                'constructs were not checked — treat its portability as unknown.',
+                blocking=False,
+            )
+            return
+        _analyze_file(imported, resolved, rel)
+
+    def _analyze_file(prog, abs_path, rel):
+        prev_file, prev_rel = report._current_file, report._current_rel
+        report._current_file, report._current_rel = abs_path, rel
+        _walk(prog, visit)
+        for stmt in getattr(prog, 'statements', []) or []:
+            if isinstance(stmt, ast.FunctionDef):
+                report.portable_functions += 1
+            elif not _is_web_only_toplevel(stmt):
+                report.portable_statements += 1
+        report._current_file, report._current_rel = prev_file, prev_rel
+
+    _analyze_file(program, entry_abs, '')
 
     return report
 
@@ -227,7 +327,8 @@ def render_console(report: PortabilityReport, color=None) -> str:
             )
         )
         for issue in blocking[:12]:
-            lines.append(f'      • line {issue.line}: {issue.construct} — {issue.detail}')
+            where = f'{issue.source} line {issue.line}' if issue.source else f'line {issue.line}'
+            lines.append(f'      • {where}: {issue.construct} — {issue.detail}')
         if len(blocking) > 12:
             lines.append(
                 paint('dim', f'      … and {len(blocking) - 12} more (see PORTING_REPORT.md)')
@@ -272,21 +373,24 @@ def render_markdown(report: PortabilityReport, app_name: str = 'App') -> str:
         out.append('')
         return '\n'.join(out)
 
+    def _loc(i):
+        return f'{i.source}:{i.line}' if i.source else str(i.line)
+
     if report.blocking:
         out.append('## Not ported (blocking)')
         out.append('')
-        out.append('| Line | Construct | Why it was dropped |')
-        out.append('|-----:|-----------|--------------------|')
+        out.append('| Location | Construct | Why it was dropped |')
+        out.append('|----------|-----------|--------------------|')
         for i in report.blocking:
-            out.append(f'| {i.line} | {i.construct} | {i.detail} |')
+            out.append(f'| {_loc(i)} | {i.construct} | {i.detail} |')
         out.append('')
     if report.warnings:
         out.append('## Warnings')
         out.append('')
-        out.append('| Line | Construct | Note |')
-        out.append('|-----:|-----------|------|')
+        out.append('| Location | Construct | Note |')
+        out.append('|----------|-----------|------|')
         for i in report.warnings:
-            out.append(f'| {i.line} | {i.construct} | {i.detail} |')
+            out.append(f'| {_loc(i)} | {i.construct} | {i.detail} |')
         out.append('')
 
     out.append('## How to ship the full app natively')

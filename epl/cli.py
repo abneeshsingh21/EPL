@@ -3224,7 +3224,7 @@ def _transpile_python(args):
         return 1
 
 
-def _emit_porting_report(program, target, output_dir, strict=False):
+def _emit_porting_report(program, target, output_dir, strict=False, entry_path=None):
     """Honest native-export reporting (v10.0.0).
 
     Analyze what could NOT be ported to `target`, print a loud summary to
@@ -3241,7 +3241,9 @@ def _emit_porting_report(program, target, output_dir, strict=False):
     # (EPLRuntime.kt → SQLiteDatabase) and db_* apps compile, so db_* IS portable
     # there. ios (Swift) and desktop have no verified bridge yet, so stay honest
     # and keep reporting db_* as unportable for them.
-    report = analyze(program, target, has_db_bridge=(target == 'android'))
+    report = analyze(
+        program, target, has_db_bridge=(target == 'android'), entry_path=entry_path
+    )
     colors = {'red': _red, 'yellow': _yellow, 'green': _green, 'dim': _dim, 'bold': _bold}
     print(render_console(report, color=colors), file=sys.stderr)
     try:
@@ -3320,7 +3322,7 @@ def _android(args, flags=None):
         if use_compose:
             print('  UI Mode: Jetpack Compose')
 
-        if _emit_porting_report(program, 'android', output_dir, strict):
+        if _emit_porting_report(program, 'android', output_dir, strict, entry_path=filename):
             return 2
 
         if build_apk:
@@ -3417,7 +3419,7 @@ def _ios(args, flags=None):
         print(f'  Bundle ID: {bundle_id}')
         if team_id:
             print(f'  Team ID: {team_id}')
-        if _emit_porting_report(program, 'ios', output_dir, strict):
+        if _emit_porting_report(program, 'ios', output_dir, strict, entry_path=filename):
             return 2
         print(f'\n  {_dim("Next steps:")}')
         print(f'    1. Open in Xcode: {output_dir}/')
@@ -3585,7 +3587,7 @@ def _desktop(args, flags=None):
         )
         print(f'  Desktop project generated: {output_dir}/')
         print(f'  App: {resolved_name} ({width}x{height})')
-        if _emit_porting_report(program, 'desktop', output_dir, strict):
+        if _emit_porting_report(program, 'desktop', output_dir, strict, entry_path=filename):
             return 2
         print(f'  Build: cd {output_dir} && ./gradlew run')
         print('  Package: ./gradlew packageMsi  (or packageDmg/packageDeb)')
