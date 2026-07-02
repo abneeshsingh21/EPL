@@ -1,0 +1,146 @@
+name: Deploy MCP Server to Azure
+
+# Keeps the hosted EPL MCP server (App Service `eplang-mcp`, consumed by AI
+# assistants via Smithery / the public URL) in lock-step with the language.
+#
+# ── Why this exists ──────────────────────────────────────────────────────────
+# The MCP server serves NO static data: every tool reads LIVE from the bundled
+# `epl/` source at request time (syntax reference, VM behavior, error codes,
+# transpilers, examples). The Azure app is deployed by ZIPPING THE REPO SOURCE
+# (it is NOT pip-installed from PyPI), so the deployed engine == whatever commit
+# was last zip-deployed. That means a merge to main — or even a PyPI release —
+# does NOT update the live server on its own. Historically the deployment drifted
+# multiple releases behind unnoticed, silently teaching AIs the behavior of an
+# old engine. This workflow removes the manual step: every release redeploys, so
+# the contract is simple and enforceable — **live MCP server == latest release.**
+#
+# ── Triggers ─────────────────────────────────────────────────────────────────
+#   • push tag `v*`      → automatic redeploy on every release (the drift fix)
+#   • workflow_dispatch  → on-demand deploy of any ref (e.g. a between-release
+#                          source fix) without waiting for a version bump
+#
+# ── Auth ─────────────────────────────────────────────────────────────────────
+# Uses the existing `AZURE_CREDENTIALS` service principal (subscription-scoped
+# Contributor — same SP that deploys the Discord bot). SCM basic-auth publishing
+# is disabled on the app, so deployment authenticates with the SP's AAD token
+# over ARM/Kudu (exactly how a local `az webapp deploy` after `az login` works).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two deploys race the same App Service; a newer deploy supersedes
+  # an in-flight older one.
+  group: deploy-mcp
+  cancel-in-progress: false
+
+env:
+  AZURE_RESOURCE_GROUP: eplang-rg
+  AZURE_APP_NAME: eplang-mcp
+  HEALTH_URL: https://eplang-mcp.azurewebsites.net/health
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false # only reads the tree to build the zip
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Determine expected version from source
+        # The health check after deploy must assert the LIVE server is running
+        # this exact source — compare against epl.__version__ from the checked-out
+        # tree (works for both a tag deploy and a manual dispatch off any ref).
+        id: ver
+        run: |
+          set -euo pipefail
+          VERSION="$(python -c 'import epl; print(epl.__version__)')"
+          echo "expected=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Source version: $VERSION"
+          # On a tag deploy, guard that the tag matches the source version so we
+          # never ship a mislabeled release to the live server.
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            if [ "$VERSION" != "$TAG_VERSION" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match epl.__version__ ($VERSION); refusing to deploy."
+              exit 1
+            fi
+          fi
+
+      - name: Build deployment zip (epl/ + examples/ + requirements.txt)
+        # Mirrors the verified manual procedure: bundle the package SOURCE and a
+        # minimal runtime requirements.txt at the ZIP ROOT. examples/ must ship —
+        # the epl_examples tool reads <approot>/examples at request time. Strip
+        # __pycache__/.pyc so stale bytecode can never shadow the shipped source.
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os, zipfile
+          root = os.getcwd()
+          out = os.path.join(root, "mcp_deploy.zip")
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+              for top in ("epl", "examples"):
+                  for dirpath, dirnames, filenames in os.walk(top):
+                      dirnames[:] = [d for d in dirnames if d != "__pycache__"]
+                      for fn in filenames:
+                          if fn.endswith((".pyc", ".pyo")):
+                              continue
+                          full = os.path.join(dirpath, fn)
+                          z.write(full, os.path.relpath(full, root).replace("\\", "/"))
+              # Runtime deps only (Flask/gunicorn/requests). Oryx installs these
+              # on the app because SCM_DO_BUILD_DURING_DEPLOYMENT=True.
+              z.write(os.path.join("azure", "requirements.txt"), "requirements.txt")
+          names = zipfile.ZipFile(out).namelist()
+          assert "epl/mcp_http_server.py" in names, "missing HTTP wrapper"
+          assert "requirements.txt" in names, "requirements.txt not at zip root"
+          assert any(n.startswith("examples/") for n in names), "examples/ missing"
+          print(f"built mcp_deploy.zip with {len(names)} entries")
+          PY
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy zip to App Service
+        run: |
+          az webapp deploy \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$AZURE_APP_NAME" \
+            --src-path mcp_deploy.zip \
+            --type zip
+
+      - name: Verify live server is healthy and on the deployed version
+        # The deploy is not "done" until the running server actually reports the
+        # version we shipped. Poll through the restart/Oryx-build window; fail the
+        # job (loudly) if the live version never matches — that is the exact
+        # "silent drift" failure this workflow exists to make impossible.
+        env:
+          EXPECTED: ${{ steps.ver.outputs.expected }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            body="$(curl -s --max-time 20 "$HEALTH_URL" || true)"
+            live="$(printf '%s' "$body" | jq -r '.version // ""' 2>/dev/null || true)"
+            echo "attempt $i: live=\"$live\" expected=\"$EXPECTED\""
+            if [ "$live" = "$EXPECTED" ]; then
+              echo "✅ Live MCP server is healthy on $EXPECTED"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Live server never reported version $EXPECTED after deploy (last body above)."
+          exit 1
+
+      - name: Clean up
+        if: always()
+        run: rm -f mcp_deploy.zip
