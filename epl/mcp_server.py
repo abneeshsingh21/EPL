@@ -45,10 +45,13 @@ TOOLS = [
         'name': 'epl_syntax_reference',
         'description': (
             'Get EPL (English Programming Language) syntax reference with examples. '
-            "Optionally filter by topic: 'variables', 'functions', 'web', 'loops', "
-            "'classes', 'error_handling', 'collections', 'imports', 'gui', 'async', "
-            "'enums_ternary', 'file_io', 'deploy', 'observability', '3d_canvas', "
-            "'style_layout', 'js_bridge', 'misc'. "
+            'Optionally filter by topic. Available topics: '
+            "'comments', 'variables', 'output_input', 'string_interpolation', "
+            "'control_flow', 'functions', 'collections', 'error_handling', "
+            "'file_io', 'imports', 'oop', 'enums_ternary', 'web', 'async', "
+            "'gui', 'js_bridge', 'deploy', 'observability', 'style_layout', "
+            "'3d_canvas', 'misc'. Common aliases also work: 'classes'->oop, "
+            "'loops'->control_flow, 'functions', 'variables'. "
             "CRITICAL: EPL uses 'Otherwise' not 'Else', 'Note:' not '//', "
             "and every block ends with 'End'."
         ),
@@ -108,7 +111,7 @@ TOOLS = [
     {
         'name': 'epl_transpile',
         'description': (
-            'Transpile EPL code to Python or JavaScript. '
+            'Transpile EPL code to Python, browser JavaScript, or Node.js. '
             'Returns the transpiled source code in the target language.'
         ),
         'inputSchema': {
@@ -120,8 +123,11 @@ TOOLS = [
                 },
                 'target': {
                     'type': 'string',
-                    'enum': ['python', 'javascript'],
-                    'description': "Target language: 'python' or 'javascript'.",
+                    'enum': ['python', 'javascript', 'node'],
+                    'description': (
+                        "Target language: 'python', 'javascript' (browser), "
+                        "or 'node' (Node.js/ESM)."
+                    ),
                 },
             },
             'required': ['code', 'target'],
@@ -181,6 +187,39 @@ def _tool_syntax_reference(args: dict) -> str:
     if not topic:
         return get_syntax_text()
 
+    # Map common synonyms to the real section ids so intuitive queries resolve.
+    # e.g. an AI asking for 'classes' or 'loops' should not silently miss.
+    _ALIASES = {
+        'classes': 'oop',
+        'class': 'oop',
+        'objects': 'oop',
+        'inheritance': 'oop',
+        'loops': 'control_flow',
+        'loop': 'control_flow',
+        'conditionals': 'control_flow',
+        'if': 'control_flow',
+        'strings': 'string_interpolation',
+        'interpolation': 'string_interpolation',
+        'print': 'output_input',
+        'output': 'output_input',
+        'input': 'output_input',
+        'lists': 'collections',
+        'maps': 'collections',
+        'arrays': 'collections',
+        'exceptions': 'error_handling',
+        'try': 'error_handling',
+        'files': 'file_io',
+        'import': 'imports',
+        'canvas': '3d_canvas',
+        '3d': '3d_canvas',
+        'style': 'style_layout',
+        'layout': 'style_layout',
+        'css': 'style_layout',
+        'javascript': 'js_bridge',
+        'js': 'js_bridge',
+    }
+    topic = _ALIASES.get(topic, topic)
+
     sections = get_syntax_sections()
     matched = []
     for section in sections:
@@ -231,15 +270,42 @@ def _tool_run(args: dict) -> str:
     if not code.strip():
         return json.dumps({'output': '', 'error': 'No code provided.'})
 
+    # Mirror the CLI's canonical engine selection: run on the VM
+    # (compile_and_run), which is what real `epl run` uses. Only fall back to
+    # the tree-walking interpreter if the VM raised BEFORE producing any output
+    # (otherwise re-running would duplicate observable output/side effects).
+    # Running the interpreter directly here — as the old code did — meant MCP
+    # `epl_run` used a different engine than users get, so output/errors could
+    # silently diverge.
     runner_script = (
-        'import sys; '
-        "sys.path.insert(0, '.'); "
-        'from epl.lexer import Lexer; '
-        'from epl.parser import Parser; '
-        'from epl.interpreter import Interpreter; '
-        'tokens = Lexer(sys.stdin.read()).tokenize(); '
-        'program = Parser(tokens).parse(); '
-        'Interpreter().execute(program)'
+        'import sys\n'
+        "sys.path.insert(0, '.')\n"
+        'src = sys.stdin.read()\n'
+        '_real = sys.stdout\n'
+        'class _Tee:\n'
+        '    n = 0\n'
+        '    def write(self, s):\n'
+        '        self.n += len(s)\n'
+        '        return _real.write(s)\n'
+        '    def flush(self):\n'
+        '        return _real.flush()\n'
+        '    def __getattr__(self, k):\n'
+        '        return getattr(_real, k)\n'
+        '_tee = _Tee()\n'
+        'sys.stdout = _tee\n'
+        'try:\n'
+        '    from epl.vm import compile_and_run\n'
+        '    compile_and_run(src)\n'
+        'except (KeyboardInterrupt, SystemExit, MemoryError):\n'
+        '    raise\n'
+        'except Exception:\n'
+        '    if _tee.n > 0:\n'
+        '        raise\n'
+        '    from epl.lexer import Lexer\n'
+        '    from epl.parser import Parser\n'
+        '    from epl.interpreter import Interpreter\n'
+        '    program = Parser(Lexer(src).tokenize()).parse()\n'
+        '    Interpreter().execute(program)\n'
     )
 
     try:
@@ -299,9 +365,13 @@ def _tool_transpile(args: dict) -> str:
             from epl.js_transpiler import JSTranspiler
 
             output = JSTranspiler().transpile(program)
+        elif target == 'node':
+            from epl.js_transpiler import transpile_to_node
+
+            output = transpile_to_node(program)
         else:
             return json.dumps(
-                {'error': f"Unsupported target: {target}. Use 'python' or 'javascript'."}
+                {'error': (f"Unsupported target: {target}. Use 'python', 'javascript', or 'node'.")}
             )
 
         return json.dumps({'target': target, 'code': output})
