@@ -46,6 +46,7 @@ def test_transpile_javascript():
     r = json.loads(_tool_transpile({'code': 'Say "hi"', 'target': 'javascript'}))
     assert r.get('target') == 'javascript'
     assert 'error' not in r
+    assert r['code'].strip()
 
 
 def test_transpile_node():
@@ -76,6 +77,17 @@ def test_run_surfaces_errors():
     r = json.loads(_tool_run({'code': 'Say hello (((broken', 'timeout': 20}))
     assert r.get('exit_code') != 0
     assert r.get('error')
+
+
+def test_run_surfaces_runtime_error_without_interpreter_fallback():
+    # A runtime error (undefined name) must be surfaced honestly, NOT silently
+    # re-run through the tree-walking interpreter. Re-execution would re-fire any
+    # side effects a program performed before raising, so epl_run would report
+    # behavior no real `epl run` produces. VM-only + honest error is the contract.
+    r = json.loads(_tool_run({'code': 'Say undefined_name_xyz', 'timeout': 20}))
+    assert r.get('exit_code') != 0
+    assert r.get('error')
+    assert not r.get('output')
 
 
 def test_run_empty_code():

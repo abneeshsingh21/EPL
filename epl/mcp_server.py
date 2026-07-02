@@ -270,42 +270,20 @@ def _tool_run(args: dict) -> str:
     if not code.strip():
         return json.dumps({'output': '', 'error': 'No code provided.'})
 
-    # Mirror the CLI's canonical engine selection: run on the VM
-    # (compile_and_run), which is what real `epl run` uses. Only fall back to
-    # the tree-walking interpreter if the VM raised BEFORE producing any output
-    # (otherwise re-running would duplicate observable output/side effects).
-    # Running the interpreter directly here — as the old code did — meant MCP
-    # `epl_run` used a different engine than users get, so output/errors could
-    # silently diverge.
+    # Run on the VM (compile_and_run), which is exactly what real `epl run`
+    # uses — so MCP `epl_run` reports the same behavior users get. On failure
+    # we surface the VM's error rather than silently re-running through the
+    # tree-walking interpreter: a second execution would re-fire any side
+    # effects (write_file, network calls) that the program performed before
+    # raising, so the tool would report output no real invocation ever produces.
+    # For a knowledge tool whose value is truthful, deterministic behavior,
+    # VM-only + honest error is the correct contract.
     runner_script = (
         'import sys\n'
         "sys.path.insert(0, '.')\n"
         'src = sys.stdin.read()\n'
-        '_real = sys.stdout\n'
-        'class _Tee:\n'
-        '    n = 0\n'
-        '    def write(self, s):\n'
-        '        self.n += len(s)\n'
-        '        return _real.write(s)\n'
-        '    def flush(self):\n'
-        '        return _real.flush()\n'
-        '    def __getattr__(self, k):\n'
-        '        return getattr(_real, k)\n'
-        '_tee = _Tee()\n'
-        'sys.stdout = _tee\n'
-        'try:\n'
-        '    from epl.vm import compile_and_run\n'
-        '    compile_and_run(src)\n'
-        'except (KeyboardInterrupt, SystemExit, MemoryError):\n'
-        '    raise\n'
-        'except Exception:\n'
-        '    if _tee.n > 0:\n'
-        '        raise\n'
-        '    from epl.lexer import Lexer\n'
-        '    from epl.parser import Parser\n'
-        '    from epl.interpreter import Interpreter\n'
-        '    program = Parser(Lexer(src).tokenize()).parse()\n'
-        '    Interpreter().execute(program)\n'
+        'from epl.vm import compile_and_run\n'
+        'compile_and_run(src)\n'
     )
 
     try:
