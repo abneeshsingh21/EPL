@@ -193,3 +193,6 @@ _tmpdoc/
 *_chart.png
 *_plot.png
 scatter_plot.png
+
+# CI-generated deploy marker (written by deploy-mcp.yml, never committed)
+epl/_build_commit.txt
