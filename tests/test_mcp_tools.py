@@ -147,3 +147,33 @@ def test_tools_call_transpile_node_via_dispatch():
     payload = json.loads(text)
     assert payload.get('target') == 'node'
     assert 'error' not in payload
+
+
+# ── /health deploy marker (drift verification) ───────────────────────────────
+
+
+def test_health_commit_absent_without_marker(tmp_path, monkeypatch):
+    # Normal installs (PyPI/local) have no build marker: /health.commit is None,
+    # never a crash. The deploy workflow relies on this being a clean null.
+    import epl.mcp_http_server as http
+
+    monkeypatch.setattr(http, '_BUILD_COMMIT_MARKER', str(tmp_path / 'absent.txt'))
+    assert http._get_commit() is None
+    body = http.app.test_client().get('/health').get_json()
+    assert body['status'] == 'ok'
+    assert body['commit'] is None
+
+
+def test_health_reports_deployed_commit(tmp_path, monkeypatch):
+    # When the deploy workflow stamps epl/_build_commit.txt, /health surfaces
+    # that exact commit so the pipeline can prove the live server is running the
+    # source it shipped — the check that makes a no-version-bump redeploy
+    # verifiable and silent drift impossible to reintroduce.
+    import epl.mcp_http_server as http
+
+    marker = tmp_path / '_build_commit.txt'
+    marker.write_text('abc123def456\n', encoding='utf-8')
+    monkeypatch.setattr(http, '_BUILD_COMMIT_MARKER', str(marker))
+    assert http._get_commit() == 'abc123def456'
+    body = http.app.test_client().get('/health').get_json()
+    assert body['commit'] == 'abc123def456'

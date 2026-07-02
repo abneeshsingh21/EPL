@@ -52,6 +52,28 @@ def add_cors_headers(response: Response) -> Response:
 # ── Health Check ─────────────────────────────────────────────────────
 
 
+# Written into the shipped zip by deploy-mcp.yml; absent in normal installs.
+_BUILD_COMMIT_MARKER = os.path.join(os.path.dirname(__file__), '_build_commit.txt')
+
+
+def _get_commit() -> str | None:
+    """Return the git commit this server was deployed from, if recorded.
+
+    The deploy workflow writes ``epl/_build_commit.txt`` into the shipped zip so
+    ``/health`` can prove *which* source is actually running. A version string
+    alone can't: a between-release redeploy (source fix, no version bump) that
+    silently failed to apply would still report the expected version. The commit
+    is unique per deploy, so the deploy pipeline can assert the live server is
+    running exactly what it shipped. Absent for normal (PyPI/local) installs,
+    where this returns ``None``.
+    """
+    try:
+        with open(_BUILD_COMMIT_MARKER, encoding='utf-8') as fh:
+            return fh.read().strip() or None
+    except OSError:
+        return None
+
+
 @app.route('/', methods=['GET'])
 @app.route('/health', methods=['GET'])
 def health():
@@ -60,6 +82,7 @@ def health():
             'status': 'ok',
             'server': 'epl-mcp-server',
             'version': _get_version(),
+            'commit': _get_commit(),
             'tools': len(TOOLS),
             'transport': 'streamable-http',
         }
