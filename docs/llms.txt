@@ -1,30 +1,59 @@
 # EPL — English Programming Language
 
-> EPL is a production-ready programming language with English syntax. Write code in plain English — build apps, web servers, APIs, desktop GUIs, and more. Install: `pip install eplang`
+> EPL is a programming language with English syntax (v10.1.1). Write code in plain English — apps, web servers, APIs, desktop GUIs, and mobile apps. Install: `pip install eplang`. Run: `epl run file.epl`. By default `epl run` executes on a bytecode VM (real closures + full control-flow parity with the reference interpreter); `--interpret` selects the tree-walking interpreter. EPL also transpiles to Python/JS/Node/Kotlin/MicroPython, compiles native binaries (`epl build`, with type inference for untyped functions), and exports native mobile/desktop projects (`epl android`/`ios`/`desktop`, with `--webview` to ship the real web app unchanged).
 
 ## Documentation
 
-- [Syntax Reference](https://github.com/abneeshsingh21/EPL/blob/main/GRAMMAR.md): Complete formal grammar specification
-- [Examples](https://github.com/abneeshsingh21/EPL/tree/main/examples): 50+ working code examples
+- [Syntax Reference](https://github.com/abneeshsingh21/EPL/blob/main/GRAMMAR.md): Formal grammar specification
+- [Examples](https://github.com/abneeshsingh21/EPL/tree/main/examples): 50+ working programs (`examples/apps/` has full apps)
 - [README](https://github.com/abneeshsingh21/EPL/blob/main/README.md): Getting started guide
 - [Changelog](https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md): Version history
-- [Full Reference for LLMs](https://github.com/abneeshsingh21/EPL/blob/main/llms-full.txt): Complete syntax and examples for AI consumption
+- [Full Reference for LLMs](https://github.com/abneeshsingh21/EPL/blob/main/llms-full.txt): Complete syntax + examples for AI consumption
 
 ## Key Syntax Rules
 
-- Variables: `Create name = "Ada"` or `Set count to 5`
-- Output: `Say "Hello"` or `Display "text"`
+- Variables: `Create name = "Ada"`, `Set count to 5`, or bare `count = 5`
+- Output: `Say "Hi"`, `Display "Hi"`, `Print "Hi"`, `Show "Hi"` (all equivalent)
 - Input: `Ask "Name?" store in name`
-- Functions: `Function greet takes name ... End`
-- Conditionals: `If x > 5 Then ... Otherwise ... End` (use `Otherwise`, NOT `Else`)
-- Loops: `For i from 1 to 10 ... End` or `While x > 0 ... End`
-- Classes: `Class Dog ... End` then `Create d = new Dog()`
-- Web: `Create WebApp called app` then `Route "/" shows ... End` then `Start app on port 8080`
-- Maps: `Create user = Map with name = "Ada" and role = "admin"`
+- Interpolation: `Say "Hello $name"` and `Say "Sum ${1 + 2}"`
+- Functions: `Function greet takes name ... End`; call `greet("Ada")`
+- Conditionals: `If x > 5 Then ... Otherwise ... End` — use `Otherwise`, NOT `Else`
+- Loops: `For i from 1 to 10 ... End`, `For each x in list ... End`, `While c ... End`, `Repeat 5 times ... End`
+- Match: `Match x` / `When 1 or 2` (each alternative tested) / `Default` (or `Otherwise`) / `End`
+- Classes: `Class Dog ... End` with bare fields (`name = "Rex"`); instantiate `new Dog()`; methods use fields directly
+- Web: `Create WebApp called app` → `Route "/" shows ... End` (HTML) / `Route "/api" responds with ... End` (JSON) → `Start app on port 8080`
+- Maps: `Create user = Map with name = "Ada" and role = "admin"` — access `user.name`
+- Assign into collections: `Set list[i] to value`, `Set obj.prop to value`
 - Errors: `Try ... Catch error ... End`
-- Comments: `Note: this is a comment` (NOT `//` or `#`)
-- Every block ends with `End`
+- Comments: `Note: this is a comment` — NOT `//` or `#`
+- Every block (If/Function/Class/While/For/Match/Route/Try) ends with `End`
+
+## Common Builtins (verified names)
+
+- Strings: `length`, `upper`, `lower`, `trim`, `replace`, `split`, `join`, `substring`, `contains`, `index_of`, `reverse`, `starts_with`, `ends_with`
+- Convert: `to_text`, `to_integer`, `to_number`, `to_boolean`
+- Math: `absolute` (or `abs`), `round`, `floor`, `ceil`, `power`, `sqrt`, `min`, `max`, `random(a, b)`, `sum`
+- Collections/maps: `keys`, `values`, `has_key`, `first`, `last`, `Add x to list`, `Sort list` (statement)
+- Type: `type_of` → "integer"/"text"/"boolean"/"list"/"map"
+- Auth: `auth_hash_password`, `auth_verify_password`, `auth_generate_token`
+- Database: `db_open`, `db_execute`, `db_query`, `db_query_one`, `db_count`, `db_close` (+ `*_params` variants)
+- Env/time: `env_get` (a `.env` beside the program is auto-loaded), `now`, `today`, `Wait N seconds`, `Exit`
+
+## CLI
+
+- `epl run file.epl` (bytecode VM) · `epl run --interpret file.epl` · `epl vm file.epl`
+- `epl build file.epl [-o out] [--opt=N]` — native binary (infers types for untyped functions)
+- `epl wasm file.epl` — WebAssembly
+- `epl python|js|node|kotlin|micropython file.epl [-o out]` — transpile
+- `epl android|ios|desktop|web file.epl [--webview] [--url URL]` — native/app export
+- `epl new <name> --template web|api|auth|chatbot|cli|lib|frontend|android|ios|fullstack`
+- `epl serve file.epl [--reload] [--port N]` · `epl repl` · `epl watch` · `epl doctor` · `epl check`
+- `epl test` · `epl fmt` · `epl lint` · `epl docs`
+- `epl use|install|uninstall|packages|search|update` (packages) · `epl deploy <target>`
+- `epl gen "<desc>"` · `epl ai "<prompt>"` · `epl explain file.epl` · `epl copilot` · `epl playground` · `epl lsp`
 
 ## Optional
 
-- [MCP Server](https://github.com/abneeshsingh21/EPL): Connect AI tools via `python -m epl.mcp_server` for real-time EPL validation, execution, and transpilation
+- [MCP Server](https://github.com/abneeshsingh21/EPL): `python -m epl.mcp_server` — tools `epl_syntax_reference`, `epl_validate`, `epl_run`, `epl_transpile`, `epl_examples`, `epl_error_lookup` for AI tools (Claude Desktop, Cursor, VS Code)
+</content>
+</invoke>
