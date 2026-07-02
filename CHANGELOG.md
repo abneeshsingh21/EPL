@@ -12,6 +12,8 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+## [10.1.1] — 2026-07-02
+
 ### Fixed — native export now honors the project's `Import` graph
 
 Both native-export tools used to look only at the **entry file** in isolation
