@@ -133,6 +133,84 @@ def test_render_markdown_clean_for_pure_logic():
     assert 'Not ported' not in md
 
 
+def _write(path, text):
+    with open(path, 'w', encoding='utf-8') as fh:
+        fh.write(text)
+
+
+def test_analyze_follows_local_imports(tmp_path):
+    """The unportable code usually lives one Import away: a simple entry file
+    just calls into an imported module. The checker must open that module."""
+    api = tmp_path / 'api.epl'
+    _write(str(api), WEB_APP)
+    entry = tmp_path / 'main.epl'
+    _write(str(entry), 'Import "api"\nDisplay "ready"\n')
+
+    # Without following imports (no entry_path), the web app is invisible.
+    blind = analyze(parse(entry.read_text(encoding='utf-8')), 'android')
+    assert not blind.has_blocking
+
+    # Following the import graph surfaces the route/server hidden in api.epl.
+    report = analyze(parse(entry.read_text(encoding='utf-8')), 'android', entry_path=str(entry))
+    assert report.has_blocking
+    constructs = {i.construct for i in report.blocking}
+    assert 'Route' in constructs
+    assert 'Start server' in constructs
+    # And every imported-file issue is tagged with the file it came from.
+    route = next(i for i in report.blocking if i.construct == 'Route')
+    assert route.source == 'api.epl'
+
+
+def test_analyze_follows_nested_imports(tmp_path):
+    """Imports resolve source-file-relative, so a module importing a sibling in
+    its own directory must be followed too (the depth-2 case)."""
+    pkg = tmp_path / 'pkg'
+    pkg.mkdir()
+    _write(str(pkg / 'db.epl'), 'Set rows to db_query("SELECT 1")\nDisplay rows\n')
+    _write(str(pkg / 'api.epl'), 'Import "db"\nDisplay "api"\n')  # sibling import
+    entry = tmp_path / 'main.epl'
+    _write(str(entry), 'Import "pkg/api"\nDisplay "ready"\n')
+
+    report = analyze(
+        parse(entry.read_text(encoding='utf-8')),
+        'ios',
+        has_db_bridge=False,
+        entry_path=str(entry),
+    )
+    db = next((i for i in report.blocking if i.construct.startswith('db_query')), None)
+    assert db is not None, 'db_query two imports deep must be reported'
+    assert db.source == os.path.join('pkg', 'db.epl')
+
+
+def test_analyze_handles_import_cycles(tmp_path):
+    """A ↔ B import cycle must not loop forever."""
+    a = tmp_path / 'a.epl'
+    b = tmp_path / 'b.epl'
+    _write(str(a), 'Import "b"\n' + WEB_APP)
+    _write(str(b), 'Import "a"\nDisplay "b"\n')
+    report = analyze(parse(a.read_text(encoding='utf-8')), 'android', entry_path=str(a))
+    assert report.has_blocking  # terminates and still finds the web app
+
+
+def test_analyze_ignores_unresolvable_imports(tmp_path):
+    """A `use`-style / package / stdlib import that isn't a local file is simply
+    skipped — the checker stays scoped to the developer's own project."""
+    entry = tmp_path / 'main.epl'
+    _write(str(entry), 'Import "numpy"\nDisplay "ok"\n')
+    report = analyze(parse(entry.read_text(encoding='utf-8')), 'desktop', entry_path=str(entry))
+    assert not report.has_blocking
+
+
+def test_render_markdown_shows_imported_file_location(tmp_path):
+    api = tmp_path / 'api.epl'
+    _write(str(api), WEB_APP)
+    entry = tmp_path / 'main.epl'
+    _write(str(entry), 'Import "api"\nDisplay "ready"\n')
+    report = analyze(parse(entry.read_text(encoding='utf-8')), 'android', entry_path=str(entry))
+    md = render_markdown(report, app_name='blog')
+    assert 'api.epl:' in md  # location column carries the imported file
+
+
 def test_console_color_hooks_are_applied():
     calls = {'red': 0}
 

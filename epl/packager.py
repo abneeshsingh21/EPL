@@ -132,17 +132,15 @@ class DependencyScanner:
         with open(filepath, 'r', encoding='utf-8') as f:
             source = f.read()
 
+        for raw in self._extract_imports(source):
+            dep_path = self._resolve_import(raw, filepath)
+            if dep_path:
+                self._scan_file(dep_path)
+
+        # `Use package_name` still bundles a bundled package's .epl files.
         import re
 
-        # Match: import "file.epl"
-        for m in re.finditer(r'import\s+"([^"]+)"', source):
-            dep_path = os.path.join(self.base_dir, m.group(1))
-            if not dep_path.endswith('.epl'):
-                dep_path += '.epl'
-            self._scan_file(dep_path)
-
-        # Match: use package_name
-        for m in re.finditer(r'use\s+(\w+)', source):
+        for m in re.finditer(r'\buse\s+(\w+)', source, re.IGNORECASE):
             pkg = m.group(1)
             if pkg not in self.epl_packages:
                 self.epl_packages.append(pkg)
@@ -152,6 +150,78 @@ class DependencyScanner:
                     for fname in os.listdir(pkg_dir):
                         if fname.endswith('.epl'):
                             self._scan_file(os.path.join(pkg_dir, fname))
+
+    @staticmethod
+    def _extract_imports(source: str) -> List[str]:
+        """Import targets from `source`, taken from the parsed AST so that
+        imports written inside comments or strings (e.g. `Note: Import "x"`)
+        are NOT mistaken for real dependencies. Falls back to a conservative
+        regex only if the file does not fully parse.
+
+        Both `Import "x"` and the `Use "x"` string form parse to an
+        ImportStatement (see parser._parse_use), so a single walk over
+        ImportStatement nodes covers both. `Use python/javascript "lib"` parse to
+        UseStatement/UseJSStatement instead and are correctly NOT treated as
+        local .epl dependencies."""
+        try:
+            from epl import ast_nodes as ast
+            from epl.lexer import Lexer
+            from epl.parser import Parser
+
+            program = Parser(Lexer(source).tokenize()).parse()
+            paths: List[str] = []
+
+            def walk(node):
+                if isinstance(node, ast.ImportStatement) and node.filepath:
+                    paths.append(node.filepath)
+                if isinstance(node, ast.ASTNode):
+                    for value in vars(node).values():
+                        walk(value)
+                elif isinstance(node, (list, tuple)):
+                    for item in node:
+                        walk(item)
+                elif isinstance(node, dict):
+                    for item in node.values():
+                        walk(item)
+
+            walk(program)
+            return paths
+        except Exception:
+            # Parse failed (partial/invalid source): fall back to a text scan.
+            # Cover both `Import "x"` and `Use "x"` (the string form that also
+            # imports a local .epl file), case-insensitively — but NOT
+            # `Use python/javascript/typescript "lib"`, which are foreign-lib
+            # bindings, not local files.
+            import re
+
+            found = []
+            for m in re.finditer(r'\bimport\s+"([^"]+)"', source, re.IGNORECASE):
+                found.append(m.group(1))
+            for m in re.finditer(r'\buse\s+"([^"]+)"', source, re.IGNORECASE):
+                found.append(m.group(1))
+            return found
+
+    def _resolve_import(self, raw: str, importing_file: str):
+        """Resolve an import to a local .epl file, mirroring the interpreter's
+        resolution order: relative to the importing file first, then the entry
+        directory, then as an absolute/CWD path. Returns None for non-local
+        targets (stdlib / installed packages), which are bundled separately."""
+        file_dir = os.path.dirname(importing_file)
+        candidates = []
+
+        def add(base):
+            p = os.path.join(base, raw) if base is not None else raw
+            candidates.append(p)
+            if not p.endswith('.epl'):
+                candidates.append(p + '.epl')
+
+        add(file_dir)  # source-file-relative (nested siblings)
+        add(self.base_dir)  # entry-directory-relative
+        add(None)  # absolute / CWD-relative, as the runtime also allows
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return os.path.abspath(candidate)
+        return None
 
 
 # ═══════════════════════════════════════════════════════════

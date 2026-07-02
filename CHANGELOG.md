@@ -12,6 +12,37 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+## [10.1.1] — 2026-07-02
+
+### Fixed — native export now honors the project's `Import` graph
+
+Both native-export tools used to look only at the **entry file** in isolation
+and ignore the `Import` graph — so the honesty and completeness guarantees held
+only for single-file programs, which is not how EPL projects are structured.
+
+- **Portability checker (`epl android` / `epl ios` / `epl desktop`)** now follows
+  local `Import`s. Previously it walked only the entry file's AST, so a simple
+  entry that just calls into an imported module reported `✓ All constructs are
+  portable` while the imported module was full of routes, `db_*` calls, and other
+  unportable constructs — the exact silent-incomplete-port failure the checker
+  exists to prevent. It now parses and analyzes every local `.epl` reached via
+  `Import` (source-file-relative, with cycle protection), and each reported issue
+  is tagged with the file and line it came from. Non-local imports (stdlib,
+  installed packages) are skipped, so analysis stays scoped to your own project
+  and never triggers a package install.
+- **`epl desktop --webview`** now bundles the entry file's transitive local
+  imports. Previously it copied only the single entry `.epl`, so the launcher's
+  subprocess died on its first `Import "local/path"` — before the port ever bound
+  — and surfaced only a generic "server did not start within 30s" timeout.
+  Imported files are copied preserving their path relative to the entry, so
+  source-file-relative imports resolve exactly as they did in the source tree.
+- **`DependencyScanner`** (shared with `epl build` packaging): its import regex
+  was lowercase-only (`import "..."`) and so never matched EPL's capital-`Import`
+  keyword, and it resolved every import against the entry file's directory rather
+  than the importing file's. Both are fixed — imports are matched
+  case-insensitively and resolved source-file-relative, so nested imports are
+  found instead of silently dropped.
+
 ## [10.1.0] — 2026-06-30
 
 Headline: the default `epl run` engine (the bytecode VM) gains **real closures**

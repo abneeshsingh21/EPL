@@ -153,3 +153,48 @@ def test_desktop_webview_launcher(tmp_path):
     reqs = _read(os.path.join(out, 'requirements.txt'))
     assert 'pywebview' in reqs
     assert 'eplang' in reqs
+
+
+# --------------------------------------------------------------------------- #
+# Desktop — bundling the entry file's local imports (the "nothing dropped" path)
+# --------------------------------------------------------------------------- #
+
+
+def test_desktop_webview_bundles_local_imports(tmp_path):
+    """The whole value of --webview is running the *real, complete* app. If the
+    entry file imports other project files, they must be copied too — else the
+    subprocess dies on its first `Import` before the port ever binds."""
+    (tmp_path / 'utils').mkdir()
+    (tmp_path / 'utils' / 'api.epl').write_text(
+        'Function ping\n    Return "pong"\nEnd\n', encoding='utf-8'
+    )
+    entry_src = 'Import "utils/api"\n' + WEB_APP
+    src = tmp_path / 'main.epl'
+    src.write_text(entry_src, encoding='utf-8')
+
+    out = str(tmp_path / 'app_desktop')
+    generate_desktop_webview(parse(entry_src), out, 'My App', source_path=str(src))
+
+    assert os.path.isfile(os.path.join(out, 'app.epl'))
+    # The imported file is copied at the same relative path the entry references.
+    assert os.path.isfile(os.path.join(out, 'utils', 'api.epl'))
+
+
+def test_desktop_webview_bundles_nested_imports(tmp_path):
+    """Imports are source-file-relative, so an imported module that imports a
+    sibling must also be bundled (this is what the old copy-only-entry missed)."""
+    pkg = tmp_path / 'pkg'
+    pkg.mkdir()
+    (pkg / 'helpers.epl').write_text('Function h\n    Return 1\nEnd\n', encoding='utf-8')
+    (pkg / 'api.epl').write_text(
+        'Import "helpers"\nFunction a\n    Return h()\nEnd\n', encoding='utf-8'
+    )
+    entry_src = 'Import "pkg/api"\n' + WEB_APP
+    src = tmp_path / 'main.epl'
+    src.write_text(entry_src, encoding='utf-8')
+
+    out = str(tmp_path / 'd')
+    generate_desktop_webview(parse(entry_src), out, 'My App', source_path=str(src))
+
+    assert os.path.isfile(os.path.join(out, 'pkg', 'api.epl'))
+    assert os.path.isfile(os.path.join(out, 'pkg', 'helpers.epl'))  # sibling, two deep

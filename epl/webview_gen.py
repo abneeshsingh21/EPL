@@ -500,6 +500,40 @@ if __name__ == "__main__":
 '''
 
 
+def _bundle_local_imports(source_path, output_dir):
+    """Copy `source_path`'s transitive local `.epl` imports into `output_dir`.
+
+    Files are placed at their path relative to the entry file's directory, which
+    is where the launcher runs `app.epl` from — so an `Import "utils/api"` in the
+    entry resolves to `<output>/utils/api.epl`, exactly as it did in the source
+    tree. Imports that live outside the entry's directory are flattened to their
+    basename to avoid escaping the output project. Uses the shared
+    DependencyScanner (which now resolves imports source-file-relative).
+    """
+    try:
+        from epl.packager import DependencyScanner
+    except Exception:
+        return []
+
+    src_abs = os.path.abspath(source_path)
+    src_dir = os.path.dirname(src_abs)
+    copied = []
+    for dep in DependencyScanner(source_path).scan():
+        dep_abs = os.path.abspath(dep)
+        if dep_abs == src_abs:
+            continue  # the entry file is already copied as app.epl
+        rel = os.path.relpath(dep_abs, src_dir)
+        if rel.startswith('..'):
+            rel = os.path.basename(dep_abs)
+        dest = os.path.join(output_dir, rel)
+        dest_dir = os.path.dirname(dest)
+        if dest_dir:
+            os.makedirs(dest_dir, exist_ok=True)
+        shutil.copyfile(dep_abs, dest)
+        copied.append(rel)
+    return copied
+
+
 def generate_desktop_webview(
     program, output_dir, app_name, source_path=None, url=None, width=1100, height=800
 ):
@@ -514,9 +548,15 @@ def generate_desktop_webview(
     os.makedirs(output_dir, exist_ok=True)
     _write(os.path.join(output_dir, 'main.py'), _fill(_DESKTOP_LAUNCHER, mapping))
 
-    # Bundle the EPL source so the launcher is self-contained.
+    # Bundle the EPL source so the launcher is self-contained. The entry file
+    # becomes app.epl; its transitive local Imports are copied alongside it,
+    # preserving their paths relative to the entry so source-file-relative
+    # `Import` statements still resolve when the launcher runs `epl run app.epl`.
+    # Without this, the subprocess dies on its first local import and the shell
+    # only reports a generic "server did not start" timeout.
     if source_path and os.path.isfile(source_path):
         shutil.copyfile(source_path, os.path.join(output_dir, 'app.epl'))
+        _bundle_local_imports(source_path, output_dir)
 
     _write(
         os.path.join(output_dir, 'requirements.txt'),
