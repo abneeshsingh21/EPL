@@ -12,6 +12,17 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Changed — parse cache no longer clutters your project
+
+`.eplc` parse-cache files were written next to each `.epl` source, so running a
+program made a mystery file appear beside it in the editor. They now live in a
+per-user cache directory (`%LOCALAPPDATA%\eplang\cache` on Windows,
+`$XDG_CACHE_HOME`/`~/.cache/eplang` elsewhere), keyed by the hash of each
+source's absolute path with the readable filename preserved inside. Nothing
+appears in your project or VS Code explorer, and there's no risk of committing a
+cache file. Set `EPL_CACHE_DIR` to relocate the cache or `EPL_NO_CACHE=1` to
+disable it.
+
 ### Security — sandbox hardened to deny-by-default
 
 The `--sandbox` (safe mode) enforcement was a **blocklist** naming only 16 of

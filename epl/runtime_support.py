@@ -93,8 +93,9 @@ def run_source(
             from epl.bytecode_cache import load as load_cache
             from epl.bytecode_cache import save as save_cache
 
-            cache_file = cache_path_for(filename)
-            program = load_cache(source, cache_file)
+            cache_file = cache_path_for(filename)  # None when EPL_NO_CACHE is set
+            if cache_file is not None:
+                program = load_cache(source, cache_file)
 
         if program is None:
             tokens = Lexer(source).tokenize()
