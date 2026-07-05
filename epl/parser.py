@@ -466,11 +466,14 @@ class Parser:
         if tok.type == TokenType.WAIT:
             return self._parse_wait()
 
-        # v0.3: Exit
+        # v0.3: Exit  (optionally with a status code: `Exit 1`)
         if tok.type == TokenType.EXIT_KW:
             self._advance()
+            code = None
+            if not self._match(TokenType.DOT, TokenType.NEWLINE, TokenType.EOF):
+                code = self._parse_expression()
             self._end_statement()
-            return ast.ExitStatement(tok.line)
+            return ast.ExitStatement(code, tok.line)
 
         # v0.3: Constant
         if tok.type == TokenType.CONSTANT:
@@ -782,10 +785,14 @@ class Parser:
             'Multiply',
             'Divide',
         ]
+        # tok.value may be a non-string literal (e.g. a bare number `1`), so
+        # coerce before difflib — get_close_matches / .lower() both assume str
+        # and otherwise raise a cryptic "'int' object is not iterable".
+        tok_text = str(tok.value)
         suggestions = [
             s
-            for s in difflib.get_close_matches(tok.value, _statement_keywords, n=3, cutoff=0.6)
-            if s.lower() != tok.value.lower()
+            for s in difflib.get_close_matches(tok_text, _statement_keywords, n=3, cutoff=0.6)
+            if s.lower() != tok_text.lower()
         ][:2]
         if suggestions:
             hint = ' or '.join(f'"{s}"' for s in suggestions)

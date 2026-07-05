@@ -1001,7 +1001,13 @@ class BytecodeCompiler:
                 self._emit(Op.CALL_BUILTIN, ('sleep', 1))
                 self._emit(Op.POP)
         elif isinstance(node, ast.ExitStatement):
-            self._emit(Op.HALT)
+            # `Exit <code>` evaluates the status onto the stack and flags HALT to
+            # capture it; bare `Exit` halts with the default code 0.
+            if getattr(node, 'code', None) is not None:
+                self._compile_expr(node.code)
+                self._emit(Op.HALT, True)
+            else:
+                self._emit(Op.HALT)
         elif isinstance(node, ast.InputStatement):
             if node.prompt:
                 self._emit(Op.LOAD_CONST, self._add_const(node.prompt))
@@ -2516,6 +2522,8 @@ class VM:
         # Performance counters
         self.instruction_count = 0
         self.start_time = 0.0
+        # Process exit status set by `Exit <code>`; 0 for normal / bare Exit.
+        self.exit_code = 0
 
     def _build_dispatch_table(self):
         """Build opcode → handler dispatch table for fast execution."""
@@ -2637,6 +2645,7 @@ class VM:
             'instructions_executed': self.instruction_count,
             'elapsed_seconds': elapsed,
             'ips': self.instruction_count / elapsed if elapsed > 0 else 0,
+            'exit_code': self.exit_code,
         }
 
     def _capture_call_stack(self):
@@ -3311,6 +3320,15 @@ class VM:
 
     # Halt
     def _op_halt(self, inst):
+        # `Exit <code>` compiles the status expression then emits HALT with
+        # arg=True, so the code is on top of the stack here. Bare `Exit` and the
+        # implicit end-of-program HALT carry arg=None and leave exit_code at 0.
+        if inst.arg:
+            code = self.stack.pop() if self.stack else 0
+            try:
+                self.exit_code = int(code)
+            except (TypeError, ValueError):
+                self.exit_code = 0
         return '__HALT__'
 
     # Exception handling

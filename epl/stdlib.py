@@ -963,6 +963,33 @@ _open_sockets: dict = {}  # id -> socket
 _timers: dict = {}  # name -> start_time
 _atomic_counters: dict = {}  # name -> [int]
 _next_id = [0]
+_jwt_decode_warned = [False]  # one-time "unverified decode" security notice guard
+
+
+def _warn_jwt_decode_unverified():
+    """Warn once that auth_jwt_decode does NOT authenticate the token.
+
+    Decoding an unverified JWT is a legitimate operation (inspecting claims,
+    debugging, reading `kid` before key lookup), but treating its payload as
+    trusted is a classic authentication-bypass footgun: anyone can forge the
+    body of an unsigned/decode-only token. We emit a single stderr notice per
+    process steering developers to auth_jwt_verify(token, secret). Suppress it
+    with EPL_SUPPRESS_JWT_WARNING=1 once you've confirmed the use is intentional.
+    """
+    if _jwt_decode_warned[0]:
+        return
+    _jwt_decode_warned[0] = True
+    if _os.environ.get('EPL_SUPPRESS_JWT_WARNING', '').strip().lower() in (
+        '1', 'true', 'yes', 'on'
+    ):
+        return
+    print(
+        '[EPL security] auth_jwt_decode() does NOT verify the signature — its '
+        'payload is UNTRUSTED and forgeable. For authentication use '
+        'auth_jwt_verify(token, secret). (Set EPL_SUPPRESS_JWT_WARNING=1 to '
+        'silence this notice.)',
+        file=_sys.stderr,
+    )
 _state_lock = _threading.Lock()  # Protects all module-level state dicts
 
 # ── Real module state ──
@@ -1203,6 +1230,24 @@ def _db_connection_lock(conn_id):
     if lock is None:
         return _contextlib.nullcontext()
     return lock
+
+
+def _db_collect_params(args):
+    """Normalize SQL params for db_query/db_execute/db_query_one.
+
+    Supports BOTH calling conventions:
+        db_query(conn, sql, [p1, p2])   # params as a single list (dict = named)
+        db_query(conn, sql, p1, p2)     # params as trailing positional args
+    The dispatch used to read only ``args[2]``, so ``p2`` and beyond were
+    SILENTLY DROPPED — turning a two-placeholder query into a one-binding call.
+    Now every trailing argument is captured.
+    """
+    extra = args[2:]
+    if not extra:
+        return None
+    if len(extra) == 1:
+        return extra[0]  # a single list / dict / scalar — impl normalizes it
+    return list(extra)  # multiple trailing args → positional params
 
 
 def _db_execute(conn_id, sql, params=None):
@@ -1514,14 +1559,182 @@ def _is_leap_year(year_or_date):
 # ═══════════════════════════════════════════════════════════
 
 
+# ── ReDoS mitigation ──────────────────────────────────────
+# CPython's `re` engine backtracks and holds the GIL for the *entire* duration
+# of a match. That defeats the obvious defenses:
+#   • a watchdog thread never runs — the matching thread never yields the GIL,
+#     so `Thread.join(timeout)` in the caller cannot regain control until the
+#     match finishes (verified: a 2s join on "(a+)+$" vs "a"*40+"X" blocks ~∞);
+#   • signal.SIGALRM is POSIX-main-thread only (useless on Windows / worker
+#     threads / async request handlers).
+# So instead of trying to *interrupt* catastrophic backtracking, we *prevent*
+# it: reject the patterns that cause it before the engine ever runs. This is
+# portable, zero-overhead, and deterministic.
+#
+# The exponential class is the "nested unbounded quantifier": an unbounded
+# quantifier (`*`, `+`, `{n,}`) applied to a group whose body reduces to a
+# single unbounded-quantified atom — e.g. (a+)+, (\d*)*, ([a-z]+)*, (.+)+,
+# (\w*)+, ((a+))+, (a+|b+)+. The detector is deliberately precise so it does
+# NOT reject legitimate patterns like (\w+\s)*, (ab+)+, or (\d{3})+.
+
+# A group body that is exactly ONE repeatable atom under an unbounded quantifier.
+_REDOS_INNER_ATOM = _re.compile(
+    r'^'
+    r'(?:\\.|\[(?:\\.|[^\]])*\]|[^\\()\[\]])'   # one atom: escape | char-class | single char
+    r'(?:[*+]|\{\d*,\})'                          # unbounded quantifier
+    r'[*+?]?'                                      # optional possessive/lazy marker
+    r'$'
+)
+# Non-capturing / named / lookaround group prefixes to strip before inspection.
+_REDOS_GROUP_PREFIX = _re.compile(r'^\?(?:[:=!>]|P?<[^>]*>|<[=!])')
+
+
+def _redos_match_full_group(s):
+    """If `s` is exactly one balanced (...) group, return its inner body, else None."""
+    if not s.startswith('('):
+        return None
+    depth = 0
+    in_class = False
+    esc = False
+    for i, ch in enumerate(s):
+        if esc:
+            esc = False
+            continue
+        if ch == '\\':
+            esc = True
+            continue
+        if in_class:
+            if ch == ']':
+                in_class = False
+            continue
+        if ch == '[':
+            in_class = True
+        elif ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+            if depth == 0:
+                return s[1:i] if i == len(s) - 1 else None
+    return None
+
+
+def _redos_split_alternation(body):
+    """Split `body` on top-level `|` (ignoring escapes, char classes, and groups)."""
+    parts = []
+    depth = 0
+    in_class = False
+    esc = False
+    start = 0
+    for i, ch in enumerate(body):
+        if esc:
+            esc = False
+            continue
+        if ch == '\\':
+            esc = True
+            continue
+        if in_class:
+            if ch == ']':
+                in_class = False
+            continue
+        if ch == '[':
+            in_class = True
+        elif ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+        elif ch == '|' and depth == 0:
+            parts.append(body[start:i])
+            start = i + 1
+    parts.append(body[start:])
+    return parts
+
+
+def _redos_body_is_dangerous(body):
+    """True if a quantified group with this body backtracks exponentially."""
+    prefix = _REDOS_GROUP_PREFIX.match(body)
+    if prefix:
+        body = body[prefix.end():]
+    for branch in _redos_split_alternation(body):
+        # Unwrap one layer of redundant grouping: ((a+)) -> (a+) -> a+
+        inner = _redos_match_full_group(branch)
+        if inner is not None:
+            pfx = _REDOS_GROUP_PREFIX.match(inner)
+            branch = inner[pfx.end():] if pfx else inner
+        if _REDOS_INNER_ATOM.match(branch):
+            return True
+    return False
+
+
+def _check_redos(pattern):
+    """Reject patterns with nested unbounded quantifiers (catastrophic backtracking).
+
+    Raises EPLRuntimeError before the `re` engine runs. This is the sandbox's and
+    every EPL program's only reliable defense against ReDoS on CPython, where a
+    running match cannot be interrupted (it holds the GIL).
+    """
+    if not isinstance(pattern, str):
+        return
+    n = len(pattern)
+    stack = []
+    in_class = False
+    esc = False
+    i = 0
+    while i < n:
+        ch = pattern[i]
+        if esc:
+            esc = False
+            i += 1
+            continue
+        if ch == '\\':
+            esc = True
+            i += 1
+            continue
+        if in_class:
+            if ch == ']':
+                in_class = False
+            i += 1
+            continue
+        if ch == '[':
+            in_class = True
+            i += 1
+            continue
+        if ch == '(':
+            stack.append(i)
+        elif ch == ')' and stack:
+            open_idx = stack.pop()
+            body = pattern[open_idx + 1:i]
+            # Is this group immediately followed by an UNBOUNDED quantifier?
+            q = i + 1
+            outer_unbounded = False
+            if q < n and pattern[q] in '*+':
+                outer_unbounded = True
+            elif q < n and pattern[q] == '{':
+                close = pattern.find('}', q)
+                if close != -1:
+                    spec = pattern[q + 1:close]
+                    # {n,} is unbounded; {n} and {n,m} are bounded (safe)
+                    if ',' in spec and spec.split(',', 1)[1].strip() == '':
+                        outer_unbounded = True
+            if outer_unbounded and _redos_body_is_dangerous(body):
+                raise EPLRuntimeError(
+                    "Regular expression is rejected: it contains a nested unbounded "
+                    f"quantifier (near '{pattern[open_idx:min(q + 1, n)]}') that causes "
+                    "catastrophic backtracking (ReDoS). Rewrite it without nesting "
+                    "'*'/'+' quantifiers — e.g. use 'a+' instead of '(a+)+'."
+                )
+        i += 1
+
+
 def _regex_match(pattern, text):
     """Full match. Returns the matched string or nothing."""
+    _check_redos(pattern)
     m = _re.match(pattern, text)
     return m.group(0) if m else None
 
 
 def _regex_find(pattern, text):
     """Find first match. Returns a map with match, start, end, groups."""
+    _check_redos(pattern)
     m = _re.search(pattern, text)
     if not m:
         return None
@@ -1537,21 +1750,25 @@ def _regex_find(pattern, text):
 
 def _regex_find_all(pattern, text):
     """Find all matches. Returns a list of strings."""
+    _check_redos(pattern)
     return _re.findall(pattern, text)
 
 
 def _regex_replace(pattern, replacement, text):
     """Replace all matches."""
+    _check_redos(pattern)
     return _re.sub(pattern, replacement, text)
 
 
 def _regex_split(pattern, text):
     """Split text by pattern."""
+    _check_redos(pattern)
     return _re.split(pattern, text)
 
 
 def _regex_test(pattern, text):
     """Test if text matches pattern. Returns boolean."""
+    _check_redos(pattern)
     return bool(_re.search(pattern, text))
 
 
@@ -2336,13 +2553,13 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(
                     'db_execute(conn, sql[, params]) requires conn and SQL.', line
                 )
-            params = args[2] if len(args) > 2 else None
+            params = _db_collect_params(args)
             return _db_execute(args[0], str(args[1]), params)
 
         if name == 'db_query':
             if len(args) < 2:
                 raise EPLRuntimeError('db_query(conn, sql[, params]) requires conn and SQL.', line)
-            params = args[2] if len(args) > 2 else None
+            params = _db_collect_params(args)
             return _db_query(args[0], str(args[1]), params)
 
         if name == 'db_query_one':
@@ -2350,7 +2567,7 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(
                     'db_query_one(conn, sql[, params]) requires conn and SQL.', line
                 )
-            params = args[2] if len(args) > 2 else None
+            params = _db_collect_params(args)
             return _db_query_one(args[0], str(args[1]), params)
 
         if name == 'db_insert':
@@ -5023,6 +5240,7 @@ def call_stdlib(name, args, line, interpreter=None):
                     flags |= re.MULTILINE
                 if 's' in flag_str:
                     flags |= re.DOTALL
+            _check_redos(str(args[0]))
             compiled = re.compile(str(args[0]), flags)
             rid = f'rx_{_new_id()}'
             _compiled_regexes[rid] = compiled
@@ -5038,6 +5256,7 @@ def call_stdlib(name, args, line, interpreter=None):
             pattern = str(args[0])
             text = str(args[1])
             fn = args[2]
+            _check_redos(pattern)
 
             # fn should be callable — we'll replace each match with fn(match_text)
             def _repl(m):
@@ -5052,6 +5271,7 @@ def call_stdlib(name, args, line, interpreter=None):
                 )
             import re
 
+            _check_redos(str(args[0]))
             m = re.search(str(args[0]), str(args[1]))
             if m is None:
                 return []
@@ -6612,6 +6832,9 @@ def _call_auth(name, args, line):
     if name == 'auth_jwt_decode':
         if not args:
             raise EPLRuntimeError('auth_jwt_decode(token) requires a token.', line)
+        # SECURITY: this reads claims WITHOUT verifying the signature. The
+        # returned payload is attacker-controlled — never authorize on it.
+        _warn_jwt_decode_unverified()
         token = str(args[0])
         parts = token.split('.')
         if len(parts) != 3:

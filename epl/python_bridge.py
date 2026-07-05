@@ -31,6 +31,17 @@ class PythonModule:
             return PythonModule(attr, f'{self.name}.{attr_name}')
         return attr
 
+    def __call__(self, *args, **kwargs):
+        """Instantiate/invoke the wrapped object.
+
+        Classes are wrapped (not returned raw) so that chained access such as
+        ``alias.datetime.now()`` works. A wrapped class must therefore still be
+        callable so ``alias.Decimal("3.14")`` and storing-then-calling
+        (``Set D to alias.Decimal`` … ``D("3.14")``) keep working. Args arrive
+        already unwrapped by the interpreter's call path.
+        """
+        return self.module(*args, **kwargs)
+
     def __repr__(self):
         return f'<python module {self.name}>'
 

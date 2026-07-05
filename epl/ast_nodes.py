@@ -476,9 +476,10 @@ class WaitStatement(ASTNode):
 
 
 class ExitStatement(ASTNode):
-    """Exit"""
+    """Exit  |  Exit <code>  (optional exit-status expression)"""
 
-    def __init__(self, line: int = 0):
+    def __init__(self, code=None, line: int = 0):
+        self.code = code
         self.line = line
 
 

@@ -151,7 +151,9 @@ def run_file(
     force_interpret: bool = False,
     json_errors: bool = False,
     ai_errors: bool = False,
-) -> bool:
+) -> int:
+    """Run an EPL file. Returns the process exit code: 0 on success, non-zero
+    on error, or the status from `Exit <code>` (so shells and CI can read $?)."""
     if not os.path.exists(filepath):
         raise FileNotFoundError(filepath)
 
@@ -188,7 +190,7 @@ def run_file(
                     f'\n  {len(errors)} type error(s) found. Fix them or run without --strict.',
                     file=sys.stderr,
                 )
-                return False
+                return 1
         except Exception:
             _debug_suppressed('runtime_support.py:178')
             pass
@@ -228,8 +230,14 @@ def run_file(
         saved_stdout = sys.stdout
         sys.stdout = tee
         try:
-            compile_and_run(source, base_dir=os.path.dirname(os.path.abspath(filepath)))
-            return True
+            vm_result = compile_and_run(
+                source, base_dir=os.path.dirname(os.path.abspath(filepath))
+            )
+            # Propagate `Exit <code>` status from the VM (HALT captures it).
+            try:
+                return int(vm_result.get('exit_code', 0) or 0)
+            except (AttributeError, TypeError, ValueError):
+                return 0
         except (KeyboardInterrupt, SystemExit, MemoryError):
             raise
         except Exception as exc:
@@ -238,7 +246,7 @@ def run_file(
                 line = getattr(exc, 'line', 0)
                 where = f' on line {line}' if line else ''
                 print(f'\n  EPL Runtime Error{where}: {msg}', file=sys.stderr)
-                return False
+                return 1
             # No output produced yet → safe to fall back to the interpreter.
             if os.environ.get('EPL_VERBOSE') or '--verbose' in sys.argv:
                 print(f'  [EPL] VM fallback to interpreter for: {filepath}', file=sys.stderr)
@@ -246,7 +254,7 @@ def run_file(
             sys.stdout = saved_stdout
 
     interpreter = Interpreter(safe_mode=safe_mode)
-    return run_source(
+    ok = run_source(
         source,
         interpreter,
         filepath,
@@ -255,6 +263,13 @@ def run_file(
         safe_mode=safe_mode,
         json_errors=json_errors,
     )
+    if not ok:
+        return 1
+    # Propagate `Exit <code>` status recorded by the interpreter (0 otherwise).
+    try:
+        return int(getattr(interpreter, 'exit_code', 0) or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _find_c_compiler() -> Optional[str]:

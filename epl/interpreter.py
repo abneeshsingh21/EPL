@@ -41,7 +41,14 @@ from epl.python_bridge import (
 )
 from epl.stdlib import BARE_CONSTANTS, STDLIB_FUNCTIONS, call_stdlib
 
-# Builtins disabled in safe/sandbox mode
+# Builtins disabled in safe/sandbox mode.
+#
+# NOTE: this set is retained for documentation and backward compatibility, but
+# it is NO LONGER the sandbox's enforcement mechanism. It historically failed
+# OPEN: it named 16 dangerous builtins, so any of the ~720 other stdlib
+# functions (file_read, net_http_get, real_db_connect, real_process_run, …)
+# passed straight through. Enforcement is now deny-by-default via
+# _SAFE_SANDBOX_BUILTINS (see below).
 _UNSAFE_BUILTINS = frozenset(
     {
         'exec',
@@ -64,6 +71,63 @@ _UNSAFE_BUILTINS = frozenset(
 )
 
 
+def _build_safe_sandbox_builtins():
+    """Enumerate the stdlib functions permitted in safe mode (--sandbox).
+
+    Safe mode runs UNTRUSTED code, so the sandbox is deny-by-default: ONLY the
+    pure/computational functions listed here are allowed. Everything that
+    touches the filesystem, network, database, processes, environment, FFI,
+    GUI, or host machine is refused. Adding a new dangerous stdlib function is
+    therefore safe by construction — it stays blocked until deliberately
+    allowlisted here.
+
+    The allowlist is derived from STDLIB_FUNCTIONS so it can never name a
+    function that does not exist; the module-load guard below asserts every
+    entry resolves.
+    """
+    # Whole families that are pure by construction (string / collection / crypto
+    # / encoding / date-math / in-memory concurrency — no I/O side effects).
+    safe_prefixes = (
+        'base32_', 'base64_', 'hex_', 'url_', 'html_', 'json_',
+        'regex_', 'set_', 'deque_', 'linked_list_', 'ordered_map_',
+        'priority_queue_', 'date_',
+        'template_render', 'template_create', 'template_add_filter', 'template_exists',
+        'atomic_', 'mutex_', 'semaphore_', 'rwlock_', 'channel_', 'wait_group_',
+        'hash_sha', 'hash_md5', 'hmac_', 'pbkdf2_', 'aes_', 'secure_random',
+        'api_', 'path_',
+    )
+    # Individually-named pure functions (math, date/clock, small helpers).
+    safe_exact = frozenset({
+        # math
+        'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil_div',
+        'clamp', 'copysign', 'cosh', 'degrees', 'euler', 'exp', 'factorial',
+        'fmod', 'gcd', 'hypot', 'inf', 'lcm', 'lerp', 'log10', 'log2', 'nan',
+        'pi', 'radians', 'sign', 'sinh', 'tanh', 'variance', 'std_dev',
+        'combinations', 'permutations', 'sqrt', 'abs', 'round', 'min', 'max',
+        'sum', 'pow', 'floor', 'ceil',
+        'is_finite', 'is_nan', 'is_leap_year', 'is_weekday', 'is_weekend',
+        # date/time (reads the system clock only — no external access)
+        'day', 'day_of_week', 'days_in_month', 'hour', 'minute', 'second',
+        'month', 'year', 'week_of_year', 'now', 'today', 'utc_now', 'timezone',
+        'from_timestamp', 'to_timestamp', 'timestamp',
+        # string / collection helpers
+        'string_bytes', 'bytes_string', 'format', 'dict_from_lists',
+        'enumerate_list', 'frequency_map', 'group_by', 'partition', 'zip_lists',
+        'csv_parse', 'md5', 'sha256', 'uuid', 'uuid4',
+    })
+    # Names that MATCH a safe prefix but actually perform I/O — force-blocked.
+    hard_block = frozenset({'hash_file', 'template_from_file', 'csv_read', 'csv_write'})
+    allowed = {
+        fn for fn in STDLIB_FUNCTIONS
+        if fn not in hard_block and (fn in safe_exact or fn.startswith(safe_prefixes))
+    }
+    return frozenset(allowed)
+
+
+# Deny-by-default allowlist: the ONLY stdlib functions callable in safe mode.
+_SAFE_SANDBOX_BUILTINS = _build_safe_sandbox_builtins()
+
+
 # ─── Signals ─────────────────────────────────────────────
 
 
@@ -81,7 +145,11 @@ class ContinueSignal(Exception):
 
 
 class ExitSignal(Exception):
-    pass
+    """Raised by `Exit [code]` to unwind to top level. `code` is the status."""
+
+    def __init__(self, code: int = 0):
+        self.code = code
+        super().__init__()
 
 
 # ─── Async Runtime ────────────────────────────────────────
@@ -576,6 +644,7 @@ class Interpreter:
         self._template_cache = {}  # cache parsed template expressions
         self._ast_cache = {}  # cache parsed ASTs for imports (path → Program)
         self._call_depth = 0  # recursion guard
+        self.exit_code = 0  # status from `Exit [code]`; read by CLI/embedders
         self.safe_mode = safe_mode  # restrict dangerous builtins
         self.block_scoping = block_scoping  # if True, if/while/for/repeat create child scopes
         self._debug_interactive = debug_interactive  # allow Breakpoint to enter interactive REPL
@@ -696,8 +765,10 @@ class Interpreter:
 
         try:
             self._exec_block(program.statements, self.global_env)
-        except ExitSignal:
-            pass
+        except ExitSignal as sig:
+            # Record the status code from `Exit [code]` so embedders / the CLI
+            # can propagate it (defaults to 0 for a bare `Exit`).
+            self.exit_code = getattr(sig, 'code', 0)
 
     def close(self):
         """Clean up resources (thread pool, event loop, caches)."""
@@ -747,7 +818,16 @@ class Interpreter:
         if isinstance(node, ast.ContinueStatement):
             raise ContinueSignal()
         if isinstance(node, ast.ExitStatement):
-            raise ExitSignal()
+            code = 0
+            if getattr(node, 'code', None) is not None:
+                raw = self._eval(node.code, env)
+                try:
+                    code = int(raw)
+                except (TypeError, ValueError):
+                    raise EPLRuntimeError(
+                        f'Exit code must be a number, got {self._type_name(raw)}.', node.line
+                    ) from None
+            raise ExitSignal(code)
 
         if isinstance(node, ast.SendResponse):
             if self._route_response_enabled:
@@ -1464,8 +1544,16 @@ class Interpreter:
 
         # ── Delegate to stdlib ──
         if name in STDLIB_FUNCTIONS:
-            if self.safe_mode and name in _UNSAFE_BUILTINS:
-                raise EPLRuntimeError(f"'{name}' is not available in safe mode (--sandbox).", line)
+            # Deny-by-default: in safe mode only the pure/computational functions
+            # in the allowlist may run. Everything touching the filesystem,
+            # network, database, processes, environment, or host is refused.
+            if self.safe_mode and name not in _SAFE_SANDBOX_BUILTINS:
+                raise EPLRuntimeError(
+                    f"'{name}' is not available in safe mode (--sandbox). Safe mode "
+                    'permits only pure computation — no file, network, database, '
+                    'process, environment, or system access.',
+                    line,
+                )
             return call_stdlib(name, args, line, interpreter=self)
 
         raise EPLRuntimeError(f'Unknown built-in: {name}', line)
@@ -1519,6 +1607,8 @@ class Interpreter:
             raise EPLRuntimeError(f'Cannot append to file: {e}', node.line) from e
 
     def _eval_file_read(self, node: ast.FileRead, env: Environment):
+        if self.safe_mode:
+            raise EPLRuntimeError('File read is not allowed in safe mode.', node.line)
         filepath = self._eval(node.filepath, env)
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
@@ -2249,6 +2339,39 @@ class Interpreter:
                 return requirement
         return None
 
+    def _consent_to_auto_install(self, pkg_name, node):
+        """Decide whether to auto-install an allowlisted-but-undeclared package.
+
+        Running an .epl file must not silently mutate the host Python
+        environment. Consent is granted only when one of these holds:
+
+          • EPL_AUTO_INSTALL is set to a truthy value (1/true/yes/on) — the
+            explicit opt-in for CI and automation;
+          • stdin is an interactive TTY and the user answers yes to a prompt.
+
+        In every other case (non-interactive server/CI with no opt-in) we
+        withhold consent and let the caller raise a clear, actionable error.
+        """
+        opt_in = _os.environ.get('EPL_AUTO_INSTALL', '').strip().lower()
+        if opt_in in ('1', 'true', 'yes', 'on'):
+            return True
+        # An explicit falsey value is a hard "no" — don't fall through to a prompt.
+        if opt_in in ('0', 'false', 'no', 'off'):
+            return False
+        try:
+            if not (_sys.stdin and _sys.stdin.isatty()):
+                return False
+        except (ValueError, AttributeError):
+            return False
+        try:
+            answer = input(
+                f'[EPL] Package "{pkg_name}" is not installed. '
+                f'Auto-install it with pip now? [y/N] '
+            )
+        except (EOFError, KeyboardInterrupt):
+            return False
+        return answer.strip().lower() in ('y', 'yes')
+
     def _exec_use(self, node: ast.UseStatement, env: Environment):
         # Sandbox: block all Python FFI access in safe mode
         if self.safe_mode:
@@ -2274,10 +2397,26 @@ class Interpreter:
                 ) from None
 
             if declared_requirement:
+                # Declared in epl.toml [python-dependencies] — an explicit,
+                # auditable opt-in by the project author. Install without asking.
                 print(
                     f'[EPL] Python dependency "{node.library}" not found. Installing declared requirement: {install_target}'
                 )
             else:
+                # Allowlist-only path: the package is well-known but NOT declared
+                # anywhere the user reviewed. Silently running `pip install` on
+                # behalf of an arbitrary .epl file is a supply-chain hole (a
+                # program you merely *run* mutates your environment). Require
+                # explicit consent before touching pip.
+                if not self._consent_to_auto_install(pkg_name, node):
+                    raise EPLRuntimeError(
+                        f'Python library "{node.library}" is not installed, and '
+                        f'auto-install was declined. Install it explicitly with '
+                        f'"epl pyinstall {pkg_name}", declare it under '
+                        f'[python-dependencies] in epl.toml, or set '
+                        f'EPL_AUTO_INSTALL=1 to allow allowlisted auto-installs.',
+                        node.line,
+                    ) from None
                 print(f'[EPL] Package "{pkg_name}" not found. Auto-installing (allowlisted)...')
             # v9.3.0 Phase 6 — refuse flag-injection payloads coming from the
             # manifest before pip ever sees them; `--` separator is belt-and-braces.
@@ -3106,11 +3245,18 @@ class Interpreter:
         if isinstance(obj, PythonModule):
             if hasattr(obj.module, prop):
                 attr = getattr(obj.module, prop)
+                # Wrap classes FIRST — a class is callable, so the old
+                # `if callable(attr): return attr` returned it unwrapped and
+                # broke chained access like `alias.datetime.now()` ("Cannot call
+                # method on unknown"). PythonModule is itself callable, so
+                # instantiation (`alias.Decimal("3.14")`) still works.
+                if isinstance(attr, type):
+                    return PythonModule(attr, f'{obj.name}.{prop}')
                 if callable(attr):
-                    return attr  # return callable for later use
-                # Wrap sub-modules, classes, and complex objects for chaining
-                if isinstance(attr, type) or (
-                    hasattr(attr, '__dict__') and not isinstance(attr, (int, float, str, bool))
+                    return attr  # bound function/method — return for later call
+                # Wrap sub-modules and complex objects for chaining
+                if hasattr(attr, '__dict__') and not isinstance(
+                    attr, (int, float, str, bool)
                 ):
                     return PythonModule(attr, f'{obj.name}.{prop}')
                 return self._wrap_python_result(attr)
