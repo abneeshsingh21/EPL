@@ -627,6 +627,12 @@ class Interpreter:
     MAX_OUTPUT_LINES = 100_000  # maximum output lines before truncation
     MAX_INSTRUCTIONS = 50_000_000  # maximum executed statements (0 = unlimited)
     EXECUTION_TIMEOUT = 0  # maximum execution time in seconds (0 = unlimited)
+    # Per-operation allocation bounds enforced in safe mode. A single op like
+    # `"A" * 10**9` or `(10**10000)**10000` is one instruction, so the statement
+    # counter and the between-statements timeout never catch it — the size must
+    # be bounded before the allocation/computation happens.
+    MAX_SANDBOX_SEQ_LEN = 10_000_000  # max length of a sequence built by `*`
+    MAX_SANDBOX_INT_BITS = 1_000_000  # max bit length of an int built by `*`/`**`
 
     def __init__(
         self,
@@ -3293,6 +3299,38 @@ class Interpreter:
 
     # ─── Binary & Unary ──────────────────────────────────
 
+    def _guard_repeat(self, unit_len, count, line):
+        """Bound the size of a sequence produced by `*` (safe mode only).
+
+        `"A" * 10**9` is a single instruction that allocates ~1 GB before the
+        statement counter or timeout can intervene, so the result size must be
+        checked before the multiplication happens.
+        """
+        if not self.safe_mode:
+            return
+        if isinstance(count, int) and count > 0 and unit_len * count > self.MAX_SANDBOX_SEQ_LEN:
+            raise EPLRuntimeError(
+                f'Result too large: repetition would produce {unit_len * count} elements '
+                f'(sandbox limit {self.MAX_SANDBOX_SEQ_LEN}).',
+                line,
+            )
+
+    def _guard_int_bits(self, est_bits, line):
+        """Bound the size of an int produced by `*`/`**` (safe mode only).
+
+        Estimated from operand bit lengths, so an astronomically large result
+        (e.g. `(10**10000)**10000`) is rejected before it is ever computed —
+        the exponent-magnitude guard alone misses a huge *base*.
+        """
+        if not self.safe_mode:
+            return
+        if est_bits > self.MAX_SANDBOX_INT_BITS:
+            raise EPLRuntimeError(
+                f'Result too large: integer would be ~{est_bits} bits '
+                f'(sandbox limit {self.MAX_SANDBOX_INT_BITS}).',
+                line,
+            )
+
     def _eval_binary(self, node: ast.BinaryOp, env: Environment):
         op = node.operator
 
@@ -3347,10 +3385,14 @@ class Interpreter:
 
         if op == '*':
             if isinstance(left, str) and isinstance(right, int):
+                self._guard_repeat(len(left), right, node.line)
                 return left * right
             if isinstance(left, int) and isinstance(right, str):
+                self._guard_repeat(len(right), left, node.line)
                 return right * left
             self._ensure_numeric(left, right, '*', node.line)
+            if isinstance(left, int) and isinstance(right, int):
+                self._guard_int_bits(left.bit_length() + right.bit_length(), node.line)
             result = left * right
             return int(result) if isinstance(left, int) and isinstance(right, int) else result
 
@@ -3376,6 +3418,10 @@ class Interpreter:
             self._ensure_numeric(left, right, '**', node.line)
             if isinstance(right, int) and right > 10000:
                 raise EPLRuntimeError(f'Exponent too large ({right}). Maximum is 10000.', node.line)
+            # A bounded exponent is not enough: a huge base (e.g. (10**10000)**10000)
+            # still explodes. Estimate the result's bit length and reject early.
+            if isinstance(left, int) and isinstance(right, int) and right >= 0:
+                self._guard_int_bits((left.bit_length() or 1) * right, node.line)
             result = left**right
             return (
                 int(result)
