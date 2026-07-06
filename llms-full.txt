@@ -1,0 +1,932 @@
+# EPL — English Programming Language — Complete Reference for AI Models
+
+> EPL is a programming language where code reads like English.
+> Install: pip install eplang
+> Run: epl run myfile.epl
+> REPL: epl repl
+> Version: 10.1.1
+> License: Apache 2.0
+> Author: Abneesh Singh
+> Repository: https://github.com/abneeshsingh21/EPL
+>
+> Execution engines: `epl run` uses a bytecode VM by default (real closures /
+> capturing lambdas + full counted-loop and control-flow parity with the
+> reference interpreter — the two engines produce identical output). Use
+> `epl run --interpret` for the tree-walking interpreter. EPL also transpiles to
+> Python / JS / Node / Kotlin / MicroPython, compiles native binaries with
+> `epl build` (which infers types for untyped functions that resolve to a single
+> concrete type), and exports native mobile/desktop projects via
+> `epl android` / `epl ios` / `epl desktop` (add `--webview` to ship the real web
+> app unchanged in a WebView/WKWebView/pywebview shell).
+
+---
+
+## CRITICAL SYNTAX RULES (Read Before Generating ANY EPL Code)
+
+1. Use `Otherwise` NOT `Else`
+2. Use `Otherwise If` NOT `Else If`
+3. Use `Note:` for comments, NOT `//` or `#`
+4. Every block (If, Function, Class, While, For, Match, Route, Try) ends with `End`
+5. No semicolons — EPL uses newlines as statement separators
+6. No curly braces `{}` — use `End` to close blocks
+7. Use `Say`, `Display`, `Print`, or `Show` for output — NOT `print()`
+8. Use `Create x = 5` or `Set x to 5` (or bare `x = 5`) for variables — NOT `var`, `let`, `const`
+9. Keywords are case-insensitive: `Create`, `create`, `CREATE` all work
+10. Identifiers ARE case-sensitive: `myVar` ≠ `MyVar`
+11. String interpolation uses `$name` and `${expr}` (NOT `{expr}`)
+12. Class fields are declared bare (`name = "Rex"`), NOT with `Set` — `Set` inside a method creates a local
+
+## COMMON MISTAKES TO AVOID
+
+```
+WRONG                          CORRECT
+─────                          ───────
+else                        →  Otherwise
+else if                     →  Otherwise If
+// comment                  →  Note: comment
+# comment                   →  Note: comment
+var x = 5                   →  Create x = 5
+let x = 5                   →  Create x = 5
+print("hi")                 →  Say "hi"
+def func():                 →  Function func ... End
+for i in range(10):         →  For i from 0 to 9 ... End
+if x > 5:                   →  If x > 5 Then ... End
+}                           →  End
+;                           →  (remove it)
+x = 5;                      →  x = 5
+def func(a, b):             →  Function func takes a and b ... End
+to_upper("hi")              →  upper("hi")        Note: to_upper is NOT a builtin
+to_lower("HI")              →  lower("HI")
+"Hello {name}"              →  "Hello $name"
+```
+
+---
+
+## 1. VARIABLES AND CONSTANTS
+
+```epl
+Note: Variable declaration forms (all equivalent)
+Create name = "Ada"
+Create name equal to "Ada"
+Create name as "Ada"
+Set count to 0
+count = 42
+
+Note: With type annotations
+Create Integer age = 25
+Create Text greeting = "Hello"
+Create Boolean active = true
+Create List items = [1, 2, 3]
+
+Note: Constants (immutable)
+Constant PI = 3.14159
+Constant MAX_SIZE = 100
+
+Note: Remember keyword (persistent across runs)
+Remember welcome as "Hello"
+
+Note: Arithmetic shortcuts
+Increase count by 1
+Decrease count by 1
+Multiply total by 2
+Divide total by 4
+```
+
+## 2. OUTPUT AND INPUT
+
+```epl
+Note: Output (all equivalent)
+Say "Hello, World!"
+Display "Hello, World!"
+Print "Hello, World!"
+Show "Hello, World!"
+
+Note: String concatenation
+Display "Name: " + name
+Display "Age is " + age + " years"
+
+Note: String interpolation
+Say "Hello $name"
+Say "Total is ${price * quantity}"
+
+Note: Input
+Ask "What is your name?" store in name
+Ask "Enter age: " and store in age
+```
+
+## 3. CONTROL FLOW
+
+```epl
+Note: If/Otherwise (NEVER use Else!)
+If score >= 90 Then
+    Say "Grade A"
+Otherwise If score >= 80 Then
+    Say "Grade B"
+Otherwise
+    Say "Grade F"
+End
+
+Note: While loop
+While retries > 0
+    Say "Trying..."
+    Set retries to retries - 1
+End
+
+Note: Repeat loop
+Repeat 5 times
+    Say "Hello!"
+End
+
+Note: For range loop (inclusive)
+For i from 1 to 10
+    Say i
+End
+
+Note: For range with step
+For i from 0 to 100 step 5
+    Say i
+End
+
+Note: For each loop
+For each item in items
+    Say item
+End
+
+Note: Match/When (pattern matching)
+Match grade
+    When "A"
+        Say "Excellent"
+    When "B" or "C"
+        Say "Good"
+    When "D"
+        Say "Passing"
+    Default
+        Say "Try harder"
+End
+Note: Multi-value "When A or B or C" tests each alternative independently.
+Note: The catch-all branch accepts Default, Otherwise, or else.
+
+Note: Break and Continue
+For i from 1 to 100
+    If i == 50 Then
+        Break
+    End
+    If i % 2 == 0 Then
+        Continue
+    End
+    Say i
+End
+
+Note: Ternary expression
+Set result to "big" if x > 10 otherwise "small"
+
+Note: Is between (range check)
+If x is between 1 and 100
+    Say "In range"
+End
+```
+
+## 4. FUNCTIONS
+
+```epl
+Note: Basic function
+Function greet takes name
+    Return "Hello, " + name
+End
+
+Note: Multiple parameters
+Function add takes a and b
+    Return a + b
+End
+
+Note: Define Function form (longer synonym)
+Define Function buildUrl takes host and port
+    Return host + ":" + to_text(port)
+End
+
+Note: Parenthesized form
+Function multiply(a, b)
+    Return a * b
+End
+
+Note: Default parameters
+Function connect takes host and port = 8080
+    Say "Connecting to " + host + ":" + to_text(port)
+End
+
+Note: Rest parameters (variadic)
+Function total takes rest numbers
+    Set sum to 0
+    For each n in numbers
+        Set sum to sum + n
+    End
+    Return sum
+End
+
+Note: Calling functions
+Say greet("Ada")
+Call greet with "Ada"
+Set result to add(10, 20)
+
+Note: Lambda expressions — real closures that capture enclosing scope
+Create square = lambda n -> n * n
+Create adder = lambda a, b -> a + b
+Say square(5)
+
+Note: Functions are values — pass them around (higher-order)
+Function apply takes f and x
+    Return f(x)
+End
+Say apply(square, 6)   Note: 36
+```
+
+## 5. CLASSES AND OOP
+
+```epl
+Note: Class definition — fields are declared bare (NOT with Set)
+Class Animal
+    name = "Unknown"
+    sound = "..."
+
+    Function speak
+        Note: reference fields directly inside methods
+        Display name + " says " + sound
+    End
+End
+
+Note: Creating instances
+Create dog = new Animal()
+dog.name = "Rex"
+dog.sound = "Woof!"
+dog.speak()                 Note: Rex says Woof!
+
+Note: Method with parameters and Return
+Class Calculator
+    result = 0
+    Function add takes a and b
+        Return a + b
+    End
+End
+Create calc = new Calculator()
+Say calc.add(10, 20)        Note: 30
+
+Note: Inheritance
+Class Dog extends Animal
+    breed = "Unknown"
+    Override Function speak
+        Display name + " (" + breed + ") says " + sound
+    End
+End
+
+Note: Interface (a param may not be named after a reserved word like `canvas`)
+Interface Drawable
+    Function draw takes surface and returns text
+End
+
+Note: Implementing an interface
+Class Circle implements Drawable
+    radius = 1
+    Function draw takes surface
+        Return "Drawing circle r=" + to_text(radius)
+    End
+End
+Create c = new Circle()
+Say c.draw("screen")        Note: Drawing circle r=1
+
+Note: Access modifiers
+Class User
+    Private password = ""
+    Public name = ""
+    Public Function getName
+        Return name
+    End
+End
+```
+
+## 6. COLLECTIONS
+
+```epl
+Note: Lists
+Create fruits = ["apple", "banana", "cherry"]
+Say fruits[0]
+Say length(fruits)
+Add "date" to fruits
+
+Note: Assign into a list element or object/map property
+Set fruits[0] to "apricot"
+
+Note: Iteration
+For each fruit in fruits
+    Say fruit
+End
+
+Note: List operations
+Sort fruits                 Note: statement — sorts in place
+Say first(fruits)
+Say last(fruits)
+Say contains(fruits, "date")
+
+Note: Maps (dictionaries)
+Create user = Map with name = "Ada" and age = 30 and city = "NYC"
+Say user.name
+Say user.age
+Set user.email to "ada@example.com"
+
+Note: Map iteration and operations
+For each key in keys(user)
+    Say key + ": " + to_text(user[key])
+End
+Say keys(user)
+Say values(user)
+Say has_key(user, "name")
+```
+
+## 7. ERROR HANDLING
+
+```epl
+Note: Try/Catch
+Try
+    Set result to 10 / 0
+Catch error
+    Say "Error: " + error
+End
+
+Note: Try/Catch/Finally
+Try
+    Set data to Read file "config.txt"
+Catch error
+    Say "Failed: " + error
+Finally
+    Say "Cleanup done"
+End
+
+Note: Throw errors
+Function divide takes a and b
+    If b == 0 Then
+        Throw "Cannot divide by zero"
+    End
+    Return a / b
+End
+
+Note: Assert
+Assert count > 0
+Assert name != ""
+```
+
+## 8. FILE I/O
+
+```epl
+Note: Write to file
+Write "Hello, World!" to file "output.txt"
+
+Note: Read from file
+Set content to Read file "output.txt"
+Say content
+
+Note: Append to file
+Append "New line" to file "output.txt"
+```
+
+## 9. IMPORTS AND MODULES
+
+```epl
+Note: Import EPL files — resolved relative to the IMPORTING source file
+Note: (not the current working directory), so nested/subfolder imports work.
+Import "helpers.epl" as Helpers
+Say Helpers.formatName("ada")
+
+Note: Import an EPL package
+Import "epl-db"
+
+Note: Environment variables — a .env file next to your program is auto-loaded,
+Note: so API keys / DB URLs / config can be read without hardcoding them.
+Create key = env_get("OPENAI_API_KEY")
+
+Note: Python bridge
+Use python "json" as json_mod
+Create data = json_mod.loads("{\"key\": \"value\"}")
+Say data
+
+Use python "math" as math
+Say math.sqrt(144)
+
+Note: JavaScript bridge
+Use javascript "lodash" as _
+Set result = _.capitalize("hello epl")
+Say result
+
+Note: Module definition
+Module Utils
+    Export formatDate
+    Function formatDate takes timestamp
+        Return to_text(timestamp)
+    End
+End
+```
+
+## 10. WEB APPS
+
+```epl
+Note: Create a web application ("called" is optional)
+Create WebApp called myApp
+
+Note: Page route (serves HTML)
+Route "/" shows
+    Page "Home"
+        Heading "Welcome to My App"
+        SubHeading "Built with EPL"
+        Text "This is a web application."
+        Link "About" to "/about"
+        Link "API" to "/api/health"
+        Button "Click me" does onClick
+    End
+End
+
+Note: JSON API route ("with" is optional)
+Route "/api/health" responds with
+    Send json Map with status = "ok" and uptime = 99.9
+End
+
+Note: API reading request data (POST body / form)
+Route "/api/users" responds with
+    Create username = request_data.get("username")
+    Create email = request_data.get("email")
+    If username != nothing And email != nothing Then
+        Send json Map with ok = True and user = username
+    Otherwise
+        Send json Map with ok = False and error = "Missing fields"
+    End
+End
+
+Note: Form handling with a built-in data store
+Route "/tasks" shows
+    Store form "task" in "tasks"
+    Page "Tasks"
+        Heading "Task Manager"
+        Say items from "tasks" delete "/delete"
+    End
+End
+
+Note: Start the server.
+Note: Default bind host is 127.0.0.1 (localhost); binding 0.0.0.0 prints a
+Note: warning. Env PORT / EPL_WEB_PORT / EPL_WEB_HOST override at runtime.
+Start myApp on port 8080
+```
+
+Request context available inside a route body: `request`, `request_data`,
+`form_data`, `request_body`, `query_params`, `request_headers`,
+`request_method`, `request_path`, `session_id`. Response verbs: `Send json`,
+`Send text`, `Send redirect`. Data store verbs: `Store form "field" in "coll"`,
+`Store <expr> in "coll"`, `Fetch "coll"`, `Delete from "coll" at N`,
+`Redirect to "/path"`.
+
+Structural / layout elements: `Div`, `Section`, `Nav`, `Header`, `Footer`,
+`Span`, `Article`, `Aside`, `Main`, `Container`, `Row`, `Column`, `Card`,
+`Form`, `Input`, `Image`, `List`. Raw escape hatches: `Raw HTML "..."` and
+`Script "..."`.
+
+## 11. WEB STYLING AND CLIENT EVENTS
+
+```epl
+Note: Reusable CSS class
+Style "primary-button"
+    background "#ff4500"
+    color "#ffffff"
+    padding "12px 24px"
+    border-radius "8px"
+End
+
+Note: Raw stylesheet and document head metadata
+Stylesheet
+    body { margin: 0; font-family: system-ui; }
+End
+
+Head
+    description "My EPL site"
+    favicon "/favicon.ico"
+    opengraph title "My Site" and image "/og.png"
+End
+
+Note: Inline styling / attributes on elements
+Text "Hi" with style "primary-button"
+Div class "wrapper" id "main"
+
+Note: Client-side events compile to CSP-safe generated JS (no inline handlers)
+Button "Toggle" on click toggles "open"
+On click
+    Navigate to "/next"
+    Scroll to "#section"
+    Run "myClientFn"
+End
+```
+
+## 12. DATABASE (epl-db package)
+
+```epl
+Import "epl-db"
+
+Note: Open SQLite (":memory:" for an in-memory DB)
+Create db = db_open("myapp.db")
+
+Note: Execute DDL / DML
+db_execute(db, "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, email TEXT)")
+
+Note: Parameterized insert (prevents SQL injection).
+Note: The parameterized helpers have NO db_ prefix: execute_params,
+Note: query_params, query_one_params.
+execute_params(db, "INSERT INTO users (username, email) VALUES (?, ?)", ["ada", "ada@example.com"])
+
+Note: Query rows -> list of maps
+Create users = db_query(db, "SELECT * FROM users")
+For each user in users
+    Say user.username + ": " + user.email
+End
+
+Note: Query a single row (or nothing)
+Create user = query_one_params(db, "SELECT * FROM users WHERE id = ?", [1])
+If user != nothing Then
+    Say user.username
+End
+
+Note: Count and close
+Say db_count(db, "users")
+db_close(db)
+```
+
+## 13. AUTH AND SECURITY
+
+```epl
+Note: Password hashing (salted, one-way)
+Create hash = auth_hash_password("mypassword123")
+
+Note: Verify password
+Create valid = auth_verify_password("mypassword123", hash)
+If valid Then
+    Say "Password correct"
+End
+
+Note: Generate secure token
+Create token = auth_generate_token(32)
+Say "Session token: " + token
+```
+
+## 14. ASYNC AND PARALLEL
+
+```epl
+Note: Async function
+Async Function fetchData takes url
+    Return "Data from " + url
+End
+
+Note: Await
+Create result = Await fetchData("https://api.example.com")
+Say result
+
+Note: Spawn background task
+Spawn worker Call processJob with job
+
+Note: Parallel for
+Parallel For each item in items
+    Say "Processing: " + item
+End
+```
+
+## 15. ENUMS
+
+```epl
+Note: Define an enum
+Enum Color Red, Green, Blue
+
+Note: Use enum values
+Set picked to Color.Red
+
+Match picked
+    When Color.Red
+        Say "Red selected"
+    When Color.Green
+        Say "Green selected"
+    When Color.Blue
+        Say "Blue selected"
+End
+```
+
+## 16. GUI (DESKTOP APPS)
+
+```epl
+Note: A window (tkinter-based). Run with: epl gui app.epl
+Window "My App" 800 by 600
+    Column
+        Label "Welcome to My Desktop App"
+        TextBox "name" placeholder "Enter your name"
+        Button "Save" does saveName
+        TextArea "output" placeholder "Output appears here"
+    End
+End
+
+Function saveName
+    Say "Name saved!"
+End
+```
+
+Widgets: `Label`, `Button ... does handler`, `Input`/`TextBox`, `TextArea`,
+`Checkbox`, `Dropdown`, `Listbox`, `Canvas`, `Image`, `Separator`, `Menu`,
+plus `Row` / `Column` layout and message/error/yes-no/file/color dialogs.
+
+## 17. 3D AND CANVAS
+
+```epl
+Note: 3D Scene
+Scene "demo" 800 by 600
+    Box "floor" at 0 -1 0 size 10 0.2 10 color "#888888"
+    Box "cube" at 0 1 0 size 2 2 2 color "#ff4500"
+    Light "sun" at 5 10 5
+    Camera at 0 5 10 look 0 0 0
+End
+
+Note: 2D Canvas
+Canvas "art" draw rect x 10 y 10 width 200 height 100 fill "#3498db"
+Canvas "art" draw circle x 150 y 200 radius 50 fill "#e74c3c"
+Canvas "art" draw text x 50 y 350 content "Hello!" fill "#333"
+```
+
+## 18. OBSERVABILITY
+
+```epl
+Create WebApp called app
+Import "epl.observability" As obs
+obs.attach(app)
+
+Note: attach() auto-adds these endpoints:
+Note:   /_health  — liveness check
+Note:   /_ready   — readiness check
+Note:   /_metrics — Prometheus-format metrics
+
+Route "/api/data" responds with
+    obs.start_request()
+    Note: business logic here
+    obs.record_request(0.05, nothing)
+    Send json Map with status = "ok"
+End
+
+Start app on port 8000
+```
+
+## 19. NATIVE APP EXPORT (Android / iOS / Desktop)
+
+```bash
+epl android app.epl              # Generate an Android (Kotlin) project
+epl ios app.epl --name "My App"  # Generate an iOS (Swift) project
+epl desktop app.epl              # Generate a desktop project
+```
+
+- The exporter analyzes your program and writes `PORTING_REPORT.md` listing every
+  construct the transliterating targets cannot port — web routes/`WebApp`,
+  `Start` server, `Send`, `Script`, `Stylesheet`, data `Store`/`Fetch`, raw web
+  tags, `web_*` builtins, and `db_*` where no native bridge exists.
+- The analyzer **follows the `Import` graph** (source-file-relative, cycle-safe),
+  so an entry file that calls into imported modules is fully checked; each issue
+  is tagged with its file and line.
+- `db_*` is portable on **Android only** (a Kotlin/SQLite bridge ships and
+  compiles); iOS and desktop flag it as unportable.
+- `--strict` exits non-zero if any blocking construct is present.
+- `--webview` / `--url` ship the REAL web app unchanged: Android `WebView`,
+  iOS `WKWebView`, desktop `pywebview`. Nothing is dropped — the whole app
+  (UI + backend) runs, since EPL is Python underneath.
+
+## 20. BUILT-IN FUNCTIONS (verified against v10.1.1)
+
+```epl
+Note: String functions
+Say length("hello")            Note: 5
+Say upper("hello")             Note: "HELLO"   (NOT to_upper)
+Say lower("HELLO")             Note: "hello"   (NOT to_lower)
+Say trim("  hi  ")             Note: "hi"
+Say replace("hello", "l", "r") Note: "herro"
+Say split("a,b,c", ",")        Note: ["a", "b", "c"]
+Say join(["a", "b"], "-")      Note: "a-b"
+Say substring("hello", 1, 3)   Note: "el"
+Say index_of("hello", "l")     Note: 2
+Say contains("hello", "ell")   Note: true
+Say reverse("abc")             Note: "cba"
+
+Note: Type conversion
+Say to_text(42)                Note: "42"
+Say to_integer("42")           Note: 42
+Say to_number("3.14")          Note: 3.14
+Say to_boolean("true")         Note: true
+
+Note: Math functions
+Say sqrt(144)                  Note: 12.0
+Say power(2, 10)               Note: 1024
+Say absolute(-42)              Note: 42   (abs also works)
+Say round(3.7)                 Note: 4
+Say floor(3.7)                 Note: 3
+Say ceil(3.2)                  Note: 4
+Say min(5, 3)                  Note: 3
+Say max(5, 3)                  Note: 5
+Say random(1, 100)             Note: random integer 1-100
+Say sum([1, 2, 3])             Note: 6
+
+Note: Collections / maps
+Say first([1, 2, 3])           Note: 1
+Say last([1, 2, 3])            Note: 3
+Say keys(myMap)                Note: list of keys
+Say values(myMap)              Note: list of values
+Say has_key(myMap, "name")     Note: true/false
+Add x to myList                Note: append (statement)
+Sort myList                    Note: sort in place (statement)
+
+Note: Type checking
+Say type_of(42)                Note: "integer"
+Say type_of("hi")              Note: "text"
+Say type_of([1,2])             Note: "list"
+Say type_of(true)              Note: "boolean"
+
+Note: Time / environment / utility
+Say now()                      Note: current timestamp
+Say today()                    Note: today's date
+Say env_get("HOME")            Note: environment variable (.env auto-loaded)
+Wait 2 seconds                 Note: pause execution
+Exit                           Note: terminate program
+```
+
+## 21. COMPLETE EXAMPLE — Blog API with Auth + SQLite
+
+```epl
+Import "epl-db"
+
+Create db = db_open("blog.db")
+db_execute(db, "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password_hash TEXT)")
+db_execute(db, "CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY, title TEXT, body TEXT, author TEXT)")
+
+Create WebApp called blogApp
+
+Route "/" shows
+    Page "Blog"
+        Heading "EPL Blog"
+        Text "A blog built with the English Programming Language"
+        Link "Posts API" to "/api/posts"
+        Link "Health" to "/api/health"
+    End
+End
+
+Route "/api/health" responds with
+    Send json Map with status = "ok" and service = "blog"
+End
+
+Route "/api/register" responds with
+    Create username = request_data.get("username")
+    Create password = request_data.get("password")
+    Create response = Map with ok = False and error = "Fields required"
+    If username != nothing And password != nothing Then
+        Try
+            Create hash = auth_hash_password(password)
+            execute_params(db, "INSERT INTO users (username, password_hash) VALUES (?, ?)", [username, hash])
+            Create response = Map with ok = True and user = username
+        Catch error
+            Create response = Map with ok = False and error = "Username taken"
+        End
+    End
+    Send json response
+End
+
+Route "/api/posts" responds with
+    Create posts = db_query(db, "SELECT * FROM posts ORDER BY id DESC")
+    Send json Map with ok = True and posts = posts
+End
+
+Route "/api/posts/create" responds with
+    Create title = request_data.get("title")
+    Create body = request_data.get("body")
+    Create author = request_data.get("author")
+    If title != nothing And body != nothing And author != nothing Then
+        execute_params(db, "INSERT INTO posts (title, body, author) VALUES (?, ?, ?)", [title, body, author])
+        Send json Map with ok = True and message = "Post created"
+    Otherwise
+        Send json Map with ok = False and error = "Missing fields"
+    End
+End
+
+Start blogApp on port 8080
+```
+
+## 22. ERROR CODES REFERENCE
+
+| Code  | Error Type      | Common Cause |
+|-------|-----------------|--------------|
+| E0000 | EPLError        | General EPL error |
+| E0100 | LexerError      | Invalid character or malformed token |
+| E0200 | ParserError     | Syntax error, missing End, wrong keyword |
+| E0300 | RuntimeError    | Division by zero, null reference |
+| E0400 | TypeError       | Type mismatch in operation |
+| E0500 | NameError       | Undefined variable or function |
+| E0600 | ValueError      | Invalid value for operation |
+| E0700 | IndexError      | List index out of range |
+| E0800 | KeyError        | Map key not found |
+| E0900 | IOError         | File read/write failure |
+| E1000 | NetworkError    | HTTP/connection failure |
+| E1100 | TimeoutError    | Operation timed out |
+| E1200 | OverflowError   | Numeric overflow |
+| E1300 | ImportError     | Module not found |
+| E1400 | AttributeError  | Property/method not found |
+| E1500 | AssertionError  | Assertion failed |
+| E1600 | ConcurrencyError| Async/parallel error |
+
+## 23. CLI COMMANDS
+
+```bash
+# Run / execute
+epl file.epl                  # Run a program (shorthand for `epl run`)
+epl run file.epl              # Run (bytecode VM by default)
+epl run --interpret file.epl  # Run with the tree-walking interpreter
+epl vm file.epl               # Run with the bytecode VM explicitly
+epl repl                      # Interactive REPL
+epl watch file.epl            # Re-run on change (--timeout, --clear, --test)
+epl serve app.epl --reload    # Dev/production web server (--port, --host, --engine)
+
+# Compile / transpile
+epl build file.epl -o out     # Native binary (LLVM); infers types for untyped
+                              #   functions. Flags: -o/--output, --opt=N, --target
+epl wasm file.epl             # Compile to WebAssembly
+epl python file.epl -o f.py   # Transpile to Python
+epl js file.epl -o f.js       # Transpile to JavaScript
+epl node file.epl -o f.js     # Transpile to Node.js
+epl kotlin file.epl -o f.kt   # Transpile to Kotlin
+epl micropython file.epl      # Transpile to MicroPython
+epl ir file.epl               # Show LLVM IR
+
+# Native / app export
+epl android file.epl [--webview --url URL --build --compose --name NAME]
+epl ios file.epl [--webview --url URL --name NAME --bundle-id ID]
+epl desktop file.epl [--webview --url URL]
+epl web file.epl              # Generate a web app bundle
+epl gui file.epl              # Run with GUI support
+
+# Projects / packages
+epl new myapp --template web  # Scaffold (templates: basic/web/api/cli/lib/
+                              #   frontend/auth/chatbot/android/ios/fullstack)
+epl use <pkg> | epl install <pkg>   # Install a dependency (also github:user/repo)
+epl uninstall <pkg>           # Remove a package
+epl packages                  # List installed packages
+epl search <query>            # Search packages
+epl update [pkg] | epl outdated | epl audit | epl lock | epl resolve
+epl pyinstall <import> [spec] # Save/import a pip package for `Use python`
+epl jsinstall <pkg> [ver]     # Save/import an npm package for `Use javascript`
+
+# Quality / tooling
+epl test [dir] [--filter --coverage --junit-xml FILE --fail-fast]
+epl check [file]              # Static type checking
+epl fmt file.epl [--check --in-place]
+epl lint [file]
+epl docs [dir]                # Generate API docs
+epl doctor [--json]           # Environment health check
+epl debug file.epl            # Debugger with breakpoints
+epl lsp                       # Start the LSP server for IDEs
+epl playground | epl notebook | epl blocks   # Browser IDE / notebook / block editor
+
+# AI
+epl gen "<description>"        # AI-generate EPL code
+epl ai "<prompt>"             # AI code assistant
+epl explain file.epl          # AI-explain what code does
+epl copilot                   # AI copilot
+
+# Deploy
+epl deploy k8s   app.epl      # Generate Kubernetes manifests
+epl deploy aws   app.epl      # AWS ECS
+epl deploy gcp   app.epl      # GCP Cloud Run
+epl deploy azure app.epl      # Azure Container Apps
+```
+
+---
+
+## MCP SERVER
+
+EPL ships with a built-in MCP (Model Context Protocol) server for AI integration:
+
+```bash
+python -m epl.mcp_server
+```
+
+Configure in your AI tool (Claude Desktop, Cursor, VS Code):
+```json
+{
+  "mcpServers": {
+    "epl": {
+      "command": "python",
+      "args": ["-m", "epl.mcp_server"]
+    }
+  }
+}
+```
+
+Available tools:
+- `epl_syntax_reference` — EPL grammar rules and examples
+- `epl_validate` — Check code with the real EPL parser
+- `epl_run` — Execute EPL code in a sandbox
+- `epl_transpile` — Convert EPL to Python or JavaScript
+- `epl_examples` — Search the example files
+- `epl_error_lookup` — Explain EPL error codes
+
+The server serves everything dynamically from the installed `eplang` package, so
+it always matches your installed version.
+</content>

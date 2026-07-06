@@ -1,0 +1,79 @@
+/* EPL Documentation — Custom Styles */
+
+:root {
+  --md-primary-fg-color: #2563eb;
+  --md-accent-fg-color: #06b6d4;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #3b82f6;
+  --md-accent-fg-color: #22d3ee;
+}
+
+/* Hero section */
+.md-typeset .hero {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.md-typeset .hero h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.md-typeset .hero .subtitle {
+  font-size: 1.2rem;
+  color: var(--md-default-fg-color--light);
+  margin-top: -0.5rem;
+}
+
+/* Feature grid */
+.grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.grid-cards .card {
+  padding: 1.2rem;
+  border-radius: 12px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.grid-cards .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.grid-cards .card h3 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+/* Install command */
+.install-cmd {
+  background: var(--md-code-bg-color);
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.1rem;
+  text-align: center;
+  margin: 1rem auto;
+  max-width: 400px;
+}
+
+/* Badge row */
+.badges {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.badges img {
+  margin: 0 4px;
+}

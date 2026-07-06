@@ -1,0 +1,3541 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Write code the way you think. In plain English.">
+      
+      
+        <meta name="author" content="Abneesh Singh">
+      
+      
+        <link rel="canonical" href="https://abneeshsingh21.github.io/EPL/language-spec/">
+      
+      
+        <link rel="prev" href="../language-reference/">
+      
+      
+        <link rel="next" href="../stdlib-reference/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Language Specification - EPL — English Programming Language</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="cyan">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#1-scope-and-support-boundary" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="EPL — English Programming Language" class="md-header__button md-logo" aria-label="EPL — English Programming Language" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.6 16.6 4.6-4.6-4.6-4.6L16 6l6 6-6 6zm-5.2 0L4.8 12l4.6-4.6L8 6l-6 6 6 6z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            EPL — English Programming Language
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Language Specification
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="cyan"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="cyan"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/abneeshsingh21/EPL" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    abneeshsingh21/EPL
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../intro/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Introduction
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../language-reference/" class="md-tabs__link">
+          
+  
+  
+  Language Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../guides/rest-api-in-plain-english/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../troubleshooting/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Troubleshooting
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="EPL — English Programming Language" class="md-nav__button md-logo" aria-label="EPL — English Programming Language" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.6 16.6 4.6-4.6-4.6-4.6L16 6l6 6-6 6zm-5.2 0L4.8 12l4.6-4.6L8 6l-6 6 6 6z"/></svg>
+
+    </a>
+    EPL — English Programming Language
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/abneeshsingh21/EPL" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    abneeshsingh21/EPL
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../intro/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Introduction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/first-program-plain-english/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Your First Program in Plain English
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../playground/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Playground
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Language Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../language-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Syntax Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language Specification
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Language Specification
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-and-support-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope And Support Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-lexical-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Lexical Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Lexical Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Comments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-identifiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Identifiers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-literals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Literals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-strings-and-interpolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Strings And Interpolation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-statements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Statements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Statements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Input
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Expressions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Expressions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-arithmetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Arithmetic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-logical-operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Logical Operators
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-ternary-expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Ternary Expression
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Collections
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Collections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-lists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Lists
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Maps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-control-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Control Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Control Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-if-otherwise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 If / Otherwise
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-match-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Match / When
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-while" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 While
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-repeat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Repeat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-for-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 For Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#66-for-each" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.6 For Each
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#67-break-and-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.7 Break And Continue
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-functions-and-lambdas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Functions And Lambdas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Functions And Lambdas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-function-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Function Definitions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-lambdas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Lambdas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-classes-and-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Classes And Objects
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Classes And Objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-basic-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Basic Class
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-constructor-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Constructor Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-inheritance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Inheritance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-modules-and-imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Modules And Imports
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Modules And Imports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-module-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Module Blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-file-and-standard-library-imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 File And Standard Library Imports
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-python-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Python Bridge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#94-javascript-and-typescript-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 JavaScript And TypeScript Bridge
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-native-webapp-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Native WebApp Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Native WebApp Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-request-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 Request Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-page-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 Page Elements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-database-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Database Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. Database Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#121-built-in-sqlite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.1 Built-in SQLite
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#122-additional-adapters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.2 Additional Adapters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-standard-library-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Standard Library Surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-cli-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. CLI Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-current-grammar-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Current Grammar Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16-enterprise-production-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Enterprise Production Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../stdlib-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standard Library
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/rest-api-in-plain-english/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build a REST API in Plain English
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/web/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Database & ORM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/android/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Android Apps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../package-manager/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Package Manager
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../migration-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Migration Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../support-matrix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Support Matrix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../examples/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-scope-and-support-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Scope And Support Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-lexical-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Lexical Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Lexical Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-case" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Case
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-comments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Comments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-identifiers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Identifiers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-literals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Literals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-strings-and-interpolation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Strings And Interpolation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-statements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Statements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Statements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Variables
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-input" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Input
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-expressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Expressions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Expressions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-arithmetic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Arithmetic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Comparison
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-logical-operators" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Logical Operators
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-ternary-expression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Ternary Expression
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-collections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Collections
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Collections">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-lists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Lists
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Maps
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-control-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Control Flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Control Flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-if-otherwise" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 If / Otherwise
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-match-when" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Match / When
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-while" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 While
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-repeat" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Repeat
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-for-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 For Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#66-for-each" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.6 For Each
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#67-break-and-continue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.7 Break And Continue
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-functions-and-lambdas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Functions And Lambdas
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Functions And Lambdas">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-function-definitions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Function Definitions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-lambdas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Lambdas
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-classes-and-objects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Classes And Objects
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Classes And Objects">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#81-basic-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Basic Class
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-constructor-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Constructor Pattern
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-inheritance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Inheritance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-modules-and-imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Modules And Imports
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Modules And Imports">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#91-module-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.1 Module Blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#92-file-and-standard-library-imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.2 File And Standard Library Imports
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#93-python-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.3 Python Bridge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#94-javascript-and-typescript-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9.4 JavaScript And TypeScript Bridge
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Error Handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-native-webapp-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Native WebApp Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Native WebApp Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-request-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 Request Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-page-elements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 Page Elements
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-database-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. Database Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="12. Database Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#121-built-in-sqlite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.1 Built-in SQLite
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#122-additional-adapters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12.2 Additional Adapters
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#13-standard-library-surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        13. Standard Library Surface
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#14-cli-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        14. CLI Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#15-current-grammar-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        15. Current Grammar Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#16-enterprise-production-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        16. Enterprise Production Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>Language Specification</h1>
+
+<blockquote>
+<p><strong>EPL v9.8.0</strong> - English Programming Language</p>
+<p>This specification describes the syntax and runtime surface supported by the current EPL source tree. When an older example conflicts with this file, treat this file, the parser, and the tests as the source of truth.</p>
+</blockquote>
+<hr />
+<h2 id="1-scope-and-support-boundary">1. Scope And Support Boundary<a class="headerlink" href="#1-scope-and-support-boundary" title="Permanent link">&para;</a></h2>
+<p>EPL is a general-purpose language with plain-English syntax. The current implementation includes:</p>
+<ul>
+<li>Variables, constants, expressions, functions, lambdas, classes, modules, imports, and error handling</li>
+<li>Lists and <code>Map with ...</code> dictionaries</li>
+<li>Native WebApp routes with HTML pages and JSON responses</li>
+<li>Built-in SQLite helpers and additional <code>real_db_*</code> adapters</li>
+<li>Python, JavaScript, and TypeScript bridge statements</li>
+<li>Standard library modules under <code>epl/stdlib/</code></li>
+<li>CLI targets for interpreter, bytecode VM, JavaScript, Python, Kotlin, Android, iOS, desktop, web, and deployment generation</li>
+</ul>
+<p>Enterprise guidance:</p>
+<ul>
+<li>Prefer syntax shown in this document for long-lived code.</li>
+<li>Treat rapidly evolving UI, 3D, ML, cloud, and package-publishing surfaces as integration features that should be validated in CI for your exact target.</li>
+<li>Use parser-verified examples and tests for release gates. Documentation snippets are illustrative unless explicitly marked as production patterns.</li>
+<li>Do not rely on undocumented legacy syntax in new code.</li>
+</ul>
+<hr />
+<h2 id="2-lexical-structure">2. Lexical Structure<a class="headerlink" href="#2-lexical-structure" title="Permanent link">&para;</a></h2>
+<h3 id="21-case">2.1 Case<a class="headerlink" href="#21-case" title="Permanent link">&para;</a></h3>
+<p>Keywords are recognized case-insensitively by the lexer, but examples use title-case statement keywords (<code>Create</code>, <code>If</code>, <code>Function</code>, <code>Route</code>) and capitalized built-in literals (<code>True</code>, <code>False</code>, <code>Nothing</code>) for readability.</p>
+<h3 id="22-comments">2.2 Comments<a class="headerlink" href="#22-comments" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Note: This is a single-line comment
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Note &quot;String-form comment, useful as a module header or docstring&quot;
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Comment &quot;Alias of the string form&quot;
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>NoteBlock
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    This whole block is ignored by the parser.
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>End
+</span></code></pre></div>
+<p>EPL accepts four comment forms:</p>
+<ul>
+<li><code>Note: text</code> — line comment (colon form)</li>
+<li><code>Note "text"</code> — string form, commonly used as a module header or docstring at the top of a file</li>
+<li><code>Comment "text"</code> — alias of the string form</li>
+<li><code>NoteBlock ... End</code> — block comment</li>
+</ul>
+<p>Use <code>Note:</code>, <code>Note "..."</code>, and <code>NoteBlock</code> in documentation and production examples. Do not document <code>#</code> as a supported comment form unless your target runtime has a test for it.</p>
+<h3 id="23-identifiers">2.3 Identifiers<a class="headerlink" href="#23-identifiers" title="Permanent link">&para;</a></h3>
+<p>Identifiers start with a letter or underscore and may contain letters, digits, and underscores.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>[A-Za-z_][A-Za-z0-9_]*
+</span></code></pre></div>
+<p>Recommended style:</p>
+<ul>
+<li>variables and functions: <code>snake_case</code></li>
+<li>classes and interfaces: <code>PascalCase</code></li>
+<li>constants: <code>UPPER_SNAKE_CASE</code></li>
+</ul>
+<p>Some reserved words are soft keywords and may also be used as function, parameter, or member names: <code>match</code>, <code>fetch</code>, <code>delete</code>, <code>where</code>, and <code>port</code>. This is what allows stdlib APIs such as <code>regex.match</code>, <code>net.fetch</code>, <code>sql.delete</code>, and <code>sql ... where</code> to parse.</p>
+<h3 id="24-literals">2.4 Literals<a class="headerlink" href="#24-literals" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Examples</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Integer</td>
+<td><code>42</code>, <code>-7</code>, <code>0</code></td>
+<td>Whole numbers</td>
+</tr>
+<tr>
+<td>Decimal</td>
+<td><code>3.14</code>, <code>-0.5</code>, <code>1.0</code></td>
+<td>Floating-point values</td>
+</tr>
+<tr>
+<td>Text</td>
+<td><code>"hello"</code>, <code>"it's EPL"</code>, <code>""</code></td>
+<td>Use double quotes</td>
+</tr>
+<tr>
+<td>Boolean</td>
+<td><code>True</code>, <code>False</code></td>
+<td><code>yes</code>/<code>no</code> also tokenize as booleans, but prefer <code>True</code>/<code>False</code></td>
+</tr>
+<tr>
+<td>Nothing</td>
+<td><code>Nothing</code></td>
+<td>Null-like value</td>
+</tr>
+<tr>
+<td>List</td>
+<td><code>[1, 2, 3]</code>, <code>["a", "b"]</code>, <code>[]</code></td>
+<td>Ordered collection</td>
+</tr>
+<tr>
+<td>Map</td>
+<td><code>Map with name = "Alice" and age = 30</code></td>
+<td>Key-value dictionary</td>
+</tr>
+</tbody>
+</table>
+<h3 id="25-strings-and-interpolation">2.5 Strings And Interpolation<a class="headerlink" href="#25-strings-and-interpolation" title="Permanent link">&para;</a></h3>
+<p>Strings support variable interpolation with <code>$name</code> and expression interpolation with <code>${...}</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>name = &quot;World&quot;
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Say &quot;Hello, $name!&quot;
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>Say &quot;2 + 2 = ${2 + 2}&quot;
+</span></code></pre></div>
+<p>Use interpolation for simple output. For complex expressions, assign the expression to a variable first.</p>
+<hr />
+<h2 id="3-statements">3. Statements<a class="headerlink" href="#3-statements" title="Permanent link">&para;</a></h2>
+<p>Statements are line-oriented. Blocks end with <code>End</code> or a specific end token such as <code>EndFunction</code>, <code>EndIf</code>, <code>EndFor</code>, or <code>EndRepeat</code> where supported.</p>
+<h3 id="31-variables">3.1 Variables<a class="headerlink" href="#31-variables" title="Permanent link">&para;</a></h3>
+<p>Preferred concise form:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>name = &quot;Alice&quot;
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>age = 25
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>items = [1, 2, 3]
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>settings = Map with host = &quot;localhost&quot; and port = 8080
+</span></code></pre></div>
+<p>English declaration form:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Create name equal to &quot;Alice&quot;
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>Create age = 25
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Create text title equal to &quot;Report&quot;
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>Create list scores equal to [10, 20, 30]
+</span></code></pre></div>
+<p>Compatibility alias:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>Remember name as &quot;Alice&quot;
+</span></code></pre></div>
+<h3 id="32-assignment">3.2 Assignment<a class="headerlink" href="#32-assignment" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>name = &quot;Bob&quot;
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>Set age to 30
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>Increase age by 1
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>Decrease age by 1
+</span></code></pre></div>
+<p>Use normal reassignment for multiply, divide, and modulo:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>total = total * 2
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>remaining = remaining % 10
+</span></code></pre></div>
+<h3 id="33-constants">3.3 Constants<a class="headerlink" href="#33-constants" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Constant PI = 3.14159
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>Constant APP_NAME = &quot;Billing API&quot;
+</span></code></pre></div>
+<p>Constants cannot be reassigned after initialization.</p>
+<h3 id="34-output">3.4 Output<a class="headerlink" href="#34-output" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>Print &quot;Hello&quot;
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Say &quot;Hello&quot;
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>Display &quot;Hello&quot;
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>Show &quot;Hello&quot;
+</span></code></pre></div>
+<h3 id="35-input">3.5 Input<a class="headerlink" href="#35-input" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>Input username with prompt &quot;Username: &quot;
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>Ask &quot;Password: &quot; store in password
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>Ask &quot;Email: &quot; and store in email
+</span></code></pre></div>
+<hr />
+<h2 id="4-expressions">4. Expressions<a class="headerlink" href="#4-expressions" title="Permanent link">&para;</a></h2>
+<h3 id="41-arithmetic">4.1 Arithmetic<a class="headerlink" href="#41-arithmetic" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>a + b</code></td>
+<td>Addition or text concatenation</td>
+</tr>
+<tr>
+<td><code>a - b</code></td>
+<td>Subtraction</td>
+</tr>
+<tr>
+<td><code>a * b</code></td>
+<td>Multiplication</td>
+</tr>
+<tr>
+<td><code>a / b</code></td>
+<td>Division</td>
+</tr>
+<tr>
+<td><code>a % b</code></td>
+<td>Modulo</td>
+</tr>
+<tr>
+<td><code>power(a, b)</code></td>
+<td>Exponentiation</td>
+</tr>
+<tr>
+<td><code>a raised to b</code></td>
+<td>English exponentiation form</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-comparison">4.2 Comparison<a class="headerlink" href="#42-comparison" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>a == b</code>, <code>a is equal to b</code>, <code>a equals b</code></td>
+<td>Equality</td>
+</tr>
+<tr>
+<td><code>a != b</code>, <code>a is not equal to b</code>, <code>a does not equal b</code></td>
+<td>Inequality</td>
+</tr>
+<tr>
+<td><code>a &gt; b</code>, <code>a is greater than b</code></td>
+<td>Greater than</td>
+</tr>
+<tr>
+<td><code>a &lt; b</code>, <code>a is less than b</code></td>
+<td>Less than</td>
+</tr>
+<tr>
+<td><code>a &gt;= b</code>, <code>a is at least b</code></td>
+<td>Greater than or equal</td>
+</tr>
+<tr>
+<td><code>a &lt;= b</code>, <code>a is at most b</code></td>
+<td>Less than or equal</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-logical-operators">4.3 Logical Operators<a class="headerlink" href="#43-logical-operators" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>If is_active And score &gt; 80 Then
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    Say &quot;eligible&quot;
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>End
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>If Not is_locked Then
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    Say &quot;open&quot;
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>End
+</span></code></pre></div>
+<p><code>And</code>, <code>Or</code>, and <code>Not</code> are the recommended spellings in docs, though lower-case forms tokenize too.</p>
+<h3 id="44-ternary-expression">4.4 Ternary Expression<a class="headerlink" href="#44-ternary-expression" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>age_group = &quot;adult&quot; if age &gt;= 18 otherwise &quot;minor&quot;
+</span></code></pre></div>
+<hr />
+<h2 id="5-collections">5. Collections<a class="headerlink" href="#5-collections" title="Permanent link">&para;</a></h2>
+<h3 id="51-lists">5.1 Lists<a class="headerlink" href="#51-lists" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>items = [3, 1, 4]
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>items.add(1)
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>first = items[0]
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>items.sort()
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>items.reverse()
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>joined = items.join(&quot;, &quot;)
+</span></code></pre></div>
+<p>Common list methods:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>add(item)</code></td>
+<td>Append item</td>
+</tr>
+<tr>
+<td><code>remove(item)</code></td>
+<td>Remove first matching value</td>
+</tr>
+<tr>
+<td><code>contains(item)</code></td>
+<td>Membership test</td>
+</tr>
+<tr>
+<td><code>sort()</code></td>
+<td>Sort in place</td>
+</tr>
+<tr>
+<td><code>reverse()</code></td>
+<td>Reverse in place</td>
+</tr>
+<tr>
+<td><code>join(separator)</code></td>
+<td>Join elements as text</td>
+</tr>
+<tr>
+<td><code>pop()</code></td>
+<td>Remove and return the last item</td>
+</tr>
+<tr>
+<td><code>clear()</code></td>
+<td>Empty the list</td>
+</tr>
+<tr>
+<td><code>map(fn)</code>, <code>filter(fn)</code>, <code>reduce(fn)</code></td>
+<td>Functional transforms</td>
+</tr>
+<tr>
+<td><code>find(fn)</code>, <code>every(fn)</code>, <code>some(fn)</code></td>
+<td>Functional predicates</td>
+</tr>
+<tr>
+<td><code>slice(start, end)</code></td>
+<td>Return a slice</td>
+</tr>
+<tr>
+<td><code>unique()</code>, <code>flatten()</code>, <code>sum()</code>, <code>min()</code>, <code>max()</code></td>
+<td>Convenience helpers</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-maps">5.2 Maps<a class="headerlink" href="#52-maps" title="Permanent link">&para;</a></h3>
+<p>Current map literal syntax:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>person = Map with name = &quot;Alice&quot; and age = 30
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>Say person.name
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>person.set(&quot;role&quot;, &quot;admin&quot;)
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>Say person.get(&quot;role&quot;, &quot;user&quot;)
+</span></code></pre></div>
+<p>Map keys in literals are identifiers. For dynamic keys, build the map and call <code>set</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>headers = Map with content_type = &quot;application/json&quot;
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>headers.set(&quot;X-Request-ID&quot;, request_id)
+</span></code></pre></div>
+<p><code>Map with ... and ...</code> literals may be written on a single logical line, or spread across multiple lines by breaking around each <code>and</code> separator:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>Create config equal to Map with host = &quot;localhost&quot;
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>    and port = 8080
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    and debug = True
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>Say config.get(&quot;port&quot;)
+</span></code></pre></div>
+<p>Each continuation line begins with <code>and key = value</code>. Single-line maps still terminate correctly. For maps with dynamic keys, build the map and call <code>.set()</code>.</p>
+<p>Common map methods:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>keys()</code></td>
+<td>List keys</td>
+</tr>
+<tr>
+<td><code>values()</code></td>
+<td>List values</td>
+</tr>
+<tr>
+<td><code>entries()</code></td>
+<td>List key-value pairs</td>
+</tr>
+<tr>
+<td><code>has(key)</code></td>
+<td>Check for key</td>
+</tr>
+<tr>
+<td><code>get(key, default)</code></td>
+<td>Read key with default</td>
+</tr>
+<tr>
+<td><code>set(key, value)</code></td>
+<td>Set key</td>
+</tr>
+<tr>
+<td><code>remove(key)</code></td>
+<td>Delete key</td>
+</tr>
+<tr>
+<td><code>merge(other)</code></td>
+<td>Merge maps</td>
+</tr>
+<tr>
+<td><code>clear()</code></td>
+<td>Empty map</td>
+</tr>
+<tr>
+<td><code>copy()</code></td>
+<td>Copy map</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-control-flow">6. Control Flow<a class="headerlink" href="#6-control-flow" title="Permanent link">&para;</a></h2>
+<h3 id="61-if-otherwise">6.1 If / Otherwise<a class="headerlink" href="#61-if-otherwise" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>If age &gt;= 18 Then
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>    Say &quot;Adult&quot;
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>Otherwise If age &gt;= 13 Then
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    Say &quot;Teen&quot;
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>Otherwise
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    Say &quot;Child&quot;
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>End
+</span></code></pre></div>
+<h3 id="62-match-when">6.2 Match / When<a class="headerlink" href="#62-match-when" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>Match grade
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>    When &quot;A&quot;
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>        Say &quot;Excellent&quot;
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    When &quot;B&quot; or &quot;C&quot;
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>        Say &quot;Good&quot;
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>    Default
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>        Say &quot;Unknown&quot;
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>End
+</span></code></pre></div>
+<h3 id="63-while">6.3 While<a class="headerlink" href="#63-while" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>counter = 0
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>While counter &lt; 10
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>    Say counter
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    Increase counter by 1
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>End
+</span></code></pre></div>
+<h3 id="64-repeat">6.4 Repeat<a class="headerlink" href="#64-repeat" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>Repeat 5 times
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>    Say &quot;Hello&quot;
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>End
+</span></code></pre></div>
+<h3 id="65-for-range">6.5 For Range<a class="headerlink" href="#65-for-range" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>For i from 1 to 10
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>    Say i
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>End
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>For i from 0 to 20 step 2
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a>    Say i
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a>End
+</span></code></pre></div>
+<h3 id="66-for-each">6.6 For Each<a class="headerlink" href="#66-for-each" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>names = [&quot;Alice&quot;, &quot;Bob&quot;, &quot;Charlie&quot;]
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>For Each name In names
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>    Say &quot;Hello, $name&quot;
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>End
+</span></code></pre></div>
+<h3 id="67-break-and-continue">6.7 Break And Continue<a class="headerlink" href="#67-break-and-continue" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>For i from 1 to 100
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>    If i == 50 Then
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>        Break
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a>    End
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a>    If i % 2 == 0 Then
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>        Continue
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    End
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>    Say i
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a>End
+</span></code></pre></div>
+<hr />
+<h2 id="7-functions-and-lambdas">7. Functions And Lambdas<a class="headerlink" href="#7-functions-and-lambdas" title="Permanent link">&para;</a></h2>
+<h3 id="71-function-definitions">7.1 Function Definitions<a class="headerlink" href="#71-function-definitions" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>Function greet takes name
+</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>    Say &quot;Hello, $name&quot;
+</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>End
+</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a>
+</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>Function add takes a, b
+</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    Return a + b
+</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>End
+</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>
+</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>Function factorial takes n
+</span><span id="__span-24-10"><a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>    If n &lt;= 1 Then
+</span><span id="__span-24-11"><a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>        Return 1
+</span><span id="__span-24-12"><a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a>    End
+</span><span id="__span-24-13"><a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>    Return n * factorial(n - 1)
+</span><span id="__span-24-14"><a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>End
+</span></code></pre></div>
+<p>Long English form:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>Define a function named double that takes x
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>    Return x * 2
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>End
+</span></code></pre></div>
+<h3 id="72-parameters">7.2 Parameters<a class="headerlink" href="#72-parameters" title="Permanent link">&para;</a></h3>
+<p>Parameters may be separated with commas or <code>and</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>Function add takes a, b
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>    Return a + b
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>End
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>Function multiply takes a and b
+</span><span id="__span-26-6"><a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>    Return a * b
+</span><span id="__span-26-7"><a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>End
+</span></code></pre></div>
+<p>Default parameters and rest parameters are supported by the parser for supported runtimes:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>Function greet takes name = &quot;friend&quot;
+</span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>    Say &quot;Hello, $name&quot;
+</span><span id="__span-27-3"><a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>End
+</span><span id="__span-27-4"><a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>
+</span><span id="__span-27-5"><a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>Function total takes rest numbers
+</span><span id="__span-27-6"><a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a>    Return numbers.sum()
+</span><span id="__span-27-7"><a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a>End
+</span></code></pre></div>
+<h3 id="73-lambdas">7.3 Lambdas<a class="headerlink" href="#73-lambdas" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>double = lambda x -&gt; x * 2
+</span><span id="__span-28-2"><a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>add = lambda a, b -&gt; a + b
+</span><span id="__span-28-3"><a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>
+</span><span id="__span-28-4"><a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>nums = [1, 2, 3]
+</span><span id="__span-28-5"><a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>Say nums.map(lambda x -&gt; x * 2)
+</span></code></pre></div>
+<p><code>given x return expression</code> is also parsed as a lambda-style expression. Prefer <code>lambda ... -&gt; ...</code> in public docs.</p>
+<hr />
+<h2 id="8-classes-and-objects">8. Classes And Objects<a class="headerlink" href="#8-classes-and-objects" title="Permanent link">&para;</a></h2>
+<h3 id="81-basic-class">8.1 Basic Class<a class="headerlink" href="#81-basic-class" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>Class Animal
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>    name = &quot;Unknown&quot;
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>    sound = &quot;...&quot;
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>    Function speak
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a>        Say name + &quot; says &quot; + sound
+</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a>    End
+</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a>End
+</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a>
+</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a>dog = new Animal
+</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a>dog.name = &quot;Rex&quot;
+</span><span id="__span-29-12"><a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>dog.sound = &quot;Woof&quot;
+</span><span id="__span-29-13"><a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a>dog.speak()
+</span></code></pre></div>
+<h3 id="82-constructor-pattern">8.2 Constructor Pattern<a class="headerlink" href="#82-constructor-pattern" title="Permanent link">&para;</a></h3>
+<p><code>init</code> is the constructor called when arguments are provided.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>Class Counter
+</span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>    value = 0
+</span><span id="__span-30-3"><a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>
+</span><span id="__span-30-4"><a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>    Function init takes start
+</span><span id="__span-30-5"><a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>        value = start
+</span><span id="__span-30-6"><a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>    End
+</span><span id="__span-30-7"><a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>
+</span><span id="__span-30-8"><a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>    Function increment
+</span><span id="__span-30-9"><a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>        Increase value by 1
+</span><span id="__span-30-10"><a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>        Return value
+</span><span id="__span-30-11"><a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>    End
+</span><span id="__span-30-12"><a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>End
+</span><span id="__span-30-13"><a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a>
+</span><span id="__span-30-14"><a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>counter = new Counter(10)
+</span><span id="__span-30-15"><a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>Say counter.increment()
+</span></code></pre></div>
+<h3 id="83-inheritance">8.3 Inheritance<a class="headerlink" href="#83-inheritance" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>Class Dog extends Animal
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>    Function init takes dog_name
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a>        name = dog_name
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>        sound = &quot;Woof&quot;
+</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a>    End
+</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a>End
+</span></code></pre></div>
+<p>Interfaces, visibility keywords, static methods, generic classes, and <code>Super</code> are implemented surfaces, but they should be covered by project-specific tests before use in production libraries.</p>
+<hr />
+<h2 id="9-modules-and-imports">9. Modules And Imports<a class="headerlink" href="#9-modules-and-imports" title="Permanent link">&para;</a></h2>
+<h3 id="91-module-blocks">9.1 Module Blocks<a class="headerlink" href="#91-module-blocks" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>Module Utils
+</span><span id="__span-32-2"><a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>    Constant VERSION = &quot;1.0&quot;
+</span><span id="__span-32-3"><a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>
+</span><span id="__span-32-4"><a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>    Function double takes x
+</span><span id="__span-32-5"><a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a>        Return x * 2
+</span><span id="__span-32-6"><a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>    End
+</span><span id="__span-32-7"><a id="__codelineno-32-7" name="__codelineno-32-7" href="#__codelineno-32-7"></a>End
+</span><span id="__span-32-8"><a id="__codelineno-32-8" name="__codelineno-32-8" href="#__codelineno-32-8"></a>
+</span><span id="__span-32-9"><a id="__codelineno-32-9" name="__codelineno-32-9" href="#__codelineno-32-9"></a>Say Utils::VERSION
+</span><span id="__span-32-10"><a id="__codelineno-32-10" name="__codelineno-32-10" href="#__codelineno-32-10"></a>Say Utils::double(5)
+</span></code></pre></div>
+<h3 id="92-file-and-standard-library-imports">9.2 File And Standard Library Imports<a class="headerlink" href="#92-file-and-standard-library-imports" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>Import &quot;helpers.epl&quot;
+</span><span id="__span-33-2"><a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>Import &quot;math&quot; as Math
+</span><span id="__span-33-3"><a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>Use &quot;collections&quot; as Collections
+</span></code></pre></div>
+<p>Import resolution checks:</p>
+<ol>
+<li>Exact path</li>
+<li>Path plus <code>.epl</code></li>
+<li>Relative to current file</li>
+<li>Built-in EPL standard library under <code>epl/stdlib/</code></li>
+<li>Installed packages such as <code>epl_modules/</code> and user package cache</li>
+</ol>
+<p>Bundled stdlib modules import in two ways:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>Note: Bare import brings function names into the current scope.
+</span><span id="__span-34-2"><a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>Import &quot;encoding&quot;
+</span><span id="__span-34-3"><a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>Say to_base64(&quot;hi&quot;)
+</span><span id="__span-34-4"><a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a>
+</span><span id="__span-34-5"><a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a>Note: Aliased import namespaces them under the alias.
+</span><span id="__span-34-6"><a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a>Import &quot;encoding&quot; as ENC
+</span><span id="__span-34-7"><a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>Say ENC.to_base64(&quot;hi&quot;)
+</span></code></pre></div>
+<p>The shippable importable modules are <code>json</code>, <code>encoding</code>, <code>net</code>, <code>os</code>, <code>regex</code>, and <code>sql</code>. See <code>docs/stdlib-reference.md</code> for their public APIs. Because <code>json</code> is a reserved token, member access such as <code>json.parse(...)</code> will not lex; use the bare form (<code>Import "json"</code> then <code>parse(...)</code>) or, preferably, an alias (<code>Import "json" as J</code> then <code>J.stringify(...)</code>).</p>
+<h3 id="93-python-bridge">9.3 Python Bridge<a class="headerlink" href="#93-python-bridge" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>Note: `json` is a reserved token, so alias the Python module to a non-reserved name.
+</span><span id="__span-35-2"><a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>Use python &quot;json&quot; as pyjson
+</span><span id="__span-35-3"><a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>
+</span><span id="__span-35-4"><a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>payload = pyjson.loads(&quot;{\&quot;ok\&quot;: true}&quot;)
+</span><span id="__span-35-5"><a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a>Say payload.get(&quot;ok&quot;)
+</span></code></pre></div>
+<p>Third-party dependencies belong in <code>epl.toml</code>:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="k">[python-dependencies]</span>
+</span><span id="__span-36-2"><a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="n">requests</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;*&quot;</span>
+</span><span id="__span-36-3"><a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a><span class="n">yaml</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;pyyaml&gt;=6&quot;</span>
+</span></code></pre></div>
+<p>Sandbox mode blocks <code>Use python</code>.</p>
+<h3 id="94-javascript-and-typescript-bridge">9.4 JavaScript And TypeScript Bridge<a class="headerlink" href="#94-javascript-and-typescript-bridge" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-37-1"><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>Use javascript &quot;lodash&quot; as lodash
+</span><span id="__span-37-2"><a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>Use typescript &quot;axios&quot; as axios
+</span><span id="__span-37-3"><a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>
+</span><span id="__span-37-4"><a id="__codelineno-37-4" name="__codelineno-37-4" href="#__codelineno-37-4"></a>Say lodash.capitalize(&quot;hello from epl&quot;)
+</span></code></pre></div>
+<p>Manage JS dependencies with:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-38-1"><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>epl<span class="w"> </span>jsinstall<span class="w"> </span>lodash
+</span><span id="__span-38-2"><a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>epl<span class="w"> </span>jsremove<span class="w"> </span>lodash
+</span><span id="__span-38-3"><a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>epl<span class="w"> </span>jsdeps
+</span></code></pre></div>
+<p>Sandbox mode blocks <code>Use javascript</code> and <code>Use typescript</code>.</p>
+<hr />
+<h2 id="10-error-handling">10. Error Handling<a class="headerlink" href="#10-error-handling" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-39-1"><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>Try
+</span><span id="__span-39-2"><a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>    result = risky_operation()
+</span><span id="__span-39-3"><a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>    Say result
+</span><span id="__span-39-4"><a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a>Catch error
+</span><span id="__span-39-5"><a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a>    Say &quot;Error: $error&quot;
+</span><span id="__span-39-6"><a id="__codelineno-39-6" name="__codelineno-39-6" href="#__codelineno-39-6"></a>Finally
+</span><span id="__span-39-7"><a id="__codelineno-39-7" name="__codelineno-39-7" href="#__codelineno-39-7"></a>    Say &quot;cleanup&quot;
+</span><span id="__span-39-8"><a id="__codelineno-39-8" name="__codelineno-39-8" href="#__codelineno-39-8"></a>End
+</span></code></pre></div>
+<p>Throw errors with:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-40-1"><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>Throw &quot;Invalid input&quot;
+</span></code></pre></div>
+<p>Some older examples use <code>Raise</code>; prefer <code>Throw</code> in current docs.</p>
+<p>Assertions:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-41-1"><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>Assert length(items) &gt; 0
+</span><span id="__span-41-2"><a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>Assert name != Nothing
+</span></code></pre></div>
+<hr />
+<h2 id="11-native-webapp-syntax">11. Native WebApp Syntax<a class="headerlink" href="#11-native-webapp-syntax" title="Permanent link">&para;</a></h2>
+<p>The served web runtime is the native <code>Create WebApp</code> DSL.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-42-1"><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>Create WebApp called app
+</span><span id="__span-42-2"><a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>
+</span><span id="__span-42-3"><a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>Route &quot;/&quot; shows
+</span><span id="__span-42-4"><a id="__codelineno-42-4" name="__codelineno-42-4" href="#__codelineno-42-4"></a>    Page &quot;Welcome&quot;
+</span><span id="__span-42-5"><a id="__codelineno-42-5" name="__codelineno-42-5" href="#__codelineno-42-5"></a>        Heading &quot;Welcome to EPL&quot;
+</span><span id="__span-42-6"><a id="__codelineno-42-6" name="__codelineno-42-6" href="#__codelineno-42-6"></a>        Text &quot;Server-rendered page route&quot;
+</span><span id="__span-42-7"><a id="__codelineno-42-7" name="__codelineno-42-7" href="#__codelineno-42-7"></a>        Link &quot;Users API&quot; to &quot;/api/users&quot;
+</span><span id="__span-42-8"><a id="__codelineno-42-8" name="__codelineno-42-8" href="#__codelineno-42-8"></a>    End
+</span><span id="__span-42-9"><a id="__codelineno-42-9" name="__codelineno-42-9" href="#__codelineno-42-9"></a>End
+</span><span id="__span-42-10"><a id="__codelineno-42-10" name="__codelineno-42-10" href="#__codelineno-42-10"></a>
+</span><span id="__span-42-11"><a id="__codelineno-42-11" name="__codelineno-42-11" href="#__codelineno-42-11"></a>Route &quot;/api/users&quot; responds with
+</span><span id="__span-42-12"><a id="__codelineno-42-12" name="__codelineno-42-12" href="#__codelineno-42-12"></a>    users = [&quot;Alice&quot;, &quot;Bob&quot;]
+</span><span id="__span-42-13"><a id="__codelineno-42-13" name="__codelineno-42-13" href="#__codelineno-42-13"></a>    Send json Map with users = users and count = length(users)
+</span><span id="__span-42-14"><a id="__codelineno-42-14" name="__codelineno-42-14" href="#__codelineno-42-14"></a>End
+</span><span id="__span-42-15"><a id="__codelineno-42-15" name="__codelineno-42-15" href="#__codelineno-42-15"></a>
+</span><span id="__span-42-16"><a id="__codelineno-42-16" name="__codelineno-42-16" href="#__codelineno-42-16"></a>Start app on port 8000
+</span></code></pre></div>
+<p>When using <code>epl serve app.epl</code>, the CLI can host the app without an explicit <code>Start app on port ...</code> in many project workflows. Keep <code>Start app on port ...</code> in standalone examples that are run directly.</p>
+<h3 id="111-request-context">11.1 Request Context<a class="headerlink" href="#111-request-context" title="Permanent link">&para;</a></h3>
+<p>Inside route bodies:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request_data</code></td>
+<td>Parsed request body as map</td>
+</tr>
+<tr>
+<td><code>request_params</code></td>
+<td>Path and query parameters</td>
+</tr>
+<tr>
+<td><code>request_headers</code></td>
+<td>Request headers</td>
+</tr>
+<tr>
+<td><code>request_method</code></td>
+<td>HTTP method</td>
+</tr>
+<tr>
+<td><code>request_path</code></td>
+<td>Normalized request path</td>
+</tr>
+<tr>
+<td><code>request</code></td>
+<td>Combined request object</td>
+</tr>
+<tr>
+<td><code>session_id</code></td>
+<td>Current session identifier when present</td>
+</tr>
+</tbody>
+</table>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-43-1"><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>Route &quot;/users/:name&quot; responds with
+</span><span id="__span-43-2"><a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>    name = request_params.name
+</span><span id="__span-43-3"><a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>    role = request_data.get(&quot;role&quot;, &quot;guest&quot;)
+</span><span id="__span-43-4"><a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>    Send json Map with name = name and role = role and method = request_method
+</span><span id="__span-43-5"><a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>End
+</span></code></pre></div>
+<h3 id="112-page-elements">11.2 Page Elements<a class="headerlink" href="#112-page-elements" title="Permanent link">&para;</a></h3>
+<p>Common page elements:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-44-1"><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>Page &quot;Dashboard&quot;
+</span><span id="__span-44-2"><a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>    Heading &quot;Dashboard&quot;
+</span><span id="__span-44-3"><a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>    Subheading &quot;Today&quot;
+</span><span id="__span-44-4"><a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>    Text &quot;Status: $status&quot;
+</span><span id="__span-44-5"><a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>    Link &quot;Home&quot; to &quot;/&quot;
+</span><span id="__span-44-6"><a id="__codelineno-44-6" name="__codelineno-44-6" href="#__codelineno-44-6"></a>    Button &quot;Refresh&quot;
+</span><span id="__span-44-7"><a id="__codelineno-44-7" name="__codelineno-44-7" href="#__codelineno-44-7"></a>    Div class &quot;panel&quot;
+</span><span id="__span-44-8"><a id="__codelineno-44-8" name="__codelineno-44-8" href="#__codelineno-44-8"></a>        Text &quot;Nested content&quot;
+</span><span id="__span-44-9"><a id="__codelineno-44-9" name="__codelineno-44-9" href="#__codelineno-44-9"></a>    End
+</span><span id="__span-44-10"><a id="__codelineno-44-10" name="__codelineno-44-10" href="#__codelineno-44-10"></a>End
+</span></code></pre></div>
+<p>Use <code>Raw HTML</code> only for trusted static markup:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-45-1"><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>Page &quot;Trusted Markup&quot;
+</span><span id="__span-45-2"><a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>    Raw HTML &quot;&lt;strong&gt;Trusted markup only&lt;/strong&gt;&quot;
+</span><span id="__span-45-3"><a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a>End
+</span></code></pre></div>
+<p>Never pass user-controlled input into <code>Raw HTML</code>.</p>
+<hr />
+<h2 id="12-database-syntax">12. Database Syntax<a class="headerlink" href="#12-database-syntax" title="Permanent link">&para;</a></h2>
+<h3 id="121-built-in-sqlite">12.1 Built-in SQLite<a class="headerlink" href="#121-built-in-sqlite" title="Permanent link">&para;</a></h3>
+<p>Use <code>db_*</code> for the primary SQLite path:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-46-1"><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>db = db_open(&quot;app.db&quot;)
+</span><span id="__span-46-2"><a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>db_execute(db, &quot;CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT UNIQUE)&quot;)
+</span><span id="__span-46-3"><a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>db_execute(db, &quot;INSERT INTO users (name, email) VALUES (?, ?)&quot;, [&quot;Alice&quot;, &quot;alice@example.com&quot;])
+</span><span id="__span-46-4"><a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a>users = db_query(db, &quot;SELECT id, name, email FROM users ORDER BY id&quot;)
+</span><span id="__span-46-5"><a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>db_close(db)
+</span></code></pre></div>
+<p>Production guidance:</p>
+<ul>
+<li>Use raw <code>CREATE TABLE</code> SQL through <code>db_execute</code> for migrations.</li>
+<li>Use parameter placeholders for all external values.</li>
+<li><code>db_create_table</code> now accepts standard SQL column constraints and parameterized types in its column map, for example <code>INTEGER PRIMARY KEY</code>, <code>TEXT NOT NULL</code>, <code>VARCHAR(255)</code>, and <code>DECIMAL(10,2)</code>. Allowed type words include <code>DECIMAL</code>, <code>FLOAT</code>, <code>DOUBLE</code>, <code>CHAR</code>, and <code>TIMESTAMP</code>. Identifiers are still validated and SQL injection is still blocked.</li>
+<li>Close connections in long-running scripts and tests.</li>
+</ul>
+<h3 id="122-additional-adapters">12.2 Additional Adapters<a class="headerlink" href="#122-additional-adapters" title="Permanent link">&para;</a></h3>
+<p><code>real_db_*</code> helpers support integration with PostgreSQL, MySQL, and SQLite when drivers and URLs are available:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-47-1"><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>db = real_db_connect(&quot;sqlite:///app.db&quot;)
+</span><span id="__span-47-2"><a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>rows = real_db_query(db, &quot;SELECT * FROM users WHERE active = ?&quot;, [True])
+</span><span id="__span-47-3"><a id="__codelineno-47-3" name="__codelineno-47-3" href="#__codelineno-47-3"></a>real_db_close(db)
+</span></code></pre></div>
+<p>Validate non-SQLite deployments in your own environment.</p>
+<hr />
+<h2 id="13-standard-library-surface">13. Standard Library Surface<a class="headerlink" href="#13-standard-library-surface" title="Permanent link">&para;</a></h2>
+<p>Built-ins available without imports include:</p>
+<ul>
+<li>Core conversion: <code>length</code>, <code>type_of</code>, <code>to_integer</code>, <code>to_decimal</code>, <code>to_text</code>, <code>to_boolean</code></li>
+<li>Math: <code>sqrt</code>, <code>power</code>, <code>floor</code>, <code>ceil</code>, <code>round</code>, <code>absolute</code>, <code>random(min, max)</code>, <code>min</code>, <code>max</code></li>
+<li>String and collection helpers: <code>uppercase</code>, <code>lowercase</code>, <code>trim</code>, <code>split</code>, <code>join</code>, <code>contains</code>, <code>keys</code>, <code>values</code></li>
+<li>File and directory helpers: <code>file_read</code>, <code>file_write</code>, <code>file_exists</code>, <code>dir_list</code>, <code>path_join</code></li>
+<li>HTTP and JSON: <code>http_get</code>, <code>http_post</code>, <code>json_parse</code>, <code>json_stringify</code></li>
+<li>Database: <code>db_open</code>, <code>db_execute</code>, <code>db_query</code>, <code>db_query_one</code>, <code>db_insert</code>, <code>db_close</code></li>
+<li>Auth: <code>auth_hash_password</code>, <code>auth_verify_password</code>, <code>auth_jwt_create</code>, <code>auth_jwt_verify</code></li>
+<li>WebSocket: <code>ws_server_create</code>, <code>ws_on_connect</code>, <code>ws_on_message</code>, <code>ws_broadcast</code></li>
+<li>Templates: <code>template_render</code>, <code>template_render_string</code></li>
+</ul>
+<p>In addition to the always-available built-ins, six bundled modules under <code>epl/stdlib/</code> are importable: <code>json</code>, <code>encoding</code>, <code>net</code>, <code>os</code>, <code>regex</code>, and <code>sql</code>. These are thin EPL wrappers over the Python-backed built-ins (<code>json_parse</code>, <code>regex_match</code>, <code>db_*</code>, and so on), which remain callable directly without an import. Import them bare to bring functions in as plain names, or with <code>as</code> to namespace them.</p>
+<p>See <code>docs/stdlib-reference.md</code> for the current reference and optional dependency notes.</p>
+<hr />
+<h2 id="14-cli-reference">14. CLI Reference<a class="headerlink" href="#14-cli-reference" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-48-1"><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>epl<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-2"><a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>epl<span class="w"> </span>run<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-3"><a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>epl<span class="w"> </span>run
+</span><span id="__span-48-4"><a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a>epl<span class="w"> </span>new<span class="w"> </span>&lt;name&gt;<span class="w"> </span>--template<span class="w"> </span>web
+</span><span id="__span-48-5"><a id="__codelineno-48-5" name="__codelineno-48-5" href="#__codelineno-48-5"></a>epl<span class="w"> </span>build<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-6"><a id="__codelineno-48-6" name="__codelineno-48-6" href="#__codelineno-48-6"></a>epl<span class="w"> </span><span class="nb">test</span>
+</span><span id="__span-48-7"><a id="__codelineno-48-7" name="__codelineno-48-7" href="#__codelineno-48-7"></a>epl<span class="w"> </span>repl
+</span><span id="__span-48-8"><a id="__codelineno-48-8" name="__codelineno-48-8" href="#__codelineno-48-8"></a>epl<span class="w"> </span>serve<span class="w"> </span>&lt;file.epl&gt;<span class="w"> </span>--port<span class="w"> </span><span class="m">8080</span>
+</span><span id="__span-48-9"><a id="__codelineno-48-9" name="__codelineno-48-9" href="#__codelineno-48-9"></a>epl<span class="w"> </span>js<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-10"><a id="__codelineno-48-10" name="__codelineno-48-10" href="#__codelineno-48-10"></a>epl<span class="w"> </span>node<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-11"><a id="__codelineno-48-11" name="__codelineno-48-11" href="#__codelineno-48-11"></a>epl<span class="w"> </span>python<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-12"><a id="__codelineno-48-12" name="__codelineno-48-12" href="#__codelineno-48-12"></a>epl<span class="w"> </span>kotlin<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-13"><a id="__codelineno-48-13" name="__codelineno-48-13" href="#__codelineno-48-13"></a>epl<span class="w"> </span>android<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-14"><a id="__codelineno-48-14" name="__codelineno-48-14" href="#__codelineno-48-14"></a>epl<span class="w"> </span>ios<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-15"><a id="__codelineno-48-15" name="__codelineno-48-15" href="#__codelineno-48-15"></a>epl<span class="w"> </span>desktop<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-16"><a id="__codelineno-48-16" name="__codelineno-48-16" href="#__codelineno-48-16"></a>epl<span class="w"> </span>web<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-17"><a id="__codelineno-48-17" name="__codelineno-48-17" href="#__codelineno-48-17"></a>epl<span class="w"> </span>vm<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-18"><a id="__codelineno-48-18" name="__codelineno-48-18" href="#__codelineno-48-18"></a>epl<span class="w"> </span>debug<span class="w"> </span>&lt;file.epl&gt;
+</span><span id="__span-48-19"><a id="__codelineno-48-19" name="__codelineno-48-19" href="#__codelineno-48-19"></a>epl<span class="w"> </span>fmt<span class="w"> </span>&lt;file-or-dir&gt;
+</span><span id="__span-48-20"><a id="__codelineno-48-20" name="__codelineno-48-20" href="#__codelineno-48-20"></a>epl<span class="w"> </span>lint
+</span><span id="__span-48-21"><a id="__codelineno-48-21" name="__codelineno-48-21" href="#__codelineno-48-21"></a>epl<span class="w"> </span>check
+</span><span id="__span-48-22"><a id="__codelineno-48-22" name="__codelineno-48-22" href="#__codelineno-48-22"></a>epl<span class="w"> </span>install<span class="w"> </span>&lt;package&gt;
+</span><span id="__span-48-23"><a id="__codelineno-48-23" name="__codelineno-48-23" href="#__codelineno-48-23"></a>epl<span class="w"> </span>pyinstall<span class="w"> </span>&lt;import&gt;<span class="w"> </span><span class="o">[</span>spec<span class="o">]</span>
+</span><span id="__span-48-24"><a id="__codelineno-48-24" name="__codelineno-48-24" href="#__codelineno-48-24"></a>epl<span class="w"> </span>jsinstall<span class="w"> </span>&lt;package&gt;<span class="w"> </span><span class="o">[</span>version<span class="o">]</span>
+</span><span id="__span-48-25"><a id="__codelineno-48-25" name="__codelineno-48-25" href="#__codelineno-48-25"></a>epl<span class="w"> </span>gitinstall<span class="w"> </span>&lt;owner/repo&gt;
+</span><span id="__span-48-26"><a id="__codelineno-48-26" name="__codelineno-48-26" href="#__codelineno-48-26"></a>epl<span class="w"> </span>deploy<span class="w"> </span>k8s<span class="w"> </span>&lt;file.epl&gt;<span class="w"> </span>--image<span class="w"> </span>app:1.0<span class="w"> </span>--host<span class="w"> </span>app.example.com<span class="w"> </span>--tls
+</span><span id="__span-48-27"><a id="__codelineno-48-27" name="__codelineno-48-27" href="#__codelineno-48-27"></a>epl<span class="w"> </span>playground
+</span><span id="__span-48-28"><a id="__codelineno-48-28" name="__codelineno-48-28" href="#__codelineno-48-28"></a>epl<span class="w"> </span>--version
+</span></code></pre></div>
+<p>Flags commonly used in production checks:</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--strict</code></td>
+<td>Enable static checking where supported</td>
+</tr>
+<tr>
+<td><code>--sandbox</code></td>
+<td>Disable dangerous built-ins and ecosystem bridges</td>
+</tr>
+<tr>
+<td><code>--verbose</code></td>
+<td>Show diagnostic output</td>
+</tr>
+<tr>
+<td><code>--quiet</code></td>
+<td>Suppress non-error output</td>
+</tr>
+<tr>
+<td><code>--no-color</code></td>
+<td>Disable ANSI color</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="15-current-grammar-summary">15. Current Grammar Summary<a class="headerlink" href="#15-current-grammar-summary" title="Permanent link">&para;</a></h2>
+<p>This is a practical summary, not a byte-for-byte copy of the parser.</p>
+<div class="language-ebnf highlight"><pre><span></span><code><span id="__span-49-1"><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a><span class="k">program        </span><span class="o">=</span> <span class="p">{</span> <span class="k">statement newline </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-2"><a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a>
+</span><span id="__span-49-3"><a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a><span class="k">statement      </span><span class="o">=</span> <span class="k">var_decl </span><span class="p">|</span> <span class="k">assignment </span><span class="p">|</span> <span class="k">print_stmt </span><span class="p">|</span> <span class="k">input_stmt</span>
+</span><span id="__span-49-4"><a id="__codelineno-49-4" name="__codelineno-49-4" href="#__codelineno-49-4"></a>               <span class="p">|</span> <span class="k">if_stmt </span><span class="p">|</span> <span class="k">match_stmt </span><span class="p">|</span> <span class="k">while_stmt </span><span class="p">|</span> <span class="k">repeat_stmt</span>
+</span><span id="__span-49-5"><a id="__codelineno-49-5" name="__codelineno-49-5" href="#__codelineno-49-5"></a>               <span class="p">|</span> <span class="k">for_range </span><span class="p">|</span> <span class="k">for_each </span><span class="p">|</span> <span class="k">function_def </span><span class="p">|</span> <span class="k">class_def</span>
+</span><span id="__span-49-6"><a id="__codelineno-49-6" name="__codelineno-49-6" href="#__codelineno-49-6"></a>               <span class="p">|</span> <span class="k">module_def </span><span class="p">|</span> <span class="k">import_stmt </span><span class="p">|</span> <span class="k">use_stmt </span><span class="p">|</span> <span class="k">try_stmt</span>
+</span><span id="__span-49-7"><a id="__codelineno-49-7" name="__codelineno-49-7" href="#__codelineno-49-7"></a>               <span class="p">|</span> <span class="k">return_stmt </span><span class="p">|</span> <span class="k">throw_stmt </span><span class="p">|</span> <span class="k">assert_stmt</span>
+</span><span id="__span-49-8"><a id="__codelineno-49-8" name="__codelineno-49-8" href="#__codelineno-49-8"></a>               <span class="p">|</span> <span class="k">webapp_stmt </span><span class="p">|</span> <span class="k">route_stmt </span><span class="p">|</span> <span class="k">start_stmt</span>
+</span><span id="__span-49-9"><a id="__codelineno-49-9" name="__codelineno-49-9" href="#__codelineno-49-9"></a>               <span class="p">|</span> <span class="k">expression_stmt </span><span class="p">;</span>
+</span><span id="__span-49-10"><a id="__codelineno-49-10" name="__codelineno-49-10" href="#__codelineno-49-10"></a>
+</span><span id="__span-49-11"><a id="__codelineno-49-11" name="__codelineno-49-11" href="#__codelineno-49-11"></a><span class="k">var_decl       </span><span class="o">=</span> <span class="k">identifier </span><span class="s2">&quot;=&quot;</span> <span class="k">expression</span>
+</span><span id="__span-49-12"><a id="__codelineno-49-12" name="__codelineno-49-12" href="#__codelineno-49-12"></a>               <span class="p">|</span> <span class="s2">&quot;Create&quot;</span> <span class="p">[</span> <span class="k">type </span><span class="p">]</span> <span class="k">identifier </span><span class="p">(</span> <span class="s2">&quot;equal&quot;</span> <span class="p">[</span> <span class="s2">&quot;to&quot;</span> <span class="p">]</span> <span class="p">|</span> <span class="s2">&quot;=&quot;</span> <span class="p">|</span> <span class="s2">&quot;as&quot;</span> <span class="p">)</span> <span class="k">expression</span>
+</span><span id="__span-49-13"><a id="__codelineno-49-13" name="__codelineno-49-13" href="#__codelineno-49-13"></a>               <span class="p">|</span> <span class="s2">&quot;Remember&quot;</span> <span class="k">identifier </span><span class="s2">&quot;as&quot;</span> <span class="k">expression </span><span class="p">;</span>
+</span><span id="__span-49-14"><a id="__codelineno-49-14" name="__codelineno-49-14" href="#__codelineno-49-14"></a>
+</span><span id="__span-49-15"><a id="__codelineno-49-15" name="__codelineno-49-15" href="#__codelineno-49-15"></a><span class="k">assignment     </span><span class="o">=</span> <span class="k">identifier </span><span class="s2">&quot;=&quot;</span> <span class="k">expression</span>
+</span><span id="__span-49-16"><a id="__codelineno-49-16" name="__codelineno-49-16" href="#__codelineno-49-16"></a>               <span class="p">|</span> <span class="s2">&quot;Set&quot;</span> <span class="k">identifier </span><span class="s2">&quot;to&quot;</span> <span class="k">expression</span>
+</span><span id="__span-49-17"><a id="__codelineno-49-17" name="__codelineno-49-17" href="#__codelineno-49-17"></a>               <span class="p">|</span> <span class="p">(</span> <span class="s2">&quot;Increase&quot;</span> <span class="p">|</span> <span class="s2">&quot;Decrease&quot;</span> <span class="p">)</span> <span class="k">identifier </span><span class="s2">&quot;by&quot;</span> <span class="k">expression </span><span class="p">;</span>
+</span><span id="__span-49-18"><a id="__codelineno-49-18" name="__codelineno-49-18" href="#__codelineno-49-18"></a>
+</span><span id="__span-49-19"><a id="__codelineno-49-19" name="__codelineno-49-19" href="#__codelineno-49-19"></a><span class="k">print_stmt     </span><span class="o">=</span> <span class="p">(</span> <span class="s2">&quot;Print&quot;</span> <span class="p">|</span> <span class="s2">&quot;Say&quot;</span> <span class="p">|</span> <span class="s2">&quot;Display&quot;</span> <span class="p">|</span> <span class="s2">&quot;Show&quot;</span> <span class="p">)</span> <span class="k">expression </span><span class="p">;</span>
+</span><span id="__span-49-20"><a id="__codelineno-49-20" name="__codelineno-49-20" href="#__codelineno-49-20"></a><span class="k">input_stmt     </span><span class="o">=</span> <span class="s2">&quot;Input&quot;</span> <span class="k">identifier </span><span class="p">[</span> <span class="s2">&quot;with&quot;</span> <span class="s2">&quot;prompt&quot;</span> <span class="k">string </span><span class="p">]</span>
+</span><span id="__span-49-21"><a id="__codelineno-49-21" name="__codelineno-49-21" href="#__codelineno-49-21"></a>               <span class="p">|</span> <span class="s2">&quot;Ask&quot;</span> <span class="p">[</span> <span class="k">string </span><span class="p">]</span> <span class="p">[</span> <span class="s2">&quot;and&quot;</span> <span class="p">]</span> <span class="p">[</span> <span class="s2">&quot;store&quot;</span> <span class="p">]</span> <span class="p">[</span> <span class="s2">&quot;in&quot;</span> <span class="p">]</span> <span class="k">identifier </span><span class="p">;</span>
+</span><span id="__span-49-22"><a id="__codelineno-49-22" name="__codelineno-49-22" href="#__codelineno-49-22"></a>
+</span><span id="__span-49-23"><a id="__codelineno-49-23" name="__codelineno-49-23" href="#__codelineno-49-23"></a><span class="k">if_stmt        </span><span class="o">=</span> <span class="s2">&quot;If&quot;</span> <span class="k">expression </span><span class="p">[</span> <span class="s2">&quot;Then&quot;</span> <span class="p">]</span> <span class="k">block</span>
+</span><span id="__span-49-24"><a id="__codelineno-49-24" name="__codelineno-49-24" href="#__codelineno-49-24"></a>                 <span class="p">{</span> <span class="s2">&quot;Otherwise&quot;</span> <span class="s2">&quot;If&quot;</span> <span class="k">expression </span><span class="p">[</span> <span class="s2">&quot;Then&quot;</span> <span class="p">]</span> <span class="k">block </span><span class="p">}</span>
+</span><span id="__span-49-25"><a id="__codelineno-49-25" name="__codelineno-49-25" href="#__codelineno-49-25"></a>                 <span class="p">[</span> <span class="s2">&quot;Otherwise&quot;</span> <span class="k">block </span><span class="p">]</span> <span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-26"><a id="__codelineno-49-26" name="__codelineno-49-26" href="#__codelineno-49-26"></a>
+</span><span id="__span-49-27"><a id="__codelineno-49-27" name="__codelineno-49-27" href="#__codelineno-49-27"></a><span class="k">match_stmt     </span><span class="o">=</span> <span class="s2">&quot;Match&quot;</span> <span class="k">expression </span><span class="p">{</span> <span class="s2">&quot;When&quot;</span> <span class="k">expression block </span><span class="p">}</span> <span class="p">[</span> <span class="s2">&quot;Default&quot;</span> <span class="k">block </span><span class="p">]</span> <span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-28"><a id="__codelineno-49-28" name="__codelineno-49-28" href="#__codelineno-49-28"></a><span class="k">while_stmt     </span><span class="o">=</span> <span class="s2">&quot;While&quot;</span> <span class="k">expression block </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-29"><a id="__codelineno-49-29" name="__codelineno-49-29" href="#__codelineno-49-29"></a><span class="k">repeat_stmt    </span><span class="o">=</span> <span class="s2">&quot;Repeat&quot;</span> <span class="k">expression </span><span class="s2">&quot;times&quot;</span> <span class="k">block </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-30"><a id="__codelineno-49-30" name="__codelineno-49-30" href="#__codelineno-49-30"></a><span class="k">for_range      </span><span class="o">=</span> <span class="s2">&quot;For&quot;</span> <span class="k">identifier </span><span class="s2">&quot;from&quot;</span> <span class="k">expression </span><span class="s2">&quot;to&quot;</span> <span class="k">expression </span><span class="p">[</span> <span class="s2">&quot;step&quot;</span> <span class="k">expression </span><span class="p">]</span> <span class="k">block </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-31"><a id="__codelineno-49-31" name="__codelineno-49-31" href="#__codelineno-49-31"></a><span class="k">for_each       </span><span class="o">=</span> <span class="s2">&quot;For&quot;</span> <span class="s2">&quot;Each&quot;</span> <span class="k">identifier </span><span class="s2">&quot;In&quot;</span> <span class="k">expression block </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-32"><a id="__codelineno-49-32" name="__codelineno-49-32" href="#__codelineno-49-32"></a>
+</span><span id="__span-49-33"><a id="__codelineno-49-33" name="__codelineno-49-33" href="#__codelineno-49-33"></a><span class="k">function_def   </span><span class="o">=</span> <span class="s2">&quot;Function&quot;</span> <span class="k">identifier </span><span class="p">[</span> <span class="s2">&quot;takes&quot;</span> <span class="k">param_list </span><span class="p">]</span> <span class="k">block </span><span class="s2">&quot;End&quot;</span>
+</span><span id="__span-49-34"><a id="__codelineno-49-34" name="__codelineno-49-34" href="#__codelineno-49-34"></a>               <span class="p">|</span> <span class="s2">&quot;Define&quot;</span> <span class="p">[</span> <span class="s2">&quot;a&quot;</span> <span class="p">]</span> <span class="s2">&quot;function&quot;</span> <span class="p">[</span> <span class="s2">&quot;named&quot;</span> <span class="p">]</span> <span class="k">identifier </span><span class="p">[</span> <span class="s2">&quot;that&quot;</span> <span class="s2">&quot;takes&quot;</span> <span class="k">param_list </span><span class="p">]</span> <span class="k">block </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-35"><a id="__codelineno-49-35" name="__codelineno-49-35" href="#__codelineno-49-35"></a>
+</span><span id="__span-49-36"><a id="__codelineno-49-36" name="__codelineno-49-36" href="#__codelineno-49-36"></a><span class="k">class_def      </span><span class="o">=</span> <span class="s2">&quot;Class&quot;</span> <span class="k">identifier </span><span class="p">[</span> <span class="s2">&quot;extends&quot;</span> <span class="k">identifier </span><span class="p">]</span> <span class="k">class_body </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-37"><a id="__codelineno-49-37" name="__codelineno-49-37" href="#__codelineno-49-37"></a><span class="k">module_def     </span><span class="o">=</span> <span class="s2">&quot;Module&quot;</span> <span class="k">identifier block </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-38"><a id="__codelineno-49-38" name="__codelineno-49-38" href="#__codelineno-49-38"></a><span class="k">import_stmt    </span><span class="o">=</span> <span class="s2">&quot;Import&quot;</span> <span class="k">string </span><span class="p">[</span> <span class="s2">&quot;as&quot;</span> <span class="k">identifier </span><span class="p">]</span> <span class="p">;</span>
+</span><span id="__span-49-39"><a id="__codelineno-49-39" name="__codelineno-49-39" href="#__codelineno-49-39"></a><span class="k">use_stmt       </span><span class="o">=</span> <span class="s2">&quot;Use&quot;</span> <span class="k">string </span><span class="p">[</span> <span class="s2">&quot;as&quot;</span> <span class="k">identifier </span><span class="p">]</span>
+</span><span id="__span-49-40"><a id="__codelineno-49-40" name="__codelineno-49-40" href="#__codelineno-49-40"></a>               <span class="p">|</span> <span class="s2">&quot;Use&quot;</span> <span class="s2">&quot;python&quot;</span> <span class="k">string </span><span class="p">[</span> <span class="s2">&quot;as&quot;</span> <span class="k">identifier </span><span class="p">]</span>
+</span><span id="__span-49-41"><a id="__codelineno-49-41" name="__codelineno-49-41" href="#__codelineno-49-41"></a>               <span class="p">|</span> <span class="s2">&quot;Use&quot;</span> <span class="p">(</span> <span class="s2">&quot;javascript&quot;</span> <span class="p">|</span> <span class="s2">&quot;typescript&quot;</span> <span class="p">)</span> <span class="k">string </span><span class="p">[</span> <span class="s2">&quot;as&quot;</span> <span class="k">identifier </span><span class="p">]</span> <span class="p">;</span>
+</span><span id="__span-49-42"><a id="__codelineno-49-42" name="__codelineno-49-42" href="#__codelineno-49-42"></a>
+</span><span id="__span-49-43"><a id="__codelineno-49-43" name="__codelineno-49-43" href="#__codelineno-49-43"></a><span class="k">try_stmt       </span><span class="o">=</span> <span class="s2">&quot;Try&quot;</span> <span class="k">block </span><span class="s2">&quot;Catch&quot;</span> <span class="k">identifier block </span><span class="p">[</span> <span class="s2">&quot;Finally&quot;</span> <span class="k">block </span><span class="p">]</span> <span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-44"><a id="__codelineno-49-44" name="__codelineno-49-44" href="#__codelineno-49-44"></a><span class="k">return_stmt    </span><span class="o">=</span> <span class="s2">&quot;Return&quot;</span> <span class="p">[</span> <span class="k">expression </span><span class="p">]</span> <span class="p">;</span>
+</span><span id="__span-49-45"><a id="__codelineno-49-45" name="__codelineno-49-45" href="#__codelineno-49-45"></a><span class="k">throw_stmt     </span><span class="o">=</span> <span class="s2">&quot;Throw&quot;</span> <span class="k">expression </span><span class="p">;</span>
+</span><span id="__span-49-46"><a id="__codelineno-49-46" name="__codelineno-49-46" href="#__codelineno-49-46"></a><span class="k">assert_stmt    </span><span class="o">=</span> <span class="s2">&quot;Assert&quot;</span> <span class="k">expression </span><span class="p">;</span>
+</span><span id="__span-49-47"><a id="__codelineno-49-47" name="__codelineno-49-47" href="#__codelineno-49-47"></a>
+</span><span id="__span-49-48"><a id="__codelineno-49-48" name="__codelineno-49-48" href="#__codelineno-49-48"></a><span class="k">webapp_stmt    </span><span class="o">=</span> <span class="s2">&quot;Create&quot;</span> <span class="s2">&quot;WebApp&quot;</span> <span class="p">[</span> <span class="s2">&quot;called&quot;</span> <span class="p">]</span> <span class="k">identifier </span><span class="p">;</span>
+</span><span id="__span-49-49"><a id="__codelineno-49-49" name="__codelineno-49-49" href="#__codelineno-49-49"></a><span class="k">route_stmt     </span><span class="o">=</span> <span class="s2">&quot;Route&quot;</span> <span class="k">string </span><span class="p">(</span> <span class="s2">&quot;shows&quot;</span> <span class="p">|</span> <span class="s2">&quot;responds&quot;</span> <span class="p">[</span> <span class="s2">&quot;with&quot;</span> <span class="p">]</span> <span class="p">)</span> <span class="k">block </span><span class="s2">&quot;End&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-50"><a id="__codelineno-49-50" name="__codelineno-49-50" href="#__codelineno-49-50"></a><span class="k">start_stmt     </span><span class="o">=</span> <span class="s2">&quot;Start&quot;</span> <span class="k">identifier </span><span class="p">[</span> <span class="s2">&quot;on&quot;</span> <span class="p">]</span> <span class="p">[</span> <span class="s2">&quot;port&quot;</span> <span class="p">]</span> <span class="k">expression </span><span class="p">;</span>
+</span><span id="__span-49-51"><a id="__codelineno-49-51" name="__codelineno-49-51" href="#__codelineno-49-51"></a>
+</span><span id="__span-49-52"><a id="__codelineno-49-52" name="__codelineno-49-52" href="#__codelineno-49-52"></a><span class="k">expression     </span><span class="o">=</span> <span class="k">ternary </span><span class="p">;</span>
+</span><span id="__span-49-53"><a id="__codelineno-49-53" name="__codelineno-49-53" href="#__codelineno-49-53"></a><span class="k">ternary        </span><span class="o">=</span> <span class="k">or_expr </span><span class="p">[</span> <span class="s2">&quot;if&quot;</span> <span class="k">expression </span><span class="s2">&quot;otherwise&quot;</span> <span class="k">expression </span><span class="p">]</span> <span class="p">;</span>
+</span><span id="__span-49-54"><a id="__codelineno-49-54" name="__codelineno-49-54" href="#__codelineno-49-54"></a><span class="k">or_expr        </span><span class="o">=</span> <span class="k">and_expr </span><span class="p">{</span> <span class="s2">&quot;or&quot;</span> <span class="k">and_expr </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-55"><a id="__codelineno-49-55" name="__codelineno-49-55" href="#__codelineno-49-55"></a><span class="k">and_expr       </span><span class="o">=</span> <span class="k">not_expr </span><span class="p">{</span> <span class="s2">&quot;and&quot;</span> <span class="k">not_expr </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-56"><a id="__codelineno-49-56" name="__codelineno-49-56" href="#__codelineno-49-56"></a><span class="k">not_expr       </span><span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;not&quot;</span> <span class="p">]</span> <span class="k">comparison </span><span class="p">;</span>
+</span><span id="__span-49-57"><a id="__codelineno-49-57" name="__codelineno-49-57" href="#__codelineno-49-57"></a><span class="k">comparison     </span><span class="o">=</span> <span class="k">addition </span><span class="p">{</span> <span class="k">comparison_operator addition </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-58"><a id="__codelineno-49-58" name="__codelineno-49-58" href="#__codelineno-49-58"></a><span class="k">addition       </span><span class="o">=</span> <span class="k">multiplication </span><span class="p">{</span> <span class="p">(</span> <span class="s2">&quot;+&quot;</span> <span class="p">|</span> <span class="s2">&quot;-&quot;</span> <span class="p">)</span> <span class="k">multiplication </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-59"><a id="__codelineno-49-59" name="__codelineno-49-59" href="#__codelineno-49-59"></a><span class="k">multiplication </span><span class="o">=</span> <span class="k">unary </span><span class="p">{</span> <span class="p">(</span> <span class="s2">&quot;*&quot;</span> <span class="p">|</span> <span class="s2">&quot;/&quot;</span> <span class="p">|</span> <span class="s2">&quot;%&quot;</span> <span class="p">)</span> <span class="k">unary </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-60"><a id="__codelineno-49-60" name="__codelineno-49-60" href="#__codelineno-49-60"></a><span class="k">unary          </span><span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;-&quot;</span> <span class="p">|</span> <span class="s2">&quot;not&quot;</span> <span class="p">]</span> <span class="k">postfix </span><span class="p">;</span>
+</span><span id="__span-49-61"><a id="__codelineno-49-61" name="__codelineno-49-61" href="#__codelineno-49-61"></a><span class="k">postfix        </span><span class="o">=</span> <span class="k">primary </span><span class="p">{</span> <span class="k">call </span><span class="p">|</span> <span class="k">index </span><span class="p">|</span> <span class="k">slice </span><span class="p">|</span> <span class="k">property </span><span class="p">|</span> <span class="k">method_call </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-62"><a id="__codelineno-49-62" name="__codelineno-49-62" href="#__codelineno-49-62"></a><span class="k">primary        </span><span class="o">=</span> <span class="k">number </span><span class="p">|</span> <span class="k">string </span><span class="p">|</span> <span class="s2">&quot;True&quot;</span> <span class="p">|</span> <span class="s2">&quot;False&quot;</span> <span class="p">|</span> <span class="s2">&quot;Nothing&quot;</span>
+</span><span id="__span-49-63"><a id="__codelineno-49-63" name="__codelineno-49-63" href="#__codelineno-49-63"></a>               <span class="p">|</span> <span class="k">identifier </span><span class="p">|</span> <span class="k">list_literal </span><span class="p">|</span> <span class="k">map_literal </span><span class="p">|</span> <span class="k">lambda_expr</span>
+</span><span id="__span-49-64"><a id="__codelineno-49-64" name="__codelineno-49-64" href="#__codelineno-49-64"></a>               <span class="p">|</span> <span class="s2">&quot;new&quot;</span> <span class="k">identifier </span><span class="p">[</span> <span class="k">call_args </span><span class="p">]</span> <span class="p">|</span> <span class="s2">&quot;(&quot;</span> <span class="k">expression </span><span class="s2">&quot;)&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-65"><a id="__codelineno-49-65" name="__codelineno-49-65" href="#__codelineno-49-65"></a>
+</span><span id="__span-49-66"><a id="__codelineno-49-66" name="__codelineno-49-66" href="#__codelineno-49-66"></a><span class="k">list_literal   </span><span class="o">=</span> <span class="s2">&quot;[&quot;</span> <span class="p">[</span> <span class="k">expression </span><span class="p">{</span> <span class="s2">&quot;,&quot;</span> <span class="k">expression </span><span class="p">}</span> <span class="p">]</span> <span class="s2">&quot;]&quot;</span> <span class="p">;</span>
+</span><span id="__span-49-67"><a id="__codelineno-49-67" name="__codelineno-49-67" href="#__codelineno-49-67"></a><span class="k">map_literal    </span><span class="o">=</span> <span class="s2">&quot;Map&quot;</span> <span class="s2">&quot;with&quot;</span> <span class="k">identifier </span><span class="s2">&quot;=&quot;</span> <span class="k">expression </span><span class="p">{</span> <span class="p">[</span> <span class="k">newline </span><span class="p">]</span> <span class="s2">&quot;and&quot;</span> <span class="k">identifier </span><span class="s2">&quot;=&quot;</span> <span class="k">expression </span><span class="p">}</span> <span class="p">;</span>
+</span><span id="__span-49-68"><a id="__codelineno-49-68" name="__codelineno-49-68" href="#__codelineno-49-68"></a><span class="k">lambda_expr    </span><span class="o">=</span> <span class="s2">&quot;lambda&quot;</span> <span class="k">param_list </span><span class="s2">&quot;-&gt;&quot;</span> <span class="k">expression </span><span class="p">;</span>
+</span></code></pre></div>
+<hr />
+<h2 id="16-enterprise-production-checklist">16. Enterprise Production Checklist<a class="headerlink" href="#16-enterprise-production-checklist" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Pin EPL and dependency versions in CI.</li>
+<li>Run parser smoke tests for every documented example your product depends on.</li>
+<li>Use <code>db_execute</code> migrations for real schemas and parameterized queries for all external values.</li>
+<li>Run web apps behind a reviewed production server and trusted proxy configuration.</li>
+<li>Keep secrets in environment variables or a secret manager, never in EPL source.</li>
+<li>Enable <code>--sandbox</code> for untrusted code.</li>
+<li>Treat Python/JS bridges as privileged integration points.</li>
+<li>Validate deployment artifacts against your own cluster/cloud policy before rollout.</li>
+</ul>
+<hr />
+<p><em>EPL v9.8.0 - Write readable programs in plain English, with clear production boundaries.</em></p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024–2026 Abneesh Singh
+    </div>
+  
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/abneeshsingh21/EPL" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/eplang/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
