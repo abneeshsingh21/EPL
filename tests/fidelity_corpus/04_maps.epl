@@ -1,0 +1,9 @@
+Note: Map dot-access + index-access + iteration
+user = Map with name = "Grace" and age = 42
+Say "name: " + user.name
+Say "age: " + user.age
+Say user["name"]
+scores = Map with alice = 90 and bob = 78
+For each key in scores
+    Say key + " scored " + scores[key]
+End

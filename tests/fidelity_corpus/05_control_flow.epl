@@ -1,0 +1,12 @@
+Note: loops + conditionals + modulo (FizzBuzz)
+For i from 1 to 15
+    If i mod 15 equals 0 then
+        Say "FizzBuzz"
+    Otherwise If i mod 3 equals 0 then
+        Say "Fizz"
+    Otherwise If i mod 5 equals 0 then
+        Say "Buzz"
+    Otherwise
+        Say i
+    End
+End

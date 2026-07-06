@@ -1,0 +1,7 @@
+Note: int vs float division parity, modulo, power
+Say 10 / 2
+Say 10 / 3
+Say 7 mod 3
+Say 2 ** 10
+Say 17 // 5
+Say "half of 9 is " + (9 / 2)

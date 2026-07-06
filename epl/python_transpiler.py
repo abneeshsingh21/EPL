@@ -29,6 +29,13 @@ class PythonTranspiler:
         self.in_class = False
         self.class_properties: set[str] = set()
         self.user_functions: set[str] = set()
+        # Runtime-helper usage flags. EPL's `+`, print formatting, division,
+        # `.length`, and Map dot-access carry semantics plain Python does not
+        # (auto-coercion, `true`/`false`/`nothing` display, int-preserving
+        # division, dict attribute access). We emit a small `_epl_*` prelude —
+        # but only the helpers a program actually uses, so a program that needs
+        # none stays helper-free and fully idiomatic.
+        self._need: set[str] = set()
 
     # ── Main entry ─────────────────────────────────────
 
@@ -39,6 +46,22 @@ class PythonTranspiler:
                 self.user_functions.add(stmt.name)
             elif isinstance(stmt, ast.AsyncFunctionDef):
                 self.user_functions.add(stmt.name)
+
+        # Pre-scan to decide collection wrapping. EPL's list HOFs (`map`/
+        # `filter`/`reduce`) and Map dot-access need list/dict subclasses to
+        # behave like the interpreter; but wrapping every literal would clutter
+        # programs that never use those features. A single field-agnostic walk
+        # tells us whether the wrappers are worth emitting.
+        method_names, class_names = self._prescan(program)
+        self._wrap_lists = bool(method_names & {'map', 'filter', 'reduce'})
+        # Dot-access on a Map is indistinguishable from a class-property access
+        # at transpile time, so wrap dict literals whenever the program both
+        # builds a map and accesses a property somewhere. Wrapping is always
+        # semantically safe (a dict subclass); this rule just avoids the noise
+        # in programs that only index maps with `["key"]`.
+        self._wrap_maps = ('DictLiteral' in class_names) and (
+            'PropertyAccess' in class_names
+        )
 
         for stmt in program.statements:
             self._emit_stmt(stmt)
@@ -53,8 +76,97 @@ class PythonTranspiler:
             header.append(f'from {mod} import {", ".join(sorted(names))}')
         if self.imports or self.from_imports:
             header.append('')
+        prelude = self._render_prelude()
+        if prelude:
+            header.append(prelude)
         header.append('')
         return '\n'.join(header) + '\n'.join(self.output) + '\n'
+
+    def _render_prelude(self) -> str:
+        """Emit only the `_epl_*` runtime helpers the program actually used.
+
+        Each helper reproduces one EPL semantic that plain Python lacks, so
+        transpiled code behaves byte-for-byte like `epl run`.
+        """
+        if not self._need:
+            return ''
+        parts = ['# ── EPL runtime helpers (semantic parity with the interpreter) ──']
+
+        # `_epl_fmt`: EPL's display form — true/false/nothing, bracketed lists,
+        # brace maps — used by print and by string `+`. Several helpers depend
+        # on it, so emit it whenever any of them is needed.
+        if self._need & {'fmt', 'add', 'print'}:
+            parts.append(
+                'def _epl_fmt(v):\n'
+                '    if v is True: return "true"\n'
+                '    if v is False: return "false"\n'
+                '    if v is None: return "nothing"\n'
+                '    if isinstance(v, list):\n'
+                '        return "[" + ", ".join(_epl_fmt(x) for x in v) + "]"\n'
+                '    if isinstance(v, dict):\n'
+                '        return "{" + ", ".join(f"{k}: {_epl_fmt(x)}" for k, x in v.items()) + "}"\n'
+                '    return str(v)'
+            )
+        if 'print' in self._need:
+            parts.append('def _epl_print(v):\n    print(_epl_fmt(v))')
+        if 'add' in self._need:
+            parts.append(
+                'def _epl_add(a, b):\n'
+                '    if isinstance(a, str) or isinstance(b, str):\n'
+                '        return _epl_fmt(a) + _epl_fmt(b)\n'
+                '    return a + b'
+            )
+        if 'div' in self._need:
+            parts.append(
+                'def _epl_div(a, b):\n'
+                '    if isinstance(a, int) and isinstance(b, int) and b != 0 and a % b == 0:\n'
+                '        return a // b\n'
+                '    return a / b'
+            )
+        if self._need & {'map', 'filter'}:
+            parts.append(
+                'class _EPLList(list):\n'
+                '    def map(self, fn): return _EPLList(fn(x) for x in self)\n'
+                '    def filter(self, fn): return _EPLList(x for x in self if fn(x))\n'
+                '    def reduce(self, fn, *init):\n'
+                '        it = iter(self)\n'
+                '        acc = init[0] if init else next(it)\n'
+                '        for x in it: acc = fn(acc, x)\n'
+                '        return acc'
+            )
+        if 'dotdict' in self._need:
+            parts.append(
+                'class _EPLMap(dict):\n'
+                '    def __getattr__(self, k):\n'
+                '        try: return self[k]\n'
+                '        except KeyError: raise AttributeError(k)\n'
+                '    def __setattr__(self, k, v): self[k] = v'
+            )
+        return '\n\n'.join(parts) + '\n'
+
+    def _prescan(self, program):
+        """Walk the whole AST once, collecting method names called and node
+        class names seen. Field-agnostic so it survives AST shape changes."""
+        method_names: set[str] = set()
+        class_names: set[str] = set()
+
+        def visit(node):
+            if node is None:
+                return
+            if isinstance(node, (list, tuple)):
+                for item in node:
+                    visit(item)
+                return
+            if not isinstance(node, ast.ASTNode):
+                return
+            class_names.add(type(node).__name__)
+            if isinstance(node, ast.MethodCall):
+                method_names.add(node.method_name)
+            for value in vars(node).values():
+                visit(value)
+
+        visit(program.statements)
+        return method_names, class_names
 
     # ── Helpers ────────────────────────────────────────
 
@@ -203,7 +315,10 @@ class PythonTranspiler:
             self._line(f'{node.name} = {self._expr(node.value)}')
 
     def _emit_print(self, node):
-        self._line(f'print({self._expr(node.expression)})')
+        # EPL prints via its display formatter (true/false/nothing, bracketed
+        # lists, brace maps), not Python's str(); `_epl_print` matches it.
+        self._need.add('print')
+        self._line(f'_epl_print({self._expr(node.expression)})')
 
     def _emit_input(self, node):
         prompt = self._expr(node.prompt) if node.prompt else "''"
@@ -574,6 +689,16 @@ class PythonTranspiler:
         if isinstance(node, ast.FunctionCall):
             return self._expr_call(node)
         if isinstance(node, ast.PropertyAccess):
+            # EPL exposes `.length` on strings, lists and maps as a property;
+            # Python spells it len(). Map/instance dot-access stays as-is (the
+            # _EPLMap subclass resolves `.key` via __getattr__ when wrapped).
+            if node.property_name == 'length':
+                return f'len({self._expr(node.obj)})'
+            if node.property_name in ('uppercase', 'lowercase', 'trim'):
+                method = {'uppercase': 'upper', 'lowercase': 'lower', 'trim': 'strip'}[
+                    node.property_name
+                ]
+                return f'{self._expr(node.obj)}.{method}()'
             return f'{self._expr(node.obj)}.{node.property_name}'
         if isinstance(node, ast.MethodCall):
             return self._expr_method(node)
@@ -583,6 +708,12 @@ class PythonTranspiler:
             return self._expr_slice(node)
         if isinstance(node, ast.ListLiteral):
             elems = ', '.join(self._expr(e) for e in node.elements)
+            # When the program calls .map/.filter/.reduce anywhere, lists must
+            # carry those methods (Python's built-in list has none). Wrap in the
+            # _EPLList subclass; otherwise keep a plain, idiomatic list.
+            if getattr(self, '_wrap_lists', False):
+                self._need.add('map')
+                return f'_EPLList([{elems}])'
             return f'[{elems}]'
         if isinstance(node, ast.DictLiteral):
             pairs = []
@@ -591,7 +722,14 @@ class PythonTranspiler:
                     pairs.append(f'{self._py_string(k)}: {self._expr(v)}')
                 else:
                     pairs.append(f'{self._expr(k)}: {self._expr(v)}')
-            return '{' + ', '.join(pairs) + '}'
+            body = '{' + ', '.join(pairs) + '}'
+            # EPL Maps support dot-access (user.name). A plain dict raises
+            # AttributeError, so wrap in _EPLMap when the program uses property
+            # access. Indexing (map["key"]) works on both, unwrapped or not.
+            if getattr(self, '_wrap_maps', False):
+                self._need.add('dotdict')
+                return f'_EPLMap({body})'
+            return body
         if isinstance(node, ast.NewInstance):
             args = ', '.join(self._expr(a) for a in node.arguments)
             return f'{node.class_name}({args})'
@@ -641,11 +779,21 @@ class PythonTranspiler:
         left = self._expr(node.left)
         right = self._expr(node.right)
         op = self._map_op(node.operator)
-        # String concatenation: EPL uses + for strings too
         if op == '//':
             return f'({left} // {right})'
         if op == '**':
             return f'({left} ** {right})'
+        # EPL's `+` auto-stringifies when either side is text ("n: " + 3) and
+        # concatenates lists — Python's raw `+` raises TypeError on the mixed
+        # case. Route through `_epl_add` to preserve the interpreter's behavior.
+        if op == '+':
+            self._need.add('add')
+            return f'_epl_add({left}, {right})'
+        # EPL's `/` yields an int when two ints divide evenly (10/2 -> 5), unlike
+        # Python's always-float `/`. `_epl_div` mirrors the interpreter/VM.
+        if op == '/':
+            self._need.add('div')
+            return f'_epl_div({left}, {right})'
         return f'({left} {op} {right})'
 
     def _map_op(self, op: str) -> str:

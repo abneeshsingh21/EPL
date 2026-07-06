@@ -1,0 +1,7 @@
+Note: nested list/map + map printed via +
+matrix = [[1, 2], [3, 4]]
+Say matrix
+Say "first row: " + matrix[0]
+people = Map with a = "x" and b = "y"
+Say people
+Say "map is " + people

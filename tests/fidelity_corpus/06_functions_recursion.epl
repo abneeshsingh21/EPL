@@ -1,0 +1,10 @@
+Note: recursion + function calls
+Function factorial takes n
+    If n is at most 1 then
+        Return 1
+    End
+    Return n * factorial(n - 1)
+End
+For i from 1 to 6
+    Say "factorial(" + i + ") = " + factorial(i)
+End
