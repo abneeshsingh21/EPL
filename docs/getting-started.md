@@ -280,7 +280,7 @@ Note:   /_metrics — Prometheus-format metrics
 | Tutorials | [tutorials.md](tutorials.md) |
 | Architecture | [architecture.md](architecture.md) |
 | Package Manager | [package-manager.md](package-manager.md) |
-| Changelog | [../CHANGELOG.md](../CHANGELOG.md) |
+| Changelog | [CHANGELOG.md](https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md) |
 
 ---
 
