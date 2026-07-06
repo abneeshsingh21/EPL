@@ -6711,7 +6711,19 @@ def _call_web(name, args, line, interpreter=None):
         flask = _ensure_flask()
         if not args:
             raise EPLRuntimeError('web_send_file(path[, mimetype]) requires file path.', line)
-        fpath = _os.path.abspath(str(args[0]))
+        # Jail served files to a root directory so a request-controlled path
+        # cannot traverse to arbitrary files (../../etc/passwd, absolute paths).
+        # Root defaults to the app's CWD; override with EPL_WEB_FILE_ROOT.
+        root = _os.path.realpath(_os.environ.get('EPL_WEB_FILE_ROOT') or _os.getcwd())
+        raw = str(args[0])
+        candidate = raw if _os.path.isabs(raw) else _os.path.join(root, raw)
+        fpath = _os.path.realpath(candidate)  # resolves symlinks too
+        if fpath != root and not fpath.startswith(root + _os.sep):
+            raise EPLRuntimeError(
+                'web_send_file: refused to serve a path outside the allowed directory. '
+                'Set EPL_WEB_FILE_ROOT to broaden the served root if this is intentional.',
+                line,
+            )
         mimetype = str(args[1]) if len(args) > 1 else None
         return flask.send_file(fpath, mimetype=mimetype)
 
