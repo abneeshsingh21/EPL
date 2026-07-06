@@ -1674,11 +1674,18 @@ def _redos_body_is_dangerous(body):
     if prefix:
         body = body[prefix.end() :]
     for branch in _redos_split_alternation(body):
-        # Unwrap one layer of redundant grouping: ((a+)) -> (a+) -> a+
-        inner = _redos_match_full_group(branch)
-        if inner is not None:
+        # Unwrap redundant grouping until stable: (((a+)))+ -> ((a+)) -> (a+) -> a+.
+        # A single unwrap let deeply nested wrappers such as (((a+)))+$ slip
+        # past the inner-atom check and still backtrack catastrophically.
+        while True:
+            inner = _redos_match_full_group(branch)
+            if inner is None:
+                break
             pfx = _REDOS_GROUP_PREFIX.match(inner)
-            branch = inner[pfx.end() :] if pfx else inner
+            inner = inner[pfx.end() :] if pfx else inner
+            if inner == branch:
+                break
+            branch = inner
         if _REDOS_INNER_ATOM.match(branch):
             return True
     return False
@@ -6727,8 +6734,18 @@ def _call_web(name, args, line, interpreter=None):
         # Root defaults to the app's CWD; override with EPL_WEB_FILE_ROOT.
         root = _os.path.realpath(_os.environ.get('EPL_WEB_FILE_ROOT') or _os.getcwd())
         raw = str(args[0])
-        candidate = raw if _os.path.isabs(raw) else _os.path.join(root, raw)
-        fpath = _os.path.realpath(candidate)  # resolves symlinks too
+        # Cross-platform hardening: an EPL web app may be deployed on either
+        # POSIX or Windows, and a request-controlled path could arrive with
+        # either separator or a drive-letter/UNC prefix. POSIX os.path does not
+        # treat '\\' as a separator or 'C:/...' as absolute, so a Windows-style
+        # payload (..\\..\\win.ini, C:/Windows/...) would otherwise sail past
+        # the jail on a Linux/macOS host. Normalise separators and detect
+        # foreign absolute forms so traversal is caught regardless of host OS.
+        norm = raw.replace('\\', '/')
+        foreign_abs = bool(_re.match(r'^[A-Za-z]:', norm)) or norm.startswith('//')
+        is_abs = _os.path.isabs(raw) or norm.startswith('/') or foreign_abs
+        candidate = norm if is_abs else _os.path.join(root, norm)
+        fpath = _os.path.realpath(candidate)  # resolves symlinks + '..' too
         if fpath != root and not fpath.startswith(root + _os.sep):
             raise EPLRuntimeError(
                 'web_send_file: refused to serve a path outside the allowed directory. '
