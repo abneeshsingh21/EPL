@@ -704,6 +704,22 @@ def _sanitize_package_name(name):
     return name
 
 
+def _safe_package_dest(name):
+    """Return an absolute install path for ``name`` guaranteed to sit inside
+    PACKAGES_DIR. Sanitizes the (attacker-controllable, manifest-derived) name
+    and then asserts the resolved path cannot escape the packages directory —
+    defense in depth against path traversal / absolute-path injection.
+
+    Raises ValueError if the name is invalid or would escape the jail.
+    """
+    name = _sanitize_package_name(name)
+    root = os.path.realpath(PACKAGES_DIR)
+    dest = os.path.realpath(os.path.join(root, name))
+    if dest != root and not dest.startswith(root + os.sep):
+        raise ValueError(f'Package name "{name}" escapes the packages directory.')
+    return dest
+
+
 def _validate_url(url):
     """Validate that a URL uses only https:// scheme."""
     if not url or not isinstance(url, str):
@@ -2400,8 +2416,18 @@ def _install_from_url(url, expected_sha256=None, source='url', metadata=None):
             if MANIFEST_NAME in files:
                 manifest = load_manifest(root)
                 if manifest:
+                    # SECURITY: the manifest name is attacker-controlled — it
+                    # travels inside the downloaded archive. Sanitize and jail
+                    # it before it reaches rmtree/copytree, or a name like
+                    # "../../.config/autostart" (or an absolute path) would
+                    # write/delete files anywhere the user can.
                     pkg_name = manifest.get('name', 'unknown')
-                    dest = os.path.join(PACKAGES_DIR, pkg_name)
+                    try:
+                        dest = _safe_package_dest(pkg_name)
+                    except ValueError as e:
+                        print(f'  Error: refusing to install package — {e}')
+                        return False
+                    pkg_name = os.path.basename(dest)
                     if os.path.exists(dest):
                         shutil.rmtree(dest)
                     shutil.copytree(root, dest)
@@ -2429,7 +2455,12 @@ def _install_from_url(url, expected_sha256=None, source='url', metadata=None):
                     epl_files.append(os.path.join(root, f))
         if epl_files:
             pkg_name = os.path.basename(url).replace('.zip', '')
-            dest = os.path.join(PACKAGES_DIR, pkg_name)
+            try:
+                dest = _safe_package_dest(pkg_name)
+            except ValueError:
+                # URL basename was unusable as a name — fall back to a safe id.
+                dest = _safe_package_dest('downloaded-package')
+            pkg_name = os.path.basename(dest)
             os.makedirs(dest, exist_ok=True)
             for ef in epl_files:
                 shutil.copy2(ef, dest)
