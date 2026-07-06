@@ -17,7 +17,10 @@ from epl.tokens import Token, TokenType
 class Parser:
     """Parses EPL tokens into an Abstract Syntax Tree."""
 
-    MAX_DEPTH = 200  # Maximum recursion depth for nested expressions
+    # Maximum nesting depth for expressions. Kept well below the point where
+    # CPython's C stack overflows (each level consumes several frames), so the
+    # clean "nesting too deep" error fires before an uncaught RecursionError.
+    MAX_DEPTH = 100
 
     def __init__(self, tokens: list):
         self.tokens = tokens
@@ -298,6 +301,21 @@ class Parser:
                 if len(self.errors) >= self.max_errors:
                     break
                 self._synchronize()
+            except RecursionError:
+                # Safety net: hostile input can nest deep enough to exhaust the
+                # C stack via recursion the _depth counter does not track (e.g.
+                # nested statements/data literals). Convert to a clean parser
+                # error instead of letting an uncaught RecursionError crash the
+                # worker (playground / MCP / LSP). Stop parsing — the stack is
+                # near its limit and synchronising could recurse again.
+                self.errors.append(
+                    ParserError(
+                        'Input nesting too deep — refusing to parse. Break deeply '
+                        'nested expressions or structures into smaller pieces.',
+                        self._current().line if self.tokens else 0,
+                    )
+                )
+                break
             self._skip_newlines()
 
         # If we collected errors, raise the first one (with count info)
@@ -326,6 +344,21 @@ class Parser:
                 if len(self.errors) >= self.max_errors:
                     break
                 self._synchronize()
+            except RecursionError:
+                # Safety net: hostile input can nest deep enough to exhaust the
+                # C stack via recursion the _depth counter does not track (e.g.
+                # nested statements/data literals). Convert to a clean parser
+                # error instead of letting an uncaught RecursionError crash the
+                # worker (playground / MCP / LSP). Stop parsing — the stack is
+                # near its limit and synchronising could recurse again.
+                self.errors.append(
+                    ParserError(
+                        'Input nesting too deep — refusing to parse. Break deeply '
+                        'nested expressions or structures into smaller pieces.',
+                        self._current().line if self.tokens else 0,
+                    )
+                )
+                break
             self._skip_newlines()
         return ast.Program(statements), list(self.errors)
 
@@ -1634,7 +1667,7 @@ class Parser:
         self._depth += 1
         if self._depth > self.MAX_DEPTH:
             raise ParserError(
-                'Expression nesting too deep (maximum 200 levels). '
+                f'Expression nesting too deep (maximum {self.MAX_DEPTH} levels). '
                 'Break complex expressions into smaller variables or functions.',
                 self._current().line,
             )
