@@ -3328,7 +3328,12 @@ class VM:
             try:
                 self.exit_code = int(code)
             except (TypeError, ValueError):
-                self.exit_code = 0
+                # Match the interpreter: a non-numeric Exit value is a runtime
+                # error, not a silent success. Swallowing it to 0 let scripts
+                # and CI treat an invalid program as passing under the VM path.
+                raise VMError(
+                    f'Exit code must be a number, got {self._type_name(code)}.', inst.line
+                ) from None
         return '__HALT__'
 
     # Exception handling

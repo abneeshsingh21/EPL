@@ -56,7 +56,15 @@ def _check_sandbox(action: str = 'FFI operation'):
 
 
 def _has_path_separator(name: str) -> bool:
-    return '/' in name or '\\' in name or os.sep in name or (os.altsep or '') in name
+    # NB: os.altsep is None on POSIX; `('' in name)` is always True, so it must
+    # not be folded into the membership test or every bare name would look
+    # path-like and defeat the basename allowlist shortcut.
+    return (
+        '/' in name
+        or '\\' in name
+        or os.sep in name
+        or (os.altsep is not None and os.altsep in name)
+    )
 
 
 def _check_allowlist(library_path: str):
