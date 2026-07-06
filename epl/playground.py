@@ -184,9 +184,7 @@ def start_playground(port: int = None, open_browser: bool = True, host: str = No
             self._json_response(200, _get_syntax_reference())
 
         def _client_key(self):
-            return _resolve_client_key(
-                self.headers.get('X-Forwarded-For'), self.client_address[0]
-            )
+            return _resolve_client_key(self.headers.get('X-Forwarded-For'), self.client_address[0])
 
         def _rate_limited(self):
             if not _RATE_LIMITER.allow(self._client_key()):

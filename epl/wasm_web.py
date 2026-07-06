@@ -410,9 +410,7 @@ class WebCodeGenerator:
                 )
             elif wtype == 'dropdown':
                 opts = props.get('options', [])
-                opt_html = ''.join(
-                    f'<option value="{esc(o)}">{esc(o)}</option>' for o in opts
-                )
+                opt_html = ''.join(f'<option value="{esc(o)}">{esc(o)}</option>' for o in opts)
                 lines.append(f'        <select id="{wid}" class="epl-select">{opt_html}</select>')
             elif wtype == 'progress':
                 lines.append(

@@ -55,7 +55,9 @@ class TestPackageInstallTraversal(unittest.TestCase):
                 _safe_package_dest(evil)
 
     def test_legit_names_stay_inside_jail(self):
-        root = os.path.realpath(__import__('epl.package_manager', fromlist=['PACKAGES_DIR']).PACKAGES_DIR)
+        root = os.path.realpath(
+            __import__('epl.package_manager', fromlist=['PACKAGES_DIR']).PACKAGES_DIR
+        )
         for good in ('epl-math', 'my_pkg', 'cool.thing-2'):
             dest = _safe_package_dest(good)
             self.assertTrue(dest == root or dest.startswith(root + os.sep))

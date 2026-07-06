@@ -259,6 +259,7 @@ def run_suite():
         import io as _io
         import pickle as _pickle
         import struct as _struct
+
         from epl import bytecode_cache as _bc
 
         class _Evil:

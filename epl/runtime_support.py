@@ -231,9 +231,7 @@ def run_file(
         saved_stdout = sys.stdout
         sys.stdout = tee
         try:
-            vm_result = compile_and_run(
-                source, base_dir=os.path.dirname(os.path.abspath(filepath))
-            )
+            vm_result = compile_and_run(source, base_dir=os.path.dirname(os.path.abspath(filepath)))
             # Propagate `Exit <code>` status from the VM (HALT captures it).
             try:
                 return int(vm_result.get('exit_code', 0) or 0)

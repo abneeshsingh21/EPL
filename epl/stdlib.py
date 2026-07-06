@@ -994,7 +994,10 @@ def _warn_jwt_decode_unverified():
         return
     _jwt_decode_warned[0] = True
     if _os.environ.get('EPL_SUPPRESS_JWT_WARNING', '').strip().lower() in (
-        '1', 'true', 'yes', 'on'
+        '1',
+        'true',
+        'yes',
+        'on',
     ):
         return
     print(
@@ -1004,6 +1007,8 @@ def _warn_jwt_decode_unverified():
         'silence this notice.)',
         file=_sys.stderr,
     )
+
+
 _state_lock = _threading.Lock()  # Protects all module-level state dicts
 
 # ── Real module state ──
@@ -1594,9 +1599,9 @@ def _is_leap_year(year_or_date):
 # A group body that is exactly ONE repeatable atom under an unbounded quantifier.
 _REDOS_INNER_ATOM = _re.compile(
     r'^'
-    r'(?:\\.|\[(?:\\.|[^\]])*\]|[^\\()\[\]])'   # one atom: escape | char-class | single char
-    r'(?:[*+]|\{\d*,\})'                          # unbounded quantifier
-    r'[*+?]?'                                      # optional possessive/lazy marker
+    r'(?:\\.|\[(?:\\.|[^\]])*\]|[^\\()\[\]])'  # one atom: escape | char-class | single char
+    r'(?:[*+]|\{\d*,\})'  # unbounded quantifier
+    r'[*+?]?'  # optional possessive/lazy marker
     r'$'
 )
 # Non-capturing / named / lookaround group prefixes to strip before inspection.
@@ -1667,13 +1672,13 @@ def _redos_body_is_dangerous(body):
     """True if a quantified group with this body backtracks exponentially."""
     prefix = _REDOS_GROUP_PREFIX.match(body)
     if prefix:
-        body = body[prefix.end():]
+        body = body[prefix.end() :]
     for branch in _redos_split_alternation(body):
         # Unwrap one layer of redundant grouping: ((a+)) -> (a+) -> a+
         inner = _redos_match_full_group(branch)
         if inner is not None:
             pfx = _REDOS_GROUP_PREFIX.match(inner)
-            branch = inner[pfx.end():] if pfx else inner
+            branch = inner[pfx.end() :] if pfx else inner
         if _REDOS_INNER_ATOM.match(branch):
             return True
     return False
@@ -1716,7 +1721,7 @@ def _check_redos(pattern):
             stack.append(i)
         elif ch == ')' and stack:
             open_idx = stack.pop()
-            body = pattern[open_idx + 1:i]
+            body = pattern[open_idx + 1 : i]
             # Is this group immediately followed by an UNBOUNDED quantifier?
             q = i + 1
             outer_unbounded = False
@@ -1725,15 +1730,15 @@ def _check_redos(pattern):
             elif q < n and pattern[q] == '{':
                 close = pattern.find('}', q)
                 if close != -1:
-                    spec = pattern[q + 1:close]
+                    spec = pattern[q + 1 : close]
                     # {n,} is unbounded; {n} and {n,m} are bounded (safe)
                     if ',' in spec and spec.split(',', 1)[1].strip() == '':
                         outer_unbounded = True
             if outer_unbounded and _redos_body_is_dangerous(body):
                 raise EPLRuntimeError(
-                    "Regular expression is rejected: it contains a nested unbounded "
-                    f"quantifier (near '{pattern[open_idx:min(q + 1, n)]}') that causes "
-                    "catastrophic backtracking (ReDoS). Rewrite it without nesting "
+                    'Regular expression is rejected: it contains a nested unbounded '
+                    f"quantifier (near '{pattern[open_idx : min(q + 1, n)]}') that causes "
+                    'catastrophic backtracking (ReDoS). Rewrite it without nesting '
                     "'*'/'+' quantifiers — e.g. use 'a+' instead of '(a+)+'."
                 )
         i += 1
@@ -4916,7 +4921,7 @@ def call_stdlib(name, args, line, interpreter=None):
                     'AES-CBC format must be re-encrypted.',
                     line,
                 )
-            raw = raw[len(_AES_MAGIC):]
+            raw = raw[len(_AES_MAGIC) :]
             # salt(16) + nonce(12) + ct + tag(16)
             if len(raw) < 16 + 12 + 16:
                 raise EPLRuntimeError('aes_decrypt: ciphertext too short', line)
@@ -6778,9 +6783,7 @@ def _call_auth(name, args, line):
             raise EPLRuntimeError('auth_hash_password(password) requires a password.', line)
         password = str(args[0])
         salt = _os.urandom(32)
-        key = _hashlib.pbkdf2_hmac(
-            'sha256', password.encode('utf-8'), salt, _PBKDF2_DEFAULT_ITERS
-        )
+        key = _hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, _PBKDF2_DEFAULT_ITERS)
         # Versioned format embeds the iteration count so the work factor can be
         # raised over time without breaking verification of already-stored hashes.
         return f'pbkdf2_sha256${_PBKDF2_DEFAULT_ITERS}${salt.hex()}${key.hex()}'

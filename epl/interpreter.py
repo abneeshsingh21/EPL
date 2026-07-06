@@ -88,37 +88,128 @@ def _build_safe_sandbox_builtins():
     # Whole families that are pure by construction (string / collection / crypto
     # / encoding / date-math / in-memory concurrency — no I/O side effects).
     safe_prefixes = (
-        'base32_', 'base64_', 'hex_', 'url_', 'html_', 'json_',
-        'regex_', 'set_', 'deque_', 'linked_list_', 'ordered_map_',
-        'priority_queue_', 'date_',
-        'template_render', 'template_create', 'template_add_filter', 'template_exists',
-        'atomic_', 'mutex_', 'semaphore_', 'rwlock_', 'channel_', 'wait_group_',
-        'hash_sha', 'hash_md5', 'hmac_', 'pbkdf2_', 'aes_', 'secure_random',
-        'api_', 'path_',
+        'base32_',
+        'base64_',
+        'hex_',
+        'url_',
+        'html_',
+        'json_',
+        'regex_',
+        'set_',
+        'deque_',
+        'linked_list_',
+        'ordered_map_',
+        'priority_queue_',
+        'date_',
+        'template_render',
+        'template_create',
+        'template_add_filter',
+        'template_exists',
+        'atomic_',
+        'mutex_',
+        'semaphore_',
+        'rwlock_',
+        'channel_',
+        'wait_group_',
+        'hash_sha',
+        'hash_md5',
+        'hmac_',
+        'pbkdf2_',
+        'aes_',
+        'secure_random',
+        'api_',
+        'path_',
     )
     # Individually-named pure functions (math, date/clock, small helpers).
-    safe_exact = frozenset({
-        # math
-        'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'ceil_div',
-        'clamp', 'copysign', 'cosh', 'degrees', 'euler', 'exp', 'factorial',
-        'fmod', 'gcd', 'hypot', 'inf', 'lcm', 'lerp', 'log10', 'log2', 'nan',
-        'pi', 'radians', 'sign', 'sinh', 'tanh', 'variance', 'std_dev',
-        'combinations', 'permutations', 'sqrt', 'abs', 'round', 'min', 'max',
-        'sum', 'pow', 'floor', 'ceil',
-        'is_finite', 'is_nan', 'is_leap_year', 'is_weekday', 'is_weekend',
-        # date/time (reads the system clock only — no external access)
-        'day', 'day_of_week', 'days_in_month', 'hour', 'minute', 'second',
-        'month', 'year', 'week_of_year', 'now', 'today', 'utc_now', 'timezone',
-        'from_timestamp', 'to_timestamp', 'timestamp',
-        # string / collection helpers
-        'string_bytes', 'bytes_string', 'format', 'dict_from_lists',
-        'enumerate_list', 'frequency_map', 'group_by', 'partition', 'zip_lists',
-        'csv_parse', 'md5', 'sha256', 'uuid', 'uuid4',
-    })
+    safe_exact = frozenset(
+        {
+            # math
+            'acos',
+            'acosh',
+            'asin',
+            'asinh',
+            'atan',
+            'atan2',
+            'atanh',
+            'ceil_div',
+            'clamp',
+            'copysign',
+            'cosh',
+            'degrees',
+            'euler',
+            'exp',
+            'factorial',
+            'fmod',
+            'gcd',
+            'hypot',
+            'inf',
+            'lcm',
+            'lerp',
+            'log10',
+            'log2',
+            'nan',
+            'pi',
+            'radians',
+            'sign',
+            'sinh',
+            'tanh',
+            'variance',
+            'std_dev',
+            'combinations',
+            'permutations',
+            'sqrt',
+            'abs',
+            'round',
+            'min',
+            'max',
+            'sum',
+            'pow',
+            'floor',
+            'ceil',
+            'is_finite',
+            'is_nan',
+            'is_leap_year',
+            'is_weekday',
+            'is_weekend',
+            # date/time (reads the system clock only — no external access)
+            'day',
+            'day_of_week',
+            'days_in_month',
+            'hour',
+            'minute',
+            'second',
+            'month',
+            'year',
+            'week_of_year',
+            'now',
+            'today',
+            'utc_now',
+            'timezone',
+            'from_timestamp',
+            'to_timestamp',
+            'timestamp',
+            # string / collection helpers
+            'string_bytes',
+            'bytes_string',
+            'format',
+            'dict_from_lists',
+            'enumerate_list',
+            'frequency_map',
+            'group_by',
+            'partition',
+            'zip_lists',
+            'csv_parse',
+            'md5',
+            'sha256',
+            'uuid',
+            'uuid4',
+        }
+    )
     # Names that MATCH a safe prefix but actually perform I/O — force-blocked.
     hard_block = frozenset({'hash_file', 'template_from_file', 'csv_read', 'csv_write'})
     allowed = {
-        fn for fn in STDLIB_FUNCTIONS
+        fn
+        for fn in STDLIB_FUNCTIONS
         if fn not in hard_block and (fn in safe_exact or fn.startswith(safe_prefixes))
     }
     return frozenset(allowed)
@@ -2381,8 +2472,7 @@ class Interpreter:
         target = f'"{requirement}"' if requirement and requirement != pkg_name else f'"{pkg_name}"'
         try:
             answer = input(
-                f'[EPL] Package {target} is not installed. '
-                f'Auto-install it with pip now? [y/N] '
+                f'[EPL] Package {target} is not installed. Auto-install it with pip now? [y/N] '
             )
         except (EOFError, KeyboardInterrupt):
             return False
@@ -3282,9 +3372,7 @@ class Interpreter:
                 if callable(attr):
                     return attr  # bound function/method — return for later call
                 # Wrap sub-modules and complex objects for chaining
-                if hasattr(attr, '__dict__') and not isinstance(
-                    attr, (int, float, str, bool)
-                ):
+                if hasattr(attr, '__dict__') and not isinstance(attr, (int, float, str, bool)):
                     return PythonModule(attr, f'{obj.name}.{prop}')
                 return self._wrap_python_result(attr)
             raise EPLRuntimeError(

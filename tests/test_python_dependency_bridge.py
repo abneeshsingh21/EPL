@@ -155,9 +155,7 @@ class TestPythonDependencyBridge(unittest.TestCase):
             interp = Interpreter(debug_interactive=False)
             interp._current_file = str(source_file)
 
-            env_without_optin = {
-                k: v for k, v in os.environ.items() if k != 'EPL_AUTO_INSTALL'
-            }
+            env_without_optin = {k: v for k, v in os.environ.items() if k != 'EPL_AUTO_INSTALL'}
             with mock.patch.dict(os.environ, env_without_optin, clear=True):
                 with mock.patch(
                     'epl.interpreter._importlib.import_module',

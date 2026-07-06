@@ -18,7 +18,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from epl.networking import HTTPClient, _SSRFRedirectHandler
 
 
-@pytest.mark.parametrize('url', ['file:///etc/passwd', 'ftp://host/x', 'gopher://a/', 'data:text/plain,x'])
+@pytest.mark.parametrize(
+    'url', ['file:///etc/passwd', 'ftp://host/x', 'gopher://a/', 'data:text/plain,x']
+)
 def test_non_http_schemes_blocked(url):
     with pytest.raises(ConnectionError):
         HTTPClient()._make_request('GET', url)
