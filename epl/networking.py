@@ -282,6 +282,33 @@ class UDPSocket:
 # ─── HTTP Client ──────────────────────────────────────────────
 
 
+class _SSRFRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Redirect handler that re-applies the SSRF guard to every hop.
+
+    The initial-URL check in HTTPClient._make_request is not enough on its own:
+    urllib follows 3xx redirects automatically, so an attacker-controlled public
+    URL could redirect into a private/internal address (localhost, cloud
+    metadata) that was never validated. This handler rejects any redirect to a
+    non-http(s) scheme or a private host before the client follows it.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urllib.parse.urlparse(newurl)
+        if parsed.scheme not in ('http', 'https'):
+            raise urllib.error.HTTPError(
+                newurl, code, f'SSRF: blocked redirect to scheme "{parsed.scheme}"', headers, fp
+            )
+        if HTTPClient._is_private_ip(parsed.hostname or ''):
+            raise urllib.error.HTTPError(
+                newurl,
+                code,
+                f'SSRF: blocked redirect to private/internal address ({parsed.hostname})',
+                headers,
+                fp,
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class HTTPResponse:
     """Represents an HTTP response."""
 
@@ -381,17 +408,37 @@ class HTTPClient:
 
     @staticmethod
     def _is_private_ip(hostname: str) -> bool:
-        """Check if hostname resolves to a private/loopback IP (SSRF protection)."""
+        """Check if a hostname resolves to a private/internal IP (SSRF guard).
+
+        Returns True (block) if ANY resolved address is private, loopback,
+        link-local (incl. cloud metadata 169.254.169.254), reserved,
+        unspecified, or multicast. A hostname that cannot be resolved is
+        treated as blocked (fail-closed) so a name that fails here but resolves
+        at connect time cannot slip through.
+        """
         import ipaddress
 
+        if not hostname:
+            return True
         try:
             addr_infos = socket.getaddrinfo(hostname, None)
-            for family, _, _, _, sockaddr in addr_infos:
+        except (socket.gaierror, ValueError, UnicodeError):
+            # Cannot resolve — fail closed rather than allowing the request.
+            return True
+        for family, _, _, _, sockaddr in addr_infos:
+            try:
                 ip = ipaddress.ip_address(sockaddr[0])
-                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                    return True
-        except (socket.gaierror, ValueError):
-            pass
+            except ValueError:
+                return True
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_unspecified
+                or ip.is_multicast
+            ):
+                return True
         return False
 
     def _make_request(
@@ -400,8 +447,13 @@ class HTTPClient:
         """Make an HTTP request."""
         full_url = self._build_url(url)
 
-        # SSRF protection: block requests to private/internal IPs
+        # SSRF protection: enforce an http/https scheme allowlist (blocks
+        # file://, ftp://, gopher://, ...) and block private/internal hosts.
         parsed = urllib.parse.urlparse(full_url)
+        if parsed.scheme not in ('http', 'https'):
+            raise ConnectionError(
+                f'Request blocked: unsupported URL scheme "{parsed.scheme}" (only http/https)'
+            )
         hostname = parsed.hostname or ''
         if self._is_private_ip(hostname):
             raise ConnectionError(
@@ -449,8 +501,16 @@ class HTTPClient:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
+        # Use an opener whose redirect handler re-validates every hop, so an
+        # attacker-controlled public URL cannot 3xx-redirect into a private
+        # address (cloud metadata, localhost) after the initial check passes.
+        opener = urllib.request.build_opener(
+            _SSRFRedirectHandler(),
+            *([urllib.request.HTTPSHandler(context=ctx)] if ctx is not None else []),
+        )
+
         try:
-            response = urllib.request.urlopen(req, timeout=self.timeout, context=ctx)
+            response = opener.open(req, timeout=self.timeout)
             resp_headers = dict(response.getheaders())
             resp_body = response.read()
 
