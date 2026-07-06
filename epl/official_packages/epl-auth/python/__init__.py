@@ -89,7 +89,11 @@ def decode_jwt_unverified(token):
 
 
 def is_jwt_expired(token, secret):
-    payload = decode_jwt_unverified(token)
+    # Verify the signature with `secret` first: an unverified token's claims are
+    # attacker-controlled, so `exp` read without verification is meaningless. A
+    # token that fails verification (bad signature or already expired) is treated
+    # as not usable == expired.
+    payload = verify_jwt(token, secret)
     if payload is None:
         return True
     return payload.get('exp', 0) < _time.time()

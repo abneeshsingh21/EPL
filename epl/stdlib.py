@@ -6869,8 +6869,14 @@ def _call_auth(name, args, line):
             raise EPLRuntimeError('JWT signature verification failed.', line)
         padding = 4 - len(p) % 4
         payload = _json.loads(_base64.urlsafe_b64decode(p + '=' * padding))
-        if 'exp' in payload and payload['exp'] < _time.time():
+        now = _time.time()
+        leeway = 60  # seconds of clock-skew tolerance
+        if 'exp' in payload and payload['exp'] < now - leeway:
             raise EPLRuntimeError('JWT has expired.', line)
+        # Honor the "not before" claim so a token minted for future use is
+        # rejected until it becomes valid (previously ignored).
+        if 'nbf' in payload and payload['nbf'] > now + leeway:
+            raise EPLRuntimeError('JWT is not yet valid (nbf).', line)
         return _to_epl(payload)
 
     if name == 'auth_jwt_decode':
@@ -7298,6 +7304,11 @@ def _resolve_context(expr, context):
     parts = expr.split('.')
     value = context
     for part in parts:
+        # SECURITY: never resolve dunder / private attributes. Without this, a
+        # template expression like `x.__class__.__init__.__globals__` could walk
+        # Python internals for information disclosure (e.g. reaching os/env).
+        if part.startswith('_'):
+            return None
         if isinstance(value, dict):
             value = value.get(part)
         elif isinstance(value, EPLDict):

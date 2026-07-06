@@ -2597,12 +2597,14 @@ def _install_from_registry(name, version=None, local=False, project_path='.'):
 
     try:
         print(f'  Searching remote registry for: {name}...')
-        # Try the real registry server first (local or remote)
-        registry_urls = [
-            os.environ.get('EPL_REGISTRY_URL', ''),
-            'http://localhost:4873/api/v1/packages/' + name,
-            REGISTRY_URL,
-        ]
+        # Try the real registry server first (local or remote). The plaintext
+        # localhost dev registry is queried ONLY when explicitly opted in
+        # (EPL_LOCAL_REGISTRY=1) — otherwise it silently took precedence over
+        # the official HTTPS registry, a local dependency-confusion foot-gun.
+        registry_urls = [os.environ.get('EPL_REGISTRY_URL', '')]
+        if os.environ.get('EPL_LOCAL_REGISTRY', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+            registry_urls.append('http://localhost:4873/api/v1/packages/' + name)
+        registry_urls.append(REGISTRY_URL)
         for reg_url in registry_urls:
             if not reg_url:
                 continue
