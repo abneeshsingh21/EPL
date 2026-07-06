@@ -45,7 +45,13 @@ _module_cache: dict = {}
 # a single unsalted SHA-256 of the passphrase). The magic lets aes_decrypt
 # detect and clearly reject the incompatible legacy format.
 _AES_MAGIC = b'EAG1'
-_AES_KDF_ITERS = 200_000
+_AES_KDF_ITERS = 600_000
+
+# Default PBKDF2-HMAC-SHA256 work factor for password hashing. 600k matches the
+# OWASP 2023 guidance for SHA-256; used by pbkdf2_hash and auth_hash_password.
+# Stored hashes embed their own iteration count, so raising this only affects
+# newly created hashes — older hashes still verify at whatever count they used.
+_PBKDF2_DEFAULT_ITERS = 600_000
 
 # Bare-identifier constants — words that resolve to a fixed value when used as a
 # plain identifier (no call, no `Create`). Shared by BOTH execution engines (the
@@ -4960,7 +4966,7 @@ def call_stdlib(name, args, line, interpreter=None):
                     'pbkdf2_hash(password[, iterations]) requires password.', line
                 )
             password = str(args[0]).encode('utf-8')
-            iterations = int(args[1]) if len(args) > 1 else 100000
+            iterations = int(args[1]) if len(args) > 1 else _PBKDF2_DEFAULT_ITERS
             salt = _os.urandom(16)
             dk = _hashlib.pbkdf2_hmac('sha256', password, salt, iterations)
             return f'{iterations}${salt.hex()}${dk.hex()}'
@@ -6772,21 +6778,34 @@ def _call_auth(name, args, line):
             raise EPLRuntimeError('auth_hash_password(password) requires a password.', line)
         password = str(args[0])
         salt = _os.urandom(32)
-        key = _hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
-        return salt.hex() + ':' + key.hex()
+        key = _hashlib.pbkdf2_hmac(
+            'sha256', password.encode('utf-8'), salt, _PBKDF2_DEFAULT_ITERS
+        )
+        # Versioned format embeds the iteration count so the work factor can be
+        # raised over time without breaking verification of already-stored hashes.
+        return f'pbkdf2_sha256${_PBKDF2_DEFAULT_ITERS}${salt.hex()}${key.hex()}'
 
     if name == 'auth_verify_password':
         if len(args) < 2:
             raise EPLRuntimeError(
                 'auth_verify_password(password, hash) requires password and hash.', line
             )
-        password = str(args[0])
+        password = str(args[0]).encode('utf-8')
         stored = str(args[1])
         try:
-            salt_hex, key_hex = stored.split(':')
-            salt = bytes.fromhex(salt_hex)
-            stored_key = bytes.fromhex(key_hex)
-            new_key = _hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+            if stored.startswith('pbkdf2_sha256$'):
+                # New versioned format: pbkdf2_sha256$<iters>$<salt_hex>$<key_hex>
+                _, iters_s, salt_hex, key_hex = stored.split('$')
+                iterations = int(iters_s)
+                salt = bytes.fromhex(salt_hex)
+                stored_key = bytes.fromhex(key_hex)
+            else:
+                # Legacy format: <salt_hex>:<key_hex> at the old 100k iterations.
+                salt_hex, key_hex = stored.split(':')
+                iterations = 100000
+                salt = bytes.fromhex(salt_hex)
+                stored_key = bytes.fromhex(key_hex)
+            new_key = _hashlib.pbkdf2_hmac('sha256', password, salt, iterations)
             return _hmac.compare_digest(stored_key, new_key)
         except (ValueError, TypeError):
             return False
