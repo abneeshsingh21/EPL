@@ -2339,15 +2339,21 @@ class Interpreter:
                 return requirement
         return None
 
-    def _consent_to_auto_install(self, pkg_name, node):
-        """Decide whether to auto-install an allowlisted-but-undeclared package.
+    def _consent_to_auto_install(self, pkg_name, node, requirement=None):
+        """Decide whether to auto-install a package with pip.
 
         Running an .epl file must not silently mutate the host Python
-        environment. Consent is granted only when one of these holds:
+        environment — this applies to BOTH allowlisted-but-undeclared packages
+        AND packages declared in a project's epl.toml. A declared requirement is
+        NOT implied consent: an epl.toml ships inside whatever (possibly
+        untrusted) project you cloned, and `pip install` runs the requirement's
+        setup.py, so a malicious declared dependency is code execution on `epl
+        run`. Consent is granted only when one of these holds:
 
           • EPL_AUTO_INSTALL is set to a truthy value (1/true/yes/on) — the
             explicit opt-in for CI and automation;
-          • stdin is an interactive TTY and the user answers yes to a prompt.
+          • stdin is an interactive TTY and the user answers yes to a prompt
+            that shows the exact requirement about to be installed.
 
         In every other case (non-interactive server/CI with no opt-in) we
         withhold consent and let the caller raise a clear, actionable error.
@@ -2363,9 +2369,13 @@ class Interpreter:
                 return False
         except (ValueError, AttributeError):
             return False
+        # Show the concrete requirement string when we have one — for declared
+        # deps it is attacker-controllable, so the user should see exactly what
+        # pip will fetch before answering.
+        target = f'"{requirement}"' if requirement and requirement != pkg_name else f'"{pkg_name}"'
         try:
             answer = input(
-                f'[EPL] Package "{pkg_name}" is not installed. '
+                f'[EPL] Package {target} is not installed. '
                 f'Auto-install it with pip now? [y/N] '
             )
         except (EOFError, KeyboardInterrupt):
@@ -2397,8 +2407,19 @@ class Interpreter:
                 ) from None
 
             if declared_requirement:
-                # Declared in epl.toml [python-dependencies] — an explicit,
-                # auditable opt-in by the project author. Install without asking.
+                # Declared in epl.toml [python-dependencies]. This is auditable
+                # but NOT implied consent — the epl.toml ships with whatever
+                # project you cloned, and pip runs the requirement's setup.py.
+                # Require the same consent gate as the allowlist path, showing
+                # the exact (project-controlled) requirement string.
+                if not self._consent_to_auto_install(pkg_name, node, requirement=install_target):
+                    raise EPLRuntimeError(
+                        f'Python dependency "{node.library}" (declared requirement '
+                        f'"{install_target}") is not installed, and auto-install was '
+                        f'declined. Install it explicitly with "epl pyinstall {pkg_name}" '
+                        f'or set EPL_AUTO_INSTALL=1 to allow auto-installs.',
+                        node.line,
+                    ) from None
                 print(
                     f'[EPL] Python dependency "{node.library}" not found. Installing declared requirement: {install_target}'
                 )
