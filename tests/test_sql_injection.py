@@ -145,3 +145,41 @@ class TestRealDbDeleteInjection:
     def test_dict_where_clean_column_works(self, db):
         call_stdlib('real_db_delete', [db, 'users', EPLDict({'name': 'alice'})], 0)
         assert _all_emails(db) == ['b@x']
+
+
+class TestRealDbDdlInjection:
+    """M1(M3): DDL identifiers (table + column names) must be quoted/validated."""
+
+    def test_create_table_malicious_table_name_rejected(self, db):
+        with pytest.raises(EPLRuntimeError):
+            call_stdlib(
+                'real_db_create_table',
+                [db, 'users; DROP TABLE users; --', EPLDict({'a': 'TEXT'})],
+                0,
+            )
+
+    def test_create_table_malicious_column_name_rejected(self, db):
+        with pytest.raises(EPLRuntimeError):
+            call_stdlib(
+                'real_db_create_table',
+                [db, 'safe_tbl', EPLDict({'a TEXT); DROP TABLE users; --': 'TEXT'})],
+                0,
+            )
+
+    def test_create_table_clean_names_work(self, db):
+        call_stdlib(
+            'real_db_create_table',
+            [db, 'widgets', EPLDict({'id': 'INTEGER', 'label': 'TEXT'})],
+            0,
+        )
+        assert call_stdlib('real_db_count', [db, 'widgets'], 0) == 0
+
+    def test_drop_table_identifier_validated_directly(self):
+        # drop_table is not exposed as an EPL builtin, but harden the method too.
+        from epl.database_real import Database
+
+        conn = Database(':memory:')
+        conn.create_table('keep', {'id': 'INTEGER'})
+        with pytest.raises(ValueError):
+            conn.drop_table('keep; DROP TABLE other; --')
+        assert conn.table_exists('keep')

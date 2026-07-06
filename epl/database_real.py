@@ -443,8 +443,12 @@ class Database:
         adapted_cols = {}
         for col, typedef in columns.items():
             adapted_cols[col] = self._adapt_type(typedef)
-        col_defs = ', '.join(f'{col} {typedef}' for col, typedef in adapted_cols.items())
-        self._execute(f'CREATE TABLE {exists}{name} ({col_defs})')
+        # Quote the table and column identifiers (validates + rejects injection);
+        # the type definition is schema, not user data, and is adapted per dialect.
+        col_defs = ', '.join(
+            f'{_quote_identifier(col)} {typedef}' for col, typedef in adapted_cols.items()
+        )
+        self._execute(f'CREATE TABLE {exists}{_quote_identifier(name)} ({col_defs})')
         self._conn.commit()
 
     def _adapt_type(self, typedef: str) -> str:
@@ -464,7 +468,7 @@ class Database:
 
     def drop_table(self, name: str, if_exists: bool = True):
         exists = 'IF EXISTS ' if if_exists else ''
-        self._execute(f'DROP TABLE {exists}{name}')
+        self._execute(f'DROP TABLE {exists}{_quote_identifier(name)}')
         self._conn.commit()
 
     def table_exists(self, name: str) -> bool:
