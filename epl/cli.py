@@ -540,17 +540,15 @@ def _run_file(args, flags):
 
     from epl.runtime_support import run_file
 
-    return (
-        0
-        if run_file(
-            filename,
-            strict='--strict' in flags,
-            safe_mode='--sandbox' in flags,
-            force_interpret='--interpret' in flags,
-            json_errors='--json' in flags,
-            ai_errors='--ai-errors' in flags,
-        )
-        else 1
+    # run_file returns the process exit code directly (0 success, non-zero on
+    # error or from `Exit <code>`), so pass it straight through as the status.
+    return run_file(
+        filename,
+        strict='--strict' in flags,
+        safe_mode='--sandbox' in flags,
+        force_interpret='--interpret' in flags,
+        json_errors='--json' in flags,
+        ai_errors='--ai-errors' in flags,
     )
 
 
@@ -1790,10 +1788,34 @@ def _watch(args, flags):
     )
 
 
+def _print_tests_help():
+    """Usage for `epl test`."""
+    print(_bold('epl test') + ' — discover and run EPL test files (test_*.epl / *_test.epl)')
+    print()
+    print('Usage: epl test [targets...] [options]')
+    print('       epl test                  (defaults to ./tests, or . if absent)')
+    print()
+    print('Options:')
+    print('  --filter=<pat>, -k=<pat>   Run only tests whose name matches the glob')
+    print('  --fail-fast, -x            Stop at the first failing test')
+    print('  --coverage                 Report line coverage')
+    print('  --timeout=<seconds>        Per-test timeout')
+    print('  --junit-xml=<path>         Write JUnit XML results')
+    print('  --quiet, -q                Minimal output')
+    print('  --no-color                 Disable ANSI colors')
+    print('  -h, --help                 Show this help')
+
+
 def _run_tests(args, flags):
     from fnmatch import fnmatch
 
     from epl.test_framework import EPLTestRunner
+
+    # `epl test --help` must show usage, not silently treat "--help" as a flag
+    # and run the whole suite.
+    if any(a in ('--help', '-h') for a in (args or [])):
+        _print_tests_help()
+        return 0
 
     # Separate test-specific flags from file/directory targets
     # The global CLI parser only captures known flags; test-specific ones end up in args
@@ -2565,7 +2587,34 @@ def _write_generated_text(source_file, extension, content, output_path=None):
     return output_path
 
 
+def _print_serve_help():
+    """Usage for `epl serve`."""
+    print(_bold('epl serve') + ' — run an EPL web app with a production-grade server')
+    print()
+    print('Usage: epl serve <file.epl> [options]')
+    print('       epl serve                 (uses the project entry from epl.toml/epl.json)')
+    print()
+    print('Options:')
+    print('  --port <n>          Port to bind (default: 8000)')
+    print('  --host <addr>       Bind address (default: 127.0.0.1 dev / 0.0.0.0 prod)')
+    print('  --workers <n>       Worker processes (default: 4)')
+    print('  --reload            Auto-reload on file changes')
+    print('  --dev               Development mode (implies --reload)')
+    print('  --engine <name>     auto | waitress | gunicorn | uvicorn | hypercorn | builtin')
+    print('  --store <backend>   State store backend (default: memory)')
+    print('  --session <backend> Session backend (default: memory)')
+    print('  --csp               Emit a strict Content-Security-Policy with per-script nonces')
+    print('  --observability     Enable request metrics/tracing')
+    print('  -h, --help          Show this help')
+
+
 def _serve(args):
+    # Honor `--help`/`-h` BEFORE target resolution, so `epl serve --help`
+    # shows usage instead of trying to serve a file literally named "--help".
+    if any(a in ('--help', '-h') for a in (args or [])):
+        _print_serve_help()
+        return 0
+
     args = _resolve_target_args(args)
     if not args:
         print(f'{_red("Error:")} No file specified and no epl.toml/epl.json project was found.')

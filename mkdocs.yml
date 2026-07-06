@@ -82,6 +82,7 @@ nav:
   - Introduction: intro.md
   - Getting Started:
     - Installation: getting-started.md
+    - Your First Program in Plain English: tutorials/first-program-plain-english.md
     - Tutorials: tutorials.md
     - Playground: playground.md
   - Language Reference:
@@ -89,6 +90,7 @@ nav:
     - Language Specification: language-spec.md
     - Standard Library: stdlib-reference.md
   - Guides:
+    - Build a REST API in Plain English: guides/rest-api-in-plain-english.md
     - Web Development: guides/web.md
     - Database & ORM: guides/database.md
     - Android Apps: guides/android.md

@@ -29,6 +29,16 @@ from urllib.parse import parse_qs, urlparse
 from epl import _debug_log
 
 
+def _client_error_detail(exc):
+    """Return an error string safe to send to a client (hide internals by default).
+
+    Set EPL_WEB_DEBUG=1 to include the raw exception text during development.
+    """
+    if os.environ.get('EPL_WEB_DEBUG', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return str(exc)
+    return 'Internal server error'
+
+
 class RegistryStorage:
     """File-based package storage backend."""
 
@@ -301,7 +311,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
             except (KeyError, ValueError) as e:
                 self._error_response(400, str(e))
             except Exception as e:
-                self._error_response(500, f'Internal error: {e}')
+                self._error_response(500, f'Internal error: {_client_error_detail(e)}')
             return
 
         # Try multipart publish
@@ -320,7 +330,7 @@ class RegistryHandler(BaseHTTPRequestHandler):
             except (KeyError, ValueError) as e:
                 self._error_response(400, str(e))
             except Exception as e:
-                self._error_response(500, f'Internal error: {e}')
+                self._error_response(500, f'Internal error: {_client_error_detail(e)}')
             return
 
         self._error_response(400, 'Unsupported content type')

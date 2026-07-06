@@ -244,6 +244,33 @@ def test_pbkdf2_custom_iterations():
     assert_eq(call_stdlib('pbkdf2_verify', ['pass', hashed], 0), True)
 
 
+def test_pbkdf2_default_iterations_meets_owasp():
+    # M8: default work factor is >= OWASP 2023 guidance for PBKDF2-SHA256.
+    hashed = call_stdlib('pbkdf2_hash', ['pw'], 0)
+    assert_true(int(hashed.split('$')[0]) >= 600000, 'default iterations too low')
+
+
+def test_auth_hash_password_uses_versioned_high_iteration_format():
+    # M8: auth_hash_password embeds a high iteration count in a versioned format.
+    h = call_stdlib('auth_hash_password', ['hunter2'], 0)
+    parts = h.split('$')
+    assert_eq(parts[0], 'pbkdf2_sha256')
+    assert_true(int(parts[1]) >= 600000, 'auth iterations too low')
+    assert_eq(call_stdlib('auth_verify_password', ['hunter2', h], 0), True)
+    assert_eq(call_stdlib('auth_verify_password', ['wrong', h], 0), False)
+
+
+def test_auth_verify_password_accepts_legacy_format():
+    # M8: pre-existing "salt:key" (100k) hashes must still verify after the bump.
+    import hashlib
+
+    salt = bytes(range(32))
+    key = hashlib.pbkdf2_hmac('sha256', b'hunter2', salt, 100000)
+    legacy = salt.hex() + ':' + key.hex()
+    assert_eq(call_stdlib('auth_verify_password', ['hunter2', legacy], 0), True)
+    assert_eq(call_stdlib('auth_verify_password', ['nope', legacy], 0), False)
+
+
 # ═══════════════════════════════════════════════════════════
 #  3. SQL EXTENDED (8 functions)
 # ═══════════════════════════════════════════════════════════

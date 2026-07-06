@@ -128,11 +128,15 @@ def new_nonce():
 def build_csp_header(nonce=None):
     """Single source of truth for the Content-Security-Policy value.
 
-    With `nonce`, `script-src` authorizes the generated inline scripts via
-    `'nonce-…'`. Without it, returns the exact policy used before Phase 5 so
-    behaviour is unchanged when CSP mode is off.
+    With `nonce` (CSP mode on), `script-src` authorizes the generated inline
+    scripts strictly via `'nonce-…'`. Without a nonce (CSP mode off, the
+    default), `script-src` must include `'unsafe-inline'`: the page generator
+    always emits inline event/interaction `<script>` blocks and they are only
+    nonced when CSP mode is on, so a bare `'self'` here would block the page's
+    own scripts and break every interactive page. The other protective
+    directives (default-src/object-src/base-uri) are kept in both modes.
     """
-    script_src = "'self'" if not nonce else f"'self' 'nonce-{nonce}'"
+    script_src = f"'self' 'nonce-{nonce}'" if nonce else "'self' 'unsafe-inline'"
     return (
         f"default-src 'self'; script-src {script_src}; "
         "style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'"
@@ -338,11 +342,26 @@ def _esc_css_selector(selector):
 
 
 def _safe_href(url):
-    """Sanitize href to prevent javascript: URI injection."""
+    """Sanitize an href/src URL against scheme-based injection (javascript:, etc.).
+
+    Uses a scheme ALLOWLIST rather than a denylist: a denylist that matched
+    `javascript:` on the raw string was bypassable because browsers ignore
+    embedded whitespace/control characters in a scheme (`java\\tscript:`,
+    `java\\nscript:`, a leading NUL, mixed case). Here every character at or
+    below the space (tab/newline/CR/NUL/...) is removed before scheme detection,
+    and only http/https/mailto/tel — plus relative and fragment URLs — are
+    permitted; anything else (javascript:, vbscript:, data:, file:, ...) becomes
+    `#`.
+    """
     if not isinstance(url, str):
         return '#'
-    url_stripped = url.strip().lower()
-    if url_stripped.startswith(('javascript:', 'vbscript:', 'data:text/html')):
+    # Scheme-detection copy with all ignorable chars (<= 0x20) removed. The
+    # returned value is still the escaped original.
+    probe = ''.join(c for c in url if ord(c) > 0x20).lower()
+    if not probe or probe[0] in ('/', '#', '?', '.'):
+        return _esc(url)  # relative URL or fragment — safe
+    scheme_match = _re.match(r'^([a-z][a-z0-9+.\-]*):', probe)
+    if scheme_match and scheme_match.group(1) not in ('http', 'https', 'mailto', 'tel'):
         return '#'
     return _esc(url)
 

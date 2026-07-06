@@ -359,7 +359,7 @@ Use password-specific auth helpers for passwords; do not use raw hashes for pass
 | `auth_verify_password(password, hash)` | Constant-time password verification |
 | `auth_jwt_create(payload, secret[, expiry_seconds])` | Create JWT |
 | `auth_jwt_verify(token, secret)` | Verify JWT |
-| `auth_jwt_decode(token)` | Decode JWT without verifying |
+| `auth_jwt_decode(token)` | ⚠️ Decode JWT claims **without verifying the signature** — payload is UNTRUSTED/forgeable. Use only for inspection/debugging; for authentication use `auth_jwt_verify(token, secret)`. Emits a one-time warning (silence with `EPL_SUPPRESS_JWT_WARNING=1`). |
 | `auth_generate_token(length)` | Generate random token |
 | `auth_api_key_create(prefix)` | Create API key and hash |
 | `auth_api_key_verify(key, stored_hash)` | Verify API key |

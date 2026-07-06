@@ -32,14 +32,24 @@ from epl import _debug_log
 _VALID_IDENTIFIER = _re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
 
 
-def _quote_identifier(name: str) -> str:
+def _quote_identifier(name: str, dialect: str = 'sqlite') -> str:
+    """Validate and quote a SQL identifier using dialect-correct quoting.
+
+    The name is first validated against a strict ASCII-identifier pattern
+    (defense-in-depth against DDL injection). Quoting is then applied with the
+    character the target engine actually recognises: MySQL uses backticks in
+    its default SQL mode (double quotes are string literals there), while
+    SQLite/PostgreSQL use ANSI double quotes.
+    """
     if not isinstance(name, str) or not _VALID_IDENTIFIER.match(name):
         raise ValueError(f'Invalid SQL identifier: {name!r}')
+    if dialect == 'mysql':
+        return f'`{name}`'
     return f'"{name}"'
 
 
-def _quote_columns(columns) -> str:
-    return ', '.join(_quote_identifier(c) for c in columns)
+def _quote_columns(columns, dialect: str = 'sqlite') -> str:
+    return ', '.join(_quote_identifier(c, dialect) for c in columns)
 
 
 # ─── Dialect detection ────────────────────────────────────────
@@ -323,8 +333,8 @@ class Database:
 
     def insert(self, table: str, data: dict) -> int:
         """Insert row and return last row ID."""
-        tbl = _quote_identifier(table)
-        columns = _quote_columns(data.keys())
+        tbl = _quote_identifier(table, self.dialect)
+        columns = _quote_columns(data.keys(), self.dialect)
         placeholders = ', '.join([self._param] * len(data))
         sql = f'INSERT INTO {tbl} ({columns}) VALUES ({placeholders})'
         cursor = self._execute(sql, tuple(data.values()))
@@ -346,8 +356,8 @@ class Database:
         """Insert multiple rows."""
         if not rows:
             return 0
-        tbl = _quote_identifier(table)
-        columns = _quote_columns(rows[0].keys())
+        tbl = _quote_identifier(table, self.dialect)
+        columns = _quote_columns(rows[0].keys(), self.dialect)
         placeholders = ', '.join([self._param] * len(rows[0]))
         sql = f'INSERT INTO {tbl} ({columns}) VALUES ({placeholders})'
         sql_adapted = self._adapt_sql(sql)
@@ -362,8 +372,10 @@ class Database:
     def update(self, table: str, data: dict, where: str, params: tuple = ()) -> int:
         """Update rows matching condition. `where` is a SQL fragment supplied
         by the caller — keep it parameterized."""
-        tbl = _quote_identifier(table)
-        set_clause = ', '.join(f'{_quote_identifier(k)} = {self._param}' for k in data.keys())
+        tbl = _quote_identifier(table, self.dialect)
+        set_clause = ', '.join(
+            f'{_quote_identifier(k, self.dialect)} = {self._param}' for k in data.keys()
+        )
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
         sql = f'UPDATE {tbl} SET {set_clause} WHERE {where_adapted}'
         all_params = tuple(data.values()) + params
@@ -373,7 +385,7 @@ class Database:
 
     def delete(self, table: str, where: str, params: tuple = ()) -> int:
         """Delete rows matching condition."""
-        tbl = _quote_identifier(table)
+        tbl = _quote_identifier(table, self.dialect)
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
         sql = f'DELETE FROM {tbl} WHERE {where_adapted}'
         cursor = self._execute(sql, params)
@@ -382,12 +394,12 @@ class Database:
 
     def find_by_id(self, table: str, id_val) -> Optional[dict]:
         """Find row by primary key."""
-        tbl = _quote_identifier(table)
+        tbl = _quote_identifier(table, self.dialect)
         return self.query_one(f'SELECT * FROM {tbl} WHERE id = {self._param}', (id_val,))
 
     def count(self, table: str, where: str = '1=1', params: tuple = ()) -> int:
         """Count rows matching condition."""
-        tbl = _quote_identifier(table)
+        tbl = _quote_identifier(table, self.dialect)
         where_adapted = self._adapt_sql(where) if self.dialect != 'sqlite' else where
         return self.query_value(f'SELECT COUNT(*) FROM {tbl} WHERE {where_adapted}', params)
 
@@ -443,8 +455,13 @@ class Database:
         adapted_cols = {}
         for col, typedef in columns.items():
             adapted_cols[col] = self._adapt_type(typedef)
-        col_defs = ', '.join(f'{col} {typedef}' for col, typedef in adapted_cols.items())
-        self._execute(f'CREATE TABLE {exists}{name} ({col_defs})')
+        # Quote the table and column identifiers (validates + rejects injection);
+        # the type definition is schema, not user data, and is adapted per dialect.
+        col_defs = ', '.join(
+            f'{_quote_identifier(col, self.dialect)} {typedef}'
+            for col, typedef in adapted_cols.items()
+        )
+        self._execute(f'CREATE TABLE {exists}{_quote_identifier(name, self.dialect)} ({col_defs})')
         self._conn.commit()
 
     def _adapt_type(self, typedef: str) -> str:
@@ -464,7 +481,7 @@ class Database:
 
     def drop_table(self, name: str, if_exists: bool = True):
         exists = 'IF EXISTS ' if if_exists else ''
-        self._execute(f'DROP TABLE {exists}{name}')
+        self._execute(f'DROP TABLE {exists}{_quote_identifier(name, self.dialect)}')
         self._conn.commit()
 
     def table_exists(self, name: str) -> bool:
@@ -553,7 +570,9 @@ class Database:
 
     def add_column(self, table: str, name: str, typedef: str):
         """Add a column to existing table."""
-        self._execute(f'ALTER TABLE {table} ADD COLUMN {name} {self._adapt_type(typedef)}')
+        tbl = _quote_identifier(table, self.dialect)
+        col = _quote_identifier(name, self.dialect)
+        self._execute(f'ALTER TABLE {tbl} ADD COLUMN {col} {self._adapt_type(typedef)}')
         self._conn.commit()
 
     # ─── Migrations ───────────────────────────────────────────

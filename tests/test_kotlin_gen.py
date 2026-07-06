@@ -97,3 +97,23 @@ KT_CASES = [
 @pytest.mark.parametrize(('name', 'check_fn'), KT_CASES, ids=[name for name, _ in KT_CASES])
 def test_kotlin_generator_cases(name, check_fn):
     assert check_fn(), name
+
+
+def test_string_literal_escapes_dollar_no_injection():
+    """H2: `$` in an EPL string must be escaped so Kotlin does not interpolate
+    it into live code in the generated app."""
+    from epl.kotlin_gen import KotlinGenerator
+
+    payload = '${Runtime.getRuntime().exec("calc")}'
+    literal = KotlinGenerator._kotlin_str_literal(payload)
+    assert literal.startswith('"\\${'), literal  # dollar escaped
+    assert '"${' not in literal, 'unescaped Kotlin interpolation leaked into output'
+
+
+def test_string_literal_escapes_preserved():
+    """Ordinary escaping (quote, backslash) still works after the shared
+    literal-helper refactor."""
+    from epl.kotlin_gen import KotlinGenerator
+
+    literal = KotlinGenerator._kotlin_str_literal('a"b\\c')
+    assert '\\"' in literal and '\\\\' in literal

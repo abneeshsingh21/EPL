@@ -12,6 +12,87 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Changed — parse cache no longer clutters your project
+
+`.eplc` parse-cache files were written next to each `.epl` source, so running a
+program made a mystery file appear beside it in the editor. They now live in a
+per-user cache directory (`%LOCALAPPDATA%\eplang\cache` on Windows,
+`$XDG_CACHE_HOME`/`~/.cache/eplang` elsewhere), keyed by the hash of each
+source's absolute path with the readable filename preserved inside. Nothing
+appears in your project or VS Code explorer, and there's no risk of committing a
+cache file. Set `EPL_CACHE_DIR` to relocate the cache or `EPL_NO_CACHE=1` to
+disable it.
+
+### Security — sandbox hardened to deny-by-default
+
+The `--sandbox` (safe mode) enforcement was a **blocklist** naming only 16 of
+~740 stdlib functions, so it failed **open**: `file_read`, `net_http_get`,
+`http_request`, the `db_*` / `real_db_*` families, and `real_process_run` all
+ran with full host access under `--sandbox` (reading `/etc/passwd`, opening
+sockets, writing arbitrary files, executing shell commands). Safe mode is now
+**deny-by-default**: only an allowlist of pure/computational functions
+(string/collection/crypto/encoding/date-math/regex/in-memory concurrency) may
+run; everything touching the filesystem, network, database, process,
+environment, FFI, GUI, or host is refused with a clear error. Adding a new
+dangerous stdlib function is now safe by construction — it stays blocked until
+deliberately allowlisted. The VM has no sandbox enforcement, so `--sandbox`
+continues to force the enforcing interpreter path.
+
+### Security — ReDoS prevention on all regex functions
+
+CPython's `re` engine holds the GIL for the entire duration of a match, so a
+watchdog thread can never interrupt catastrophic backtracking. Instead of trying
+to interrupt it, every regex entry point (`regex_match`, `regex_find`,
+`regex_find_all`, `regex_replace`, `regex_split`, `regex_test`, `regex_compile`,
+plus the inline replace/groups helpers) now **statically rejects** patterns with
+nested unbounded quantifiers (the exponential class, e.g. `(a+)+`, `(\d*)*`,
+`(a+|b+)+`) before the engine runs. The detector is precise: it does not reject
+legitimate patterns like `(\w+\s)*`, `(ab+)+`, or `(\d{3})+`.
+
+### Security — `auth_jwt_decode` no longer silently trusted
+
+`auth_jwt_decode` reads JWT claims **without verifying the signature** — its
+payload is forgeable. It now emits a one-time stderr notice steering developers
+to `auth_jwt_verify(token, secret)` for authentication (silence with
+`EPL_SUPPRESS_JWT_WARNING=1`), and the docs are marked accordingly.
+
+### Security — allowlisted Python auto-install now requires consent
+
+Running an `.epl` file that did `Use python "<allowlisted-pkg>"` would silently
+`pip install` into the host environment (a supply-chain footgun). Auto-install
+of an allowlisted-but-undeclared package now requires explicit consent:
+`EPL_AUTO_INSTALL=1` (for CI/automation) or an interactive yes. Packages declared
+in `epl.toml [python-dependencies]` remain an explicit opt-in and still install.
+
+### Fixed — `Exit` crash + real process exit codes
+
+`Exit 1` (and any `Exit <expr>`) crashed the parser with a cryptic
+`'int' object is not iterable`. `Exit` now accepts an optional status
+expression, and that status **propagates to the process exit code** across both
+the bytecode VM and the interpreter — so shells and CI can read `$?`
+(`Exit 3` → exit 3, bare `Exit`/`Exit 0` → 0). The parser's error-suggestion
+path is also hardened against non-string tokens.
+
+### Fixed — Python bridge chained class methods
+
+Accessing a class attribute on a Python bridge module (e.g.
+`alias.datetime.now()`) failed with "Cannot call method on unknown" because the
+class was returned unwrapped. Wrapped classes are now callable, so chained
+access, instantiation (`alias.Decimal("3.14")`), and store-then-call all work.
+
+### Fixed — database helpers dropped bind parameters
+
+`db_query` / `db_execute` / `db_query_one` read only the first params argument,
+silently dropping every parameter after it — turning a multi-placeholder query
+into a one-binding call. All trailing arguments are now captured, supporting both
+`db_query(conn, sql, [p1, p2])` and `db_query(conn, sql, p1, p2)`.
+
+### Fixed — `--help` swallowed on `epl test` / `epl serve`
+
+`epl test --help` silently ran the whole suite and `epl serve --help` tried to
+serve a file literally named `--help`. Both subcommands now print proper usage
+for `--help`/`-h`.
+
 ## [10.1.1] — 2026-07-02
 
 ### Fixed — native export now honors the project's `Import` graph

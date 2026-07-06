@@ -17,7 +17,10 @@ from epl.tokens import Token, TokenType
 class Parser:
     """Parses EPL tokens into an Abstract Syntax Tree."""
 
-    MAX_DEPTH = 200  # Maximum recursion depth for nested expressions
+    # Maximum nesting depth for expressions. Kept well below the point where
+    # CPython's C stack overflows (each level consumes several frames), so the
+    # clean "nesting too deep" error fires before an uncaught RecursionError.
+    MAX_DEPTH = 100
 
     def __init__(self, tokens: list):
         self.tokens = tokens
@@ -298,6 +301,21 @@ class Parser:
                 if len(self.errors) >= self.max_errors:
                     break
                 self._synchronize()
+            except RecursionError:
+                # Safety net: hostile input can nest deep enough to exhaust the
+                # C stack via recursion the _depth counter does not track (e.g.
+                # nested statements/data literals). Convert to a clean parser
+                # error instead of letting an uncaught RecursionError crash the
+                # worker (playground / MCP / LSP). Stop parsing — the stack is
+                # near its limit and synchronising could recurse again.
+                self.errors.append(
+                    ParserError(
+                        'Input nesting too deep — refusing to parse. Break deeply '
+                        'nested expressions or structures into smaller pieces.',
+                        self._current().line if self.tokens else 0,
+                    )
+                )
+                break
             self._skip_newlines()
 
         # If we collected errors, raise the first one (with count info)
@@ -326,6 +344,21 @@ class Parser:
                 if len(self.errors) >= self.max_errors:
                     break
                 self._synchronize()
+            except RecursionError:
+                # Safety net: hostile input can nest deep enough to exhaust the
+                # C stack via recursion the _depth counter does not track (e.g.
+                # nested statements/data literals). Convert to a clean parser
+                # error instead of letting an uncaught RecursionError crash the
+                # worker (playground / MCP / LSP). Stop parsing — the stack is
+                # near its limit and synchronising could recurse again.
+                self.errors.append(
+                    ParserError(
+                        'Input nesting too deep — refusing to parse. Break deeply '
+                        'nested expressions or structures into smaller pieces.',
+                        self._current().line if self.tokens else 0,
+                    )
+                )
+                break
             self._skip_newlines()
         return ast.Program(statements), list(self.errors)
 
@@ -466,11 +499,14 @@ class Parser:
         if tok.type == TokenType.WAIT:
             return self._parse_wait()
 
-        # v0.3: Exit
+        # v0.3: Exit  (optionally with a status code: `Exit 1`)
         if tok.type == TokenType.EXIT_KW:
             self._advance()
+            code = None
+            if not self._match(TokenType.DOT, TokenType.NEWLINE, TokenType.EOF):
+                code = self._parse_expression()
             self._end_statement()
-            return ast.ExitStatement(tok.line)
+            return ast.ExitStatement(code, tok.line)
 
         # v0.3: Constant
         if tok.type == TokenType.CONSTANT:
@@ -782,10 +818,14 @@ class Parser:
             'Multiply',
             'Divide',
         ]
+        # tok.value may be a non-string literal (e.g. a bare number `1`), so
+        # coerce before difflib — get_close_matches / .lower() both assume str
+        # and otherwise raise a cryptic "'int' object is not iterable".
+        tok_text = str(tok.value)
         suggestions = [
             s
-            for s in difflib.get_close_matches(tok.value, _statement_keywords, n=3, cutoff=0.6)
-            if s.lower() != tok.value.lower()
+            for s in difflib.get_close_matches(tok_text, _statement_keywords, n=3, cutoff=0.6)
+            if s.lower() != tok_text.lower()
         ][:2]
         if suggestions:
             hint = ' or '.join(f'"{s}"' for s in suggestions)
@@ -1627,7 +1667,7 @@ class Parser:
         self._depth += 1
         if self._depth > self.MAX_DEPTH:
             raise ParserError(
-                'Expression nesting too deep (maximum 200 levels). '
+                f'Expression nesting too deep (maximum {self.MAX_DEPTH} levels). '
                 'Break complex expressions into smaller variables or functions.',
                 self._current().line,
             )

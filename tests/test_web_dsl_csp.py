@@ -69,16 +69,23 @@ def test_reset_disables_csp():
 # ── build_csp_header ─────────────────────────────────────────────────────────
 
 
-def test_csp_header_without_nonce_is_legacy_policy():
-    assert build_csp_header(None) == (
-        "default-src 'self'; script-src 'self'; "
+def test_csp_header_without_nonce_allows_inline_scripts():
+    # CSP mode off (default): script-src must include 'unsafe-inline' so the
+    # generator's own inline scripts (which are only nonced when CSP is on) are
+    # not blocked, while the other protective directives stay in place.
+    header = build_csp_header(None)
+    assert header == (
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'"
     )
 
 
-def test_csp_header_with_nonce_includes_it():
+def test_csp_header_with_nonce_is_strict():
     header = build_csp_header('ABC123')
     assert "script-src 'self' 'nonce-ABC123'" in header
+    # On-mode script-src must NOT fall back to 'unsafe-inline'.
+    script_src = header.split('script-src ')[1].split(';')[0]
+    assert "'unsafe-inline'" not in script_src
     assert "object-src 'none'" in header
     assert "base-uri 'self'" in header
 

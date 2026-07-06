@@ -39,6 +39,20 @@ from epl.errors import RuntimeError as EPLRuntimeError
 _install_lock = _threading.Lock()
 _module_cache: dict = {}
 
+# Wire-format magic + KDF cost for the builtin aes_encrypt/aes_decrypt.
+# v1 uses authenticated AES-GCM with a PBKDF2-salted key (the earlier CBC form
+# was unauthenticated — vulnerable to padding-oracle/bit-flipping — and keyed by
+# a single unsalted SHA-256 of the passphrase). The magic lets aes_decrypt
+# detect and clearly reject the incompatible legacy format.
+_AES_MAGIC = b'EAG1'
+_AES_KDF_ITERS = 600_000
+
+# Default PBKDF2-HMAC-SHA256 work factor for password hashing. 600k matches the
+# OWASP 2023 guidance for SHA-256; used by pbkdf2_hash and auth_hash_password.
+# Stored hashes embed their own iteration count, so raising this only affects
+# newly created hashes — older hashes still verify at whatever count they used.
+_PBKDF2_DEFAULT_ITERS = 600_000
+
 # Bare-identifier constants — words that resolve to a fixed value when used as a
 # plain identifier (no call, no `Create`). Shared by BOTH execution engines (the
 # bytecode VM and the tree-walking interpreter) so they can never drift apart:
@@ -963,6 +977,38 @@ _open_sockets: dict = {}  # id -> socket
 _timers: dict = {}  # name -> start_time
 _atomic_counters: dict = {}  # name -> [int]
 _next_id = [0]
+_jwt_decode_warned = [False]  # one-time "unverified decode" security notice guard
+
+
+def _warn_jwt_decode_unverified():
+    """Warn once that auth_jwt_decode does NOT authenticate the token.
+
+    Decoding an unverified JWT is a legitimate operation (inspecting claims,
+    debugging, reading `kid` before key lookup), but treating its payload as
+    trusted is a classic authentication-bypass footgun: anyone can forge the
+    body of an unsigned/decode-only token. We emit a single stderr notice per
+    process steering developers to auth_jwt_verify(token, secret). Suppress it
+    with EPL_SUPPRESS_JWT_WARNING=1 once you've confirmed the use is intentional.
+    """
+    if _jwt_decode_warned[0]:
+        return
+    _jwt_decode_warned[0] = True
+    if _os.environ.get('EPL_SUPPRESS_JWT_WARNING', '').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+        'on',
+    ):
+        return
+    print(
+        '[EPL security] auth_jwt_decode() does NOT verify the signature — its '
+        'payload is UNTRUSTED and forgeable. For authentication use '
+        'auth_jwt_verify(token, secret). (Set EPL_SUPPRESS_JWT_WARNING=1 to '
+        'silence this notice.)',
+        file=_sys.stderr,
+    )
+
+
 _state_lock = _threading.Lock()  # Protects all module-level state dicts
 
 # ── Real module state ──
@@ -1203,6 +1249,24 @@ def _db_connection_lock(conn_id):
     if lock is None:
         return _contextlib.nullcontext()
     return lock
+
+
+def _db_collect_params(args):
+    """Normalize SQL params for db_query/db_execute/db_query_one.
+
+    Supports BOTH calling conventions:
+        db_query(conn, sql, [p1, p2])   # params as a single list (dict = named)
+        db_query(conn, sql, p1, p2)     # params as trailing positional args
+    The dispatch used to read only ``args[2]``, so ``p2`` and beyond were
+    SILENTLY DROPPED — turning a two-placeholder query into a one-binding call.
+    Now every trailing argument is captured.
+    """
+    extra = args[2:]
+    if not extra:
+        return None
+    if len(extra) == 1:
+        return extra[0]  # a single list / dict / scalar — impl normalizes it
+    return list(extra)  # multiple trailing args → positional params
 
 
 def _db_execute(conn_id, sql, params=None):
@@ -1514,14 +1578,189 @@ def _is_leap_year(year_or_date):
 # ═══════════════════════════════════════════════════════════
 
 
+# ── ReDoS mitigation ──────────────────────────────────────
+# CPython's `re` engine backtracks and holds the GIL for the *entire* duration
+# of a match. That defeats the obvious defenses:
+#   • a watchdog thread never runs — the matching thread never yields the GIL,
+#     so `Thread.join(timeout)` in the caller cannot regain control until the
+#     match finishes (verified: a 2s join on "(a+)+$" vs "a"*40+"X" blocks ~∞);
+#   • signal.SIGALRM is POSIX-main-thread only (useless on Windows / worker
+#     threads / async request handlers).
+# So instead of trying to *interrupt* catastrophic backtracking, we *prevent*
+# it: reject the patterns that cause it before the engine ever runs. This is
+# portable, zero-overhead, and deterministic.
+#
+# The exponential class is the "nested unbounded quantifier": an unbounded
+# quantifier (`*`, `+`, `{n,}`) applied to a group whose body reduces to a
+# single unbounded-quantified atom — e.g. (a+)+, (\d*)*, ([a-z]+)*, (.+)+,
+# (\w*)+, ((a+))+, (a+|b+)+. The detector is deliberately precise so it does
+# NOT reject legitimate patterns like (\w+\s)*, (ab+)+, or (\d{3})+.
+
+# A group body that is exactly ONE repeatable atom under an unbounded quantifier.
+_REDOS_INNER_ATOM = _re.compile(
+    r'^'
+    r'(?:\\.|\[(?:\\.|[^\]])*\]|[^\\()\[\]])'  # one atom: escape | char-class | single char
+    r'(?:[*+]|\{\d*,\})'  # unbounded quantifier
+    r'[*+?]?'  # optional possessive/lazy marker
+    r'$'
+)
+# Non-capturing / named / lookaround group prefixes to strip before inspection.
+_REDOS_GROUP_PREFIX = _re.compile(r'^\?(?:[:=!>]|P?<[^>]*>|<[=!])')
+
+
+def _redos_match_full_group(s):
+    """If `s` is exactly one balanced (...) group, return its inner body, else None."""
+    if not s.startswith('('):
+        return None
+    depth = 0
+    in_class = False
+    esc = False
+    for i, ch in enumerate(s):
+        if esc:
+            esc = False
+            continue
+        if ch == '\\':
+            esc = True
+            continue
+        if in_class:
+            if ch == ']':
+                in_class = False
+            continue
+        if ch == '[':
+            in_class = True
+        elif ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+            if depth == 0:
+                return s[1:i] if i == len(s) - 1 else None
+    return None
+
+
+def _redos_split_alternation(body):
+    """Split `body` on top-level `|` (ignoring escapes, char classes, and groups)."""
+    parts = []
+    depth = 0
+    in_class = False
+    esc = False
+    start = 0
+    for i, ch in enumerate(body):
+        if esc:
+            esc = False
+            continue
+        if ch == '\\':
+            esc = True
+            continue
+        if in_class:
+            if ch == ']':
+                in_class = False
+            continue
+        if ch == '[':
+            in_class = True
+        elif ch == '(':
+            depth += 1
+        elif ch == ')':
+            depth -= 1
+        elif ch == '|' and depth == 0:
+            parts.append(body[start:i])
+            start = i + 1
+    parts.append(body[start:])
+    return parts
+
+
+def _redos_body_is_dangerous(body):
+    """True if a quantified group with this body backtracks exponentially."""
+    prefix = _REDOS_GROUP_PREFIX.match(body)
+    if prefix:
+        body = body[prefix.end() :]
+    for branch in _redos_split_alternation(body):
+        # Unwrap redundant grouping until stable: (((a+)))+ -> ((a+)) -> (a+) -> a+.
+        # A single unwrap let deeply nested wrappers such as (((a+)))+$ slip
+        # past the inner-atom check and still backtrack catastrophically.
+        while True:
+            inner = _redos_match_full_group(branch)
+            if inner is None:
+                break
+            pfx = _REDOS_GROUP_PREFIX.match(inner)
+            inner = inner[pfx.end() :] if pfx else inner
+            if inner == branch:
+                break
+            branch = inner
+        if _REDOS_INNER_ATOM.match(branch):
+            return True
+    return False
+
+
+def _check_redos(pattern):
+    """Reject patterns with nested unbounded quantifiers (catastrophic backtracking).
+
+    Raises EPLRuntimeError before the `re` engine runs. This is the sandbox's and
+    every EPL program's only reliable defense against ReDoS on CPython, where a
+    running match cannot be interrupted (it holds the GIL).
+    """
+    if not isinstance(pattern, str):
+        return
+    n = len(pattern)
+    stack = []
+    in_class = False
+    esc = False
+    i = 0
+    while i < n:
+        ch = pattern[i]
+        if esc:
+            esc = False
+            i += 1
+            continue
+        if ch == '\\':
+            esc = True
+            i += 1
+            continue
+        if in_class:
+            if ch == ']':
+                in_class = False
+            i += 1
+            continue
+        if ch == '[':
+            in_class = True
+            i += 1
+            continue
+        if ch == '(':
+            stack.append(i)
+        elif ch == ')' and stack:
+            open_idx = stack.pop()
+            body = pattern[open_idx + 1 : i]
+            # Is this group immediately followed by an UNBOUNDED quantifier?
+            q = i + 1
+            outer_unbounded = False
+            if q < n and pattern[q] in '*+':
+                outer_unbounded = True
+            elif q < n and pattern[q] == '{':
+                close = pattern.find('}', q)
+                if close != -1:
+                    spec = pattern[q + 1 : close]
+                    # {n,} is unbounded; {n} and {n,m} are bounded (safe)
+                    if ',' in spec and spec.split(',', 1)[1].strip() == '':
+                        outer_unbounded = True
+            if outer_unbounded and _redos_body_is_dangerous(body):
+                raise EPLRuntimeError(
+                    'Regular expression is rejected: it contains a nested unbounded '
+                    f"quantifier (near '{pattern[open_idx : min(q + 1, n)]}') that causes "
+                    'catastrophic backtracking (ReDoS). Rewrite it without nesting '
+                    "'*'/'+' quantifiers — e.g. use 'a+' instead of '(a+)+'."
+                )
+        i += 1
+
+
 def _regex_match(pattern, text):
     """Full match. Returns the matched string or nothing."""
+    _check_redos(pattern)
     m = _re.match(pattern, text)
     return m.group(0) if m else None
 
 
 def _regex_find(pattern, text):
     """Find first match. Returns a map with match, start, end, groups."""
+    _check_redos(pattern)
     m = _re.search(pattern, text)
     if not m:
         return None
@@ -1537,21 +1776,25 @@ def _regex_find(pattern, text):
 
 def _regex_find_all(pattern, text):
     """Find all matches. Returns a list of strings."""
+    _check_redos(pattern)
     return _re.findall(pattern, text)
 
 
 def _regex_replace(pattern, replacement, text):
     """Replace all matches."""
+    _check_redos(pattern)
     return _re.sub(pattern, replacement, text)
 
 
 def _regex_split(pattern, text):
     """Split text by pattern."""
+    _check_redos(pattern)
     return _re.split(pattern, text)
 
 
 def _regex_test(pattern, text):
     """Test if text matches pattern. Returns boolean."""
+    _check_redos(pattern)
     return bool(_re.search(pattern, text))
 
 
@@ -2336,13 +2579,13 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(
                     'db_execute(conn, sql[, params]) requires conn and SQL.', line
                 )
-            params = args[2] if len(args) > 2 else None
+            params = _db_collect_params(args)
             return _db_execute(args[0], str(args[1]), params)
 
         if name == 'db_query':
             if len(args) < 2:
                 raise EPLRuntimeError('db_query(conn, sql[, params]) requires conn and SQL.', line)
-            params = args[2] if len(args) > 2 else None
+            params = _db_collect_params(args)
             return _db_query(args[0], str(args[1]), params)
 
         if name == 'db_query_one':
@@ -2350,7 +2593,7 @@ def call_stdlib(name, args, line, interpreter=None):
                 raise EPLRuntimeError(
                     'db_query_one(conn, sql[, params]) requires conn and SQL.', line
                 )
-            params = args[2] if len(args) > 2 else None
+            params = _db_collect_params(args)
             return _db_query_one(args[0], str(args[1]), params)
 
         if name == 'db_insert':
@@ -4641,32 +4884,26 @@ def call_stdlib(name, args, line, interpreter=None):
             if len(args) < 2:
                 raise EPLRuntimeError('aes_encrypt(plaintext, key) requires text and key.', line)
             plaintext = str(args[0]).encode('utf-8')
-            key = _hashlib.sha256(str(args[1]).encode('utf-8')).digest()
-            iv = _os.urandom(16)
+            passphrase = str(args[1]).encode('utf-8')
+            # Salted, iterated key derivation instead of a single unsalted SHA-256.
+            salt = _os.urandom(16)
+            nonce = _os.urandom(12)
+            key = _hashlib.pbkdf2_hmac('sha256', passphrase, salt, _AES_KDF_ITERS)
             try:
-                # Real AES-CBC via pycryptodome
+                # Authenticated AES-GCM via pycryptodome
                 from Crypto.Cipher import AES  # type: ignore[import-untyped]
-                from Crypto.Util.Padding import pad  # type: ignore[import-untyped]
 
-                cipher = AES.new(key, AES.MODE_CBC, iv)
-                ct = cipher.encrypt(pad(plaintext, AES.block_size))
+                cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+                ct, tag = cipher.encrypt_and_digest(plaintext)
+                blob = ct + tag
             except ImportError:
-                # Fallback: AES-CBC via cryptography library
+                # Fallback: AES-GCM via cryptography library (returns ct||tag)
                 try:
-                    from cryptography.hazmat.primitives.ciphers import (  # type: ignore[import-untyped]
-                        Cipher,
-                        algorithms,
-                        modes,
-                    )
-                    from cryptography.hazmat.primitives.padding import (
-                        PKCS7,  # type: ignore[import-untyped]
+                    from cryptography.hazmat.primitives.ciphers.aead import (
+                        AESGCM,  # type: ignore[import-untyped]
                     )
 
-                    padder = PKCS7(128).padder()
-                    padded = padder.update(plaintext) + padder.finalize()
-                    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-                    encryptor = cipher.encryptor()
-                    ct = encryptor.update(padded) + encryptor.finalize()
+                    blob = AESGCM(key).encrypt(nonce, plaintext, None)
                 except ImportError:
                     raise EPLRuntimeError(
                         'aes_encrypt requires pycryptodome or cryptography package. '
@@ -4675,7 +4912,7 @@ def call_stdlib(name, args, line, interpreter=None):
                     ) from None
             import base64 as _b64
 
-            return _b64.b64encode(iv + ct).decode('ascii')
+            return _b64.b64encode(_AES_MAGIC + salt + nonce + blob).decode('ascii')
         if name == 'aes_decrypt':
             if len(args) < 2:
                 raise EPLRuntimeError(
@@ -4684,45 +4921,56 @@ def call_stdlib(name, args, line, interpreter=None):
             import base64 as _b64
 
             raw = _b64.b64decode(str(args[0]))
-            key = _hashlib.sha256(str(args[1]).encode('utf-8')).digest()
-            if len(raw) < 32:
+            if not raw.startswith(_AES_MAGIC):
+                raise EPLRuntimeError(
+                    'aes_decrypt: unsupported ciphertext format. aes_encrypt now uses '
+                    'authenticated AES-GCM; data encrypted with the older (insecure) '
+                    'AES-CBC format must be re-encrypted.',
+                    line,
+                )
+            raw = raw[len(_AES_MAGIC) :]
+            # salt(16) + nonce(12) + ct + tag(16)
+            if len(raw) < 16 + 12 + 16:
                 raise EPLRuntimeError('aes_decrypt: ciphertext too short', line)
-            iv = raw[:16]
-            ct = raw[16:]
-            if len(ct) % 16 != 0:
-                raise EPLRuntimeError('aes_decrypt: invalid ciphertext length', line)
+            salt, nonce, blob = raw[:16], raw[16:28], raw[28:]
+            passphrase = str(args[1]).encode('utf-8')
+            key = _hashlib.pbkdf2_hmac('sha256', passphrase, salt, _AES_KDF_ITERS)
             try:
-                # Real AES-CBC via pycryptodome
+                # Authenticated AES-GCM via pycryptodome
                 from Crypto.Cipher import AES  # type: ignore[import-untyped]
-                from Crypto.Util.Padding import unpad  # type: ignore[import-untyped]
 
-                cipher = AES.new(key, AES.MODE_CBC, iv)
-                plaintext = unpad(cipher.decrypt(ct), AES.block_size)
-            except ImportError:
-                # Fallback: AES-CBC via cryptography library
+                ct, tag = blob[:-16], blob[-16:]
+                cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
                 try:
-                    from cryptography.hazmat.primitives.ciphers import (  # type: ignore[import-untyped]
-                        Cipher,
-                        algorithms,
-                        modes,
+                    plaintext = cipher.decrypt_and_verify(ct, tag)
+                except ValueError:
+                    raise EPLRuntimeError(
+                        'aes_decrypt: authentication failed (wrong key or tampered data).',
+                        line,
+                    ) from None
+            except ImportError:
+                # Fallback: AES-GCM via cryptography library
+                try:
+                    from cryptography.exceptions import (
+                        InvalidTag,  # type: ignore[import-untyped]
                     )
-                    from cryptography.hazmat.primitives.padding import (
-                        PKCS7,  # type: ignore[import-untyped]
+                    from cryptography.hazmat.primitives.ciphers.aead import (
+                        AESGCM,  # type: ignore[import-untyped]
                     )
 
-                    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-                    decryptor = cipher.decryptor()
-                    padded = decryptor.update(ct) + decryptor.finalize()
-                    unpadder = PKCS7(128).unpadder()
-                    plaintext = unpadder.update(padded) + unpadder.finalize()
+                    try:
+                        plaintext = AESGCM(key).decrypt(nonce, blob, None)
+                    except InvalidTag:
+                        raise EPLRuntimeError(
+                            'aes_decrypt: authentication failed (wrong key or tampered data).',
+                            line,
+                        ) from None
                 except ImportError:
                     raise EPLRuntimeError(
                         'aes_decrypt requires pycryptodome or cryptography package. '
                         'Run: pip install pycryptodome  (or: pip install cryptography)',
                         line,
                     ) from None
-            except (ValueError, KeyError) as e:
-                raise EPLRuntimeError(f'aes_decrypt: decryption failed — {e}', line) from e
             return plaintext.decode('utf-8')
         if name == 'pbkdf2_hash':
             if len(args) < 1:
@@ -4730,7 +4978,7 @@ def call_stdlib(name, args, line, interpreter=None):
                     'pbkdf2_hash(password[, iterations]) requires password.', line
                 )
             password = str(args[0]).encode('utf-8')
-            iterations = int(args[1]) if len(args) > 1 else 100000
+            iterations = int(args[1]) if len(args) > 1 else _PBKDF2_DEFAULT_ITERS
             salt = _os.urandom(16)
             dk = _hashlib.pbkdf2_hmac('sha256', password, salt, iterations)
             return f'{iterations}${salt.hex()}${dk.hex()}'
@@ -5023,6 +5271,7 @@ def call_stdlib(name, args, line, interpreter=None):
                     flags |= re.MULTILINE
                 if 's' in flag_str:
                     flags |= re.DOTALL
+            _check_redos(str(args[0]))
             compiled = re.compile(str(args[0]), flags)
             rid = f'rx_{_new_id()}'
             _compiled_regexes[rid] = compiled
@@ -5038,6 +5287,7 @@ def call_stdlib(name, args, line, interpreter=None):
             pattern = str(args[0])
             text = str(args[1])
             fn = args[2]
+            _check_redos(pattern)
 
             # fn should be callable — we'll replace each match with fn(match_text)
             def _repl(m):
@@ -5052,6 +5302,7 @@ def call_stdlib(name, args, line, interpreter=None):
                 )
             import re
 
+            _check_redos(str(args[0]))
             m = re.search(str(args[0]), str(args[1]))
             if m is None:
                 return []
@@ -6478,7 +6729,29 @@ def _call_web(name, args, line, interpreter=None):
         flask = _ensure_flask()
         if not args:
             raise EPLRuntimeError('web_send_file(path[, mimetype]) requires file path.', line)
-        fpath = _os.path.abspath(str(args[0]))
+        # Jail served files to a root directory so a request-controlled path
+        # cannot traverse to arbitrary files (../../etc/passwd, absolute paths).
+        # Root defaults to the app's CWD; override with EPL_WEB_FILE_ROOT.
+        root = _os.path.realpath(_os.environ.get('EPL_WEB_FILE_ROOT') or _os.getcwd())
+        raw = str(args[0])
+        # Cross-platform hardening: an EPL web app may be deployed on either
+        # POSIX or Windows, and a request-controlled path could arrive with
+        # either separator or a drive-letter/UNC prefix. POSIX os.path does not
+        # treat '\\' as a separator or 'C:/...' as absolute, so a Windows-style
+        # payload (..\\..\\win.ini, C:/Windows/...) would otherwise sail past
+        # the jail on a Linux/macOS host. Normalise separators and detect
+        # foreign absolute forms so traversal is caught regardless of host OS.
+        norm = raw.replace('\\', '/')
+        foreign_abs = bool(_re.match(r'^[A-Za-z]:', norm)) or norm.startswith('//')
+        is_abs = _os.path.isabs(raw) or norm.startswith('/') or foreign_abs
+        candidate = norm if is_abs else _os.path.join(root, norm)
+        fpath = _os.path.realpath(candidate)  # resolves symlinks + '..' too
+        if fpath != root and not fpath.startswith(root + _os.sep):
+            raise EPLRuntimeError(
+                'web_send_file: refused to serve a path outside the allowed directory. '
+                'Set EPL_WEB_FILE_ROOT to broaden the served root if this is intentional.',
+                line,
+            )
         mimetype = str(args[1]) if len(args) > 1 else None
         return flask.send_file(fpath, mimetype=mimetype)
 
@@ -6527,21 +6800,32 @@ def _call_auth(name, args, line):
             raise EPLRuntimeError('auth_hash_password(password) requires a password.', line)
         password = str(args[0])
         salt = _os.urandom(32)
-        key = _hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
-        return salt.hex() + ':' + key.hex()
+        key = _hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, _PBKDF2_DEFAULT_ITERS)
+        # Versioned format embeds the iteration count so the work factor can be
+        # raised over time without breaking verification of already-stored hashes.
+        return f'pbkdf2_sha256${_PBKDF2_DEFAULT_ITERS}${salt.hex()}${key.hex()}'
 
     if name == 'auth_verify_password':
         if len(args) < 2:
             raise EPLRuntimeError(
                 'auth_verify_password(password, hash) requires password and hash.', line
             )
-        password = str(args[0])
+        password = str(args[0]).encode('utf-8')
         stored = str(args[1])
         try:
-            salt_hex, key_hex = stored.split(':')
-            salt = bytes.fromhex(salt_hex)
-            stored_key = bytes.fromhex(key_hex)
-            new_key = _hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
+            if stored.startswith('pbkdf2_sha256$'):
+                # New versioned format: pbkdf2_sha256$<iters>$<salt_hex>$<key_hex>
+                _, iters_s, salt_hex, key_hex = stored.split('$')
+                iterations = int(iters_s)
+                salt = bytes.fromhex(salt_hex)
+                stored_key = bytes.fromhex(key_hex)
+            else:
+                # Legacy format: <salt_hex>:<key_hex> at the old 100k iterations.
+                salt_hex, key_hex = stored.split(':')
+                iterations = 100000
+                salt = bytes.fromhex(salt_hex)
+                stored_key = bytes.fromhex(key_hex)
+            new_key = _hashlib.pbkdf2_hmac('sha256', password, salt, iterations)
             return _hmac.compare_digest(stored_key, new_key)
         except (ValueError, TypeError):
             return False
@@ -6605,13 +6889,22 @@ def _call_auth(name, args, line):
             raise EPLRuntimeError('JWT signature verification failed.', line)
         padding = 4 - len(p) % 4
         payload = _json.loads(_base64.urlsafe_b64decode(p + '=' * padding))
-        if 'exp' in payload and payload['exp'] < _time.time():
+        now = _time.time()
+        leeway = 60  # seconds of clock-skew tolerance
+        if 'exp' in payload and payload['exp'] < now - leeway:
             raise EPLRuntimeError('JWT has expired.', line)
+        # Honor the "not before" claim so a token minted for future use is
+        # rejected until it becomes valid (previously ignored).
+        if 'nbf' in payload and payload['nbf'] > now + leeway:
+            raise EPLRuntimeError('JWT is not yet valid (nbf).', line)
         return _to_epl(payload)
 
     if name == 'auth_jwt_decode':
         if not args:
             raise EPLRuntimeError('auth_jwt_decode(token) requires a token.', line)
+        # SECURITY: this reads claims WITHOUT verifying the signature. The
+        # returned payload is attacker-controlled — never authorize on it.
+        _warn_jwt_decode_unverified()
         token = str(args[0])
         parts = token.split('.')
         if len(parts) != 3:
@@ -7031,6 +7324,11 @@ def _resolve_context(expr, context):
     parts = expr.split('.')
     value = context
     for part in parts:
+        # SECURITY: never resolve dunder / private attributes. Without this, a
+        # template expression like `x.__class__.__init__.__globals__` could walk
+        # Python internals for information disclosure (e.g. reaching os/env).
+        if part.startswith('_'):
+            return None
         if isinstance(value, dict):
             value = value.get(part)
         elif isinstance(value, EPLDict):

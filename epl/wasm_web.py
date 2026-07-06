@@ -370,12 +370,19 @@ class WebCodeGenerator:
         )
 
     def _widgets_to_html(self):
-        """Convert collected widgets to HTML."""
+        """Convert collected widgets to HTML.
+
+        Every interpolated value (text, placeholders, dropdown options, ids and
+        numeric attributes) is HTML-escaped: widget content comes from the EPL
+        source, and unescaped `<script>` / `">` payloads would otherwise be
+        live markup in the generated page (stored XSS).
+        """
+        esc = self._html_escape
         lines = []
         for w in self.widgets:
             wtype = w['type']
-            wid = w['id']
-            text = w.get('text', '')
+            wid = esc(w['id'])
+            text = esc(w.get('text', ''))
             props = w.get('properties', {})
 
             if wtype == 'button':
@@ -383,12 +390,12 @@ class WebCodeGenerator:
             elif wtype == 'label':
                 lines.append(f'        <span id="{wid}" class="epl-label">{text}</span>')
             elif wtype == 'input':
-                ph = props.get('placeholder', '')
+                ph = esc(props.get('placeholder', ''))
                 lines.append(
                     f'        <input id="{wid}" type="text" class="epl-input" placeholder="{ph}">'
                 )
             elif wtype == 'textarea':
-                ph = props.get('placeholder', '')
+                ph = esc(props.get('placeholder', ''))
                 lines.append(
                     f'        <textarea id="{wid}" class="epl-textarea" placeholder="{ph}"></textarea>'
                 )
@@ -397,21 +404,21 @@ class WebCodeGenerator:
                     f'        <label class="epl-checkbox"><input id="{wid}" type="checkbox"> {text}</label>'
                 )
             elif wtype == 'slider':
-                mx = props.get('max', 100)
+                mx = esc(props.get('max', 100))
                 lines.append(
                     f'        <input id="{wid}" type="range" class="epl-slider" min="0" max="{mx}">'
                 )
             elif wtype == 'dropdown':
                 opts = props.get('options', [])
-                opt_html = ''.join(f'<option value="{o}">{o}</option>' for o in opts)
+                opt_html = ''.join(f'<option value="{esc(o)}">{esc(o)}</option>' for o in opts)
                 lines.append(f'        <select id="{wid}" class="epl-select">{opt_html}</select>')
             elif wtype == 'progress':
                 lines.append(
                     f'        <progress id="{wid}" class="epl-progress" max="100" value="0"></progress>'
                 )
             elif wtype == 'canvas':
-                cw = props.get('width', 400)
-                ch = props.get('height', 300)
+                cw = esc(props.get('width', 400))
+                ch = esc(props.get('height', 300))
                 lines.append(
                     f'        <canvas id="{wid}" width="{cw}" height="{ch}" class="epl-canvas"></canvas>'
                 )

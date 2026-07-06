@@ -255,6 +255,42 @@ def run_suite():
         interp.execute(loaded)
         test_true('bytecode_exec_roundtrip', interp.output_lines == ['10'])
 
+        # ── SECURITY (C1): restricted unpickler blocks non-AST classes ──
+        import io as _io
+        import pickle as _pickle
+        import struct as _struct
+
+        from epl import bytecode_cache as _bc
+
+        class _Evil:
+            def __reduce__(self):
+                # Classic pickle-RCE gadget: call eval() on unpickle.
+                return (eval, ("__import__('os').getpid()",))
+
+        gadget = _pickle.dumps(_Evil())
+        try:
+            _bc._SafeUnpickler(_io.BytesIO(gadget)).load()
+            test_true('bytecode_unpickler_blocks_gadget', False)
+        except _pickle.UnpicklingError:
+            test_true('bytecode_unpickler_blocks_gadget', True)
+
+        # ── SECURITY (C1): forged .eplc without the HMAC key is rejected ──
+        forged = (
+            _bc._MAGIC
+            + _struct.pack('<H', _bc._FORMAT_VERSION)
+            + _bc._source_hash(code)
+            + os.urandom(32)  # attacker cannot compute the real HMAC
+            + gadget
+        )
+        with tempfile.NamedTemporaryFile(suffix='.eplc', delete=False) as _ff:
+            forged_path = _ff.name
+        try:
+            open(forged_path, 'wb').write(forged)
+            test_true('bytecode_forged_file_rejected', load(code, forged_path) is None)
+        finally:
+            if os.path.exists(forged_path):
+                os.remove(forged_path)
+
     finally:
         if os.path.exists(cache_path):
             os.remove(cache_path)

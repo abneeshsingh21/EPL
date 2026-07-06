@@ -116,3 +116,36 @@ class TestRuntimeLimits(unittest.TestCase):
             safe_mode=True,
             max_loop_iterations=128,
         )
+
+
+class TestPerOperationAllocationLimits(unittest.TestCase):
+    """M5: a single op must not allocate/compute unbounded in safe mode.
+
+    `"A" * 10**9`, `(10**10000)**10000`, and huge int multiplies are each one
+    instruction, so the statement counter and between-statements timeout never
+    fire — the size is bounded before the allocation/computation happens.
+    """
+
+    def _assert_blocked(self, source: str) -> None:
+        with self.assertRaises(EPLError) as exc_info:
+            _run_epl(source, safe_mode=True)
+        self.assertIn('too large', str(exc_info.exception).lower())
+
+    def test_string_repetition_bomb_blocked(self):
+        self._assert_blocked('Say "A" * 1000000000')
+
+    def test_huge_base_exponent_bomb_blocked(self):
+        self._assert_blocked('Say (10 ** 10000) ** 10000')
+
+    def test_big_int_multiply_bomb_blocked(self):
+        self._assert_blocked('Say (10 ** 500000) * (10 ** 600000)')
+
+    def test_legit_operations_still_work_in_safe_mode(self):
+        self.assertEqual(_run_epl('Say "ab" * 3', safe_mode=True), ['ababab'])
+        self.assertEqual(_run_epl('Say 2 ** 16', safe_mode=True), ['65536'])
+        self.assertEqual(_run_epl('Say 123 * 456', safe_mode=True), ['56088'])
+
+    def test_trusted_mode_is_not_restricted(self):
+        # Outside the sandbox, large-but-legitimate arithmetic is allowed.
+        self.assertEqual(_run_epl('Say "ab" * 5'), ['ababababab'])
+        self.assertEqual(_run_epl('Say (10 ** 5000) ** 5000 > 0'), ['true'])

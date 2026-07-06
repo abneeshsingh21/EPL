@@ -55,12 +55,35 @@ def _check_sandbox(action: str = 'FFI operation'):
         )
 
 
+def _has_path_separator(name: str) -> bool:
+    # NB: os.altsep is None on POSIX; `('' in name)` is always True, so it must
+    # not be folded into the membership test or every bare name would look
+    # path-like and defeat the basename allowlist shortcut.
+    return (
+        '/' in name
+        or '\\' in name
+        or os.sep in name
+        or (os.altsep is not None and os.altsep in name)
+    )
+
+
 def _check_allowlist(library_path: str):
-    """Raise error if library is not in the allowlist (when enabled)."""
+    """Raise error if library is not in the allowlist (when enabled).
+
+    The basename shortcut (allowlist "libm.so" → load a bare "libm.so" resolved
+    by the system loader) is honored ONLY when the requested name has no path
+    components. A path like "/tmp/evil/libm.so" must match an allowlist entry
+    exactly — otherwise an attacker could drop a malicious file whose basename
+    collides with an allowlisted bare name and load it by full path.
+    """
     if _LIBRARY_ALLOWLIST is not None:
-        # Check both the raw path and the basename
-        basename = os.path.basename(library_path)
-        if library_path not in _LIBRARY_ALLOWLIST and basename not in _LIBRARY_ALLOWLIST:
+        if _has_path_separator(library_path):
+            allowed = library_path in _LIBRARY_ALLOWLIST
+        else:
+            allowed = library_path in _LIBRARY_ALLOWLIST or (
+                os.path.basename(library_path) in _LIBRARY_ALLOWLIST
+            )
+        if not allowed:
             raise PermissionError(
                 f"SECURITY: Loading library '{library_path}' is not allowed. "
                 f'Allowed libraries: {", ".join(sorted(_LIBRARY_ALLOWLIST))}. '

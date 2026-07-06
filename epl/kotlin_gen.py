@@ -1803,17 +1803,30 @@ class KotlinGenerator:
         # Fallback with type info comment
         return f'null /* unhandled: {type(node).__name__} */'
 
+    @staticmethod
+    def _kotlin_str_literal(value: str) -> str:
+        """Render a Python string as a safe Kotlin double-quoted literal.
+
+        SECURITY: Kotlin interpolates `$name` and `${expr}` inside double-quoted
+        strings, so `$` MUST be escaped — otherwise an EPL string literal like
+        "${Runtime.getRuntime().exec(...)}" would become live Kotlin in the
+        generated app (arbitrary code execution in the transpiled Android/desktop
+        binary). Backslash is escaped first so the other escapes aren't doubled.
+        """
+        escaped = (
+            value.replace('\\', '\\\\')
+            .replace('"', '\\"')
+            .replace('$', '\\$')
+            .replace('\n', '\\n')
+            .replace('\t', '\\t')
+        )
+        return f'"{escaped}"'
+
     def _expr_literal(self, node):
         if isinstance(node.value, bool):
             return 'true' if node.value else 'false'
         if isinstance(node.value, str):
-            escaped = (
-                node.value.replace('\\', '\\\\')
-                .replace('"', '\\"')
-                .replace('\n', '\\n')
-                .replace('\t', '\\t')
-            )
-            return f'"{escaped}"'
+            return self._kotlin_str_literal(node.value)
         if node.value is None:
             return 'null'
         if isinstance(node.value, float):
@@ -1927,8 +1940,7 @@ class KotlinGenerator:
     def _expr_dict(self, node):
         def key_expr(k):
             if isinstance(k, str):
-                escaped = k.replace('\\', '\\\\').replace('"', '\\"')
-                return f'"{escaped}"'
+                return self._kotlin_str_literal(k)
             if hasattr(k, 'line'):  # AST node
                 return self._expr(k)
             return str(k)

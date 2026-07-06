@@ -130,6 +130,45 @@ class TestDatabaseRealHardening(unittest.TestCase):
         self.db.insert('users', {'name': 'Bob', 'age': 25})
         self.assertEqual(self.db.count('users'), 2)
 
+    def test_add_column_rejects_bad_table(self):
+        # add_column previously interpolated table/name raw (DDL injection).
+        with self.assertRaises(ValueError):
+            self.db.add_column('users; DROP TABLE users', 'nickname', 'TEXT')
+
+    def test_add_column_rejects_bad_name(self):
+        with self.assertRaises(ValueError):
+            self.db.add_column('users', 'nick; --', 'TEXT')
+
+    def test_add_column_happy_path(self):
+        self.db.add_column('users', 'nickname', 'TEXT')
+        self.db.insert('users', {'name': 'Cara', 'age': 40, 'nickname': 'C'})
+        self.assertEqual(self.db.count('users'), 1)
+
+
+class TestDialectAwareQuoting(unittest.TestCase):
+    """Identifier quoting must use the character the target engine recognises:
+    backticks for MySQL (double quotes are string literals there by default),
+    ANSI double quotes for SQLite/PostgreSQL."""
+
+    def test_mysql_uses_backticks(self):
+        from epl.database_real import _quote_identifier as q
+
+        self.assertEqual(q('users', 'mysql'), '`users`')
+
+    def test_sqlite_and_postgres_use_double_quotes(self):
+        from epl.database_real import _quote_identifier as q
+
+        self.assertEqual(q('users', 'sqlite'), '"users"')
+        self.assertEqual(q('users', 'postgres'), '"users"')
+        self.assertEqual(q('users'), '"users"')  # default
+
+    def test_validation_runs_before_quoting_for_every_dialect(self):
+        from epl.database_real import _quote_identifier as q
+
+        for dialect in ('sqlite', 'postgres', 'mysql'):
+            with self.assertRaises(ValueError):
+                q('bad; DROP TABLE x', dialect)
+
 
 if __name__ == '__main__':
     unittest.main()

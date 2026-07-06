@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from epl.package_manager import (
     LOCKFILE_NAME,
+    _safe_package_dest,
     audit_packages,
     install_package,
     load_local_registry,
@@ -36,6 +37,31 @@ def _project_manifest() -> dict:
         'github-dependencies': {'web-kit': 'epl-lang/web-kit'},
         'scripts': {},
     }
+
+
+class TestPackageInstallTraversal(unittest.TestCase):
+    """C2: a malicious package manifest `name` must never escape PACKAGES_DIR."""
+
+    def test_traversal_and_absolute_names_rejected(self):
+        for evil in (
+            '../../../../../../tmp/pwned',
+            'C:/Windows/Temp/pwned',
+            '..\\..\\startup',
+            '/etc/cron.d/x',
+            'foo/bar',
+            '..',
+        ):
+            with self.assertRaises(ValueError, msg=f'{evil!r} should be rejected'):
+                _safe_package_dest(evil)
+
+    def test_legit_names_stay_inside_jail(self):
+        root = os.path.realpath(
+            __import__('epl.package_manager', fromlist=['PACKAGES_DIR']).PACKAGES_DIR
+        )
+        for good in ('epl-math', 'my_pkg', 'cool.thing-2'):
+            dest = _safe_package_dest(good)
+            self.assertTrue(dest == root or dest.startswith(root + os.sep))
+            self.assertEqual(os.path.basename(dest), good)
 
 
 class TestPackageTrust(unittest.TestCase):

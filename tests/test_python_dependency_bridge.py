@@ -101,6 +101,8 @@ class TestPythonDependencyBridge(unittest.TestCase):
             self.assertEqual(installed, ['requests', 'pyyaml>=6'])
 
     def test_use_python_auto_installs_manifest_declared_requirement(self):
+        # A declared requirement installs only with explicit consent. The
+        # EPL_AUTO_INSTALL=1 opt-in is the CI/automation consent path.
         with tempfile.TemporaryDirectory(prefix='epl_pydeps_use_') as tmpdir:
             manifest = _base_manifest()
             manifest['entry'] = 'src/main.epl'
@@ -114,14 +116,15 @@ class TestPythonDependencyBridge(unittest.TestCase):
             interp = Interpreter(debug_interactive=False)
             interp._current_file = str(source_file)
 
-            with mock.patch(
-                'epl.interpreter._importlib.import_module',
-                side_effect=[ImportError('missing'), fake_module],
-            ) as import_module:
-                with mock.patch.object(
-                    interpreter_mod._subprocess, 'check_call', return_value=0
-                ) as pip_call:
-                    interp.execute(_parse('Use python "yaml"\n'))
+            with mock.patch.dict(os.environ, {'EPL_AUTO_INSTALL': '1'}):
+                with mock.patch(
+                    'epl.interpreter._importlib.import_module',
+                    side_effect=[ImportError('missing'), fake_module],
+                ) as import_module:
+                    with mock.patch.object(
+                        interpreter_mod._subprocess, 'check_call', return_value=0
+                    ) as pip_call:
+                        interp.execute(_parse('Use python "yaml"\n'))
 
             self.assertEqual(import_module.call_count, 2)
             pip_call.assert_called_once()
@@ -133,6 +136,37 @@ class TestPythonDependencyBridge(unittest.TestCase):
             wrapped = interp.global_env.get_variable('yaml')
             self.assertIsInstance(wrapped, PythonModule)
             self.assertIs(wrapped.module, fake_module)
+
+    def test_use_python_declared_requirement_requires_consent(self):
+        # M2: merely running a (possibly untrusted) project must NOT silently
+        # pip-install its declared deps. Without EPL_AUTO_INSTALL and with no
+        # interactive TTY, consent is withheld and pip is never invoked.
+        from epl.errors import RuntimeError as EPLRuntimeError
+
+        with tempfile.TemporaryDirectory(prefix='epl_pydeps_noconsent_') as tmpdir:
+            manifest = _base_manifest()
+            manifest['entry'] = 'src/main.epl'
+            manifest['python-dependencies'] = {'yaml': 'pyyaml>=6'}
+            save_manifest(manifest, tmpdir, fmt='toml')
+            Path(tmpdir, 'src').mkdir(exist_ok=True)
+            source_file = Path(tmpdir, 'src', 'main.epl')
+            source_file.write_text('Use python "yaml"\n', encoding='utf-8')
+
+            interp = Interpreter(debug_interactive=False)
+            interp._current_file = str(source_file)
+
+            env_without_optin = {k: v for k, v in os.environ.items() if k != 'EPL_AUTO_INSTALL'}
+            with mock.patch.dict(os.environ, env_without_optin, clear=True):
+                with mock.patch(
+                    'epl.interpreter._importlib.import_module',
+                    side_effect=ImportError('missing'),
+                ):
+                    with mock.patch.object(
+                        interpreter_mod._subprocess, 'check_call', return_value=0
+                    ) as pip_call:
+                        with self.assertRaises(EPLRuntimeError):
+                            interp.execute(_parse('Use python "yaml"\n'))
+            pip_call.assert_not_called()
 
     def test_python_bridge_unwraps_epl_maps_and_lists_for_python_calls(self):
         interp = Interpreter(debug_interactive=False)
