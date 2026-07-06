@@ -31,6 +31,27 @@ PLAYGROUND_RATE_LIMIT_MAX_REQUESTS = 40  # expensive POSTs per client per window
 PLAYGROUND_MAX_CONCURRENT_EXECUTIONS = 4  # simultaneous code-execution subprocesses
 
 
+def _resolve_client_key(forwarded_for, peer_addr):
+    """Derive the rate-limit identity for a client.
+
+    X-Forwarded-For is client-controlled: trusting it lets an attacker mint a
+    fresh rate-limit bucket per request by sending a random XFF each time,
+    defeating the limiter. Only honor XFF when explicitly told we sit behind a
+    trusted proxy (EPL_TRUST_PROXY=1), and then take the RIGHTMOST hop — the one
+    our own proxy appends, which a client cannot forge past. Otherwise use the
+    real socket peer address.
+    """
+    trust_proxy = os.environ.get('EPL_TRUST_PROXY', '').strip().lower() in (
+        '1',
+        'true',
+        'yes',
+        'on',
+    )
+    if trust_proxy and forwarded_for:
+        return forwarded_for.split(',')[-1].strip()
+    return peer_addr
+
+
 class _RateLimiter:
     """Thread-safe sliding-window rate limiter keyed by client identity."""
 
@@ -163,12 +184,9 @@ def start_playground(port: int = None, open_browser: bool = True, host: str = No
             self._json_response(200, _get_syntax_reference())
 
         def _client_key(self):
-            # Behind App Service / a reverse proxy the real client is the first
-            # hop of X-Forwarded-For; fall back to the socket peer locally.
-            forwarded = self.headers.get('X-Forwarded-For')
-            if forwarded:
-                return forwarded.split(',')[0].strip()
-            return self.client_address[0]
+            return _resolve_client_key(
+                self.headers.get('X-Forwarded-For'), self.client_address[0]
+            )
 
         def _rate_limited(self):
             if not _RATE_LIMITER.allow(self._client_key()):

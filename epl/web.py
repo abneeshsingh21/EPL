@@ -38,6 +38,19 @@ _access_logger = logging.getLogger('epl.web.access')
 _error_logger = logging.getLogger('epl.web.error')
 
 
+def _client_error_detail(exc):
+    """Return an error string safe to send to an HTTP client.
+
+    Raw exception text can leak internal paths, SQL, or logic details, so by
+    default clients get a generic message while the full exception is logged
+    server-side. Set EPL_WEB_DEBUG=1 to surface the detail in responses during
+    development.
+    """
+    if os.environ.get('EPL_WEB_DEBUG', '').strip().lower() in ('1', 'true', 'yes', 'on'):
+        return str(exc)
+    return 'Internal server error'
+
+
 def configure_logging(level=logging.INFO, log_file=None):
     """Configure EPL web server logging."""
     fmt = logging.Formatter('[%(asctime)s] %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
@@ -896,6 +909,11 @@ class Response:
     def set_cookie(
         self, name, value, max_age=3600, httponly=True, secure=False, samesite='Strict', path='/'
     ):
+        # A SameSite=None cookie is cross-site and browsers reject it unless it
+        # is also Secure — force Secure so we never emit an insecure cross-site
+        # cookie (which would also just be dropped by the client).
+        if isinstance(samesite, str) and samesite.lower() == 'none':
+            secure = True
         flags = f'{name}={value}; Path={path}; Max-Age={max_age}; SameSite={samesite}'
         if httponly:
             flags += '; HttpOnly'
@@ -2169,7 +2187,7 @@ class EPLHandler(BaseHTTPRequestHandler):
                     e,
                     _tb.format_exc(),
                 )
-                self._send_error(500, f'Handler error: {e}')
+                self._send_error(500, f'Handler error: {_client_error_detail(e)}')
             return
         if response_type == 'page':
             html = self._build_page(body, form_data=form_data, params=params)
@@ -2412,7 +2430,8 @@ class EPLHandler(BaseHTTPRequestHandler):
                     result = self.interpreter._eval(signal.payload, route_env)
                     return self._normalize_json_value(result)
             except Exception as e:
-                return {'error': str(e)}
+                _error_logger.error('SendResponse eval error: %s', e, exc_info=True)
+                return {'error': _client_error_detail(e)}
         # Fallback: return all store data
         return self._normalize_json_value({'store': {k: list(v) for k, v in _data_store.items()}})
 
@@ -3247,7 +3266,8 @@ class AsyncEPLServer:
                         result = self.interpreter._eval(stmt.data, self.interpreter.global_env)
                         return self._normalize_json_value(result)
                     except Exception as e:
-                        return {'error': str(e)}
+                        _error_logger.error('SendResponse eval error: %s', e, exc_info=True)
+                        return {'error': _client_error_detail(e)}
         return self._normalize_json_value({'store': {k: list(v) for k, v in _data_store.items()}})
 
     def _exec_action_sync(self, body, form_data):

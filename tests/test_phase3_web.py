@@ -396,11 +396,13 @@ def main():
     def t_auth_hash_password():
         h = call_stdlib('auth_hash_password', ['secret123'], 0)
         assert_isinstance(h, str)
-        assert_in(':', h)
-        parts = h.split(':')
-        assert_eq(len(parts), 2)
-        assert_true(len(parts[0]) == 64)  # 32 bytes hex
-        assert_true(len(parts[1]) == 64)
+        # Versioned PBKDF2 format: pbkdf2_sha256$<iters>$<salt_hex>$<key_hex>
+        parts = h.split('$')
+        assert_eq(len(parts), 4)
+        assert_eq(parts[0], 'pbkdf2_sha256')
+        assert_true(int(parts[1]) >= 600000)  # OWASP work factor
+        assert_true(len(parts[2]) == 64)  # 32-byte salt hex
+        assert_true(len(parts[3]) == 64)  # 32-byte derived key hex
 
     run_case('auth_hash_password', t_auth_hash_password)
 
