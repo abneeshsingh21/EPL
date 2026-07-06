@@ -39,6 +39,14 @@ from epl.errors import RuntimeError as EPLRuntimeError
 _install_lock = _threading.Lock()
 _module_cache: dict = {}
 
+# Wire-format magic + KDF cost for the builtin aes_encrypt/aes_decrypt.
+# v1 uses authenticated AES-GCM with a PBKDF2-salted key (the earlier CBC form
+# was unauthenticated — vulnerable to padding-oracle/bit-flipping — and keyed by
+# a single unsalted SHA-256 of the passphrase). The magic lets aes_decrypt
+# detect and clearly reject the incompatible legacy format.
+_AES_MAGIC = b'EAG1'
+_AES_KDF_ITERS = 200_000
+
 # Bare-identifier constants — words that resolve to a fixed value when used as a
 # plain identifier (no call, no `Create`). Shared by BOTH execution engines (the
 # bytecode VM and the tree-walking interpreter) so they can never drift apart:
@@ -4858,32 +4866,26 @@ def call_stdlib(name, args, line, interpreter=None):
             if len(args) < 2:
                 raise EPLRuntimeError('aes_encrypt(plaintext, key) requires text and key.', line)
             plaintext = str(args[0]).encode('utf-8')
-            key = _hashlib.sha256(str(args[1]).encode('utf-8')).digest()
-            iv = _os.urandom(16)
+            passphrase = str(args[1]).encode('utf-8')
+            # Salted, iterated key derivation instead of a single unsalted SHA-256.
+            salt = _os.urandom(16)
+            nonce = _os.urandom(12)
+            key = _hashlib.pbkdf2_hmac('sha256', passphrase, salt, _AES_KDF_ITERS)
             try:
-                # Real AES-CBC via pycryptodome
+                # Authenticated AES-GCM via pycryptodome
                 from Crypto.Cipher import AES  # type: ignore[import-untyped]
-                from Crypto.Util.Padding import pad  # type: ignore[import-untyped]
 
-                cipher = AES.new(key, AES.MODE_CBC, iv)
-                ct = cipher.encrypt(pad(plaintext, AES.block_size))
+                cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
+                ct, tag = cipher.encrypt_and_digest(plaintext)
+                blob = ct + tag
             except ImportError:
-                # Fallback: AES-CBC via cryptography library
+                # Fallback: AES-GCM via cryptography library (returns ct||tag)
                 try:
-                    from cryptography.hazmat.primitives.ciphers import (  # type: ignore[import-untyped]
-                        Cipher,
-                        algorithms,
-                        modes,
-                    )
-                    from cryptography.hazmat.primitives.padding import (
-                        PKCS7,  # type: ignore[import-untyped]
+                    from cryptography.hazmat.primitives.ciphers.aead import (
+                        AESGCM,  # type: ignore[import-untyped]
                     )
 
-                    padder = PKCS7(128).padder()
-                    padded = padder.update(plaintext) + padder.finalize()
-                    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-                    encryptor = cipher.encryptor()
-                    ct = encryptor.update(padded) + encryptor.finalize()
+                    blob = AESGCM(key).encrypt(nonce, plaintext, None)
                 except ImportError:
                     raise EPLRuntimeError(
                         'aes_encrypt requires pycryptodome or cryptography package. '
@@ -4892,7 +4894,7 @@ def call_stdlib(name, args, line, interpreter=None):
                     ) from None
             import base64 as _b64
 
-            return _b64.b64encode(iv + ct).decode('ascii')
+            return _b64.b64encode(_AES_MAGIC + salt + nonce + blob).decode('ascii')
         if name == 'aes_decrypt':
             if len(args) < 2:
                 raise EPLRuntimeError(
@@ -4901,45 +4903,56 @@ def call_stdlib(name, args, line, interpreter=None):
             import base64 as _b64
 
             raw = _b64.b64decode(str(args[0]))
-            key = _hashlib.sha256(str(args[1]).encode('utf-8')).digest()
-            if len(raw) < 32:
+            if not raw.startswith(_AES_MAGIC):
+                raise EPLRuntimeError(
+                    'aes_decrypt: unsupported ciphertext format. aes_encrypt now uses '
+                    'authenticated AES-GCM; data encrypted with the older (insecure) '
+                    'AES-CBC format must be re-encrypted.',
+                    line,
+                )
+            raw = raw[len(_AES_MAGIC):]
+            # salt(16) + nonce(12) + ct + tag(16)
+            if len(raw) < 16 + 12 + 16:
                 raise EPLRuntimeError('aes_decrypt: ciphertext too short', line)
-            iv = raw[:16]
-            ct = raw[16:]
-            if len(ct) % 16 != 0:
-                raise EPLRuntimeError('aes_decrypt: invalid ciphertext length', line)
+            salt, nonce, blob = raw[:16], raw[16:28], raw[28:]
+            passphrase = str(args[1]).encode('utf-8')
+            key = _hashlib.pbkdf2_hmac('sha256', passphrase, salt, _AES_KDF_ITERS)
             try:
-                # Real AES-CBC via pycryptodome
+                # Authenticated AES-GCM via pycryptodome
                 from Crypto.Cipher import AES  # type: ignore[import-untyped]
-                from Crypto.Util.Padding import unpad  # type: ignore[import-untyped]
 
-                cipher = AES.new(key, AES.MODE_CBC, iv)
-                plaintext = unpad(cipher.decrypt(ct), AES.block_size)
-            except ImportError:
-                # Fallback: AES-CBC via cryptography library
+                ct, tag = blob[:-16], blob[-16:]
+                cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
                 try:
-                    from cryptography.hazmat.primitives.ciphers import (  # type: ignore[import-untyped]
-                        Cipher,
-                        algorithms,
-                        modes,
+                    plaintext = cipher.decrypt_and_verify(ct, tag)
+                except ValueError:
+                    raise EPLRuntimeError(
+                        'aes_decrypt: authentication failed (wrong key or tampered data).',
+                        line,
+                    ) from None
+            except ImportError:
+                # Fallback: AES-GCM via cryptography library
+                try:
+                    from cryptography.exceptions import (
+                        InvalidTag,  # type: ignore[import-untyped]
                     )
-                    from cryptography.hazmat.primitives.padding import (
-                        PKCS7,  # type: ignore[import-untyped]
+                    from cryptography.hazmat.primitives.ciphers.aead import (
+                        AESGCM,  # type: ignore[import-untyped]
                     )
 
-                    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-                    decryptor = cipher.decryptor()
-                    padded = decryptor.update(ct) + decryptor.finalize()
-                    unpadder = PKCS7(128).unpadder()
-                    plaintext = unpadder.update(padded) + unpadder.finalize()
+                    try:
+                        plaintext = AESGCM(key).decrypt(nonce, blob, None)
+                    except InvalidTag:
+                        raise EPLRuntimeError(
+                            'aes_decrypt: authentication failed (wrong key or tampered data).',
+                            line,
+                        ) from None
                 except ImportError:
                     raise EPLRuntimeError(
                         'aes_decrypt requires pycryptodome or cryptography package. '
                         'Run: pip install pycryptodome  (or: pip install cryptography)',
                         line,
                     ) from None
-            except (ValueError, KeyError) as e:
-                raise EPLRuntimeError(f'aes_decrypt: decryption failed — {e}', line) from e
             return plaintext.decode('utf-8')
         if name == 'pbkdf2_hash':
             if len(args) < 1:
