@@ -12,6 +12,50 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+## [10.1.2] — 2026-07-06
+
+Security-focused patch: the 2026-07 audit fixes plus a second-pass review that
+closed a cross-platform gap in the path-traversal jail (the CI-visible failure),
+a MySQL identifier-quoting regression, and three more real findings. No API
+changes — a safe, recommended upgrade for all users.
+
+### Security — path-traversal jail now cross-platform
+
+`web_send_file`'s jail resolved paths with `os.path`, which on POSIX
+(`posixpath`) does not treat `\` as a separator or `C:/…` as absolute. A
+request-controlled Windows-style payload (`..\..\..\windows\win.ini`,
+`C:/Windows/...`) therefore sailed **past** the jail on a Linux/macOS host and
+was only blocked on Windows. The jail now normalises separators and detects
+drive-letter/UNC absolute forms before resolving, so traversal is refused
+regardless of the deployment OS.
+
+### Security — SQL identifier quoting is dialect-correct + `add_column` hardened
+
+Two gaps in the same DDL-injection class: `add_column` interpolated the table
+and column names raw (unlike the already-guarded `create_table`/`drop_table`),
+and identifier quoting always emitted ANSI double quotes — which MySQL treats as
+**string literals**, not identifiers, in its default SQL mode, so hardened
+`CREATE TABLE`s failed there. Identifiers are now validated against a strict
+pattern **and** quoted with the character the target engine recognises
+(backticks for MySQL, double quotes for SQLite/PostgreSQL), and `add_column`
+goes through the same guard.
+
+### Security — ReDoS detector unwraps deeply nested groups
+
+The catastrophic-backtracking detector unwrapped only **one** redundant grouping
+layer, so a deeply wrapped pattern such as `(((a+)))+$` slipped past it. It now
+unwraps redundant groups until stable, closing the bypass while still accepting
+legitimate patterns.
+
+### Fixed — `ffi` basename allowlist worked on POSIX; VM `Exit` type parity
+
+`_has_path_separator` folded `os.altsep` into a membership test, but `os.altsep`
+is `None` on POSIX, making `('' in name)` always true — every bare library name
+looked path-like and the basename-allowlist shortcut silently never applied on
+Linux/macOS. Separately, the bytecode VM swallowed a non-numeric `Exit` value to
+status `0`, while the interpreter raised — so `Exit "bad"` looked like success
+under the VM path. The VM now raises the same error as the interpreter.
+
 ### Changed — parse cache no longer clutters your project
 
 `.eplc` parse-cache files were written next to each `.epl` source, so running a
