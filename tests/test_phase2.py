@@ -501,7 +501,8 @@ def main():
         'js: variable + Print',
         lambda: (
             'let x = 5;' in transpile_js('x = 5\nPrint x')
-            and 'console.log(x);' in transpile_js('x = 5\nPrint x')
+            # Print routes through `_epl_str` for EPL-faithful display form.
+            and 'console.log(_epl_str(x));' in transpile_js('x = 5\nPrint x')
         ),
     )
 

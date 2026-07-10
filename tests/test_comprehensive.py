@@ -99,7 +99,7 @@ def run_suite():
 
     test_contains('js_var_decl', transpile('Create x equal to 5.'), 'let x = 5;')
     test('js_var_assign', 'x = 10;' in transpile('x = 5.\nx = 10.'), True)
-    test_contains('js_print', transpile('Print "hello".'), 'console.log("hello");')
+    test_contains('js_print', transpile('Print "hello".'), 'console.log(_epl_str("hello"));')
     test('js_if', 'if' in transpile('If x > 5 then\n    Print "yes".\nEnd.'), True)
     test('js_while', 'while' in transpile('While x > 0\n    x = x - 1.\nEnd.'), True)
     test('js_for_range', 'for' in transpile('For i from 1 to 10\n    Print i.\nEnd.'), True)
@@ -109,7 +109,7 @@ def run_suite():
 
     js_func = transpile('Function add takes a and b\n    Return a + b.\nEnd Function.')
     test_contains('js_func_def', js_func, 'function add(a, b)')
-    test_contains('js_func_return', js_func, 'return (a + b)')
+    test_contains('js_func_return', js_func, 'return _epl_add(a, b)')
 
     # Default parameters
     js_default = transpile(
@@ -135,7 +135,7 @@ def run_suite():
 
     print('\n=== JS Transpiler - Expressions ===')
 
-    test_contains('js_binary_op', transpile('Print 1 + 2.'), '(1 + 2)')
+    test_contains('js_binary_op', transpile('Print 1 + 2.'), '_epl_add(1, 2)')
     test_contains('js_and_op', transpile('Print true and false.'), '&&')
     test_contains('js_or_op', transpile('Print true or false.'), '||')
     test_contains('js_eq_op', transpile('If x == 5 then\n    Print x.\nEnd.'), '===')
@@ -218,13 +218,15 @@ def run_suite():
     js_method = transpile('Create items equal to [1, 2, 3].\nitems.add(4).')
     test_contains('js_method_add', js_method, '.push(4)')
 
-    # The remove fix
+    # `remove` routes through the type-dispatched `_epl_method` shim (which does
+    # the list indexOf/splice itself), so it's faithful for lists AND maps.
     js_remove = transpile('Create items equal to [1, 2, 3].\nitems.remove(2).')
-    test_contains('js_method_remove_indexOf', js_remove, '.indexOf(2)')
+    test_contains('js_method_remove_indexOf', js_remove, '_epl_method(items, "remove", 2)')
 
-    # Property access
+    # Property access — `.length` routes through `_epl_prop` (works on strings,
+    # lists, AND maps, where JS `.length` would be undefined).
     js_prop = transpile('Create n equal to items.length.')
-    test_contains('js_prop_length', js_prop, '.length')
+    test_contains('js_prop_length', js_prop, '_epl_prop(items, "length")')
 
     print('\n=== JS Transpiler - Special ===')
 
@@ -256,9 +258,9 @@ def run_suite():
     js_assert = transpile('Assert 1 == 1.')
     test_contains('js_assert', js_assert, 'console.assert')
 
-    # Augmented assignment
+    # Augmented assignment — `+=` desugars through `_epl_add` for EPL's `+`.
     js_aug = transpile('x = 5.\nx += 3.')
-    test_contains('js_aug_assign', js_aug, '+= 3')
+    test_contains('js_aug_assign', js_aug, 'x = _epl_add(x, 3)')
 
     # Wait
     js_wait = transpile('Wait 1 seconds.')

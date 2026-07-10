@@ -51,6 +51,44 @@ New `tests/test_transpiler_fidelity.py` harness executes every program in
 and asserts byte-identical stdout, so a transpiler regression can no longer ship
 silently.
 
+### Fixed — JavaScript transpiler now preserves EPL runtime semantics
+
+The JS transpiler (`epl export js` / Node target) had the same class of gaps as
+Python, but generated JS can't route back through the interpreter, so each fix is
+a minimal native `_epl_*` runtime helper emitted only when a program needs it. On
+the same fidelity corpus the JS target went from **7/17 to 17/17** matching
+`epl run` byte-for-byte:
+
+- **`+` overload** — `[1, 2] + [3, 4]` now concatenates to a list (was the string
+  `"1,23,4"`), and `"row: " + aList`/`+ aMap` render EPL display form instead of
+  `[object Object]`. `+=` desugars through the same helper.
+- **Display form** — `Print`/`Say` render EPL's forms (`nothing`, `true`/`false`,
+  `[a, b]` lists, `{k: v}` maps) instead of Node's `null` / `[ 1, 2 ]` spacing.
+- **`type_of`** — returns EPL type names (`integer`/`decimal`/`text`/`list`/`map`/
+  `nothing`), not JS `typeof` (`number`/`object`).
+- **`reversed`** — preserves input type: `reversed("abc")` → `"cba"` (was a char
+  array `['c','b','a']`); `reversed([1,2,3])` stays a list.
+- **`to_number`** — now emitted (`Number(...)`); previously a call to an undefined
+  function that crashed at runtime.
+- **Map iteration** — `For each k in aMap` iterates keys via `_epl_iter` (a plain
+  object is not `for..of`-iterable, so this used to throw).
+- **Map/string methods & property accessors** — `.has`/`.keys`/`.count`/`.first`/
+  … and property-style `.length`/`.uppercase`/`.trim` route through type-dispatched
+  helpers (were `[Function: trim]` / `undefined` / crashes), falling back to a real
+  method call for user-class instances.
+- **`let`-vs-reassignment (TDZ)** — EPL's parser emits a declaration node for both
+  first-assignment and reassignment; the transpiler now tracks declared names per
+  function scope and emits `let` only once, so the common `sum = sum + n` in a loop
+  no longer becomes `let sum = sum + n` (a self-referential `let` that threw
+  `ReferenceError: Cannot access 'sum' before initialization`).
+- **Interpolation** — `${length(items)}` is transpiled (`items.length`) rather than
+  copied raw, and a bare `$name` interpolates only when `name` is a real variable
+  (so a literal `$` inside e.g. a password stays literal).
+
+New `tests/test_js_transpiler_fidelity.py` harness runs every corpus program
+through the interpreter and through transpiled JS (via `node`) and asserts
+byte-identical stdout (skips gracefully where `node` is unavailable).
+
 ## [10.1.2] — 2026-07-06
 
 Security-focused patch: the 2026-07 audit fixes plus a second-pass review that
