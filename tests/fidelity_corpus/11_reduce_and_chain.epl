@@ -1,0 +1,6 @@
+Note: reduce + chained HOFs
+nums = [1, 2, 3, 4, 5]
+total = nums.reduce(given acc, x return acc + x, 0)
+Say "sum: " + total
+evens_doubled = nums.filter(given x return x mod 2 equals 0).map(given x return x * 10)
+Say evens_doubled

@@ -37,22 +37,25 @@ NODE_OUT = to_node('Print "Hello"')
 
 
 JS_CASES = [
-    ('print_string', lambda: 'console.log("Hello")' in to_js('Print "Hello"')),
-    ('print_expr', lambda: 'console.log((5 + 3))' in to_js('Print 5 + 3')),
-    ('say_alias', lambda: 'console.log("hi")' in to_js('Say "hi"')),
+    # Print/Say route through `_epl_str` so lists/maps/bools render in EPL's
+    # display form (see js_transpiler `_emit_print`).
+    ('print_string', lambda: 'console.log(_epl_str("Hello"))' in to_js('Print "Hello"')),
+    ('print_expr', lambda: '_epl_add(5, 3)' in to_js('Print 5 + 3')),
+    ('say_alias', lambda: 'console.log(_epl_str("hi"))' in to_js('Say "hi"')),
     ('var_decl_let', lambda: 'let x = 10;' in to_js('x = 10')),
     ('var_decl_str', lambda: 'let name = "Alice";' in to_js('name = "Alice"')),
     ('var_assign', lambda: 'x = 20;' in to_js('x = 10\nSet x to 20')),
     ('var_list', lambda: 'let items = [1, 2, 3];' in to_js('items = [1, 2, 3]')),
     ('var_bool', lambda: 'let flag = true;' in to_js('flag = true')),
-    ('expr_add', lambda: '(5 + 3)' in to_js('Print 5 + 3')),
+    # `+` is EPL's overloaded add (number/list/text), routed via `_epl_add`.
+    ('expr_add', lambda: '_epl_add(5, 3)' in to_js('Print 5 + 3')),
     ('expr_mul', lambda: '(6 * 7)' in to_js('Print 6 * 7')),
     ('expr_mod', lambda: '(10 % 3)' in to_js('Print 10 % 3')),
     (
         'expr_power',
         lambda: 'Math.pow(2, 10)' in to_js('Print 2 ** 10') or '**' in to_js('Print 2 ** 10'),
     ),
-    ('if_statement', lambda: 'if (' in JS_IF and 'console.log("big")' in JS_IF),
+    ('if_statement', lambda: 'if (' in JS_IF and 'console.log(_epl_str("big"))' in JS_IF),
     ('if_else', lambda: '} else {' in JS_IF_ELSE),
     ('while_loop', lambda: 'while (' in to_js('While x < 10\n  x += 1\nEnd')),
     (
@@ -64,20 +67,21 @@ JS_CASES = [
     ),
     (
         'for_range',
-        lambda: 'for (let i = 1; i <= 10; i += 1)' in to_js('For i from 1 to 10\n  Print i\nEnd'),
+        # Loop variables are hoisted (EPL is function-scoped), so the header
+        # initializes without `let` to avoid re-scoping the already-declared var.
+        lambda: 'for (i = 1; i <= 10; i += 1)' in to_js('For i from 1 to 10\n  Print i\nEnd'),
     ),
     ('for_range_step', lambda: 'i += 2' in to_js('For i from 0 to 10 step 2\n  Print i\nEnd')),
     ('for_range_neg_step', lambda: 'i >= 1' in to_js('For i from 5 to 1 step -1\n  Print i\nEnd')),
     (
         'for_each',
         lambda: (
-            'for (let item of'
-            in to_js('items = [1, 2, 3]\nFor each item in items\n  Print item\nEnd')
+            'for (item of' in to_js('items = [1, 2, 3]\nFor each item in items\n  Print item\nEnd')
         ),
     ),
     ('func_def', lambda: 'function greet(name)' in JS_FN),
     ('func_body_print', lambda: 'console.log' in JS_FN),
-    ('func_return', lambda: 'return (a + b)' in JS_FN_RETURN),
+    ('func_return', lambda: 'return _epl_add(a, b)' in JS_FN_RETURN),
     ('func_call_user', lambda: 'sum(3, 4)' in JS_CALL),
     ('builtin_length', lambda: '.length' in to_js('Print length("hello")')),
     ('builtin_sqrt', lambda: 'Math.sqrt' in to_js('Print sqrt(16)')),
@@ -86,9 +90,11 @@ JS_CASES = [
     ('builtin_abs', lambda: 'Math.abs' in to_js('Print absolute(-5)')),
     ('builtin_max', lambda: 'Math.max' in to_js('Print max(3, 7)')),
     ('builtin_round', lambda: 'Math.round' in to_js('Print round(3.5)')),
-    ('builtin_type_of', lambda: 'typeof' in to_js('Print type_of(42)')),
+    # `type_of` routes through `_epl_type` (EPL type names, not JS `typeof`).
+    ('builtin_type_of', lambda: '_epl_type(42)' in to_js('Print type_of(42)')),
     ('builtin_to_int', lambda: 'parseInt' in to_js('Print to_integer("42")')),
-    ('builtin_to_text', lambda: 'String(' in to_js('Print to_text(42)')),
+    # `to_text` routes through `_epl_str` (EPL display form).
+    ('builtin_to_text', lambda: '_epl_str(42)' in to_js('Print to_text(42)')),
     ('builtin_random', lambda: 'Math.random()' in to_js('x = random()')),
     ('range_1arg', lambda: 'Array.from({length: 5}' in to_js('x = range(5)')),
     ('range_2arg', lambda: '5 - 2' in to_js('x = range(2, 5)')),
@@ -103,7 +109,8 @@ JS_CASES = [
     ('list_add', lambda: '.push(' in to_js('items = [1]\nitems.add(2)')),
     ('list_sort', lambda: '.sort(' in to_js('items = [3, 1, 2]\nitems.sort()')),
     ('list_reverse', lambda: '.reverse()' in to_js('items = [1, 2, 3]\nitems.reverse()')),
-    ('aug_plus', lambda: 'x += 5;' in to_js('x = 10\nx += 5')),
+    # `+=` desugars to `x = _epl_add(x, ...)` to honour EPL's overloaded `+`.
+    ('aug_plus', lambda: 'x = _epl_add(x, 5);' in to_js('x = 10\nx += 5')),
     ('aug_minus', lambda: 'x -= 3;' in to_js('x = 10\nx -= 3')),
     ('aug_mul', lambda: 'x *= 2;' in to_js('x = 10\nx *= 2')),
     ('aug_div', lambda: 'x /= 2;' in to_js('x = 10\nx /= 2')),
@@ -131,7 +138,7 @@ JS_CASES = [
         ),
     ),
     ('node_has_header', lambda: 'Node.js target' in NODE_OUT),
-    ('node_has_console', lambda: 'console.log("Hello")' in NODE_OUT),
+    ('node_has_console', lambda: 'console.log(_epl_str("Hello"))' in NODE_OUT),
     ('lambda_expr', lambda: '=>' in to_js('double = lambda x -> x * 2')),
     (
         'import_comment',

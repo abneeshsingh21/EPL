@@ -1,0 +1,10 @@
+Note: list literal + concat + higher-order
+numbers = [5, 3, 8, 1, 9]
+Say numbers
+evens = numbers.filter(given x return x mod 2 equals 0)
+Say evens
+doubled = numbers.map(given x return x * 2)
+Say doubled
+Say "count: " + numbers.length
+combined = [1, 2] + [3, 4]
+Say combined

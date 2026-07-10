@@ -1,0 +1,7 @@
+Note: string helpers used by transpiler property/method map
+name = "  Ada Lovelace  "
+Say name.trim
+Say name.uppercase
+Say name.trim.length
+greeting = "hello world"
+Say greeting.replace("world", "EPL")

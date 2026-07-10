@@ -25,6 +25,171 @@ def _esc_js(text):
     )
 
 
+# EPL built-in string/list/map methods whose name or behaviour has no faithful
+# 1:1 JavaScript equivalent, so they are routed through the `_epl_method` runtime
+# shim below instead of emitting `obj.method(...)` directly (which would call a
+# non-existent method — `greeting.count(...)`, `scores.has(...)` — and crash).
+# Methods that ARE identical in JS (uppercase→toUpperCase, contains→includes, …)
+# stay in the transpiler's 1:1 `method_map` and are intentionally absent here.
+# Higher-order methods (map/filter/reduce/every/some/find) are excluded too —
+# they take EPL callables and are handled by the existing lambda path.
+_EPL_METHOD_NAMES = frozenset(
+    {
+        # string-only
+        'count',
+        'pad_left',
+        'pad_right',
+        'is_number',
+        'is_alpha',
+        'is_empty',
+        'char_at',
+        'to_list',
+        'format',
+        # list-only
+        'first',
+        'last',
+        'unique',
+        'flatten',
+        'insert',
+        'copy',
+        # map-only — plain JS objects have none of these
+        'has',
+        'keys',
+        'values',
+        'get',
+        'set',
+        'entries',
+        'merge',
+        # shared name, divergent behaviour across receiver types
+        'remove',
+        'clear',
+        'reverse',
+    }
+)
+
+
+# EPL zero-arg accessors spelled as properties (no parens): `.length` on any
+# string/list/map, and `.uppercase`/`.lowercase`/`.trim` on strings. JS would
+# read these as a Function reference or `undefined`, so they route through the
+# `_epl_prop` runtime shim. Deliberately conservative — only these four names,
+# so genuine object/Map property reads (`user.name`) are untouched.
+_EPL_PROPERTY_NAMES = frozenset({'length', 'uppercase', 'lowercase', 'trim'})
+
+_EPL_PROP_RUNTIME_JS = """function _epl_prop(obj, name) {
+  if (name === "length") {
+    if (typeof obj === "string" || Array.isArray(obj)) return obj.length;
+    if (obj && typeof obj === "object") return Object.keys(obj).length;
+  }
+  if (typeof obj === "string") {
+    if (name === "uppercase") return obj.toUpperCase();
+    if (name === "lowercase") return obj.toLowerCase();
+    if (name === "trim") return obj.trim();
+  }
+  return obj == null ? undefined : obj[name];
+}"""
+
+
+# Runtime shim: faithful implementations of the divergent EPL methods, dispatched
+# by the receiver's runtime type (string / array / plain-object Map). A user-class
+# instance falls through to a real `obj[name](...)` call so class methods still
+# work — mirroring the interpreter, which only applies these to built-in types.
+_EPL_METHOD_RUNTIME_JS = """function _epl_method(obj, name, ...args) {
+  if (typeof obj === "string") {
+    switch (name) {
+      case "count": return args[0] === undefined ? 0 : obj.split(String(args[0])).length - 1;
+      case "reverse": return [...obj].reverse().join("");
+      case "pad_left": return obj.padStart(args[0] || 0, args[1] !== undefined ? String(args[1])[0] : " ");
+      case "pad_right": return obj.padEnd(args[0] || 0, args[1] !== undefined ? String(args[1])[0] : " ");
+      case "is_number": return args.length === 0 && obj.trim() !== "" && !isNaN(Number(obj));
+      case "is_alpha": return /^[A-Za-z]+$/.test(obj);
+      case "is_empty": return obj.length === 0;
+      case "char_at": { const i = args[0] || 0; if (i < 0 || i >= obj.length) throw new Error("Index " + i + " out of range."); return obj[i]; }
+      case "to_list": return [...obj];
+      case "format": { let r = obj; for (const a of args) r = r.replace("{}", String(a)); return r; }
+    }
+  } else if (Array.isArray(obj)) {
+    switch (name) {
+      case "count": return args[0] === undefined ? obj.length : obj.filter(x => x === args[0]).length;
+      case "first": return obj.length ? obj[0] : null;
+      case "last": return obj.length ? obj[obj.length - 1] : null;
+      case "unique": { const seen = new Set(), out = []; for (const x of obj) if (!seen.has(x)) { seen.add(x); out.push(x); } return out; }
+      case "flatten": { const out = []; for (const x of obj) Array.isArray(x) ? out.push(...x) : out.push(x); return out; }
+      case "insert": if (args.length === 2) obj.splice(args[0], 0, args[1]); return null;
+      case "copy": return [...obj];
+      case "remove": { const i = obj.indexOf(args[0]); if (i !== -1) obj.splice(i, 1); return null; }
+      case "clear": obj.length = 0; return null;
+      case "reverse": obj.reverse(); return null;
+    }
+  } else if (obj && typeof obj === "object") {
+    switch (name) {
+      case "has": return args[0] !== undefined && Object.prototype.hasOwnProperty.call(obj, String(args[0]));
+      case "keys": return Object.keys(obj);
+      case "values": return Object.values(obj);
+      case "entries": return Object.entries(obj).map(([k, v]) => [k, v]);
+      case "get": { const k = String(args[0]); return k in obj ? obj[k] : (args[1] !== undefined ? args[1] : null); }
+      case "set": if (args.length === 2) obj[String(args[0])] = args[1]; return null;
+      case "merge": return Object.assign({}, obj, args[0]);
+      case "remove": delete obj[String(args[0])]; return null;
+      case "clear": for (const k of Object.keys(obj)) delete obj[k]; return null;
+      case "copy": return Object.assign({}, obj);
+    }
+  }
+  // User-defined class instance (or unhandled) — call the real method.
+  const m = obj == null ? undefined : obj[name];
+  if (typeof m === "function") return m.apply(obj, args);
+  throw new Error("No method \\"" + name + "\\" on value.");
+}"""
+
+
+# Runtime shim: `type_of` faithful to EPL's type names (integer/decimal/text/
+# boolean/list/map/nothing), NOT JS `typeof` (which returns number/object/…).
+_EPL_TYPE_RUNTIME_JS = """function _epl_type(v) {
+  if (v === null || v === undefined) return "nothing";
+  if (typeof v === "boolean") return "boolean";
+  if (typeof v === "number") return Number.isInteger(v) ? "integer" : "decimal";
+  if (typeof v === "string") return "text";
+  if (Array.isArray(v)) return "list";
+  if (typeof v === "object") return "map";
+  if (typeof v === "function") return "function";
+  return "unknown";
+}"""
+
+
+# Runtime shim: EPL `+` overload. number+number arithmetic; list+list concat;
+# text+anything / anything+text stringify the other operand to EPL display form
+# (via `_epl_str`); list+non-list is a type error, matching the interpreter.
+_EPL_ADD_RUNTIME_JS = """function _epl_add(a, b) {
+  if (typeof a === "number" && typeof b === "number") return a + b;
+  if (Array.isArray(a) && Array.isArray(b)) return [...a, ...b];
+  // Exactly one operand is a list: allowed only when the other is text
+  // (stringify below); otherwise it is a type error, matching the interpreter.
+  if (Array.isArray(a) !== Array.isArray(b) && typeof a !== "string" && typeof b !== "string")
+    throw new Error("Cannot add " + _epl_type(a) + " and " + _epl_type(b) + ".");
+  if (typeof a === "string" || typeof b === "string") return _epl_str(a) + _epl_str(b);
+  return a + b;
+}"""
+
+
+# Runtime shim: `reversed` preserving input type (string→string, list→list).
+_EPL_REVERSED_RUNTIME_JS = """function _epl_reversed(v) {
+  if (typeof v === "string") return [...v].reverse().join("");
+  return [...v].reverse();
+}"""
+
+
+# Runtime shim: EPL display form for values (used by `to_text`). Mirrors the
+# interpreter's `_format_value`: nothing / true / false, `[a, b]` lists, and
+# `{k: v}` maps. Numbers and strings render as-is.
+_EPL_STR_RUNTIME_JS = """function _epl_str(v) {
+  if (v === null || v === undefined) return "nothing";
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "string") return v;
+  if (Array.isArray(v)) return "[" + v.map(_epl_str).join(", ") + "]";
+  if (typeof v === "object") return "{" + Object.entries(v).map(([k, x]) => k + ": " + _epl_str(x)).join(", ") + "}";
+  return String(v);
+}"""
+
+
 class JSTranspiler:
     """Transpiles EPL AST to JavaScript source code."""
 
@@ -48,6 +213,25 @@ class JSTranspiler:
         self.requires = set()  # Node.js require() modules (CJS fallback)
         self.imports = []  # EPL import statements collected
         self.exported_names = set()  # Names to export
+        # Names of `_epl_*` runtime helpers this program needs. Emitted once at
+        # the top of the output, and only the ones actually used, so programs
+        # that never touch the relevant construct stay clean.
+        self._need: set[str] = set()
+        # Stack of sets tracking which JS names have already been declared in the
+        # current *function* scope. EPL is function-scoped and its parser emits a
+        # `VarDeclaration` for BOTH first-assignment and re-assignment, so the
+        # transpiler emits `let` only the first time a name is seen in a scope and
+        # a plain assignment thereafter — otherwise `sum = sum + n` in a loop
+        # becomes `let sum = sum + n`, a self-referential `let` that throws a TDZ
+        # ReferenceError at runtime.
+        self._scopes: list[set] = [set()]
+        # Parallel stack of names HOISTED to the top of each function scope. EPL
+        # is function-scoped, so a variable first assigned inside an `if`/loop
+        # body — or a loop variable itself — stays visible after that block; JS
+        # `let` is block-scoped and would not. For those names we emit a bare
+        # `let a, b;` at the function top and turn every assignment (and the loop
+        # header) into a plain `name = …`, preserving EPL's scoping.
+        self._hoisted: list[set] = [set()]
 
     def transpile(self, program: ast.Program) -> str:
         self.output = []
@@ -55,6 +239,9 @@ class JSTranspiler:
         self.async_functions = set()
         self.requires = set()
         self.imports = []
+        self._need = set()
+        self._scopes = [set()]
+        self._hoisted = [set()]
         # Pre-scan for user-defined function names and async functions
         for stmt in program.statements:
             if isinstance(stmt, ast.FunctionDef):
@@ -62,8 +249,15 @@ class JSTranspiler:
             elif isinstance(stmt, ast.AsyncFunctionDef):
                 self.user_functions.add(stmt.name)
                 self.async_functions.add(stmt.name)
+        # Pre-scan every bound variable name so bare `$name` interpolation only
+        # fires when the name is a real variable (mirroring the interpreter — a
+        # `$` in front of a non-variable, e.g. inside a password literal, is
+        # literal text, not a template slot).
+        self._declared_vars = self._collect_bound_names(program.statements)
+        # Hoist module-level block-scoped names (EPL is function-scoped, and the
+        # module top level is itself a scope) before emitting any statement.
+        self._begin_scope_body(program.statements)
         # Emit body
-        body_lines: list = []
         for stmt in program.statements:
             self._emit_stmt(stmt)
         # Build final output with header
@@ -89,7 +283,98 @@ class JSTranspiler:
             export_list = ', '.join(sorted(self.exported_names))
             footer.append('')
             footer.append(f'export {{ {export_list} }};')
-        return '\n'.join(header + self.output + footer)
+        prelude = self._build_prelude()
+        return '\n'.join(header + prelude + self.output + footer)
+
+    def _build_prelude(self):
+        """Emit the `_epl_*` runtime helpers this program actually uses.
+
+        Kept minimal and construct-scoped: a program that never iterates a Map
+        or calls a Map/string method emits no prelude at all, so simple output
+        stays byte-for-byte what it was before.
+        """
+        parts = []
+        if 'iter' in self._need:
+            # `For each` faithfulness: a plain object iterates its keys (EPL Map
+            # semantics); arrays and strings are already for..of-iterable and
+            # pass through unchanged. null/undefined iterate as empty.
+            parts.append(
+                'function _epl_iter(x) {\n'
+                '  if (x === null || x === undefined) return [];\n'
+                '  if (Array.isArray(x) || typeof x === "string") return x;\n'
+                '  if (typeof x === "object") return Object.keys(x);\n'
+                '  return x;\n'
+                '}'
+            )
+        if 'prop' in self._need:
+            # EPL zero-arg property accessors (.length, .uppercase, …) computed
+            # by runtime type; a plain property read for everything else.
+            parts.append(_EPL_PROP_RUNTIME_JS)
+        if 'method' in self._need:
+            # EPL built-in string/list/map methods whose name or behaviour has no
+            # 1:1 JS equivalent (.count, .has, .keys/.values on a Map, …).
+            # Dispatched by runtime type so the same call is faithful whether the
+            # receiver is a string, array, or Map-object.
+            parts.append(_EPL_METHOD_RUNTIME_JS)
+        if 'reversed' in self._need:
+            # `reversed` preserves input type (string→string, list→list).
+            parts.append(_EPL_REVERSED_RUNTIME_JS)
+        # `_epl_add`'s type-error path references `_epl_type`, so pull it in.
+        if 'add' in self._need:
+            self._need.add('type')
+        if 'type' in self._need:
+            # `type_of` faithful to EPL's type names, not JS `typeof`.
+            parts.append(_EPL_TYPE_RUNTIME_JS)
+        if 'str' in self._need:
+            # `to_text` faithful to EPL's display form (nothing/true/[a, b]/{k: v}).
+            parts.append(_EPL_STR_RUNTIME_JS)
+        if 'add' in self._need:
+            # EPL `+` overload (number arithmetic / list concat / text coercion).
+            parts.append(_EPL_ADD_RUNTIME_JS)
+        if not parts:
+            return []
+        return ['// ── EPL runtime helpers ──', *parts, '']
+
+    def _collect_bound_names(self, statements):
+        """Field-agnostic walk collecting every bound variable name (declarations,
+        assignments, loop/input vars, params). Used so bare `$name` interpolation
+        only triggers for names that are actually variables."""
+        names: set = set()
+
+        def visit(node):
+            if node is None:
+                return
+            if isinstance(node, (list, tuple)):
+                for item in node:
+                    visit(item)
+                return
+            if not isinstance(node, ast.ASTNode):
+                return
+            cls = type(node).__name__
+            if cls in (
+                'VarDeclaration',
+                'VarAssignment',
+                'ConstDeclaration',
+                'InputStatement',
+                'ForRange',
+                'ForEachLoop',
+            ):
+                for attr in ('name', 'var_name', 'variable_name'):
+                    val = getattr(node, attr, None)
+                    if isinstance(val, str):
+                        names.add(val)
+            params = getattr(node, 'params', None)
+            if isinstance(params, (list, tuple)):
+                for p in params:
+                    if isinstance(p, (list, tuple)) and p and isinstance(p[0], str):
+                        names.add(p[0])
+                    elif isinstance(getattr(p, 'name', None), str):
+                        names.add(p.name)
+            for value in vars(node).values():
+                visit(value)
+
+        visit(statements)
+        return names
 
     def _line(self, text):
         self.output.append('  ' * self.indent + text)
@@ -217,8 +502,117 @@ class JSTranspiler:
 
     # ─── Statements ─────────────────────────────────────
 
+    def _need_call(self, helper: str, call: str) -> str:
+        """Mark a `_epl_*` runtime helper as needed and return the call text."""
+        self._need.add(helper)
+        return call
+
+    # Statement node types that open a NEW function scope. Hoisting stops at
+    # their boundary — their own bodies hoist independently.
+    _SCOPE_BOUNDARY = (
+        'FunctionDef',
+        'AsyncFunctionDef',
+        'ClassDef',
+        'MethodDef',
+        'StaticMethodDef',
+        'AbstractMethodDef',
+        'ModuleDef',
+        'Lambda',
+        'LambdaExpression',
+    )
+
+    def _collect_hoisted_names(self, body) -> set:
+        """Names that must be hoisted to the top of the current function scope.
+
+        A name needs hoisting when JS block scoping would otherwise hide it from
+        code that EPL (function-scoped) still expects to see it:
+          * a variable first assigned inside a nested block (`if`/`while`/`for`/
+            `try`/`match` body) but used after that block, and
+          * every user loop variable — a `for (let x …)` header block-scopes `x`,
+            yet EPL keeps it visible after the loop.
+        Descent stops at nested function/class scopes, which hoist on their own.
+        """
+        hoist: set = set()
+
+        def visit(node, depth):
+            if node is None:
+                return
+            if isinstance(node, (list, tuple)):
+                for item in node:
+                    visit(item, depth)
+                return
+            if not isinstance(node, ast.ASTNode):
+                return
+            cls = type(node).__name__
+            if cls in self._SCOPE_BOUNDARY:
+                return  # separate function scope — do not descend
+            # A declaration nested inside a block leaks past it in EPL.
+            if cls == 'VarDeclaration' and depth > 0:
+                nm = getattr(node, 'name', None)
+                if isinstance(nm, str):
+                    hoist.add(nm)
+            elif cls == 'InputStatement':
+                # `Ask … for x` emits `let x` inside a block (always, for the node
+                # target, which wraps the readline in its own `{ }`), so hoist it
+                # whenever it is nested or the wrapping block would trap it.
+                vn = getattr(node, 'variable_name', None)
+                if isinstance(vn, str) and (depth > 0 or self.target == 'node'):
+                    hoist.add(vn)
+            elif cls in ('ForRange', 'ForEachLoop'):
+                vn = getattr(node, 'var_name', None)
+                if isinstance(vn, str):
+                    hoist.add(vn)
+            for value in vars(node).values():
+                visit(value, depth + 1)
+
+        for stmt in body:
+            visit(stmt, 0)
+        return hoist
+
+    def _begin_scope_body(self, body):
+        """Emit the hoisted `let …;` line for the current scope and mark those
+        names as already-declared so their later assignments emit plain `x = …`.
+
+        Call after `_push_scope()`/`_seed_params()` so parameters (already bound)
+        are excluded from the hoist set and never get a shadowing re-declaration.
+        """
+        hoist = self._collect_hoisted_names(body) - self._scopes[-1]
+        self._hoisted[-1] = hoist
+        if hoist:
+            self._line(f'let {", ".join(sorted(hoist))};')
+            self._scopes[-1] |= hoist
+
+    def _push_scope(self):
+        """Enter a new function scope for `let`-vs-reassign and hoist tracking."""
+        self._scopes.append(set())
+        self._hoisted.append(set())
+
+    def _pop_scope(self):
+        self._scopes.pop()
+        self._hoisted.pop()
+
+    def _declare(self, name: str) -> bool:
+        """Record `name` in the current function scope. Returns True if this is
+        the first time it is seen here (so the caller should emit `let`)."""
+        scope = self._scopes[-1]
+        if name in scope:
+            return False
+        scope.add(name)
+        return True
+
     def _emit_var_decl(self, node):
-        self._line(f'let {node.name} = {self._expr(node.value)};')
+        # A class property assigned as `this.x = ...` is handled by the same
+        # `in_class` path as `_emit_var_assign`, so mirror it here for
+        # VarDeclarations that land inside a method body.
+        if self.in_class and node.name in self.class_properties:
+            self._line(f'this.{node.name} = {self._expr(node.value)};')
+            return
+        if self._declare(node.name):
+            self._line(f'let {node.name} = {self._expr(node.value)};')
+        else:
+            # Already declared in this scope — EPL re-assignment, not a new
+            # binding. Emitting `let` again would shadow/TDZ-crash.
+            self._line(f'{node.name} = {self._expr(node.value)};')
 
     def _emit_var_assign(self, node):
         if self.in_class and node.name in self.class_properties:
@@ -227,9 +621,21 @@ class JSTranspiler:
             self._line(f'{node.name} = {self._expr(node.value)};')
 
     def _emit_print(self, node):
-        self._line(f'console.log({self._expr(node.expression)});')
+        # EPL's Print/Say render through `_format_value` (nothing/true/[a, b]/
+        # {k: v}), so route through `_epl_str` for faithful output. A bare string
+        # or number passes through unchanged, so simple prints stay identical —
+        # but a list/map/bool/nothing now matches `epl run` byte-for-byte instead
+        # of leaking Node's `[ 1, 2 ]` / `null` rendering.
+        self._need.add('str')
+        self._line(f'console.log(_epl_str({self._expr(node.expression)}));')
 
     def _emit_input(self, node):
+        # Record the input var so a later reassignment doesn't re-emit `let`.
+        self._declare(node.variable_name)
+        # If the name was hoisted to the function top (always so for the node
+        # target, whose readline lives in its own `{ }` block) it is already
+        # declared — assign into it, don't shadow it with a fresh `let`.
+        kw = '' if node.variable_name in self._hoisted[-1] else 'let '
         if self.target == 'node':
             self.requires.add('readline')
             prompt_expr = self._expr(node.prompt) if node.prompt else '""'
@@ -239,15 +645,15 @@ class JSTranspiler:
                 'const _rl = readline.createInterface({ input: process.stdin, output: process.stdout });'
             )
             self._line(
-                f'let {node.variable_name} = await new Promise(resolve => _rl.question({prompt_expr}, ans => {{ _rl.close(); resolve(ans); }}));'
+                f'{kw}{node.variable_name} = await new Promise(resolve => _rl.question({prompt_expr}, ans => {{ _rl.close(); resolve(ans); }}));'
             )
             self.indent -= 1
             self._line('}')
         else:
             if node.prompt:
-                self._line(f'let {node.variable_name} = prompt({self._expr(node.prompt)});')
+                self._line(f'{kw}{node.variable_name} = prompt({self._expr(node.prompt)});')
             else:
-                self._line(f'let {node.variable_name} = prompt("");')
+                self._line(f'{kw}{node.variable_name} = prompt("");')
 
     def _emit_if(self, node):
         self._line(f'if ({self._expr(node.condition)}) {{')
@@ -288,6 +694,9 @@ class JSTranspiler:
         start = self._expr(node.start)
         end = self._expr(node.end)
         step = self._expr(node.step) if node.step else None
+        # EPL keeps the loop variable live after the loop; when it has been
+        # hoisted, initialise it in the header without a (re-scoping) `let`.
+        decl = '' if node.var_name in self._hoisted[-1] else 'let '
         if step:
             # Detect negative step for correct comparison operator
             try:
@@ -297,7 +706,7 @@ class JSTranspiler:
                 # Dynamic step: use runtime direction check
                 cmp = f'({step} > 0 ? {node.var_name} <= {end} : {node.var_name} >= {end})'
                 self._line(
-                    f'for (let {node.var_name} = {start}; {cmp}; {node.var_name} += {step}) {{'
+                    f'for ({decl}{node.var_name} = {start}; {cmp}; {node.var_name} += {step}) {{'
                 )
                 self.indent += 1
                 for s in node.body:
@@ -306,11 +715,11 @@ class JSTranspiler:
                 self._line('}')
                 return
             self._line(
-                f'for (let {node.var_name} = {start}; {node.var_name} {cmp} {end}; {node.var_name} += {step}) {{'
+                f'for ({decl}{node.var_name} = {start}; {node.var_name} {cmp} {end}; {node.var_name} += {step}) {{'
             )
         else:
             self._line(
-                f'for (let {node.var_name} = {start}; {node.var_name} <= {end}; {node.var_name} += 1) {{'
+                f'for ({decl}{node.var_name} = {start}; {node.var_name} <= {end}; {node.var_name} += 1) {{'
             )
         self.indent += 1
         for s in node.body:
@@ -319,7 +728,17 @@ class JSTranspiler:
         self._line('}')
 
     def _emit_for_each(self, node):
-        self._line(f'for (let {node.var_name} of {self._expr(node.iterable)}) {{')
+        # EPL `For each` over a Map iterates its KEYS (over a list: elements,
+        # over a string: characters). A plain JS object is not iterable with
+        # `for..of`, so route the iterable through `_epl_iter`, which yields
+        # `Object.keys(x)` for a plain object and `x` unchanged for arrays and
+        # strings (both already `for..of`-iterable, matching EPL).
+        self._need.add('iter')
+        # EPL keeps the loop variable visible after the loop (function scope), so
+        # when it has been hoisted, drop `let` from the header — a `let` here
+        # would re-scope it to the loop body and hide it from code that follows.
+        decl = '' if node.var_name in self._hoisted[-1] else 'let '
+        self._line(f'for ({decl}{node.var_name} of _epl_iter({self._expr(node.iterable)})) {{')
         self.indent += 1
         for s in node.body:
             self._emit_stmt(s)
@@ -333,8 +752,12 @@ class JSTranspiler:
         prefix = 'function* ' if is_gen else 'function '
         self._line(f'{prefix}{node.name}({params}) {{')
         self.indent += 1
+        self._push_scope()
+        self._seed_params(node.params)
+        self._begin_scope_body(node.body)
         for s in node.body:
             self._emit_stmt(s)
+        self._pop_scope()
         self.indent -= 1
         self._line('}')
 
@@ -356,8 +779,12 @@ class JSTranspiler:
         self.indent += 1
         prev_async = self.in_async
         self.in_async = True
+        self._push_scope()
+        self._seed_params(node.params)
+        self._begin_scope_body(node.body)
         for s in node.body:
             self._emit_stmt(s)
+        self._pop_scope()
         self.in_async = prev_async
         self.indent -= 1
         self._line('}')
@@ -369,6 +796,15 @@ class JSTranspiler:
             self._line(f'super.{node.method_name}({args});')
         else:
             self._line(f'super({args});')
+
+    def _seed_params(self, params):
+        """Pre-register a function's parameters as already-declared in the new
+        scope so a later `p = ...` reassignment emits a plain assignment, not a
+        redundant `let` that would shadow the parameter."""
+        for p in params or []:
+            name = p[0] if isinstance(p, (list, tuple)) else getattr(p, 'name', p)
+            if isinstance(name, str):
+                self._scopes[-1].add(name)
 
     def _format_param(self, p):
         """Format a parameter tuple (name, type, default) to JS."""
@@ -429,8 +865,12 @@ class JSTranspiler:
             self._line(f'this.{pn} = {self._expr(pv)};')
         if init_method:
             self.in_class = node.name
+            self._push_scope()
+            self._seed_params(init_method.params)
+            self._begin_scope_body(init_method.body)
             for s in init_method.body:
                 self._emit_stmt(s)
+            self._pop_scope()
             self.in_class = None
         self.indent -= 1
         self._line('}')
@@ -445,8 +885,12 @@ class JSTranspiler:
             prev_async = self.in_async
             if is_async:
                 self.in_async = True
+            self._push_scope()
+            self._seed_params(m.params)
+            self._begin_scope_body(m.body)
             for s in m.body:
                 self._emit_stmt(s)
+            self._pop_scope()
             self.in_async = prev_async
             self.in_class = None
             self.indent -= 1
@@ -602,10 +1046,20 @@ class JSTranspiler:
         self._line(f'{self._expr(node.obj)}[{self._expr(node.index)}] = {self._expr(node.value)};')
 
     def _emit_aug_assign(self, node):
-        if self.in_class and node.name in self.class_properties:
-            self._line(f'this.{node.name} {node.operator} {self._expr(node.value)};')
+        target = (
+            f'this.{node.name}'
+            if (self.in_class and node.name in self.class_properties)
+            else node.name
+        )
+        # `+=` must honour EPL's overloaded `+` (list concat, text coercion),
+        # so desugar `x += v` to `x = _epl_add(x, v)` rather than emit JS `+=`
+        # (which would produce "1,23,4" for lists / "[object Object]" for maps).
+        if node.operator == '+=':
+            self._need.add('add')
+            self._need.add('str')
+            self._line(f'{target} = _epl_add({target}, {self._expr(node.value)});')
         else:
-            self._line(f'{node.name} {node.operator} {self._expr(node.value)};')
+            self._line(f'{target} {node.operator} {self._expr(node.value)};')
 
     def _emit_throw(self, node):
         self._line(f'throw new Error({self._expr(node.expression)});')
@@ -716,6 +1170,15 @@ class JSTranspiler:
         if isinstance(node, ast.FunctionCall):
             return self._expr_call(node)
         if isinstance(node, ast.PropertyAccess):
+            # EPL exposes a few zero-arg accessors as *properties* (no parens):
+            # `.length` (string/list/map), and `.uppercase`/`.lowercase`/`.trim`
+            # on strings. In JS `s.trim` is a Function reference and `map.length`
+            # is undefined, so route these known names through `_epl_prop`, which
+            # computes the value by runtime type and falls back to a plain
+            # property read for everything else (Map keys, instance fields).
+            if node.property_name in _EPL_PROPERTY_NAMES:
+                self._need.add('prop')
+                return f'_epl_prop({self._expr(node.obj)}, "{node.property_name}")'
             return f'{self._expr(node.obj)}.{node.property_name}'
         if isinstance(node, ast.MethodCall):
             return self._expr_method(node)
@@ -779,28 +1242,40 @@ class JSTranspiler:
             return 'null'
         return str(node.value)
 
+    @staticmethod
+    def _esc_template_literal(text: str) -> str:
+        """Escape literal text for safe inclusion in a JS template literal."""
+        return text.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
+
     def _js_string(self, s):
         """Convert an EPL string to a JS string literal.
         If it contains $var or ${expr} interpolation, emit a JS template literal.
         Otherwise emit a properly escaped double-quoted string."""
         if self._TEMPLATE_RE.search(s):
-            # Convert to JS template literal — EPL ${expr} / $var → JS ${expr} / ${var}
-            # Escape backslashes first, then backticks to prevent injection
-            escaped = s.replace('\\', '\\\\').replace('`', '\\`').replace('${', '\\${')
-            # Now re-introduce legitimate EPL interpolation
-            # First handle ${expr} patterns from original string
+            # Build a JS template literal segment by segment: literal text is
+            # escaped, and each interpolation slot is TRANSPILED as a real EPL
+            # expression (not copied raw). Copying raw broke builtins —
+            # `${length(items)}` leaked as `length(items)`, undefined in JS —
+            # whereas transpiling turns it into `items.length`.
+            out = []
+            pos = 0
             for m in self._TEMPLATE_RE.finditer(s):
-                expr_braced = m.group(1)  # From ${expr}
-                expr_bare = m.group(2)  # From $var
-                if expr_braced:
-                    old = '\\${' + expr_braced + '}'
-                    new = '${' + expr_braced + '}'
-                    escaped = escaped.replace(old, new, 1)
-                elif expr_bare:
-                    old = '$' + expr_bare
-                    new = '${' + expr_bare + '}'
-                    escaped = escaped.replace(old, new, 1)
-            return f'`{escaped}`'
+                out.append(self._esc_template_literal(s[pos : m.start()]))
+                expr_braced = m.group(1)  # ${expr}
+                expr_bare = m.group(2)  # $var
+                if expr_braced is not None:
+                    out.append('${' + self._transpile_embedded_expr(expr_braced) + '}')
+                elif expr_bare in getattr(self, '_declared_vars', set()):
+                    # Bare `$name` interpolates only when `name` is a real
+                    # variable, mirroring the interpreter. A `$` before a
+                    # non-variable (e.g. inside a password `aB3$xK9`) is literal
+                    # text, so it is escaped and left as-is below.
+                    out.append('${' + expr_bare + '}')
+                else:
+                    out.append(self._esc_template_literal(m.group(0)))
+                pos = m.end()
+            out.append(self._esc_template_literal(s[pos:]))
+            return '`' + ''.join(out) + '`'
         # Regular string — escape special chars
         escaped = (
             s.replace('\\', '\\\\')
@@ -810,6 +1285,22 @@ class JSTranspiler:
             .replace('\t', '\\t')
         )
         return f'"{escaped}"'
+
+    def _transpile_embedded_expr(self, expr_src: str) -> str:
+        """Transpile a single interpolated `${...}` slot's EPL expression.
+
+        Falls back to the trimmed source if it cannot be parsed as an expression,
+        keeping simple `${name}` slots working even for grammar the expression
+        parser does not accept standalone."""
+        expr_src = expr_src.strip()
+        try:
+            from epl.lexer import Lexer as _Lexer
+            from epl.parser import Parser as _Parser
+
+            node = _Parser(_Lexer(expr_src).tokenize())._parse_expression()
+            return self._expr(node)
+        except Exception:
+            return expr_src
 
     def _expr_binary(self, node):
         left = self._expr(node.left)
@@ -825,6 +1316,15 @@ class JSTranspiler:
         }
         if op == '//':
             return f'Math.floor({left} / {right})'
+        if op == '+':
+            # EPL `+` is overloaded: number+number arithmetic, list+list concat,
+            # and text+anything / anything+text stringify the other operand to
+            # EPL display form. Raw JS `+` gets the string/number cases right by
+            # luck but mishandles lists ("1,23,4") and maps ("[object Object]"),
+            # so route through `_epl_add` for a faithful result.
+            self._need.add('add')
+            self._need.add('str')
+            return f'_epl_add({left}, {right})'
         js_op = op_map.get(op, op)
         return f'({left} {js_op} {right})'
 
@@ -841,11 +1341,12 @@ class JSTranspiler:
         builtin_map = {
             'length': lambda: f'{self._expr(node.arguments[0])}.length' if node.arguments else '0',
             'to_integer': lambda: f'parseInt({args})',
-            'to_text': lambda: f'String({args})',
+            'to_text': lambda: self._need_call('str', f'_epl_str({args})'),
+            'to_number': lambda: f'Number({args})',
             'to_decimal': lambda: f'parseFloat({args})',
             'uppercase': lambda: f'{self._expr(node.arguments[0])}.toUpperCase()',
             'lowercase': lambda: f'{self._expr(node.arguments[0])}.toLowerCase()',
-            'type_of': lambda: f'typeof {args}',
+            'type_of': lambda: self._need_call('type', f'_epl_type({args})'),
             'absolute': lambda: f'Math.abs({args})',
             'round': lambda: f'Math.round({args})',
             'floor': lambda: f'Math.floor({args})',
@@ -861,7 +1362,12 @@ class JSTranspiler:
             'sorted': lambda: (
                 f'[...{self._expr(node.arguments[0])}].sort((a, b) => typeof a === "number" ? a - b : String(a).localeCompare(String(b)))'
             ),
-            'reversed': lambda: f'[...{self._expr(node.arguments[0])}].reverse()',
+            # EPL `reversed` preserves the input type: a reversed STRING is a
+            # string ("abc"→"cba"), a reversed list is a list. Route through a
+            # runtime helper so the string case doesn't leak a char array.
+            'reversed': lambda: self._need_call(
+                'reversed', f'_epl_reversed({self._expr(node.arguments[0])})'
+            ),
             'range': lambda: self._js_range(node.arguments),
             'sum': lambda: f'{self._expr(node.arguments[0])}.reduce((a, b) => a + b, 0)',
             'char_code': lambda: f'{self._expr(node.arguments[0])}.charCodeAt(0)',
@@ -1017,6 +1523,13 @@ class JSTranspiler:
     def _expr_method(self, node):
         obj = self._expr(node.obj)
         args = ', '.join(self._expr(a) for a in node.arguments)
+        # Divergent EPL methods (no faithful JS equivalent) route through the
+        # runtime shim; checked before the 1:1 map so EPL semantics win. The
+        # shim's user-class fallback keeps class methods working.
+        if node.method_name in _EPL_METHOD_NAMES:
+            self._need.add('method')
+            head = f'_epl_method({obj}, "{node.method_name}"'
+            return f'{head}, {args})' if args else f'{head})'
         method_map = {
             'add': 'push',
             'push': 'push',

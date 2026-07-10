@@ -1,0 +1,7 @@
+Note: every / some / find — predicate HOFs (find returns nothing on no match)
+nums = [2, 4, 6, 8]
+Say nums.every(given x return x mod 2 equals 0)
+Say nums.some(given x return x > 7)
+Say nums.some(given x return x > 100)
+Say nums.find(given x return x > 5)
+Say nums.find(given x return x > 100)

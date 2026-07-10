@@ -1,0 +1,7 @@
+Note: EPL prints true/false/nothing, not True/False/None
+Say true
+Say false
+Say nothing
+flag = true
+Say "flag is " + flag
+Say [true, false, nothing]

@@ -1,0 +1,12 @@
+Note: variable names that collide with Python builtins must not shadow them
+len = 5
+sum = 0
+id = 42
+values = [10, 20, 30]
+For each type in values
+    sum = sum + type
+End
+Say "len is " + len
+Say "sum is " + sum
+Say "id is " + id
+Say "count is " + values.length

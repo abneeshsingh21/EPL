@@ -1,0 +1,9 @@
+Note: string interpolation — builtins, expressions, and literal $ (non-variable)
+items = [1, 2, 3, 4]
+name = "Ada"
+Say "We have ${length(items)} items"
+Say "Hello, $name!"
+Say "Total: ${2 + 3 * 4}"
+password = "aB3$xK9!mN2@"
+Say password
+Say "flag is ${true}"

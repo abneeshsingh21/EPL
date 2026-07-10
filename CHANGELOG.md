@@ -12,6 +12,96 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Fixed — Python transpiler now preserves EPL runtime semantics
+
+The Python transpiler (`epl export python`) was syntax-faithful but
+semantics-incomplete: it mapped EPL syntax to Python syntax without preserving
+behaviours the interpreter guarantees, so generated code worked on the happy
+path and diverged on common operations. On a fidelity corpus only a minority of
+programs produced output matching `epl run`. Every gap below is now closed via a
+minimal per-program `_epl_*` prelude (only the helpers a program actually uses
+are emitted, so simple programs stay lean):
+
+- **`+` coercion** — text operands auto-stringify and lists concatenate
+  (`"n: " + 3` was a Python `TypeError`; now matches EPL). `+=` desugars through
+  the same helper.
+- **Display form** — `print` and `${}` interpolation render EPL's forms
+  (`true`/`false`/`nothing`, bracketed lists, brace maps) instead of Python's
+  `True`/`False`/`None`.
+- **Int-preserving `/`** — `10 / 2` returns `5`, not `5.0`; `/=` too.
+- **Map dot-access** — `user.name` reads a key on a Map from any source
+  (literal, `Map with …`, `json_parse`, `db_query`) instead of raising
+  `AttributeError`.
+- **Inclusive ranges in both directions** — `For i from 10 to 1 step -1` no
+  longer drops its last two iterations (the stop is nudged in the direction of
+  travel).
+- **Builtin/method routing** — the ~900-strong builtin long tail (`file_*`,
+  `db_*`, `regex_*`, `http_*`, `crypto_*`, …) and divergent string/list/map
+  methods (`.add`, `.has`, `.substring`, `.join`, …) route through EPL's own
+  tested runtime — faithful by construction rather than re-implemented.
+- **Name collisions** — an EPL variable named `len`, `list`, `sum`, `type`, …
+  no longer shadows the Python builtin the transpiler emits (renamed
+  consistently).
+- **Predicate HOFs** — `.every`/`.some`/`.find` on lists are now implemented on
+  the `_EPLList` wrapper (`find` returns `nothing` on no match), instead of
+  raising `AttributeError` on a plain Python list.
+- **Callable overrides of builtins** — binding a callable to a builtin name
+  (`Set to_text to lambda x -> …`) now dispatches to the local callable, matching
+  the interpreter, instead of always routing to the builtin.
+- **Empty-map mutation** — mutating methods on a freshly-created empty `Map`
+  (`m = Map` then `m.set(…)`) now persist, instead of updating a throwaway dict.
+- **Lambda parameter renaming** — a lambda parameter that collides with a Python
+  builtin (`lambda len -> len + 1`) is now renamed consistently with its uses in
+  the body, instead of desyncing (which computed the wrong result).
+- **Correct-or-loud** — an unrecognised node now raises `TranspileError` instead
+  of emitting a silent `None  # Unsupported` / `# Unsupported: X` that compiled
+  fine and computed the wrong answer.
+
+New `tests/test_transpiler_fidelity.py` harness executes every program in
+`tests/fidelity_corpus/` through both the interpreter and the transpiled Python
+and asserts byte-identical stdout, so a transpiler regression can no longer ship
+silently. The harness pins `PYTHONPATH` for spawned scripts (so runtime-routing
+programs import `epl` even in a bare checkout) and surfaces subprocess stderr in
+failure diagnostics.
+
+### Fixed — JavaScript transpiler now preserves EPL runtime semantics
+
+The JS transpiler (`epl export js` / Node target) had the same class of gaps as
+Python, but generated JS can't route back through the interpreter, so each fix is
+a minimal native `_epl_*` runtime helper emitted only when a program needs it. On
+the same fidelity corpus the JS target went from **7/17 to 17/17** matching
+`epl run` byte-for-byte:
+
+- **`+` overload** — `[1, 2] + [3, 4]` now concatenates to a list (was the string
+  `"1,23,4"`), and `"row: " + aList`/`+ aMap` render EPL display form instead of
+  `[object Object]`. `+=` desugars through the same helper.
+- **Display form** — `Print`/`Say` render EPL's forms (`nothing`, `true`/`false`,
+  `[a, b]` lists, `{k: v}` maps) instead of Node's `null` / `[ 1, 2 ]` spacing.
+- **`type_of`** — returns EPL type names (`integer`/`decimal`/`text`/`list`/`map`/
+  `nothing`), not JS `typeof` (`number`/`object`).
+- **`reversed`** — preserves input type: `reversed("abc")` → `"cba"` (was a char
+  array `['c','b','a']`); `reversed([1,2,3])` stays a list.
+- **`to_number`** — now emitted (`Number(...)`); previously a call to an undefined
+  function that crashed at runtime.
+- **Map iteration** — `For each k in aMap` iterates keys via `_epl_iter` (a plain
+  object is not `for..of`-iterable, so this used to throw).
+- **Map/string methods & property accessors** — `.has`/`.keys`/`.count`/`.first`/
+  … and property-style `.length`/`.uppercase`/`.trim` route through type-dispatched
+  helpers (were `[Function: trim]` / `undefined` / crashes), falling back to a real
+  method call for user-class instances.
+- **`let`-vs-reassignment (TDZ)** — EPL's parser emits a declaration node for both
+  first-assignment and reassignment; the transpiler now tracks declared names per
+  function scope and emits `let` only once, so the common `sum = sum + n` in a loop
+  no longer becomes `let sum = sum + n` (a self-referential `let` that threw
+  `ReferenceError: Cannot access 'sum' before initialization`).
+- **Interpolation** — `${length(items)}` is transpiled (`items.length`) rather than
+  copied raw, and a bare `$name` interpolates only when `name` is a real variable
+  (so a literal `$` inside e.g. a password stays literal).
+
+New `tests/test_js_transpiler_fidelity.py` harness runs every corpus program
+through the interpreter and through transpiled JS (via `node`) and asserts
+byte-identical stdout (skips gracefully where `node` is unavailable).
+
 ## [10.1.2] — 2026-07-06
 
 Security-focused patch: the 2026-07 audit fixes plus a second-pass review that

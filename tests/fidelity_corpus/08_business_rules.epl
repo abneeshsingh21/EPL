@@ -1,0 +1,13 @@
+Note: the auditable business-logic use case
+Function assess takes score, ratio
+    If score is at least 720 and ratio is at most 0.36 then
+        Return "APPROVED: prime"
+    Otherwise If score is at least 640 then
+        Return "APPROVED: standard"
+    Otherwise
+        Return "DECLINED"
+    End
+End
+Say assess(750, 0.30)
+Say assess(660, 0.40)
+Say assess(500, 0.60)

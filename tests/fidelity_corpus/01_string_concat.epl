@@ -1,0 +1,7 @@
+Note: string + number auto-coercion (the headline bug)
+count = 3
+label = "items"
+Say "we have " + count + " " + label
+Say "total: " + (count * 2)
+price = 19.5
+Say "price is " + price
