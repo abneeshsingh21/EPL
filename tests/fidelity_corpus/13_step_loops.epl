@@ -8,4 +8,8 @@ End
 For i from 10 to 1 step -1
     Say i
 End
+Note: implicit-direction descending range (no step) is empty — default step is +1
+For i from 5 to 1
+    Say i
+End
 Say "liftoff"

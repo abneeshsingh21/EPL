@@ -33,6 +33,18 @@ def _corpus_files():
     return sorted(f for f in os.listdir(CORPUS_DIR) if f.endswith('.epl'))
 
 
+def _subprocess_env():
+    """Env that guarantees `import epl` works from a spawned script even in a
+    bare source checkout (no editable install). A transpiled program that uses
+    `_epl_call`/`_epl_method` imports `epl.interpreter`; Python puts the script's
+    OWN directory on sys.path (the temp dir), not the cwd, so `cwd=REPO_ROOT`
+    alone is not enough — pin REPO_ROOT onto PYTHONPATH."""
+    env = dict(os.environ)
+    existing = env.get('PYTHONPATH', '')
+    env['PYTHONPATH'] = REPO_ROOT + (os.pathsep + existing if existing else '')
+    return env
+
+
 def _run_epl_interpreter(epl_path):
     """Reference output: run the .epl file through the EPL interpreter."""
     proc = subprocess.run(
@@ -40,9 +52,10 @@ def _run_epl_interpreter(epl_path):
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
+        env=_subprocess_env(),
         timeout=60,
     )
-    return proc.returncode, proc.stdout
+    return proc.returncode, proc.stdout, proc.stderr
 
 
 def _transpile_and_run(epl_path, tmp_path):
@@ -65,26 +78,29 @@ def _transpile_and_run(epl_path, tmp_path):
         capture_output=True,
         text=True,
         cwd=REPO_ROOT,
+        env=_subprocess_env(),
         timeout=60,
     )
-    return proc.returncode, proc.stdout, py_source
+    return proc.returncode, proc.stdout, proc.stderr, py_source
 
 
 @pytest.mark.parametrize('corpus_file', _corpus_files())
 def test_transpiled_python_matches_interpreter(corpus_file, tmp_path):
     epl_path = os.path.join(CORPUS_DIR, corpus_file)
 
-    interp_rc, interp_out = _run_epl_interpreter(epl_path)
+    interp_rc, interp_out, interp_err = _run_epl_interpreter(epl_path)
     assert interp_rc == 0, (
         f'{corpus_file}: interpreter itself failed (rc={interp_rc}); '
-        f'fix the corpus program.\n--- interpreter stdout ---\n{interp_out}'
+        f'fix the corpus program.\n--- interpreter stdout ---\n{interp_out}\n'
+        f'--- interpreter stderr ---\n{interp_err}'
     )
 
-    trans_rc, trans_out, py_source = _transpile_and_run(epl_path, tmp_path)
+    trans_rc, trans_out, trans_err, py_source = _transpile_and_run(epl_path, tmp_path)
 
     assert trans_rc == 0, (
         f'{corpus_file}: transpiled Python crashed (rc={trans_rc}).\n'
         f'--- generated Python ---\n{py_source}\n'
+        f'--- transpiled stderr (traceback) ---\n{trans_err}\n'
         f'--- expected (interpreter) stdout ---\n{interp_out}'
     )
     assert trans_out == interp_out, (
@@ -98,8 +114,8 @@ def test_transpiled_python_matches_interpreter(corpus_file, tmp_path):
 def test_corpus_is_not_empty():
     """Guard against the corpus dir silently disappearing (which would make the
     parametrized suite pass vacuously)."""
-    assert len(_corpus_files()) >= 17, (
-        f'Fidelity corpus should have >=17 programs, found {len(_corpus_files())}. '
+    assert len(_corpus_files()) >= 18, (
+        f'Fidelity corpus should have >=18 programs, found {len(_corpus_files())}. '
         'Did the corpus dir get moved or emptied?'
     )
 

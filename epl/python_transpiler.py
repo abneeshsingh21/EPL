@@ -176,7 +176,10 @@ class PythonTranspiler:
         # programs that never use those features. A single field-agnostic walk
         # tells us whether the wrappers are worth emitting.
         method_names, class_names, bound_names = self._prescan(program)
-        self._wrap_lists = bool(method_names & {'map', 'filter', 'reduce'})
+        # Any EPL higher-order list method (map/filter/reduce/every/some/find)
+        # needs the `_EPLList` wrapper, since Python's built-in list has none of
+        # them and they take a Python lambda (so can't route through _epl_method).
+        self._wrap_lists = bool(method_names & _EPL_HOF_METHODS)
         # Bound variable names, used to reproduce the interpreter's rule that a
         # bare `$var` template slot only interpolates when the variable exists.
         self._declared_vars = bound_names
@@ -251,7 +254,11 @@ class PythonTranspiler:
                 '        return a // b\n'
                 '    return a / b'
             )
-        if self._need & {'map', 'filter'}:
+        if 'epllist' in self._need:
+            # EPL's higher-order list methods take a Python lambda (not an EPL
+            # function object), so they can't route through `_epl_method`. Provide
+            # a `list` subclass with faithful implementations: `find` returns
+            # `nothing` (None) on no match, `every`/`some` mirror all()/any().
             parts.append(
                 'class _EPLList(list):\n'
                 '    def map(self, fn): return _EPLList(fn(x) for x in self)\n'
@@ -260,7 +267,13 @@ class PythonTranspiler:
                 '        it = iter(self)\n'
                 '        acc = init[0] if init else next(it)\n'
                 '        for x in it: acc = fn(acc, x)\n'
-                '        return acc'
+                '        return acc\n'
+                '    def every(self, fn): return all(bool(fn(x)) for x in self)\n'
+                '    def some(self, fn): return any(bool(fn(x)) for x in self)\n'
+                '    def find(self, fn):\n'
+                '        for x in self:\n'
+                '            if fn(x): return x\n'
+                '        return None'
             )
         if 'dotdict' in self._need:
             parts.append(
@@ -324,7 +337,9 @@ class PythonTranspiler:
                 '        return rt._epl_to_python(rt._call_list_method(obj, name, a, 0))\n'
                 '    if isinstance(obj, dict):\n'
                 '        from epl.interpreter import EPLDict\n'
-                '        return rt._epl_to_python(rt._call_dict_method(EPLDict(obj), name, a, 0))\n'
+                '        w = EPLDict()\n'
+                '        w.data = obj  # share the real mapping, even when empty, so mutations persist\n'
+                '        return rt._epl_to_python(rt._call_dict_method(w, name, a, 0))\n'
                 '    m = getattr(obj, name)\n'
                 '    return m(*args) if callable(m) else m'
             )
@@ -385,6 +400,11 @@ class PythonTranspiler:
                 for p in params:
                     if isinstance(p, ast.RestParameter):
                         bound_names.add(p.name)
+                    elif isinstance(p, str):
+                        # LambdaExpression.params is a list of plain strings; record
+                        # them so a reserved-name lambda param is renamed the same
+                        # way its uses inside the body are (see _safe_name).
+                        bound_names.add(p)
                     elif isinstance(p, (list, tuple)) and p and isinstance(p[0], str):
                         bound_names.add(p[0])
             for value in vars(node).values():
@@ -1034,7 +1054,7 @@ class PythonTranspiler:
             # carry those methods (Python's built-in list has none). Wrap in the
             # _EPLList subclass; otherwise keep a plain, idiomatic list.
             if getattr(self, '_wrap_lists', False):
-                self._need.add('map')
+                self._need.add('epllist')
                 return f'_EPLList([{elems}])'
             return f'[{elems}]'
         if isinstance(node, ast.DictLiteral):
@@ -1056,7 +1076,9 @@ class PythonTranspiler:
             args = ', '.join(self._expr(a) for a in node.arguments)
             return f'{node.class_name}({args})'
         if isinstance(node, ast.LambdaExpression):
-            params = ', '.join(node.params)
+            # Render params through _safe_name so a param named e.g. `len` is
+            # renamed consistently with its uses in the body (both become `len_`).
+            params = ', '.join(self._safe_name(p) for p in node.params)
             return f'lambda {params}: {self._expr(node.body)}'
         if isinstance(node, ast.TernaryExpression):
             return f'({self._expr(node.true_expr)} if {self._expr(node.condition)} else {self._expr(node.false_expr)})'
@@ -1155,6 +1177,14 @@ class PythonTranspiler:
         args = ', '.join(self._expr(a) for a in node.arguments)
         # Map EPL builtins to Python equivalents
         name = node.name
+        # A user binding shadows a builtin of the same name in the interpreter
+        # (`Set to_text to lambda …` then `to_text("x")` calls the lambda), so if
+        # the name is a bound variable, dispatch to it directly — never route
+        # through the builtin/`_epl_call` path below. `user_functions` are
+        # excluded: those are real `Function` defs whose call sites are correct as
+        # a direct call anyway, and they are not in `_declared_vars`.
+        if name in getattr(self, '_declared_vars', set()):
+            return f'{self._safe_name(name)}({args})'
         # Only EPL builtins whose Python equivalent is behaviorally identical
         # live here. Ones that *look* mappable but diverge — to_text (EPL
         # formats bools as true/false), type_of (EPL type names), to_number

@@ -42,6 +42,17 @@ are emitted, so simple programs stay lean):
 - **Name collisions** — an EPL variable named `len`, `list`, `sum`, `type`, …
   no longer shadows the Python builtin the transpiler emits (renamed
   consistently).
+- **Predicate HOFs** — `.every`/`.some`/`.find` on lists are now implemented on
+  the `_EPLList` wrapper (`find` returns `nothing` on no match), instead of
+  raising `AttributeError` on a plain Python list.
+- **Callable overrides of builtins** — binding a callable to a builtin name
+  (`Set to_text to lambda x -> …`) now dispatches to the local callable, matching
+  the interpreter, instead of always routing to the builtin.
+- **Empty-map mutation** — mutating methods on a freshly-created empty `Map`
+  (`m = Map` then `m.set(…)`) now persist, instead of updating a throwaway dict.
+- **Lambda parameter renaming** — a lambda parameter that collides with a Python
+  builtin (`lambda len -> len + 1`) is now renamed consistently with its uses in
+  the body, instead of desyncing (which computed the wrong result).
 - **Correct-or-loud** — an unrecognised node now raises `TranspileError` instead
   of emitting a silent `None  # Unsupported` / `# Unsupported: X` that compiled
   fine and computed the wrong answer.
@@ -49,7 +60,9 @@ are emitted, so simple programs stay lean):
 New `tests/test_transpiler_fidelity.py` harness executes every program in
 `tests/fidelity_corpus/` through both the interpreter and the transpiled Python
 and asserts byte-identical stdout, so a transpiler regression can no longer ship
-silently.
+silently. The harness pins `PYTHONPATH` for spawned scripts (so runtime-routing
+programs import `epl` even in a bare checkout) and surfaces subprocess stderr in
+failure diagnostics.
 
 ### Fixed — JavaScript transpiler now preserves EPL runtime semantics
 
