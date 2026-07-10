@@ -51,7 +51,8 @@ def _wrap(value):
         'Create name = "hello world"\nCreate part = name[0:3]\nPrint part\n',  # SliceAccess
         'Create user = load_user()\nCreate s = user.status\nPrint s\n',  # PropertyAccess
         'Create items = [1, 2, 3]\nCreate n = items.count()\nPrint n\n',  # MethodCall
-        'Create x = 5\nPrint some_unknown(x)\n',  # FunctionCall argument
+        'Create x = 5\nPrint some_unknown(x)\n',  # FunctionCall argument (in expression)
+        'Create x = 5\nsome_unknown(x)\n',  # bare statement call (routed to _check_function_call)
     ],
 )
 def test_access_use_is_not_false_unused(src):
@@ -146,3 +147,24 @@ def test_pure_iterables_still_become_lists(value, expected):
 
 def test_generator_still_becomes_list():
     assert _wrap(x for x in range(3)) == [0, 1, 2]
+
+
+def test_open_file_handle_is_not_consumed(tmp_path):
+    # A file object is iterable (line-by-line) but rich/stateful: materialising it
+    # would strip `.read`/`.name` and leave it at EOF. It must be preserved.
+    p = tmp_path / 'data.txt'
+    p.write_text('line1\nline2\n')
+    fh = open(p, encoding='utf-8')
+    try:
+        wrapped = _wrap(fh)
+        assert isinstance(wrapped, PythonModule)
+        assert fh.tell() == 0  # not consumed
+    finally:
+        fh.close()
+
+
+def test_stringio_stream_is_preserved():
+    import io
+
+    wrapped = _wrap(io.StringIO('hello'))
+    assert isinstance(wrapped, PythonModule)

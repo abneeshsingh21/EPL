@@ -513,6 +513,12 @@ class TypeChecker:
         fname = (
             node.name if isinstance(node.name, str) else getattr(node.name, 'name', str(node.name))
         )
+        # Visit every argument so variables passed to a standalone statement call
+        # (`some_unknown(x)`) are marked read. This checker is the path for bare
+        # calls (routed here by `_check_node`), which never reach `_infer_type`'s
+        # FunctionCall branch; without this, such an argument is a false W002.
+        for arg in getattr(node, 'arguments', None) or getattr(node, 'args', None) or []:
+            self._infer_type(arg)
         if fname in self._functions:
             param_types, _ = self._functions[fname]
             args = getattr(node, 'arguments', None) or getattr(node, 'args', None) or []
