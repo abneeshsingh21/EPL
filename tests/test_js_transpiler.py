@@ -76,8 +76,7 @@ JS_CASES = [
     (
         'for_each',
         lambda: (
-            'for (item of'
-            in to_js('items = [1, 2, 3]\nFor each item in items\n  Print item\nEnd')
+            'for (item of' in to_js('items = [1, 2, 3]\nFor each item in items\n  Print item\nEnd')
         ),
     ),
     ('func_def', lambda: 'function greet(name)' in JS_FN),
