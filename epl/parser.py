@@ -207,6 +207,43 @@ class Parser:
             or self._current().type in self._SOFT_KEYWORDS
         )
 
+    def _is_member_name_token(self, dot_tok, tok) -> bool:
+        """Whether `tok` (the token after `dot_tok`) is a member name in `obj.member`.
+
+        A real identifier or soft keyword always qualifies. A HARD keyword
+        (`json`, `text`, `list`, `map`, `create`, …) qualifies only when it is
+        written immediately after the dot with no gap, on the same line — the
+        adjacency that distinguishes `resp.json()` (dot access) from a
+        sentence-ending period before a keyword-led statement (`... total. Print
+        x`), where a space separates the period from the keyword.
+        """
+        if tok.type == TokenType.IDENTIFIER or tok.type in self._SOFT_KEYWORDS:
+            return True
+        val = getattr(tok, 'value', None)
+        return bool(
+            isinstance(val, str)
+            and val.isidentifier()
+            and getattr(tok, 'line', None) == getattr(dot_tok, 'line', object())
+            and getattr(tok, 'column', None) == getattr(dot_tok, 'column', -99) + 1
+        )
+
+    def _consume_member_name(self):
+        """Consume a member name after a dot, accepting hard keywords as names.
+
+        Callers must have already confirmed dot-access (via `_is_member_name_token`
+        or a committed dot-access context). Returns a synthetic IDENTIFIER token so
+        downstream code treats `json`/`text`/`list` uniformly as member names.
+        """
+        tok = self._current()
+        if tok.type == TokenType.IDENTIFIER:
+            return self._advance()
+        if tok.type in self._SOFT_KEYWORDS or (
+            isinstance(getattr(tok, 'value', None), str) and tok.value.isidentifier()
+        ):
+            self._advance()
+            return Token(TokenType.IDENTIFIER, tok.value, tok.line, tok.column)
+        raise ParserError('Expected property or method name after ".".', tok.line)
+
     def _is_block_end(self) -> bool:
         """Check if current token is any kind of block terminator."""
         return self._match(
@@ -868,9 +905,10 @@ class Parser:
             return ast.IndexAccess(ast.Identifier(var_name, line), index_expr, line)
 
         # Check for dot notation: obj.something
-        if self._match(TokenType.DOT):
+        if self._match(TokenType.DOT) and self._is_member_name_token(self._current(), self._peek()):
             self._advance()  # consume .
-            prop_tok = self._expect_identifier('Expected property or method name after ".".')
+            # Accept hard keywords as member names (resp.json(), element.text).
+            prop_tok = self._consume_member_name()
             prop_name = prop_tok.value
 
             # obj.method(args) as statement
@@ -1821,15 +1859,16 @@ class Parser:
         while True:
             if self._match(TokenType.DOT):
                 # Peek ahead: is this dot notation or a period?
+                dot_tok = self._current()
                 next_tok = self._peek()
-                if (
-                    next_tok.type != TokenType.IDENTIFIER
-                    and next_tok.type not in self._SOFT_KEYWORDS
-                ):
-                    break  # It's a period, don't consume
+                if not self._is_member_name_token(dot_tok, next_tok):
+                    break  # It's a sentence period, don't consume
 
                 self._advance()  # consume .
-                prop_tok = self._expect_identifier('Expected property or method name after ".".')
+                # Accept hard keywords (json/text/list/create/...) as member
+                # names here, matching the adjacency check above, so `resp.json()`
+                # and `element.text` parse instead of crashing.
+                prop_tok = self._consume_member_name()
                 prop_name = prop_tok.value
 
                 # Check for method call: obj.method(args)
@@ -2033,6 +2072,23 @@ class Parser:
                 self._expect(TokenType.RPAREN, 'Expected ")" after super arguments.')
                 return ast.SuperCall(None, arguments, tok.line)
             return ast.SuperCall(None, [], tok.line)
+
+        # A HARD keyword at expression start that is immediately followed by an
+        # adjacent dot-access (`json.dumps(...)`, `list.append(...)`) can only be
+        # a variable/module reference — no statement grammar uses `keyword.member`
+        # in expression position. This lets an auto-aliased Python import whose
+        # name collides with a keyword (`Use python "json"`) actually be used.
+        if (
+            tok.type not in (TokenType.IDENTIFIER,)
+            and isinstance(getattr(tok, 'value', None), str)
+            and tok.value.isidentifier()
+            and self._peek().type == TokenType.DOT
+        ):
+            dot_tok = self._peek()
+            after_dot = self._peek(2)
+            if self._is_member_name_token(dot_tok, after_dot):
+                self._advance()
+                return ast.Identifier(tok.value, tok.line)
 
         # Identifier (variable reference) — also accept soft keywords
         if tok.type == TokenType.IDENTIFIER or tok.type in self._SOFT_KEYWORDS:
