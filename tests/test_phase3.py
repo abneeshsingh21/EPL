@@ -209,10 +209,12 @@ set x to x + 3"""
     py = transpile_to_python(_parse(code))
     check('Augmented assign', 'x = ' in py)
 
-    # T20: f-string template
+    # T20: f-string template. Interpolated slots are wrapped in _epl_fmt so
+    # values render in EPL's display form (true/false/nothing, bracketed lists)
+    # rather than Python's str(); a bare string slot is unaffected.
     code = 'display "Hello ${name}!"'
     py = transpile_to_python(_parse(code))
-    check('Template string', "f'" in py and '{name}' in py)
+    check('Template string', "f'" in py and 'name' in py)
 
     # T21: Enum
     code = 'enum Color as RED, GREEN, BLUE'

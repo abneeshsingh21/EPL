@@ -12,6 +12,45 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Fixed — Python transpiler now preserves EPL runtime semantics
+
+The Python transpiler (`epl export python`) was syntax-faithful but
+semantics-incomplete: it mapped EPL syntax to Python syntax without preserving
+behaviours the interpreter guarantees, so generated code worked on the happy
+path and diverged on common operations. On a fidelity corpus only a minority of
+programs produced output matching `epl run`. Every gap below is now closed via a
+minimal per-program `_epl_*` prelude (only the helpers a program actually uses
+are emitted, so simple programs stay lean):
+
+- **`+` coercion** — text operands auto-stringify and lists concatenate
+  (`"n: " + 3` was a Python `TypeError`; now matches EPL). `+=` desugars through
+  the same helper.
+- **Display form** — `print` and `${}` interpolation render EPL's forms
+  (`true`/`false`/`nothing`, bracketed lists, brace maps) instead of Python's
+  `True`/`False`/`None`.
+- **Int-preserving `/`** — `10 / 2` returns `5`, not `5.0`; `/=` too.
+- **Map dot-access** — `user.name` reads a key on a Map from any source
+  (literal, `Map with …`, `json_parse`, `db_query`) instead of raising
+  `AttributeError`.
+- **Inclusive ranges in both directions** — `For i from 10 to 1 step -1` no
+  longer drops its last two iterations (the stop is nudged in the direction of
+  travel).
+- **Builtin/method routing** — the ~900-strong builtin long tail (`file_*`,
+  `db_*`, `regex_*`, `http_*`, `crypto_*`, …) and divergent string/list/map
+  methods (`.add`, `.has`, `.substring`, `.join`, …) route through EPL's own
+  tested runtime — faithful by construction rather than re-implemented.
+- **Name collisions** — an EPL variable named `len`, `list`, `sum`, `type`, …
+  no longer shadows the Python builtin the transpiler emits (renamed
+  consistently).
+- **Correct-or-loud** — an unrecognised node now raises `TranspileError` instead
+  of emitting a silent `None  # Unsupported` / `# Unsupported: X` that compiled
+  fine and computed the wrong answer.
+
+New `tests/test_transpiler_fidelity.py` harness executes every program in
+`tests/fidelity_corpus/` through both the interpreter and the transpiled Python
+and asserts byte-identical stdout, so a transpiler regression can no longer ship
+silently.
+
 ## [10.1.2] — 2026-07-06
 
 Security-focused patch: the 2026-07 audit fixes plus a second-pass review that

@@ -1,0 +1,14 @@
+Note: string/list/map methods that route through the runtime shim
+greeting = "Hello, World!"
+Say greeting.substring(0, 5)
+Say greeting.uppercase()
+Say greeting.count("l")
+fruits = ["apple", "banana", "cherry"]
+fruits.add("date")
+Say fruits
+Say fruits.join(" | ")
+Say fruits.contains("banana")
+scores = Map with alice = 90 and bob = 78
+Say scores.has("alice")
+Say scores.has("carol")
+Say scores.keys()

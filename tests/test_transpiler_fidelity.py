@@ -30,9 +30,7 @@ sys.path.insert(0, REPO_ROOT)
 def _corpus_files():
     if not os.path.isdir(CORPUS_DIR):
         return []
-    return sorted(
-        f for f in os.listdir(CORPUS_DIR) if f.endswith('.epl')
-    )
+    return sorted(f for f in os.listdir(CORPUS_DIR) if f.endswith('.epl'))
 
 
 def _run_epl_interpreter(epl_path):
@@ -100,7 +98,64 @@ def test_transpiled_python_matches_interpreter(corpus_file, tmp_path):
 def test_corpus_is_not_empty():
     """Guard against the corpus dir silently disappearing (which would make the
     parametrized suite pass vacuously)."""
-    assert len(_corpus_files()) >= 12, (
-        f'Fidelity corpus should have >=12 programs, found {len(_corpus_files())}. '
+    assert len(_corpus_files()) >= 17, (
+        f'Fidelity corpus should have >=17 programs, found {len(_corpus_files())}. '
         'Did the corpus dir get moved or emptied?'
     )
+
+
+# ── Fail-loud contract ────────────────────────────────────────────────
+#
+# A production transpiler must be correct-or-loud: it either emits Python that
+# behaves like the interpreter, or it refuses with a clear error. It must NEVER
+# emit code that is syntactically valid but silently drops/mistranslates a
+# construct. These tests enforce that guarantee, which the old transpiler
+# violated by writing `# Unsupported: X` comments and `None  # Unsupported`
+# expressions into otherwise-passing output.
+
+
+def _transpile_source(epl_source):
+    from epl.lexer import Lexer
+    from epl.parser import Parser
+    from epl.python_transpiler import transpile_to_python
+
+    program = Parser(Lexer(epl_source).tokenize()).parse()
+    return transpile_to_python(program)
+
+
+def test_corpus_output_has_no_silent_unsupported_markers():
+    """No generated program may contain an 'Unsupported' escape hatch — those
+    are the silent-wrong-code markers the fail-loud refactor eliminated."""
+    for corpus_file in _corpus_files():
+        epl_path = os.path.join(CORPUS_DIR, corpus_file)
+        with open(epl_path, encoding='utf-8') as fh:
+            py = _transpile_source(fh.read())
+        assert 'Unsupported' not in py, (
+            f'{corpus_file}: generated Python contains an "Unsupported" marker — '
+            'the transpiler silently dropped a construct instead of failing loud.\n'
+            f'{py}'
+        )
+
+
+def test_unknown_expression_node_raises_transpile_error():
+    """An unrecognized expression node must raise TranspileError, not emit
+    `None  # Unsupported` (which compiles and computes the wrong answer)."""
+    from epl.python_transpiler import PythonTranspiler, TranspileError
+
+    class _Alien:  # not an AST node the transpiler knows
+        pass
+
+    with pytest.raises(TranspileError):
+        PythonTranspiler()._expr(_Alien())
+
+
+def test_unknown_statement_node_raises_transpile_error():
+    """An unrecognized statement node must raise TranspileError, not emit a
+    `# Unsupported` comment that drops the statement."""
+    from epl.python_transpiler import PythonTranspiler, TranspileError
+
+    class _Alien:
+        pass
+
+    with pytest.raises(TranspileError):
+        PythonTranspiler()._emit_stmt(_Alien())
