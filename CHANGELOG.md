@@ -25,13 +25,18 @@ that throws `ReferenceError` at runtime.
   authoritative builtin set is sourced from the interpreter so it can never
   drift. A node-less regression test locks the contract on every CI image.
 - **More builtins mapped faithfully** — `abs`, `to_string`, `trim`, `exp`,
-  `log10`, `log2`, `hypot`, `cbrt`, `gcd`, `factorial`, `contains`, `keys`,
-  `values`, `has_key`, `is_text`, `is_boolean`, `is_map`, plus runtime shims for
-  `gcd`/`factorial`/`contains`/`max`/`min`. `max`/`min` now accept either a
-  single list or varargs (previously `Math.max([..])` → `NaN`).
-- **Python transpiler fix** — `contains` was mapped to `operator.contains`
-  without importing `operator`; it now routes through the faithful `_epl_call`
-  shim.
+  `log10`, `log2`, `hypot`, `gcd`, `factorial`, `contains`, `keys`, `values`,
+  `has_key`, `is_text`, `is_boolean`, `is_map`. Each mirrors the interpreter
+  exactly: `contains` is a string-coercion substring test (`str(needle) in
+  str(hay)`, so `contains([12], 2)` is true), not typed membership; `trim`
+  coerces to text first (`trim(123)` → `123`); `gcd`/`factorial` truncate their
+  operands and `factorial` raises on a negative input (correct-or-loud rather
+  than returning `1`). `max`/`min` accept either a single list or varargs
+  (previously `Math.max([..])` → `NaN`) via a fold that can't overflow the
+  call stack.
+- **Python transpiler fixes** — `contains` was mapped to `operator.contains`
+  without importing `operator`; `trim` was mapped to `str.strip`, which raised
+  on non-text input. Both now route through the faithful `_epl_call` shim.
 - **Fidelity corpus grown 18 → 30** — new deterministic programs covering the
   added builtins, nested data, string ops, map iteration, closures, decimal
   math, and control flow. Each auto-gates BOTH transpilers byte-for-byte.

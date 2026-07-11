@@ -1,8 +1,10 @@
-Note: contains builtin — substring / list-membership / Map-key by runtime type
+Note: contains is a pure string-coercion substring test (str(needle) in str(hay))
 Say contains("hello world", "world")
 Say contains("hello", "xyz")
 Say contains([1, 2, 3], 2)
 Say contains([1, 2, 3], 9)
+Say contains([12], 2)
 prefs = Map with theme = "dark" and lang = "en"
 Say contains(prefs, "theme")
+Say contains(prefs, "dark")
 Say contains(prefs, "missing")

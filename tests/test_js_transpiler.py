@@ -88,7 +88,9 @@ JS_CASES = [
     ('builtin_floor', lambda: 'Math.floor' in to_js('Print floor(3.7)')),
     ('builtin_ceil', lambda: 'Math.ceil' in to_js('Print ceil(3.2)')),
     ('builtin_abs', lambda: 'Math.abs' in to_js('Print absolute(-5)')),
-    ('builtin_max', lambda: 'Math.max' in to_js('Print max(3, 7)')),
+    # `max`/`min` route through `_epl_max`/`_epl_min` (accept a single list OR
+    # varargs, faithful to the interpreter; a bare `Math.max([..])` is NaN).
+    ('builtin_max', lambda: '_epl_max(3, 7)' in to_js('Print max(3, 7)')),
     ('builtin_round', lambda: 'Math.round' in to_js('Print round(3.5)')),
     # `type_of` routes through `_epl_type` (EPL type names, not JS `typeof`).
     ('builtin_type_of', lambda: '_epl_type(42)' in to_js('Print type_of(42)')),

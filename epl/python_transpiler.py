@@ -1210,7 +1210,10 @@ class PythonTranspiler:
             'join': "', '.join",
             'upper': 'str.upper',
             'lower': 'str.lower',
-            'trim': 'str.strip',
+            # `trim` is NOT mapped to `str.strip`: the interpreter coerces first
+            # (`str(x).strip()`), so `trim(123)` is valid and yields "123". A bare
+            # `str.strip(123)` would raise, so route it through the faithful
+            # `_epl_call` shim instead (falls through to the builtin path below).
             'split': 'str.split',
             'replace': 'str.replace',
             'starts_with': 'str.startswith',

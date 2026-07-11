@@ -19,6 +19,15 @@ _EPL_BUILTIN_NAMES: 'AbstractSet[str]'
 try:  # pragma: no cover - import guard
     from epl.interpreter import BUILTINS as _EPL_BUILTIN_NAMES
 except Exception:  # noqa: BLE001 - transpiler must load even if runtime import fails
+    # An empty set would silently disable the fail-loud check below, so make the
+    # degraded mode visible rather than shipping ReferenceError-bound output.
+    import sys as _sys
+
+    print(
+        'Warning: could not import epl.interpreter.BUILTINS; the JS transpiler '
+        'fail-loud check for unmapped builtins is disabled.',
+        file=_sys.stderr,
+    )
     _EPL_BUILTIN_NAMES = frozenset()
 
 
@@ -188,27 +197,29 @@ _EPL_REVERSED_RUNTIME_JS = """function _epl_reversed(v) {
 }"""
 
 
-# Runtime shim: `contains(haystack, needle)` — substring test for strings, key
-# test for Map-objects, membership for lists (mirrors the interpreter).
-_EPL_CONTAINS_RUNTIME_JS = """function _epl_contains(hay, needle) {
-  if (typeof hay === "string") return hay.includes(needle);
-  if (Array.isArray(hay)) return hay.includes(needle);
-  if (hay !== null && typeof hay === "object")
-    return Object.prototype.hasOwnProperty.call(hay, needle);
-  return false;
+# Runtime shim: `is_map` — Map-object test (not a list, not null). Extracted to a
+# helper so the argument is evaluated exactly once (side effects fire once).
+_EPL_IS_MAP_RUNTIME_JS = """function _epl_is_map(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
 }"""
 
 
-# Runtime shim: integer `gcd` (Euclid, absolute value — matches the interpreter).
+# Runtime shim: integer `gcd`. Mirrors the interpreter's `math.gcd(int(a), int(b))`
+# — operands are truncated toward zero (`Math.trunc`) before Euclid, and the
+# result is non-negative.
 _EPL_GCD_RUNTIME_JS = """function _epl_gcd(a, b) {
-  a = Math.abs(a); b = Math.abs(b);
+  a = Math.abs(Math.trunc(a)); b = Math.abs(Math.trunc(b));
   while (b) { [a, b] = [b, a % b]; }
   return a;
 }"""
 
 
-# Runtime shim: integer `factorial` (n! for n >= 0).
+# Runtime shim: integer `factorial`. Mirrors `math.factorial(int(n))` — the input
+# is truncated toward zero and a negative argument raises (correct-or-loud: EPL
+# errors on `factorial(-1)`, so the JS target must too rather than returning 1).
 _EPL_FACTORIAL_RUNTIME_JS = """function _epl_factorial(n) {
+  n = Math.trunc(n);
+  if (n < 0) throw new Error("factorial() requires a non-negative integer");
   let r = 1;
   for (let i = 2; i <= n; i++) r *= i;
   return r;
@@ -216,16 +227,21 @@ _EPL_FACTORIAL_RUNTIME_JS = """function _epl_factorial(n) {
 
 
 # Runtime shims: `max`/`min` accept a single list OR varargs (mirrors the
-# interpreter). A lone array argument is reduced element-wise.
+# interpreter). A lone array argument is reduced element-wise. A fold (not
+# `Math.max(...xs)`) is used so large lists can't overflow the call stack.
 _EPL_MAX_RUNTIME_JS = """function _epl_max(...xs) {
   if (xs.length === 1 && Array.isArray(xs[0])) xs = xs[0];
-  return Math.max(...xs);
+  let m = xs[0];
+  for (let i = 1; i < xs.length; i++) if (xs[i] > m) m = xs[i];
+  return m;
 }"""
 
 
 _EPL_MIN_RUNTIME_JS = """function _epl_min(...xs) {
   if (xs.length === 1 && Array.isArray(xs[0])) xs = xs[0];
-  return Math.min(...xs);
+  let m = xs[0];
+  for (let i = 1; i < xs.length; i++) if (xs[i] < m) m = xs[i];
+  return m;
 }"""
 
 
@@ -371,9 +387,9 @@ class JSTranspiler:
         if 'reversed' in self._need:
             # `reversed` preserves input type (string→string, list→list).
             parts.append(_EPL_REVERSED_RUNTIME_JS)
-        if 'contains' in self._need:
-            # `contains` — substring / list-membership / Map-key by runtime type.
-            parts.append(_EPL_CONTAINS_RUNTIME_JS)
+        if 'is_map' in self._need:
+            # `is_map` — Map-object test, evaluating its argument exactly once.
+            parts.append(_EPL_IS_MAP_RUNTIME_JS)
         if 'gcd' in self._need:
             parts.append(_EPL_GCD_RUNTIME_JS)
         if 'factorial' in self._need:
@@ -1535,15 +1551,13 @@ class JSTranspiler:
             'is_list': lambda: f'Array.isArray({args})',
             'is_null': lambda: f'({args} === null || {args} === undefined)',
             'is_boolean': lambda: f'(typeof {args} === "boolean")',
-            'is_map': lambda: (
-                f'({self._expr(node.arguments[0])} !== null && '
-                f'typeof {self._expr(node.arguments[0])} === "object" && '
-                f'!Array.isArray({self._expr(node.arguments[0])}))'
-            ),
+            'is_map': lambda: self._need_call('is_map', f'_epl_is_map({args})'),
             # Aliases of already-mapped builtins.
             'abs': lambda: f'Math.abs({args})',
             'to_string': lambda: self._need_call('str', f'_epl_str({args})'),
-            'trim': lambda: f'{self._expr(node.arguments[0])}.trim()',
+            # `trim` coerces to text first (interpreter: str(x).strip()), so a
+            # non-text argument like `trim(123)` stays valid.
+            'trim': lambda: self._need_call('str', f'_epl_str({args}).trim()'),
             # Float-returning math (JS single number type; whole-float display
             # ambiguity is the same accepted gap as the existing sqrt/log/sin).
             'exp': lambda: f'Math.exp({args})',
@@ -1553,10 +1567,13 @@ class JSTranspiler:
             # Integer-returning math — display-unambiguous, routed through helpers.
             'gcd': lambda: self._need_call('gcd', f'_epl_gcd({args})'),
             'factorial': lambda: self._need_call('factorial', f'_epl_factorial({args})'),
-            # Membership / Map builtins — runtime-typed helpers for faithful behavior.
+            # `contains(hay, needle)` is a pure string-coercion substring test in
+            # the interpreter (`str(needle) in str(hay)`), NOT typed membership —
+            # e.g. `contains([12], 2)` is true because "2" is in "[12]".
             'contains': lambda: self._need_call(
-                'contains',
-                f'_epl_contains({self._expr(node.arguments[0])}, {self._expr(node.arguments[1])})',
+                'str',
+                f'_epl_str({self._expr(node.arguments[0])}).includes('
+                f'_epl_str({self._expr(node.arguments[1])}))',
             ),
             'keys': lambda: f'Object.keys({args})',
             'values': lambda: f'Object.values({args})',
