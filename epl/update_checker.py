@@ -16,6 +16,8 @@ import sys
 import threading
 import time
 
+from epl._debug_log import suppressed as _debug_suppressed
+
 
 def _get_version():
     """Lazy version getter to avoid circular imports."""
@@ -55,7 +57,7 @@ def _read_cache():
             with open(path, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except (json.JSONDecodeError, OSError, KeyError):
-        pass
+        _debug_suppressed('update_checker:57:read_cache')
     return None
 
 

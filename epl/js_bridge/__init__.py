@@ -18,6 +18,8 @@ import subprocess
 import sys
 import threading
 
+from epl._debug_log import suppressed as _debug_suppressed
+
 __all__ = ['NodeBridge', 'NodeBridgeError', 'JSModuleHandle']
 
 _NPM_NAME_RE = re.compile(r'^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*$')
@@ -143,7 +145,7 @@ class NodeBridge:
                     if not ready.is_set():
                         ready.set()
             except Exception:
-                pass
+                _debug_suppressed('js_bridge:145:drain_stderr')
 
         reader = threading.Thread(target=_drain_stderr, daemon=True)
         reader.start()
@@ -160,7 +162,7 @@ class NodeBridge:
             try:
                 self._process.stdin.close()
             except Exception:
-                pass
+                _debug_suppressed('js_bridge:162:close_stdin')
             try:
                 self._process.terminate()
                 self._process.wait(timeout=3)
@@ -168,7 +170,7 @@ class NodeBridge:
                 try:
                     self._process.kill()
                 except Exception:
-                    pass
+                    _debug_suppressed('js_bridge:170:kill')
             self._process = None
 
     # ─── JSON-RPC Communication ───────────────────────────

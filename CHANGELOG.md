@@ -12,6 +12,24 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Changed — reliability: no more silently-swallowed errors
+
+Phase 1 of the enterprise-hardening pass. Previously-silent `except …: pass`
+sites that could hide real failures now either surface under `EPL_DEBUG` (routed
+through `epl._debug_log.suppressed`) or, for operator misconfigurations, emit a
+visible warning. Behavior is otherwise unchanged. Regression coverage in
+`tests/test_silent_except_hardening.py`, including a guard that fails if a broad
+`except Exception: pass` is reintroduced.
+
+- **Operator misconfigurations now warn** — an invalid `EPL_WEB_PORT`/`PORT` or
+  `EPL_WEB_WORKERS` logs a warning and falls back to the default instead of
+  silently ignoring the value; a corrupt AI config file warns instead of being
+  treated as "no config".
+- **Diagnosable-under-debug** — dropped LLM stream chunks (`ai`), failed ML
+  scaler transforms that fall back to raw input (`stdlib`), corrupt
+  registry/index/update caches, HTTP/Lambda JSON-decode fallbacks, and Node/JS
+  bridge teardown now record the swallowed exception under `EPL_DEBUG`.
+
 ### Fixed — type checker, Python bridge, and dot-notation defects
 
 A code-level audit surfaced five confirmed defects across the type checker,

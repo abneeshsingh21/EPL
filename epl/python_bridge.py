@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os as _os
 
+from epl._debug_log import suppressed as _debug_suppressed
 from epl.errors import RuntimeError as EPLRuntimeError
 
 
@@ -174,7 +175,7 @@ def wrap_python_result(value, *, epl_dict_type, python_module_type=PythonModule,
                     for item in value
                 ]
             except (TypeError, StopIteration):
-                pass
+                _debug_suppressed('python_bridge:176:iter')
 
         if hasattr(value, '__dict__') or hasattr(value, '__class__'):
             return python_module_type(value, type_name)

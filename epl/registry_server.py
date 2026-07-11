@@ -481,7 +481,7 @@ class ThreadedRegistryServer:
                     }
             self.storage._save_index()
         except (json.JSONDecodeError, IOError):
-            pass
+            _debug_log.suppressed('registry_server:483:seed_index')
 
 
 class RegistryClient:

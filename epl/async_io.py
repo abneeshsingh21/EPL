@@ -88,7 +88,7 @@ class EPLEventLoop:
                 future = asyncio.run_coroutine_threadsafe(_drain(), self._loop)
                 future.result(timeout=timeout)
             except Exception:
-                pass  # Best-effort drain
+                _debug_log.suppressed('async_io:90:drain')
             self._loop.call_soon_threadsafe(self._loop.stop)
         import sys
 

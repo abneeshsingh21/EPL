@@ -122,7 +122,7 @@ def send_bulk(mailer, recipients, subject, body):
                 server.sendmail(mailer['username'], [addr], msg.as_string())
                 sent += 1
             except Exception:
-                pass
+                continue  # best-effort bulk send; returned `sent` count reflects skips
         return sent
     finally:
         server.quit()

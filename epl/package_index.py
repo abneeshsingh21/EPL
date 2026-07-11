@@ -244,7 +244,7 @@ class IndexCache:
                 with open(self._path, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError):
-                pass
+                _debug_log.suppressed('package_index:246:load')
         return {'packages': {}, 'updated_at': 0, 'index_url': ''}
 
     def _save(self):

@@ -503,7 +503,7 @@ class EPLAnalyzer:
                 checker.check(program)
                 diagnostics.extend(checker.to_lsp_diagnostics())
             except Exception:
-                pass  # type checker failures should not break the LSP
+                _debug_log.suppressed('lsp_server:505:type_check')
 
         # Warnings: check for common issues
         diagnostics.extend(self._lint_warnings(source))
