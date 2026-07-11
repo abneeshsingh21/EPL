@@ -1014,6 +1014,24 @@ def _run_hypercorn(asgi_app, host, port, workers):
     asyncio.run(hypercorn_serve(asgi_app, config))
 
 
+def _resolve_env_bind(host, port, workers):
+    """Apply EPL_WEB_*/PORT env overrides, warning on invalid values."""
+    host = os.environ.get('EPL_WEB_HOST') or os.environ.get('EPL_HOST') or host
+    _env_port = os.environ.get('EPL_WEB_PORT') or os.environ.get('PORT')
+    if _env_port:
+        try:
+            port = int(_env_port)
+        except (TypeError, ValueError):
+            _logger.warning('invalid EPL_WEB_PORT/PORT %r; using %s', _env_port, port)
+    _env_workers = os.environ.get('EPL_WEB_WORKERS')
+    if _env_workers:
+        try:
+            workers = max(1, int(_env_workers))
+        except (TypeError, ValueError):
+            _logger.warning('invalid EPL_WEB_WORKERS %r; using %s', _env_workers, workers)
+    return host, port, workers
+
+
 def serve(
     app_or_wsgi, host='0.0.0.0', port=8000, workers=4, reload=False, engine=None, interpreter=None
 ):
@@ -1036,22 +1054,7 @@ def serve(
     """
     import platform
 
-    # Deploy-anywhere: let the hosting platform dictate the bind. Cloud Run,
-    # Heroku and Azure App Service inject PORT; EPL_WEB_* are explicit
-    # overrides that win over the generic PORT.
-    host = os.environ.get('EPL_WEB_HOST') or os.environ.get('EPL_HOST') or host
-    _env_port = os.environ.get('EPL_WEB_PORT') or os.environ.get('PORT')
-    if _env_port:
-        try:
-            port = int(_env_port)
-        except (TypeError, ValueError):
-            pass
-    _env_workers = os.environ.get('EPL_WEB_WORKERS')
-    if _env_workers:
-        try:
-            workers = max(1, int(_env_workers))
-        except (TypeError, ValueError):
-            pass
+    host, port, workers = _resolve_env_bind(host, port, workers)
 
     app, wsgi_app, asgi_app = _resolve_server_apps(app_or_wsgi, interpreter=interpreter)
     selected_engine = (engine or 'auto').lower()

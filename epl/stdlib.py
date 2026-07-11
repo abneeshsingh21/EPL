@@ -1184,7 +1184,7 @@ def _http_request(method, url, body=None, headers=None, timeout=30):
                     parsed_body = _json.loads(resp_body)
                     parsed_body = _to_epl(parsed_body)
                 except _json.JSONDecodeError:
-                    pass
+                    _debug_suppressed('stdlib.py:1186:http_json')
 
             return _to_epl_dict(
                 {
@@ -6671,7 +6671,7 @@ def _call_web(name, args, line, interpreter=None):
         try:
             data = _json.loads(data)
         except (ValueError, TypeError):
-            pass
+            _debug_suppressed('stdlib.py:6673:web_test_get')
         return _to_epl({'status': resp.status_code, 'data': data, 'headers': dict(resp.headers)})
 
     if name == 'web_test_post':
@@ -6695,7 +6695,7 @@ def _call_web(name, args, line, interpreter=None):
         try:
             resp_data = _json.loads(resp_data)
         except (ValueError, TypeError):
-            pass
+            _debug_suppressed('stdlib.py:6697:web_test_post')
         return _to_epl(
             {'status': resp.status_code, 'data': resp_data, 'headers': dict(resp.headers)}
         )
@@ -7360,7 +7360,7 @@ def _eval_template_condition(cond, context):
                 if isinstance(left_val, (int, float)):
                     right_val = type(left_val)(right_val)
             except (ValueError, TypeError):
-                pass
+                _debug_suppressed('stdlib.py:7362:cond_coerce')
             return fn(left_val, right_val)
     val = _resolve_context(cond, context)
     return bool(val)
@@ -9796,7 +9796,7 @@ def _call_mobile(name, args, line):
                 if hasattr(app.main_window, 'status_bar'):
                     app.main_window.status_bar = style
         except Exception:
-            pass  # Status bar styling is best-effort
+            _debug_suppressed('stdlib.py:9798:status_bar')
         return None
 
     # ── Android Studio Project Generator ──
@@ -10787,7 +10787,7 @@ def _call_ml(name, args, line):
                 try:
                     inp = scaler.transform(inp).tolist()
                 except Exception:
-                    pass  # If transform fails, use raw input
+                    _debug_suppressed('stdlib.py:10789:ml_scaler')  # falls back to raw input
         try:
             result = model.predict(inp)
         except Exception as e:

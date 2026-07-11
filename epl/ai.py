@@ -6,6 +6,7 @@ embeddings, streaming, and custom EPL-trained model creation.
 """
 
 import json
+import sys
 import urllib.error
 import urllib.request
 
@@ -153,8 +154,12 @@ def _load_config(force=False):
             cfg = json.load(f)
         CLOUD_PROVIDER = cfg.get('provider')
         CLOUD_MODEL = cfg.get('model')
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        pass
+    except FileNotFoundError:
+        pass  # no config yet — expected on first run
+    except json.JSONDecodeError as e:
+        sys.stderr.write(f'[EPL] warning: ignoring corrupt AI config at {path}: {e}\n')
+    except OSError as e:
+        _debug_log.suppressed('ai:156', e)
 
     kr = _try_keyring()
     legacy_key = cfg.get('api_key') if isinstance(cfg, dict) else None
@@ -245,7 +250,7 @@ def clear_cloud():
             kr.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
         except Exception:
             # Entry didn't exist or backend refused; safe to ignore.
-            pass
+            pass  # broad-except-ok
 
     path = _get_config_path()
     if os.path.exists(path):
@@ -510,7 +515,7 @@ def _stream_request(endpoint, data, timeout=600):
                         obj = json.loads(buffer.strip())
                         yield obj
                     except json.JSONDecodeError:
-                        pass
+                        _debug_log.suppressed('ai:512:stream')
                     buffer = ''
     except Exception as e:
         yield {'error': str(e)}
@@ -938,7 +943,7 @@ def create_epl_model(base_model=None, model_name=None, verbose=True):
                         result = obj
                         break
                 except json.JSONDecodeError:
-                    pass
+                    _debug_log.suppressed('ai:940:stream')
     except urllib.error.URLError as e:
         result = {'error': f'Connection failed: {e}'}
     except Exception as e:

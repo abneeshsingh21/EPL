@@ -21,6 +21,7 @@ import logging as _logging
 import os as _os
 import threading as _threading
 
+from epl._debug_log import suppressed as _debug_suppressed
 from epl.errors import RuntimeError as EPLRuntimeError
 
 _log = _logging.getLogger(__name__)
@@ -234,7 +235,7 @@ def cloud_lambda_invoke(function_name: str, payload=None):
     try:
         resp_payload = _json.loads(resp_payload)
     except (ValueError, _json.JSONDecodeError):
-        pass
+        _debug_suppressed('cloud_backend:236:lambda_payload')
     return {
         'status_code': response['StatusCode'],
         'payload': resp_payload,

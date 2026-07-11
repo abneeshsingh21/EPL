@@ -2128,7 +2128,7 @@ class Interpreter:
             if pkg_path and _os.path.exists(pkg_path):
                 return pkg_path
         except ImportError:
-            pass
+            _debug_suppressed('interpreter.py:2130:find_package')
 
         # Auto-install: if a matching package exists in the registry, install it
         try:
@@ -2138,7 +2138,7 @@ class Interpreter:
             if auto_path and _os.path.exists(auto_path):
                 return auto_path
         except ImportError:
-            pass
+            _debug_suppressed('interpreter.py:2140:auto_install')
 
         raise EPLRuntimeError(
             f'Cannot find module "{filepath}". '

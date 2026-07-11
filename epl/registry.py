@@ -66,7 +66,7 @@ class RegistryCache:
                 with open(self._path, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError):
-                pass
+                _debug_log.suppressed('registry:68:load')
         return {'packages': {}, 'updated_at': 0}
 
     def _save(self):
@@ -116,7 +116,7 @@ class DownloadStats:
                 with open(self._path, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError):
-                pass
+                _debug_log.suppressed('registry:118:load')
         return {}
 
     def _save(self):

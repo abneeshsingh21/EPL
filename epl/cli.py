@@ -341,7 +341,7 @@ def cli_main(argv=None):
 
         check_for_updates()
     except Exception:
-        pass  # Update checker must never break the CLI
+        _debug_suppressed('cli.py:343:update_check')
 
     # No args → REPL
     if not argv:
