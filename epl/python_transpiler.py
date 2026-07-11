@@ -1213,7 +1213,6 @@ class PythonTranspiler:
             'trim': 'str.strip',
             'split': 'str.split',
             'replace': 'str.replace',
-            'contains': 'operator.contains',
             'starts_with': 'str.startswith',
             'ends_with': 'str.endswith',
             'floor': 'math.floor',

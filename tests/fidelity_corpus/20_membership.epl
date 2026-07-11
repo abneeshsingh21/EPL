@@ -1,0 +1,8 @@
+Note: contains builtin — substring / list-membership / Map-key by runtime type
+Say contains("hello world", "world")
+Say contains("hello", "xyz")
+Say contains([1, 2, 3], 2)
+Say contains([1, 2, 3], 9)
+prefs = Map with theme = "dark" and lang = "en"
+Say contains(prefs, "theme")
+Say contains(prefs, "missing")

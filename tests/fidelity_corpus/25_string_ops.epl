@@ -1,0 +1,9 @@
+Note: string methods + slicing round-trip
+greeting = "Hello, World"
+Say greeting.uppercase
+Say greeting.lowercase
+Say greeting.length
+Say greeting.substring(0, 5)
+Say greeting.replace("World", "EPL")
+Say greeting.contains("World")
+Say greeting[0]

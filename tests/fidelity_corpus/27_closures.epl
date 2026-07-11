@@ -1,0 +1,11 @@
+Note: closures capturing an enclosing value + higher-order application
+Function make_adder takes n
+    Return given x return x + n
+End
+add10 = make_adder(10)
+Say add10(5)
+Say add10(0)
+nums = [1, 2, 3, 4]
+Say nums.map(add10)
+factor = 3
+Say nums.map(given x return x * factor)

@@ -1,0 +1,8 @@
+Note: integer-returning math builtins — abs / gcd / factorial
+Say abs(-5)
+Say abs(7)
+Say gcd(12, 8)
+Say gcd(17, 5)
+Say factorial(0)
+Say factorial(6)
+Say "abs of -3 is " + abs(-3)

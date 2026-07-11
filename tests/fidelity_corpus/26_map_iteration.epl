@@ -1,0 +1,11 @@
+Note: iterate a Map's keys and accumulate over its values
+prices = Map with pen = 2 and pad = 5 and ink = 3
+total = 0
+For each item in prices
+    total = total + prices[item]
+End
+Say "items: " + keys(prices)
+Say "total: " + total
+For each item in prices
+    Say item + " costs " + prices[item]
+End

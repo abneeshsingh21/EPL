@@ -12,6 +12,30 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Changed — JS transpiler: correct-or-loud + wider builtin coverage
+
+Phase 2 of the enterprise-hardening pass. The JavaScript target now matches the
+Python target's correct-or-loud contract, so it can no longer silently emit code
+that throws `ReferenceError` at runtime.
+
+- **Fail-loud on unmapped builtins** — a call to a real EPL builtin that has no
+  faithful JS mapping now raises `TranspileError` at transpile time (naming the
+  builtin) instead of emitting `name(args)` — a call to a nonexistent JS
+  identifier. Genuine user-function calls still emit a bare `name(args)`. The
+  authoritative builtin set is sourced from the interpreter so it can never
+  drift. A node-less regression test locks the contract on every CI image.
+- **More builtins mapped faithfully** — `abs`, `to_string`, `trim`, `exp`,
+  `log10`, `log2`, `hypot`, `cbrt`, `gcd`, `factorial`, `contains`, `keys`,
+  `values`, `has_key`, `is_text`, `is_boolean`, `is_map`, plus runtime shims for
+  `gcd`/`factorial`/`contains`/`max`/`min`. `max`/`min` now accept either a
+  single list or varargs (previously `Math.max([..])` → `NaN`).
+- **Python transpiler fix** — `contains` was mapped to `operator.contains`
+  without importing `operator`; it now routes through the faithful `_epl_call`
+  shim.
+- **Fidelity corpus grown 18 → 30** — new deterministic programs covering the
+  added builtins, nested data, string ops, map iteration, closures, decimal
+  math, and control flow. Each auto-gates BOTH transpilers byte-for-byte.
+
 ### Changed — reliability: no more silently-swallowed errors
 
 Phase 1 of the enterprise-hardening pass. Previously-silent `except …: pass`

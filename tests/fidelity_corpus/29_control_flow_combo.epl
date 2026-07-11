@@ -1,0 +1,20 @@
+Note: nested if/else + loop with conditional accumulation
+Function classify takes n
+    If n < 0
+        Return "negative"
+    Otherwise if n equals 0
+        Return "zero"
+    Otherwise
+        Return "positive"
+    End
+End
+For each v in [-2, 0, 5]
+    Say to_string(v) + " is " + classify(v)
+End
+evens = 0
+For i from 1 to 10
+    If i mod 2 equals 0
+        evens = evens + 1
+    End
+End
+Say "evens in 1..10: " + evens

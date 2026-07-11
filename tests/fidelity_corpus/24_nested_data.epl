@@ -1,0 +1,11 @@
+Note: deeper nested list/map structures + indexed access
+ada = Map with name = "Ada" and roles = ["admin", "dev"]
+bo = Map with name = "Bo" and roles = ["dev"]
+users = [ada, bo]
+Say users[0].name
+Say users[0].roles
+Say users[0].roles[1]
+Say users[1].roles[0]
+grid = [[1, 2, 3], [4, 5, 6]]
+Say grid[1][2]
+Say "row0: " + grid[0]

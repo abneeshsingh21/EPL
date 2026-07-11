@@ -1,0 +1,7 @@
+Note: to_string coercion + trim whitespace stripping
+Say to_string(42)
+Say to_string(true)
+Say to_string([1, 2, 3])
+Say trim("   padded   ")
+Say "[" + trim("  x  ") + "]"
+Say "count = " + to_string(7)

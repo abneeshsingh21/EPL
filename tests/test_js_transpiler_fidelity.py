@@ -117,8 +117,8 @@ def test_transpiled_js_matches_interpreter(corpus_file, tmp_path):
 def test_corpus_is_not_empty():
     """Guard against the corpus dir silently disappearing (which would make the
     parametrized suite pass vacuously)."""
-    assert len(_corpus_files()) >= 18, (
-        f'Fidelity corpus should have >=18 programs, found {len(_corpus_files())}. '
+    assert len(_corpus_files()) >= 30, (
+        f'Fidelity corpus should have >=30 programs, found {len(_corpus_files())}. '
         'Did the corpus dir get moved or emptied?'
     )
 
@@ -141,3 +141,38 @@ def test_corpus_transpiles_without_unsupported_markers():
             'the transpiler silently dropped a construct instead of handling it.\n'
             f'{js}'
         )
+
+
+def _transpile_src_to_js(source):
+    from epl.js_transpiler import JSTranspiler
+    from epl.lexer import Lexer
+    from epl.parser import Parser
+
+    program = Parser(Lexer(source).tokenize()).parse()
+    return JSTranspiler(target='node', module_format='esm').transpile(program)
+
+
+def test_unmapped_builtin_raises_not_silently_emitted():
+    """The core correctness gate — runs WITHOUT node, so it holds on every CI image.
+
+    An EPL builtin that has no JS mapping (here: `aes_encrypt`, a real builtin with
+    no browser/Node equivalent) must make the transpiler REFUSE at transpile time,
+    not emit `aes_encrypt(...)` — a call to a nonexistent JS identifier that throws
+    ReferenceError at runtime. This is the exact silent-divergence the JS target
+    shipped before Phase 2, blind to node-less CI.
+    """
+    from epl.interpreter import BUILTINS
+    from epl.python_transpiler import TranspileError
+
+    assert 'aes_encrypt' in BUILTINS, 'test premise: aes_encrypt is a real EPL builtin'
+    with pytest.raises(TranspileError, match='aes_encrypt'):
+        _transpile_src_to_js('Say aes_encrypt("secret", "key")')
+
+
+def test_genuine_user_function_still_emits_bare_call():
+    """The fail-loud fallback must NOT swallow real user-function calls — a name
+    that is not an EPL builtin stays a plain `name(args)` call."""
+    js = _transpile_src_to_js(
+        'Function greet takes name\n    Return "hi " + name\nEnd\nSay greet("Ada")'
+    )
+    assert 'greet(' in js
