@@ -12,6 +12,36 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Changed — JS transpiler: correct-or-loud + wider builtin coverage
+
+Phase 2 of the enterprise-hardening pass. The JavaScript target now matches the
+Python target's correct-or-loud contract, so it can no longer silently emit code
+that throws `ReferenceError` at runtime.
+
+- **Fail-loud on unmapped builtins** — a call to a real EPL builtin that has no
+  faithful JS mapping now raises `TranspileError` at transpile time (naming the
+  builtin) instead of emitting `name(args)` — a call to a nonexistent JS
+  identifier. Genuine user-function calls still emit a bare `name(args)`. The
+  authoritative builtin set is sourced from the interpreter so it can never
+  drift. A node-less regression test locks the contract on every CI image.
+- **More builtins mapped faithfully** — `abs`, `to_string`, `trim`, `exp`,
+  `log10`, `log2`, `hypot`, `gcd`, `factorial`, `contains`, `keys`, `values`,
+  `has_key`, `is_text`, `is_boolean`, `is_map`. Each mirrors the interpreter
+  exactly: `contains` is a string-coercion substring test (`str(needle) in
+  str(hay)`, so `contains([12], 2)` is true), not typed membership; `trim`
+  coerces to text first (`trim(123)` → `123`); `gcd`/`factorial` truncate their
+  operands and `factorial` raises on a negative input (correct-or-loud rather
+  than returning `1`). `max`/`min` accept either a single list or varargs
+  (previously `Math.max([..])` → `NaN`) via a fold that can't overflow the
+  call stack, and raise the interpreter's exact error on empty input
+  (`max([])`/`min([])`) instead of returning `undefined`.
+- **Python transpiler fixes** — `contains` was mapped to `operator.contains`
+  without importing `operator`; `trim` was mapped to `str.strip`, which raised
+  on non-text input. Both now route through the faithful `_epl_call` shim.
+- **Fidelity corpus grown 18 → 30** — new deterministic programs covering the
+  added builtins, nested data, string ops, map iteration, closures, decimal
+  math, and control flow. Each auto-gates BOTH transpilers byte-for-byte.
+
 ### Changed — reliability: no more silently-swallowed errors
 
 Phase 1 of the enterprise-hardening pass. Previously-silent `except …: pass`

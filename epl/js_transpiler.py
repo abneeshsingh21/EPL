@@ -7,8 +7,28 @@ super calls, proper constructor mapping, and target-aware output.
 """
 
 import re
+from typing import AbstractSet
 
 from epl import ast_nodes as ast
+from epl.python_transpiler import TranspileError
+
+# Authoritative set of every name EPL treats as a builtin (core + stdlib), used
+# to tell an unmapped-but-real builtin (fail loud) from a genuine user-function
+# call (emit a bare call). Sourced from the interpreter so it can never drift.
+_EPL_BUILTIN_NAMES: 'AbstractSet[str]'
+try:  # pragma: no cover - import guard
+    from epl.interpreter import BUILTINS as _EPL_BUILTIN_NAMES
+except Exception:  # noqa: BLE001 - transpiler must load even if runtime import fails
+    # An empty set would silently disable the fail-loud check below, so make the
+    # degraded mode visible rather than shipping ReferenceError-bound output.
+    import sys as _sys
+
+    print(
+        'Warning: could not import epl.interpreter.BUILTINS; the JS transpiler '
+        'fail-loud check for unmapped builtins is disabled.',
+        file=_sys.stderr,
+    )
+    _EPL_BUILTIN_NAMES = frozenset()
 
 
 def _esc_js(text):
@@ -177,6 +197,64 @@ _EPL_REVERSED_RUNTIME_JS = """function _epl_reversed(v) {
 }"""
 
 
+# Runtime shim: `is_map` — Map-object test (not a list, not null). Extracted to a
+# helper so the argument is evaluated exactly once (side effects fire once).
+_EPL_IS_MAP_RUNTIME_JS = """function _epl_is_map(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}"""
+
+
+# Runtime shim: integer `gcd`. Mirrors the interpreter's `math.gcd(int(a), int(b))`
+# — operands are truncated toward zero (`Math.trunc`) before Euclid, and the
+# result is non-negative.
+_EPL_GCD_RUNTIME_JS = """function _epl_gcd(a, b) {
+  a = Math.abs(Math.trunc(a)); b = Math.abs(Math.trunc(b));
+  while (b) { [a, b] = [b, a % b]; }
+  return a;
+}"""
+
+
+# Runtime shim: integer `factorial`. Mirrors `math.factorial(int(n))` — the input
+# is truncated toward zero and a negative argument raises (correct-or-loud: EPL
+# errors on `factorial(-1)`, so the JS target must too rather than returning 1).
+_EPL_FACTORIAL_RUNTIME_JS = """function _epl_factorial(n) {
+  n = Math.trunc(n);
+  if (n < 0) throw new Error("factorial() requires a non-negative integer");
+  let r = 1;
+  for (let i = 2; i <= n; i++) r *= i;
+  return r;
+}"""
+
+
+# Runtime shims: `max`/`min` accept a single list OR varargs (mirrors the
+# interpreter). A lone array argument is reduced element-wise. A fold (not
+# `Math.max(...xs)`) is used so large lists can't overflow the call stack.
+_EPL_MAX_RUNTIME_JS = """function _epl_max(...xs) {
+  if (xs.length === 1 && Array.isArray(xs[0])) {
+    xs = xs[0];
+    if (xs.length === 0) throw new Error('max() called on empty list.');
+  } else if (xs.length === 0) {
+    throw new Error('max() requires at least 1 argument.');
+  }
+  let m = xs[0];
+  for (let i = 1; i < xs.length; i++) if (xs[i] > m) m = xs[i];
+  return m;
+}"""
+
+
+_EPL_MIN_RUNTIME_JS = """function _epl_min(...xs) {
+  if (xs.length === 1 && Array.isArray(xs[0])) {
+    xs = xs[0];
+    if (xs.length === 0) throw new Error('min() called on empty list.');
+  } else if (xs.length === 0) {
+    throw new Error('min() requires at least 1 argument.');
+  }
+  let m = xs[0];
+  for (let i = 1; i < xs.length; i++) if (xs[i] < m) m = xs[i];
+  return m;
+}"""
+
+
 # Runtime shim: EPL display form for values (used by `to_text`). Mirrors the
 # interpreter's `_format_value`: nothing / true / false, `[a, b]` lists, and
 # `{k: v}` maps. Numbers and strings render as-is.
@@ -319,6 +397,17 @@ class JSTranspiler:
         if 'reversed' in self._need:
             # `reversed` preserves input type (string→string, list→list).
             parts.append(_EPL_REVERSED_RUNTIME_JS)
+        if 'is_map' in self._need:
+            # `is_map` — Map-object test, evaluating its argument exactly once.
+            parts.append(_EPL_IS_MAP_RUNTIME_JS)
+        if 'gcd' in self._need:
+            parts.append(_EPL_GCD_RUNTIME_JS)
+        if 'factorial' in self._need:
+            parts.append(_EPL_FACTORIAL_RUNTIME_JS)
+        if 'max' in self._need:
+            parts.append(_EPL_MAX_RUNTIME_JS)
+        if 'min' in self._need:
+            parts.append(_EPL_MIN_RUNTIME_JS)
         # `_epl_add`'s type-error path references `_epl_type`, so pull it in.
         if 'add' in self._need:
             self._need.add('type')
@@ -1353,8 +1442,10 @@ class JSTranspiler:
             'ceil': lambda: f'Math.ceil({args})',
             'sqrt': lambda: f'Math.sqrt({args})',
             'power': lambda: f'Math.pow({args})',
-            'max': lambda: f'Math.max({args})',
-            'min': lambda: f'Math.min({args})',
+            # EPL max/min accept either a single list (`max([1,2,3])`) or varargs
+            # (`max(1,2,3)`); `Math.max([..])` is NaN, so route through a helper.
+            'max': lambda: self._need_call('max', f'_epl_max({args})'),
+            'min': lambda: self._need_call('min', f'_epl_min({args})'),
             'log': lambda: f'Math.log({args})',
             'sin': lambda: f'Math.sin({args})',
             'cos': lambda: f'Math.cos({args})',
@@ -1466,11 +1557,53 @@ class JSTranspiler:
             # Stdlib: Type checking
             'is_number': lambda: f'(typeof {args} === "number")',
             'is_string': lambda: f'(typeof {args} === "string")',
+            'is_text': lambda: f'(typeof {args} === "string")',
             'is_list': lambda: f'Array.isArray({args})',
             'is_null': lambda: f'({args} === null || {args} === undefined)',
+            'is_boolean': lambda: f'(typeof {args} === "boolean")',
+            'is_map': lambda: self._need_call('is_map', f'_epl_is_map({args})'),
+            # Aliases of already-mapped builtins.
+            'abs': lambda: f'Math.abs({args})',
+            'to_string': lambda: self._need_call('str', f'_epl_str({args})'),
+            # `trim` coerces to text first (interpreter: str(x).strip()), so a
+            # non-text argument like `trim(123)` stays valid.
+            'trim': lambda: self._need_call('str', f'_epl_str({args}).trim()'),
+            # Float-returning math (JS single number type; whole-float display
+            # ambiguity is the same accepted gap as the existing sqrt/log/sin).
+            'exp': lambda: f'Math.exp({args})',
+            'log10': lambda: f'Math.log10({args})',
+            'log2': lambda: f'Math.log2({args})',
+            'hypot': lambda: f'Math.hypot({args})',
+            # Integer-returning math — display-unambiguous, routed through helpers.
+            'gcd': lambda: self._need_call('gcd', f'_epl_gcd({args})'),
+            'factorial': lambda: self._need_call('factorial', f'_epl_factorial({args})'),
+            # `contains(hay, needle)` is a pure string-coercion substring test in
+            # the interpreter (`str(needle) in str(hay)`), NOT typed membership —
+            # e.g. `contains([12], 2)` is true because "2" is in "[12]".
+            'contains': lambda: self._need_call(
+                'str',
+                f'_epl_str({self._expr(node.arguments[0])}).includes('
+                f'_epl_str({self._expr(node.arguments[1])}))',
+            ),
+            'keys': lambda: f'Object.keys({args})',
+            'values': lambda: f'Object.values({args})',
+            'has_key': lambda: (
+                f'Object.prototype.hasOwnProperty.call({self._expr(node.arguments[0])}, '
+                f'{self._expr(node.arguments[1])})'
+            ),
         }
         if node.name in builtin_map:
             return builtin_map[node.name]()
+        # Correct-or-loud: a name that IS a real EPL builtin but has no JS mapping
+        # would otherwise emit `name(args)` — a call to a nonexistent JS identifier
+        # that throws ReferenceError at runtime. Refuse at transpile time instead.
+        if node.name in _EPL_BUILTIN_NAMES:
+            raise TranspileError(
+                f'Builtin {node.name!r} is not yet supported by the JavaScript '
+                'target. It has no faithful JS mapping, so emitting a call would '
+                'produce code that fails at runtime. Use the Python target, or '
+                'avoid this builtin in code you transpile to JS.'
+            )
         return f'{node.name}({args})'
 
     def _js_format(self, arguments):

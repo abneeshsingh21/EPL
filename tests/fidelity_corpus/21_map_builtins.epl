@@ -1,0 +1,7 @@
+Note: Map builtins — keys / values / has_key
+inventory = Map with apples = 3 and pears = 5 and plums = 2
+Say keys(inventory)
+Say values(inventory)
+Say has_key(inventory, "pears")
+Say has_key(inventory, "grapes")
+Say "we stock apples: " + has_key(inventory, "apples")

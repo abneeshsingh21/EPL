@@ -1,0 +1,8 @@
+Note: decimal arithmetic producing non-whole results (display-unambiguous)
+Say 3.5 + 1.25
+Say 7.5 * 2.5
+Say 10.0 / 4.0
+Say round(3.14159)
+Say floor(2.9)
+Say ceil(2.1)
+Say "a third-ish: " + (10.0 / 3.0)

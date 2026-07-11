@@ -114,8 +114,8 @@ def test_transpiled_python_matches_interpreter(corpus_file, tmp_path):
 def test_corpus_is_not_empty():
     """Guard against the corpus dir silently disappearing (which would make the
     parametrized suite pass vacuously)."""
-    assert len(_corpus_files()) >= 18, (
-        f'Fidelity corpus should have >=18 programs, found {len(_corpus_files())}. '
+    assert len(_corpus_files()) >= 30, (
+        f'Fidelity corpus should have >=30 programs, found {len(_corpus_files())}. '
         'Did the corpus dir get moved or emptied?'
     )
 

@@ -1,0 +1,11 @@
+Note: type-predicate builtins — is_boolean / is_number / is_text / is_list / is_map
+Say is_boolean(true)
+Say is_boolean(0)
+Say is_number(42)
+Say is_number("hi")
+Say is_text("hi")
+Say is_text(42)
+Say is_list([1, 2])
+Say is_list("no")
+Say is_map(Map with a = 1)
+Say is_map([1, 2])

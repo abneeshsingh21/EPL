@@ -1,0 +1,10 @@
+Note: list construction, filtering, and reduction chained together
+nums = [5, 3, 8, 1, 9, 2]
+Say sorted(nums)
+Say nums.filter(given x return x > 3)
+Say nums.map(given x return x * 2)
+Say sum(nums)
+doubled = nums.map(given x return x + x)
+Say doubled.filter(given x return x > 10)
+Say "max is " + max(nums)
+Say "how many: " + nums.length
