@@ -4,6 +4,9 @@
 Any program that produces different stdout / exit status across the two backends
 is a divergence bug, because `epl run` defaults to the VM while docs/tests often
 validate against the interpreter. Skips servers and interactive programs.
+
+This is a manual dev harness with rich per-divergence diffs. The *enforced* CI
+gate lives in ``tests/test_parity_corpus.py`` (this script always exits 0).
 """
 
 import os
