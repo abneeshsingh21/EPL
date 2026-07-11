@@ -230,7 +230,12 @@ _EPL_FACTORIAL_RUNTIME_JS = """function _epl_factorial(n) {
 # interpreter). A lone array argument is reduced element-wise. A fold (not
 # `Math.max(...xs)`) is used so large lists can't overflow the call stack.
 _EPL_MAX_RUNTIME_JS = """function _epl_max(...xs) {
-  if (xs.length === 1 && Array.isArray(xs[0])) xs = xs[0];
+  if (xs.length === 1 && Array.isArray(xs[0])) {
+    xs = xs[0];
+    if (xs.length === 0) throw new Error('max() called on empty list.');
+  } else if (xs.length === 0) {
+    throw new Error('max() requires at least 1 argument.');
+  }
   let m = xs[0];
   for (let i = 1; i < xs.length; i++) if (xs[i] > m) m = xs[i];
   return m;
@@ -238,7 +243,12 @@ _EPL_MAX_RUNTIME_JS = """function _epl_max(...xs) {
 
 
 _EPL_MIN_RUNTIME_JS = """function _epl_min(...xs) {
-  if (xs.length === 1 && Array.isArray(xs[0])) xs = xs[0];
+  if (xs.length === 1 && Array.isArray(xs[0])) {
+    xs = xs[0];
+    if (xs.length === 0) throw new Error('min() called on empty list.');
+  } else if (xs.length === 0) {
+    throw new Error('min() requires at least 1 argument.');
+  }
   let m = xs[0];
   for (let i = 1; i < xs.length; i++) if (xs[i] < m) m = xs[i];
   return m;

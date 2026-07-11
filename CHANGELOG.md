@@ -33,7 +33,8 @@ that throws `ReferenceError` at runtime.
   operands and `factorial` raises on a negative input (correct-or-loud rather
   than returning `1`). `max`/`min` accept either a single list or varargs
   (previously `Math.max([..])` → `NaN`) via a fold that can't overflow the
-  call stack.
+  call stack, and raise the interpreter's exact error on empty input
+  (`max([])`/`min([])`) instead of returning `undefined`.
 - **Python transpiler fixes** — `contains` was mapped to `operator.contains`
   without importing `operator`; `trim` was mapped to `str.strip`, which raised
   on non-text input. Both now route through the faithful `_epl_call` shim.
