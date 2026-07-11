@@ -250,7 +250,7 @@ def clear_cloud():
             kr.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
         except Exception:
             # Entry didn't exist or backend refused; safe to ignore.
-            pass
+            pass  # broad-except-ok
 
     path = _get_config_path()
     if os.path.exists(path):

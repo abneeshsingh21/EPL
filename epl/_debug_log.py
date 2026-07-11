@@ -46,4 +46,4 @@ def suppressed(where: str, exc: BaseException | None = None) -> None:
     except Exception:
         # Logging itself must never raise. Stderr could be closed during
         # interpreter shutdown — silently drop in that case.
-        pass
+        pass  # broad-except-ok

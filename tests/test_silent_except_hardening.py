@@ -9,8 +9,6 @@ behavior and guard against the broad-except pattern creeping back.
 import pathlib
 import re
 
-import pytest
-
 EPL_DIR = pathlib.Path(__file__).resolve().parent.parent / 'epl'
 
 
@@ -103,19 +101,42 @@ def test_corrupt_registry_falls_back_and_is_diagnosable(monkeypatch, tmp_path, c
     corrupt = tmp_path / 'reg.json'
     corrupt.write_text('{bad', encoding='utf-8')
     monkeypatch.setenv('EPL_DEBUG', '1')
-    store = registry.RegistryCache(str(corrupt)) if hasattr(registry, 'RegistryCache') else None
-    if store is None:
-        pytest.skip('RegistryCache not exposed')
-    assert isinstance(store._data, dict)
+    store = registry.RegistryCache(str(corrupt))
+    assert isinstance(store._data, dict)  # fell back to empty
     assert 'registry:68' in capsys.readouterr().err
 
 
-BROAD = re.compile(r'except\s+Exception\s*:\s*\n\s*pass\b')
+def test_python_bridge_iter_failure_is_diagnosable(monkeypatch, capsys):
+    from epl import python_bridge
+
+    class _Boom:
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            raise TypeError('boom')
+
+    monkeypatch.setenv('EPL_DEBUG', '1')
+    result = python_bridge.wrap_python_result(_Boom(), epl_dict_type=dict)
+    assert not isinstance(result, list)  # not force-listified
+    assert 'python_bridge:176' in capsys.readouterr().err
+
+
+# Matches `except Exception:` / `except Exception as e:`, single- or multi-line,
+# terminating in a bare `pass`. A routed block (whose body calls `suppressed`)
+# or a marked best-effort site (`# broad-except-ok`) is not a violation.
+BROAD = re.compile(r'except\s+Exception(?:\s+as\s+\w+)?\s*:[^\n]*\n(?:[^\n]*\n)?[ \t]*pass\b[^\n]*')
 
 
 def test_no_new_broad_except_pass():
-    """Guard: broad ``except Exception: pass`` count must not grow past baseline."""
-    count = 0
+    """Guard: an unmarked, unrouted broad ``except Exception: pass`` must not reappear."""
+    violations = []
     for f in EPL_DIR.rglob('*.py'):
-        count += len(BROAD.findall(f.read_text(encoding='utf-8', errors='replace')))
-    assert count == 0, f'{count} broad `except Exception: pass` block(s) reintroduced'
+        src = f.read_text(encoding='utf-8', errors='replace')
+        for m in BROAD.finditer(src):
+            block = m.group()
+            if 'broad-except-ok' in block or 'suppressed' in block:
+                continue
+            line = src[: m.start()].count('\n') + 1
+            violations.append(f'{f.relative_to(EPL_DIR.parent)}:{line}')
+    assert not violations, 'unmarked broad `except Exception: pass`:\n' + '\n'.join(violations)
