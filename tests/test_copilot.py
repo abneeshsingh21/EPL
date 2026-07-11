@@ -49,7 +49,9 @@ def test_generate_matches_template(prompt, needle):
     assert needle in generate_from_description(prompt)
 
 
-@pytest.mark.parametrize('prompt', [p for p, _ in GENERATE_CASES] + ['quantum teleportation simulation'])
+@pytest.mark.parametrize(
+    'prompt', [p for p, _ in GENERATE_CASES] + ['quantum teleportation simulation']
+)
 def test_generated_code_reparses(prompt):
     # Every generated program — matched template or fallback — must be valid EPL.
     assert _reparses(generate_from_description(prompt))

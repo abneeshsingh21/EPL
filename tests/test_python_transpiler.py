@@ -38,7 +38,10 @@ PY_CASES = [
     # `_epl_call` shim instead of a lossy idiomatic mapping.
     ('max_via_shim', lambda: "_epl_call('max', 3, 7)" in to_python('display max(3, 7)')),
     ('gcd_via_shim', lambda: "_epl_call('gcd', 12, 8)" in to_python('display gcd(12, 8)')),
-    ('factorial_via_shim', lambda: "_epl_call('factorial', 5)" in to_python('display factorial(5)')),
+    (
+        'factorial_via_shim',
+        lambda: "_epl_call('factorial', 5)" in to_python('display factorial(5)'),
+    ),
     ('type_of_via_shim', lambda: "_epl_call('type_of', 42)" in to_python('display type_of(42)')),
     # `trim` coerces non-text in the interpreter (str.strip would raise), so it
     # must go through the shim, not `str.strip`.

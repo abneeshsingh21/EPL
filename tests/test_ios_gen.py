@@ -41,8 +41,20 @@ SCAFFOLD_CASES = [
 
 # ── Pure helpers ─────────────────────────────────────────
 HELPER_CASES = [
-    ('color_hex', lambda: GEN._css_color_to_swift('#ff0000') == 'Color(red: 255/255.0, green: 0/255.0, blue: 0/255.0)'),
-    ('color_short_hex', lambda: GEN._css_color_to_swift('#f00') == 'Color(red: 255/255.0, green: 0/255.0, blue: 0/255.0)'),
+    (
+        'color_hex',
+        lambda: (
+            GEN._css_color_to_swift('#ff0000')
+            == 'Color(red: 255/255.0, green: 0/255.0, blue: 0/255.0)'
+        ),
+    ),
+    (
+        'color_short_hex',
+        lambda: (
+            GEN._css_color_to_swift('#f00')
+            == 'Color(red: 255/255.0, green: 0/255.0, blue: 0/255.0)'
+        ),
+    ),
     ('color_named', lambda: 'Color(red: 255' in GEN._css_color_to_swift('red')),
     ('swift_type_integer', lambda: GEN._swift_type('integer') == 'Int'),
     ('swift_type_unknown_is_string', lambda: GEN._swift_type('somethingelse') == 'String'),

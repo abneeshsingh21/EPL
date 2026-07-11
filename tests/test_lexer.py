@@ -27,17 +27,20 @@ def pairs(src):
 # ── Token model ──────────────────────────────────────────
 # `Token.__eq__` compares only (type, value); line/column are ignored.
 TOKEN_MODEL_CASES = [
-    ('eq_ignores_position',
-     lambda: Token(TokenType.NUMBER, 42, 1, 1) == Token(TokenType.NUMBER, 42, 9, 9)),
-    ('neq_on_value',
-     lambda: Token(TokenType.NUMBER, 42, 1, 1) != Token(TokenType.NUMBER, 7, 1, 1)),
-    ('neq_on_type',
-     lambda: Token(TokenType.NUMBER, 42, 1, 1) != Token(TokenType.STRING, 42, 1, 1)),
-    ('neq_non_token',
-     lambda: (Token(TokenType.NUMBER, 42, 1, 1) == 42) is False),
-    ('repr_has_type_and_value',
-     lambda: 'NUMBER' in repr(Token(TokenType.NUMBER, 42, 1, 1))
-             and '42' in repr(Token(TokenType.NUMBER, 42, 1, 1))),
+    (
+        'eq_ignores_position',
+        lambda: Token(TokenType.NUMBER, 42, 1, 1) == Token(TokenType.NUMBER, 42, 9, 9),
+    ),
+    ('neq_on_value', lambda: Token(TokenType.NUMBER, 42, 1, 1) != Token(TokenType.NUMBER, 7, 1, 1)),
+    ('neq_on_type', lambda: Token(TokenType.NUMBER, 42, 1, 1) != Token(TokenType.STRING, 42, 1, 1)),
+    ('neq_non_token', lambda: (Token(TokenType.NUMBER, 42, 1, 1) == 42) is False),
+    (
+        'repr_has_type_and_value',
+        lambda: (
+            'NUMBER' in repr(Token(TokenType.NUMBER, 42, 1, 1))
+            and '42' in repr(Token(TokenType.NUMBER, 42, 1, 1))
+        ),
+    ),
 ]
 
 
@@ -67,12 +70,20 @@ TOKENIZE_CASES = [
     ('op_power', lambda: ('OP_POWER', '**') in pairs('2 ** 3')),
     ('op_arrow', lambda: any(t == 'ARROW' for t, _ in pairs('lambda x -> x'))),
     # Multi-word keywords merge in a post-pass; merged value is space-joined.
-    ('multiword_merge', lambda: ('IS_GREATER_THAN', 'is greater than') in pairs('x is greater than 3')),
+    (
+        'multiword_merge',
+        lambda: ('IS_GREATER_THAN', 'is greater than') in pairs('x is greater than 3'),
+    ),
     # NEWLINE is emitted between lines; its value is the escaped literal "\n".
     ('newline_emitted', lambda: any(t == 'NEWLINE' for t, _ in pairs('foo\nbar'))),
     ('newline_value', lambda: Lexer('foo\nbar').tokenize()[1].value == '\\n'),
     # Comments produce no token at all.
-    ('comment_no_token', lambda: pairs('# just a comment\n42') == [('NEWLINE', '\\n'), ('NUMBER', 42), ('EOF', None)]),
+    (
+        'comment_no_token',
+        lambda: (
+            pairs('# just a comment\n42') == [('NEWLINE', '\\n'), ('NUMBER', 42), ('EOF', None)]
+        ),
+    ),
 ]
 
 
@@ -81,7 +92,12 @@ POSITION_CASES = [
     ('line_is_one_based', lambda: Lexer('x').tokenize()[0].line == 1),
     ('column_is_one_based', lambda: Lexer('x').tokenize()[0].column == 1),
     ('column_advances', lambda: Lexer('x y').tokenize()[1].column == 3),
-    ('line_advances', lambda: [t for t in Lexer('x\ny').tokenize() if t.type == TokenType.IDENTIFIER][-1].line == 2),
+    (
+        'line_advances',
+        lambda: (
+            [t for t in Lexer('x\ny').tokenize() if t.type == TokenType.IDENTIFIER][-1].line == 2
+        ),
+    ),
 ]
 
 
@@ -89,7 +105,9 @@ POSITION_CASES = [
 ERROR_SOURCES = ['"unterminated', '@', '!']
 
 
-@pytest.mark.parametrize(('name', 'check_fn'), TOKEN_MODEL_CASES, ids=[n for n, _ in TOKEN_MODEL_CASES])
+@pytest.mark.parametrize(
+    ('name', 'check_fn'), TOKEN_MODEL_CASES, ids=[n for n, _ in TOKEN_MODEL_CASES]
+)
 def test_token_model(name, check_fn):
     assert check_fn(), name
 

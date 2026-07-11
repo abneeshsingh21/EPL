@@ -74,8 +74,14 @@ ASSIGNABLE_CASES = [
     ('never_source', lambda: is_assignable(T_INTEGER, T_NEVER) is True),
     ('none_target', lambda: is_assignable(None, T_TEXT) is True),
     ('none_source', lambda: is_assignable(T_TEXT, None) is True),
-    ('optional_accepts_inner', lambda: is_assignable(make_optional_type(T_INTEGER), T_INTEGER) is True),
-    ('optional_accepts_nothing', lambda: is_assignable(make_optional_type(T_INTEGER), T_NOTHING) is True),
+    (
+        'optional_accepts_inner',
+        lambda: is_assignable(make_optional_type(T_INTEGER), T_INTEGER) is True,
+    ),
+    (
+        'optional_accepts_nothing',
+        lambda: is_assignable(make_optional_type(T_INTEGER), T_NOTHING) is True,
+    ),
 ]
 
 
@@ -118,7 +124,9 @@ def test_type_equality(name, check_fn):
     assert check_fn(), name
 
 
-@pytest.mark.parametrize(('name', 'check_fn'), ASSIGNABLE_CASES, ids=[n for n, _ in ASSIGNABLE_CASES])
+@pytest.mark.parametrize(
+    ('name', 'check_fn'), ASSIGNABLE_CASES, ids=[n for n, _ in ASSIGNABLE_CASES]
+)
 def test_is_assignable(name, check_fn):
     assert check_fn(), name
 
@@ -133,7 +141,9 @@ def test_union(name, check_fn):
     assert check_fn(), name
 
 
-@pytest.mark.parametrize(('name', 'check_fn'), PRIMITIVE_MAP_CASES, ids=[n for n, _ in PRIMITIVE_MAP_CASES])
+@pytest.mark.parametrize(
+    ('name', 'check_fn'), PRIMITIVE_MAP_CASES, ids=[n for n, _ in PRIMITIVE_MAP_CASES]
+)
 def test_primitive_map(name, check_fn):
     assert check_fn(), name
 
