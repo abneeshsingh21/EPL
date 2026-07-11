@@ -45,6 +45,13 @@ _TIMEOUT_S = 45
 # Substrings that make a program unsuitable for headless, deterministic backend diffing.
 # Content-based (not path-based) so the same rule covers every subdirectory and any
 # future example without per-file maintenance. Grouped by why the program can't be diffed.
+#
+# Matching is a deliberately conservative *substring* scan, not word-boundary aware: a
+# program that merely mentions e.g. "random" in a comment is over-excluded. That is the
+# safe direction — over-exclusion loses coverage but never yields a false CI failure,
+# whereas boundary matching would risk under-excluding a genuinely nondeterministic
+# program (EPL's `_`-joined builtins `random_string`/`generate_uuid` don't sit on `\b`
+# boundaries). `test_corpus_present`'s floor is the backstop against gradual drift.
 _SKIP_TOKENS = (
     # Servers and never-exit event loops: they don't run to completion, so there is no
     # terminal stdout/exit status to compare.
@@ -125,7 +132,10 @@ def test_corpus_present():
     """The corpus and a non-trivial eligible set must exist, or the gate is vacuous."""
     assert (_REPO_ROOT / 'examples').is_dir(), 'missing examples/ corpus'
     eligible = _eligible_programs()
-    assert len(eligible) >= 30, f'suspiciously few eligible parity programs: {len(eligible)}'
+    # Tripwire against the content filter silently over-excluding (its one failure mode):
+    # 54 programs are eligible today, so a drop below 45 means coverage eroded materially
+    # and someone should confirm the newly-skipped programs were meant to be skipped.
+    assert len(eligible) >= 45, f'parity coverage eroded — only {len(eligible)} eligible programs'
 
 
 @pytest.mark.parametrize('program', _eligible_programs(), ids=_rel)
