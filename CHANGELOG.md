@@ -12,6 +12,34 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Added — dedicated tests for previously under-covered core modules
+
+Phase 3 of the enterprise-hardening pass. Five core modules were exercised only
+indirectly (as pipeline stages) or under legacy `__main__` harnesses; each now
+has a dedicated, declarative pytest module (126 new tests) pinning its public
+API contract:
+
+- **`tests/test_lexer.py`** — token-stream assertions the parser-level tests
+  never made: numeric decoding (`int`/`float`/hex/binary/`_` separators),
+  string escape resolution, case-insensitive keyword-vs-identifier resolution,
+  two-character and multi-word operators, comment skipping, 1-based positions,
+  the `Token` equality model, and loud `LexerError`s on bad input.
+- **`tests/test_type_system.py`** — the primitives under `TypeChecker`: type
+  `str()`/equality/hashing, the `is_assignable` subtyping table (incl.
+  integer→decimal promotion, `any`/`never`/optional rules), `infer_type_from_value`,
+  `make_union_type` collapse, `TypeScope` lookups, and `PRIMITIVE_MAP` aliases.
+- **`tests/test_python_transpiler.py`** — emitted-code shape: `+`/`/` routing
+  through `_epl_*` helpers, the split between idiomatic `builtin_map`
+  (`maximum`→`max`, `absolute`→`abs`, `floor`→`math.floor`) and the faithful
+  `_epl_call` shim (`max`/`gcd`/`factorial`/`type_of`/`trim`), conditional
+  prelude emission, and the `TranspileError` guards.
+- **`tests/test_copilot.py`** — the offline generator/analyzer: every generated
+  template re-parses as valid EPL, `analyze_code` never executes code, and
+  `assist_request` fix-mode repairs (`Else`→`Otherwise`).
+- **`tests/test_ios_gen.py`** — SwiftUI app/runtime scaffolding, the pure
+  color/type/op helpers, the empty-program fallback, and the on-disk
+  `IOSProjectGenerator` project tree (now hermetic via `tmp_path`).
+
 ### Changed — JS transpiler: correct-or-loud + wider builtin coverage
 
 Phase 2 of the enterprise-hardening pass. The JavaScript target now matches the
