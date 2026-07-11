@@ -12,6 +12,25 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Added — enforced VM↔interpreter parity gate over the example corpus
+
+Phase 4 of the enterprise-hardening pass. `epl run` defaults to the bytecode VM,
+while the docs and most of the suite validate against the tree-walking
+interpreter — so a program that behaves differently across the two backends is a
+divergence bug that nothing caught. `tests/parity_check.py` diffed the backends
+but always returned `0`, so it never gated CI.
+
+- **`tests/test_parity_corpus.py`** — walks the real corpus (`examples/` +
+  `benchmarks/`, recursively) and runs every eligible program through BOTH
+  backends via the actual CLI, asserting each exits `0` with byte-identical
+  stdout (54 programs, 0 divergences today). Ineligible programs are excluded by
+  a documented, directory-agnostic content filter (servers, interactive,
+  socket/GUI loops, the Node-dependent JS bridge, the `Test … End Test` DSL, and
+  nondeterministic `random`/`uuid` output). Everything else is included by
+  default (fail-closed): a new compute example is auto-covered, and a program
+  that hangs **fails** on a per-program timeout instead of being silently
+  skipped — the exact failure mode the advisory harness used to swallow.
+
 ### Added — dedicated tests for previously under-covered core modules
 
 Phase 3 of the enterprise-hardening pass. Five core modules were exercised only
