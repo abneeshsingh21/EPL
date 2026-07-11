@@ -387,6 +387,11 @@ class TypeChecker:
 
     def _check_var_declaration(self, node: ast.VarDeclaration):
         declared_type = parse_type_str(node.var_type) if node.var_type else None
+        # Seed the usage entry BEFORE inferring the initializer, so a
+        # self-referential RHS marks THIS binding as read. `counter = counter + 1`
+        # reparses as a redeclaration; inferring the RHS first (then resetting
+        # `used` to False afterwards) wiped that read and produced a false W002.
+        self._var_usage[node.name] = {'declared_line': node.line, 'used': False}
         inferred_type = self._infer_type(node.value)
         if declared_type and declared_type.name != 'any':
             if not declared_type.is_compatible(inferred_type):
@@ -402,8 +407,8 @@ class TypeChecker:
             self._set_var(node.name, declared_type)
         else:
             self._set_var(node.name, inferred_type)
-        # Track for unused variable detection
-        self._var_usage[node.name] = {'declared_line': node.line, 'used': False}
+        # Usage entry was seeded above (before inferring the initializer); keep
+        # any `used` flag a self-referential RHS just set — do not reset it here.
         self._all_known_names.add(node.name)
 
     def _check_var_assignment(self, node: ast.VarAssignment):
@@ -508,6 +513,12 @@ class TypeChecker:
         fname = (
             node.name if isinstance(node.name, str) else getattr(node.name, 'name', str(node.name))
         )
+        # Visit every argument so variables passed to a standalone statement call
+        # (`some_unknown(x)`) are marked read. This checker is the path for bare
+        # calls (routed here by `_check_node`), which never reach `_infer_type`'s
+        # FunctionCall branch; without this, such an argument is a false W002.
+        for arg in getattr(node, 'arguments', None) or getattr(node, 'args', None) or []:
+            self._infer_type(arg)
         if fname in self._functions:
             param_types, _ = self._functions[fname]
             args = getattr(node, 'arguments', None) or getattr(node, 'args', None) or []
@@ -651,6 +662,10 @@ class TypeChecker:
                 if isinstance(node.name, str)
                 else getattr(node.name, 'name', str(node.name))
             )
+            # Visit arguments first (regardless of which return path is taken
+            # below) so variables passed only as call arguments are marked read.
+            for arg in getattr(node, 'arguments', None) or getattr(node, 'args', None) or []:
+                self._infer_type(arg)
             if fname in self._functions:
                 _, ret_type = self._functions[fname]
                 return ret_type
@@ -703,10 +718,30 @@ class TypeChecker:
                 return true_type
             return T_ANY
 
+        # Object-interaction nodes: their result type is unknown (T_ANY), but the
+        # object (and any index/argument sub-expressions) MUST be visited so that
+        # a variable used only via `.prop`, `[i]`, `.method()`, or `[a:b]` is
+        # still marked as read — otherwise it triggers a false W002 "unused".
         if isinstance(node, ast.PropertyAccess):
+            self._infer_type(node.obj)
             return T_ANY
 
         if isinstance(node, ast.IndexAccess):
+            self._infer_type(node.obj)
+            self._infer_type(node.index)
+            return T_ANY
+
+        if isinstance(node, ast.MethodCall):
+            self._infer_type(node.obj)
+            for arg in getattr(node, 'arguments', None) or []:
+                self._infer_type(arg)
+            return T_ANY
+
+        if isinstance(node, ast.SliceAccess):
+            self._infer_type(node.obj)
+            self._infer_type(node.start)
+            self._infer_type(node.end)
+            self._infer_type(node.step)
             return T_ANY
 
         return T_ANY

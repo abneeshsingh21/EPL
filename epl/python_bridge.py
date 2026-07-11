@@ -46,6 +46,44 @@ class PythonModule:
         return f'<python module {self.name}>'
 
 
+def _is_pure_iterable(value) -> bool:
+    """True only for objects whose sole meaningful contract is being iterated.
+
+    These are safe to eagerly materialise into an EPL list: exhausting them
+    loses nothing because they carry no attribute payload a caller would want.
+    A rich object (an HTTP response, a file handle, a model instance) is
+    excluded even when it defines ``__iter__`` — collapsing it would strip its
+    attributes and, for streams, consume data. The check is structural, so the
+    bridge never hard-depends on ``requests``/``numpy``/etc.
+    """
+    import collections.abc as _abc
+    import io as _io
+    import types as _types
+
+    # A file/stream object is iterable (line-by-line) yet rich and stateful:
+    # materialising it would strip `.read`/`.name`/`.close` and leave it at EOF.
+    # Exclude anything IO-like — by ABC or by advertising stream methods — so it
+    # reaches the attribute-preserving PythonModule wrapper. Checked first, since
+    # a file handle is also an Iterator.
+    if isinstance(value, _io.IOBase):
+        return False
+    # Duck-typed stream check: `read`/`write`/`fileno` are file-specific. `close`
+    # is deliberately NOT here — generators also expose `.close()` (with
+    # `.send`/`.throw`), and those ARE pure iterables we want to materialise.
+    if any(hasattr(value, attr) for attr in ('read', 'write', 'fileno')):
+        return False
+
+    # Generators and lazy iterators: iterating IS their whole purpose.
+    if isinstance(value, (_types.GeneratorType, range, frozenset)):
+        return True
+    if isinstance(value, (_abc.KeysView, _abc.ValuesView, _abc.ItemsView)):
+        return True
+    # A bare iterator (defines __next__) with no rich attribute payload.
+    if isinstance(value, _abc.Iterator):
+        return True
+    return False
+
+
 def wrap_python_result(value, *, epl_dict_type, python_module_type=PythonModule, _seen=None):
     """Convert Python-native values to EPL-compatible values."""
     if value is None or isinstance(value, (int, float, bool, str)):
@@ -117,7 +155,14 @@ def wrap_python_result(value, *, epl_dict_type, python_module_type=PythonModule,
                 )
 
         type_name = type(value).__name__
-        if hasattr(value, '__iter__') and not isinstance(value, str):
+        # Only collapse *pure* iterables into an EPL list: single-purpose
+        # iterators/generators, ``range``, ``frozenset``, and dict views. A rich
+        # object that merely happens to define ``__iter__`` (e.g. a
+        # ``requests.Response``, which streams its body) must NOT be exhausted
+        # into a list — that would strip its attributes (``.status_code``,
+        # ``.headers``) and consume the stream. Such objects fall through to the
+        # ``PythonModule`` wrapper below, preserving attribute access.
+        if _is_pure_iterable(value):
             try:
                 return [
                     wrap_python_result(

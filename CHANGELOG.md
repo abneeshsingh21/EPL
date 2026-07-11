@@ -12,6 +12,38 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Fixed — type checker, Python bridge, and dot-notation defects
+
+A code-level audit surfaced five confirmed defects across the type checker,
+parser, and Python bridge; all are now fixed with regression coverage in
+`tests/test_access_and_bridge_fixes.py`:
+
+- **False "unused variable" (W002)** — the type checker never visited the object
+  of a `PropertyAccess`/`IndexAccess`, and had no case at all for `MethodCall`,
+  `SliceAccess`, or `FunctionCall` arguments. A variable used *only* via
+  `user.status`, `data[0]`, `items.count()`, `list[0:2]`, or `f(x)` was reported
+  as declared-but-never-used. `_infer_type` now recurses into every such
+  sub-expression, so the inner variable read is counted.
+- **Self-referential accumulation flagged unused** — `counter = counter + 1`
+  reparses as a redeclaration, which reset the `used` flag *after* inferring the
+  right-hand side and wiped the read. The usage entry is now seeded *before*
+  inferring the initializer, so the self-referential read counts.
+- **Hard keywords broke dot notation** — member names that collide with hard
+  keywords (`resp.json()`, `element.text`, `array.list()`, `obj.create()`)
+  crashed the parser with "Unexpected token". They are now accepted as member
+  names after a dot, disambiguated from a sentence-ending period by token
+  adjacency (a real property is written immediately after the dot).
+- **Auto-aliased keyword module unusable** — `Use python "json"` binds the module
+  to `json`, but `json.dumps(...)` at expression start was a parser error because
+  `json` is a hard keyword. A hard keyword immediately followed by an adjacent
+  dot-access is now parsed as a variable/module reference.
+- **Duck typing destroyed rich Python objects** — `wrap_python_result` collapsed
+  *any* non-string object exposing `__iter__` into a list, exhausting and
+  stripping objects like a `requests.Response` (losing `.status_code`,
+  `.headers`, and consuming the stream). Only genuine pure-iterables (iterators,
+  generators, `range`, `frozenset`, dict views) are now materialised; rich
+  objects fall through to the attribute-preserving `PythonModule` wrapper.
+
 ### Fixed — Python transpiler now preserves EPL runtime semantics
 
 The Python transpiler (`epl export python`) was syntax-faithful but
