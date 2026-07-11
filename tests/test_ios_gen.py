@@ -26,6 +26,9 @@ def to_swift(src):
     return SwiftUIGenerator('TestApp', 'com.test.app').generate(prog)
 
 
+# Shared only for STATELESS calls (generate_app/generate_runtime and the pure
+# helpers). `.generate()` mutates instance state, so generation-path tests build
+# a fresh generator via `to_swift` — never reuse `GEN` for a generate() call.
 GEN = SwiftUIGenerator('TestApp', 'com.test.app')
 
 
@@ -56,6 +59,9 @@ HELPER_CASES = [
         ),
     ),
     ('color_named', lambda: 'Color(red: 255' in GEN._css_color_to_swift('red')),
+    # Fallbacks: empty → transparent, unrecognised → black.
+    ('color_empty_is_clear', lambda: GEN._css_color_to_swift('') == 'Color.clear'),
+    ('color_invalid_is_black', lambda: GEN._css_color_to_swift('notacolor') == 'Color.black'),
     ('swift_type_integer', lambda: GEN._swift_type('integer') == 'Int'),
     ('swift_type_unknown_is_string', lambda: GEN._swift_type('somethingelse') == 'String'),
     ('swift_op_plus', lambda: GEN._swift_op('plus') == '+'),

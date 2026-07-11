@@ -77,13 +77,24 @@ TOKENIZE_CASES = [
     # NEWLINE is emitted between lines; its value is the escaped literal "\n".
     ('newline_emitted', lambda: any(t == 'NEWLINE' for t, _ in pairs('foo\nbar'))),
     ('newline_value', lambda: Lexer('foo\nbar').tokenize()[1].value == '\\n'),
-    # Comments produce no token at all.
+    # Comments produce no token at all — in all three forms the lexer accepts:
+    # `#`, `Note:`, and `Note "..."` (the last carries bundled-stdlib headers).
     (
-        'comment_no_token',
+        'hash_comment_no_token',
         lambda: (
             pairs('# just a comment\n42') == [('NEWLINE', '\\n'), ('NUMBER', 42), ('EOF', None)]
         ),
     ),
+    (
+        'note_colon_comment_no_token',
+        lambda: pairs('Note: a comment\n42') == [('NEWLINE', '\\n'), ('NUMBER', 42), ('EOF', None)],
+    ),
+    (
+        'note_string_comment_no_token',
+        lambda: pairs('Note "a header"\n42') == [('NEWLINE', '\\n'), ('NUMBER', 42), ('EOF', None)],
+    ),
+    # Both `\n` and `\r\n` collapse to a single NEWLINE token.
+    ('crlf_is_one_newline', lambda: any(t == 'NEWLINE' for t, _ in pairs('foo\r\nbar'))),
 ]
 
 
