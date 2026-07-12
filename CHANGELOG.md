@@ -12,6 +12,32 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Fixed — Kotlin/Android transpiler correctness (real-APK hardening)
+
+Verified by compiling generated projects with the actual Kotlin/Gradle toolchain
+and building installable debug APKs. Six defects the real compiler rejected:
+
+- **db/file builtins unresolved** — `db_create_table`, `db_tables`, and the
+  `file_*` family passed through as raw snake_case (unresolved references). Added
+  their `EPLRuntime` bridge methods (SQLite `CREATE TABLE` with interpreter-parity
+  identifier/type validation; sandboxed `filesDir` file ops) and call mappings.
+- **`Any + Any` didn't compile** — untyped params default to `Any`, but EPL `+`
+  emitted raw Kotlin `+`. Now lowers to an `eplAdd` runtime helper (numeric add
+  when both sides are numbers, string concat otherwise — matching EPL semantics).
+- **Integer division gave wrong values** — `10 / 4` emitted `(10 / 4)` = `2`.
+  EPL `/` is float division that raises on a zero divisor, so it now lowers to an
+  `eplDiv` helper (2.5, and a divide-by-zero exception).
+- **Class-method call return types** — a call on a user-class instance resolved
+  the generic builtin `.add ⇒ Unit` map, poisoning `var x = obj.method()`. It now
+  resolves the receiver class's declared method return type.
+- **Symbols unregistered on the Android path** — `generate_android_activity`
+  never ran the symbol pre-pass, so class/function type lookups failed there.
+- **Duplicate `var` on reassignment** — `x = 5` then `x = 10` emitted two
+  conflicting `var x` declarations; emission now tracks declared names per scope.
+
+Also: the native portability checker now flags `Use python` / `Use javascript`
+interop as unportable instead of silently emitting uncompilable references.
+
 ### Added — enforced VM↔interpreter parity gate over the example corpus
 
 Phase 4 of the enterprise-hardening pass. `epl run` defaults to the bytecode VM,

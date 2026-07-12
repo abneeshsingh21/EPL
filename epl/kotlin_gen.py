@@ -28,9 +28,20 @@ class SymbolTable:
         self.symbols = {}  # name -> kotlin type string
         self.functions = {}  # name -> {'params': [...], 'return': str}
         self.classes = {}  # name -> {'properties': {name: type}, 'methods': {name: sig}, 'parent': str|None}
+        self.declared = (
+            set()
+        )  # names actually emitted as `var` (distinct from pre-registered types)
 
     def define(self, name, kt_type):
         self.symbols[name] = kt_type
+
+    def mark_declared(self, name):
+        self.declared.add(name)
+
+    def is_declared(self, name):
+        if name in self.declared:
+            return True
+        return self.parent.is_declared(name) if self.parent else False
 
     def lookup(self, name):
         if name in self.symbols:
@@ -160,6 +171,7 @@ class KotlinGenerator:
         }
 
         # First pass: collect GUI nodes for layout XML
+        self._register_symbols(program.statements)
         self._collect_gui_nodes(program.statements)
 
         self._line(f'class {activity_name} : AppCompatActivity() {{')
@@ -923,8 +935,15 @@ class KotlinGenerator:
     # ─── Statements ──────────────────────────────────────
 
     def _emit_var_decl(self, node):
+        if self.in_class and node.name in self.class_properties:
+            self._line(f'this.{node.name} = {self._expr(node.value)}')
+            return
+        if self.symbols.is_declared(node.name):
+            self._line(f'{node.name} = {self._expr(node.value)}')
+            return
         kt_type = self._infer_kotlin_type(node.value)
         self.symbols.define(node.name, kt_type)
+        self.symbols.mark_declared(node.name)
         self._line(f'var {node.name}: {kt_type} = {self._expr(node.value)}')
 
     def _emit_var_assign(self, node):
@@ -935,11 +954,12 @@ class KotlinGenerator:
         if self.in_class and node.name in self.class_properties:
             self._line(f'this.{node.name} = {self._expr(node.value)}')
             return
-        if self.symbols.lookup(node.name) is not None:
+        if self.symbols.is_declared(node.name):
             self._line(f'{node.name} = {self._expr(node.value)}')
             return
         kt_type = self._infer_kotlin_type(node.value)
         self.symbols.define(node.name, kt_type)
+        self.symbols.mark_declared(node.name)
         self._line(f'var {node.name}: {kt_type} = {self._expr(node.value)}')
 
     def _emit_print(self, node):
@@ -948,7 +968,12 @@ class KotlinGenerator:
     def _emit_input(self, node):
         if node.prompt:
             self._line(f'print({self._expr(node.prompt)})')
-        self._line(f'var {node.variable_name} = readLine() ?: ""')
+        if self.symbols.is_declared(node.variable_name):
+            self._line(f'{node.variable_name} = readLine() ?: ""')
+        else:
+            self.symbols.define(node.variable_name, 'String')
+            self.symbols.mark_declared(node.variable_name)
+            self._line(f'var {node.variable_name} = readLine() ?: ""')
 
     def _emit_if(self, node):
         self._line(f'if ({self._expr(node.condition)}) {{')
@@ -1130,6 +1155,12 @@ class KotlinGenerator:
             rt = self._infer_kotlin_type(node.right)
             if node.operator == '+' and (lt == 'String' or rt == 'String'):
                 return 'String'
+            if node.operator == '+':
+                numeric = {'Int', 'Long', 'Double', 'Float'}
+                # Mirror _expr_binary: dynamic `+` lowers to eplAdd, whose return is
+                # Any? — so the inferred type must match or call sites mis-declare.
+                if lt not in numeric and rt not in numeric:
+                    return 'Any?'
             if node.operator in ('==', '!=', '<', '>', '<=', '>=', 'and', 'or'):
                 return 'Boolean'
             if node.operator in ('+', '-', '*', '%'):
@@ -1161,6 +1192,14 @@ class KotlinGenerator:
                 'db_execute': 'Unit',
                 'db_execute_params': 'Unit',
                 'db_close': 'Unit',
+                'db_create_table': 'Boolean',
+                'db_tables': 'MutableList<String>',
+                'file_exists': 'Boolean',
+                'file_delete': 'Boolean',
+                'file_read': 'String',
+                'file_write': 'Boolean',
+                'file_append': 'Boolean',
+                'file_size': 'Long',
             }
             if node.name in db_ret:
                 return db_ret[node.name]
@@ -1205,6 +1244,13 @@ class KotlinGenerator:
             params_part = ', '.join(['Any'] * len(node.params)) if node.params else ''
             return f'({params_part}) -> {ret_type}'
         if isinstance(node, ast.MethodCall):
+            # A call on a known user-class instance (e.g. `calc.add(...)`) resolves
+            # to that class's declared method return type — otherwise the generic
+            # builtin-method map below would misread it (e.g. list `.add` ⇒ Unit).
+            recv_type = self._infer_kotlin_type(node.obj)
+            cls = self.symbols.lookup_class(recv_type)
+            if cls and node.method_name in cls.get('methods', {}):
+                return cls['methods'][node.method_name]
             method_ret = {
                 'length': 'Int',
                 'size': 'Int',
@@ -1843,15 +1889,23 @@ class KotlinGenerator:
         if op == '//':
             self.imports.add('kotlin.math.floor')
             return f'floor({l}.toDouble() / {r}.toDouble()).toInt()'
+        if op == '/':
+            return f'EPLRuntime.eplDiv({l}, {r})'
         if op == '+':
             lt = self._infer_kotlin_type(node.left)
             rt = self._infer_kotlin_type(node.right)
+            numeric = {'Int', 'Long', 'Double', 'Float'}
             # Kotlin string concatenation only resolves when the LEFT operand is
             # a String (String.plus accepts Any?). When concatenating but the left
             # is a dynamic/non-String value (e.g. a map field typed Any?), coerce
             # it so `+` compiles instead of "no plus on Any?".
             if (lt == 'String' or rt == 'String') and lt != 'String':
                 l = f'({l}).toString()'
+            elif lt not in numeric and rt not in numeric:
+                # Both operands dynamic (Any/Any?): `Any + Any` doesn't compile.
+                # EPL's `+` adds numbers but concatenates otherwise, so defer the
+                # decision to runtime — eplAdd mirrors that exact semantics.
+                return f'EPLRuntime.eplAdd({l}, {r})'
         return f'({l} {m.get(op, op)} {r})'
 
     def _expr_unary(self, node):
@@ -1871,9 +1925,22 @@ class KotlinGenerator:
             'db_query_params': 'EPLRuntime.dbQuery',
             'db_query_one': 'EPLRuntime.dbQueryOne',
             'db_count': 'EPLRuntime.dbCount',
+            'db_create_table': 'EPLRuntime.dbCreateTable',
+            'db_tables': 'EPLRuntime.dbTables',
         }
         if node.name in db_map:
             return f'{db_map[node.name]}({args})'
+        # file_* builtins → sandboxed file bridge in EPLRuntime
+        file_map = {
+            'file_exists': 'EPLRuntime.fileExists',
+            'file_delete': 'EPLRuntime.fileDelete',
+            'file_read': 'EPLRuntime.fileRead',
+            'file_write': 'EPLRuntime.fileWrite',
+            'file_append': 'EPLRuntime.fileAppend',
+            'file_size': 'EPLRuntime.fileSize',
+        }
+        if node.name in file_map:
+            return f'{file_map[node.name]}({args})'
         # A user-defined function shadows a builtin of the same name (e.g. a
         # function literally called `power` or `max`), so don't rewrite its call
         # into the builtin form.
@@ -3020,7 +3087,25 @@ object EPLRuntime {{
     fun randomInt(min: Int, max: Int): Int = (min..max).random()
     fun max(a: Double, b: Double): Double = maxOf(a, b)
     fun min(a: Double, b: Double): Double = minOf(a, b)
-    
+
+    // EPL `+`: numeric addition when both sides are numbers, string concat otherwise.
+    // Used only for statically-dynamic operands (Any); typed operands compile to `+`.
+    fun eplAdd(a: Any?, b: Any?): Any? {{
+        if (a is Number && b is Number) {{
+            return if (a is Double || b is Double || a is Float || b is Float)
+                a.toDouble() + b.toDouble()
+            else a.toLong() + b.toLong()
+        }}
+        return toText(a) + toText(b)
+    }}
+
+    // EPL `/` is float division and raises on a zero divisor (interpreter parity).
+    fun eplDiv(a: Any?, b: Any?): Double {{
+        val divisor = (b as Number).toDouble()
+        if (divisor == 0.0) throw RuntimeException("Cannot divide by zero.")
+        return (a as Number).toDouble() / divisor
+    }}
+
     // String helpers
     fun uppercase(s: String): String = s.uppercase()
     fun lowercase(s: String): String = s.lowercase()
@@ -3095,9 +3180,80 @@ object EPLRuntime {{
         return (rows.firstOrNull()?.get("c") as? Number)?.toLong() ?: 0L
     }}
 
+    // Identifier + type validation mirrors the EPL interpreter (stdlib._db_create_table):
+    // raw SQL column defs are rejected and every name/type component is whitelisted,
+    // so a generated app is no more injection-prone than the interpreter.
+    private val DB_IDENT = Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")
+    private val DB_SAFE_TYPE_WORDS = setOf(
+        "TEXT", "INTEGER", "REAL", "BLOB", "NUMERIC", "DECIMAL", "FLOAT", "DOUBLE",
+        "VARCHAR", "CHAR", "BOOLEAN", "DATE", "DATETIME", "TIMESTAMP", "PRIMARY",
+        "KEY", "NOT", "NULL", "UNIQUE", "AUTOINCREMENT", "DEFAULT", "CHECK", "REFERENCES",
+    )
+
+    fun dbCreateTable(db: Any?, table: String, columns: Any?): Boolean {{
+        val database = db as android.database.sqlite.SQLiteDatabase
+        if (!DB_IDENT.matches(table)) throw RuntimeException("Invalid table name: " + table)
+        val cols = (columns as? Map<*, *>)
+            ?: throw RuntimeException("db_create_table requires a map of name -> type.")
+        val defs = StringBuilder()
+        for ((rawName, rawType) in cols) {{
+            val name = rawName.toString()
+            if (!DB_IDENT.matches(name)) throw RuntimeException("Invalid column name: " + name)
+            val typ = rawType.toString()
+            for (w in typ.uppercase().split(Regex("\\\\s+"))) {{
+                if (w.isEmpty()) continue
+                val paren = w.indexOf('(')
+                if (paren >= 0) {{
+                    val base = w.substring(0, paren)
+                    val rest = w.substring(paren + 1)
+                    if (base !in DB_SAFE_TYPE_WORDS || !rest.endsWith(")") ||
+                        !Regex("^\\\\d+(\\\\s*,\\\\s*\\\\d+)*$").matches(rest.dropLast(1))
+                    ) throw RuntimeException("Invalid column type component: " + w)
+                }} else if (!w.all {{ it.isDigit() }} && w !in DB_SAFE_TYPE_WORDS) {{
+                    throw RuntimeException("Invalid column type component: " + w)
+                }}
+            }}
+            if (defs.isNotEmpty()) defs.append(", ")
+            defs.append("\\"").append(name).append("\\" ").append(typ)
+        }}
+        database.execSQL("CREATE TABLE IF NOT EXISTS \\"" + table + "\\" (" + defs + ")")
+        return true
+    }}
+
+    fun dbTables(db: Any?): MutableList<String> {{
+        val database = db as android.database.sqlite.SQLiteDatabase
+        val out = mutableListOf<String>()
+        database.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name", null,
+        ).use {{ c -> while (c.moveToNext()) out.add(c.getString(0)) }}
+        return out
+    }}
+
     fun dbClose(db: Any?) {{
         (db as? android.database.sqlite.SQLiteDatabase)?.close()
     }}
+
+    // ─── Sandboxed file bridge (file_* builtins) ───
+    // Paths resolve inside the app's private filesDir; a bare name or relative path
+    // never escapes the sandbox, matching Android's per-app storage model.
+    private fun resolveFile(path: String): java.io.File {{
+        val base = EPLApplication.instance.applicationContext.filesDir
+        val f = java.io.File(path)
+        return if (f.isAbsolute) f else java.io.File(base, path)
+    }}
+
+    fun fileExists(path: String): Boolean = resolveFile(path).exists()
+    fun fileDelete(path: String): Boolean = resolveFile(path).let {{ if (it.exists()) it.delete() else false }}
+    fun fileRead(path: String): String = resolveFile(path).readText()
+    fun fileWrite(path: String, content: Any?): Boolean {{
+        resolveFile(path).writeText(content?.toString() ?: "")
+        return true
+    }}
+    fun fileAppend(path: String, content: Any?): Boolean {{
+        resolveFile(path).appendText(content?.toString() ?: "")
+        return true
+    }}
+    fun fileSize(path: String): Long = resolveFile(path).let {{ if (it.exists()) it.length() else 0L }}
 }}
 """
 
