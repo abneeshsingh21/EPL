@@ -38,6 +38,33 @@ and building installable debug APKs. Six defects the real compiler rejected:
 Also: the native portability checker now flags `Use python` / `Use javascript`
 interop as unportable instead of silently emitting uncompilable references.
 
+### Fixed — Kotlin/Android transpiler correctness (second compiler-verified pass)
+
+A further batch surfaced by compiling more of the example corpus through the real
+Kotlin toolchain. Each fix is verified against `compileDebugKotlin`:
+
+- **Map methods didn't compile** — `keys()`, `values()`, `entries()`, `has()`,
+  `get(k, default)`, `merge()`, `set()`, `copy()`, `remove()` collided with
+  Kotlin's `MutableMap` API (properties vs. methods, missing overloads). They now
+  route through `EPLRuntime` map helpers that mirror the interpreter's dict
+  methods, plus map-key field assignment (`person.email = …`) and map iteration
+  (EPL iterates keys, not entries).
+- **Slicing was emitted as `null`** — `list[a:b:c]` / `text[a:b]` had no codegen.
+  Added an `EPLRuntime.slice` helper with CPython-faithful start/stop/step and
+  negative-index semantics.
+- **Missing builtins** — `round`, `type_of`/`typeof`, `abs` were unresolved
+  references; added mappings and `EPLRuntime` helpers. `length()` now dispatches
+  on the runtime value instead of assuming `.length`.
+- **Local enum classes rejected** — top-level enums were emitted inside `onCreate`
+  (Kotlin forbids local enum classes); they are now hoisted to file level.
+- **Mixed Int/Double arithmetic and calls** — `b == 0` where `b: Double`, and
+  `divide(10, 2)` into `Double` params failed (Kotlin won't auto-promote). Integer
+  operands are now widened at comparison/arithmetic sites and function-call args.
+- **Function-scoped variables lost across blocks** — a variable first assigned
+  inside a `try`/`if`/loop but used after it became an unresolved reference under
+  Kotlin's block scoping. Such locals are now hoisted to the top of their function
+  scope (EPL variables are function-scoped), with float reassignment coercion.
+
 ### Added — enforced VM↔interpreter parity gate over the example corpus
 
 Phase 4 of the enterprise-hardening pass. `epl run` defaults to the bytecode VM,

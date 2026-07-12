@@ -119,6 +119,7 @@ class KotlinGenerator:
         if other:
             self._line('fun main() {')
             self.indent += 1
+            self._declare_hoisted(other)
             for s in other:
                 self._emit_stmt(s)
             self.indent -= 1
@@ -216,6 +217,13 @@ class KotlinGenerator:
 
         self.indent -= 1
         self._line('}')
+
+        # File-level enum definitions (hoisted out of the activity — Kotlin has
+        # no local enum classes).
+        for s in program.statements:
+            if isinstance(s, ast.EnumDef):
+                self._line('')
+                self._emit_enum(s)
 
         header = f'package {self.package}\n\n'
         header += '\n'.join(f'import {i}' for i in sorted(self.imports)) + '\n\n'
@@ -703,9 +711,10 @@ class KotlinGenerator:
         no duplicate class-level copies), so they close over locals such as a
         `db` handle and are in scope for event-binding lambdas emitted after.
         """
-        for s in stmts:
-            if not self._is_gui_node(s):
-                self._emit_stmt(s)
+        logic = [s for s in stmts if not isinstance(s, ast.EnumDef) and not self._is_gui_node(s)]
+        self._declare_hoisted(logic)
+        for s in logic:
+            self._emit_stmt(s)
 
     # ─── Helper ──────────────────────────────────────────
 
@@ -752,7 +761,14 @@ class KotlinGenerator:
         elif isinstance(node, ast.MethodCall):
             self._line(f'{self._expr(node)}')
         elif isinstance(node, ast.PropertySet):
-            self._line(f'{self._expr(node.obj)}.{node.property_name} = {self._expr(node.value)}')
+            recv = self._infer_kotlin_type(node.obj)
+            if 'Map' in recv:
+                key = self._kotlin_str_literal(node.property_name)
+                self._line(f'{self._expr(node.obj)}[{key}] = {self._expr(node.value)}')
+            else:
+                self._line(
+                    f'{self._expr(node.obj)}.{node.property_name} = {self._expr(node.value)}'
+                )
         elif isinstance(node, ast.IndexSet):
             self._line(
                 f'{self._expr(node.obj)}[{self._expr(node.index)}] = {self._expr(node.value)}'
@@ -939,7 +955,14 @@ class KotlinGenerator:
             self._line(f'this.{node.name} = {self._expr(node.value)}')
             return
         if self.symbols.is_declared(node.name):
-            self._line(f'{node.name} = {self._expr(node.value)}')
+            val = self._expr(node.value)
+            decl = self.symbols.lookup(node.name)
+            if decl in ('Double', 'Float') and self._infer_kotlin_type(node.value) in (
+                'Int',
+                'Long',
+            ):
+                val = f'({val}).toDouble()'
+            self._line(f'{node.name} = {val}')
             return
         kt_type = self._infer_kotlin_type(node.value)
         self.symbols.define(node.name, kt_type)
@@ -955,12 +978,119 @@ class KotlinGenerator:
             self._line(f'this.{node.name} = {self._expr(node.value)}')
             return
         if self.symbols.is_declared(node.name):
-            self._line(f'{node.name} = {self._expr(node.value)}')
+            val = self._expr(node.value)
+            decl = self.symbols.lookup(node.name)
+            # A float-typed var can't take a bare Int on reassignment in Kotlin.
+            if decl in ('Double', 'Float') and self._infer_kotlin_type(node.value) in (
+                'Int',
+                'Long',
+            ):
+                val = f'({val}).toDouble()'
+            self._line(f'{node.name} = {val}')
             return
         kt_type = self._infer_kotlin_type(node.value)
         self.symbols.define(node.name, kt_type)
         self.symbols.mark_declared(node.name)
         self._line(f'var {node.name}: {kt_type} = {self._expr(node.value)}')
+
+    # Nodes that open a new variable scope — hoisting must not descend into them.
+    _SCOPE_BOUNDARY = tuple(
+        c
+        for c in (
+            getattr(ast, n, None)
+            for n in (
+                'FunctionDef',
+                'AsyncFunctionDef',
+                'ClassDef',
+                'GenericClassDef',
+                'LambdaExpression',
+                'ComponentDef',
+                'ModuleDef',
+                'InterfaceDefNode',
+            )
+        )
+        if c is not None
+    )
+
+    def _walk_scope(self, node):
+        """Yield node and every descendant in the same variable scope."""
+        yield node
+        if isinstance(node, self._SCOPE_BOUNDARY):
+            return
+        for v in vars(node).values():
+            if isinstance(v, ast.ASTNode):
+                yield from self._walk_scope(v)
+            elif isinstance(v, list):
+                for it in v:
+                    if isinstance(it, ast.ASTNode):
+                        yield from self._walk_scope(it)
+
+    def _hoist_locals(self, stmts, skip_names=()):
+        """Names whose first assignment is nested inside a block (try/if/loop) yet
+        which are used in another top-level region. EPL variables are function-
+        scoped, so such a name must be declared at scope top or Kotlin's block
+        scoping makes it an unresolved reference outside the block.
+
+        `skip_names` are already-in-scope names (e.g. params) never to redeclare.
+        Returns an ordered list of (name, kt_type).
+        """
+        first_value = {}
+        first_nested = {}
+        first_topidx = {}
+        ref_topidx = {}
+        for i, top in enumerate(stmts):
+            if isinstance(top, self._SCOPE_BOUNDARY):
+                continue
+            for node in self._walk_scope(top):
+                if isinstance(node, (ast.VarAssignment, ast.VarDeclaration)):
+                    nm = node.name
+                    ref_topidx.setdefault(nm, set()).add(i)
+                    if nm not in first_value:
+                        first_value[nm] = node.value
+                        first_nested[nm] = node is not top
+                        first_topidx[nm] = i
+                elif isinstance(node, ast.Identifier):
+                    ref_topidx.setdefault(node.name, set()).add(i)
+        hoisted = []
+        for nm, val in first_value.items():
+            if not first_nested.get(nm):
+                continue
+            if not (ref_topidx.get(nm, set()) - {first_topidx[nm]}):
+                continue
+            if nm in skip_names:
+                continue
+            if self.in_class and nm in self.class_properties:
+                continue
+            if self.symbols.is_declared(nm):
+                continue
+            hoisted.append((nm, self._infer_kotlin_type(val)))
+        return hoisted
+
+    def _declare_hoisted(self, stmts, skip_names=()):
+        """Emit scope-top `var` declarations for function-scoped locals first seen
+        inside a nested block, so later out-of-block uses resolve."""
+        for nm, kt in self._hoist_locals(stmts, skip_names):
+            default = self._zero_value(kt)
+            decl_type = kt if default != 'null' or kt.endswith('?') else f'{kt}?'
+            self.symbols.define(nm, decl_type)
+            self.symbols.mark_declared(nm)
+            self._line(f'var {nm}: {decl_type} = {default}')
+
+    @staticmethod
+    def _zero_value(kt):
+        if kt in ('Int', 'Long'):
+            return '0'
+        if kt in ('Double', 'Float'):
+            return '0.0'
+        if kt == 'Boolean':
+            return 'false'
+        if kt == 'String':
+            return '""'
+        if kt.startswith('MutableList'):
+            return 'mutableListOf()'
+        if kt.startswith('MutableMap'):
+            return 'mutableMapOf()'
+        return 'null'
 
     def _emit_print(self, node):
         self._line(f'println({self._expr(node.expression)})')
@@ -1038,13 +1168,18 @@ class KotlinGenerator:
         self._line('}')
 
     def _emit_for_each(self, node):
-        self._line(f'for ({node.var_name} in {self._expr(node.iterable)}) {{')
         # Element type of the iterable, falling back to Any for dynamic values.
         iter_type = self._infer_kotlin_type(node.iterable)
-        if iter_type.startswith(('MutableList<', 'List<')):
+        iterable = self._expr(node.iterable)
+        if 'Map' in iter_type:
+            # EPL iterates a map over its keys, not its entries.
+            iterable = f'{iterable}.keys'
+            elem_type = 'String'
+        elif iter_type.startswith(('MutableList<', 'List<')):
             elem_type = iter_type[iter_type.index('<') + 1 : -1]
         else:
             elem_type = 'Any'
+        self._line(f'for ({node.var_name} in {iterable}) {{')
         self.symbols.define(node.var_name, elem_type)
         self.indent += 1
         for s in node.body:
@@ -1071,6 +1206,7 @@ class KotlinGenerator:
         self.symbols = self.symbols.child()
         for name, pt in param_types:
             self.symbols.define(name, pt)
+        self._declare_hoisted(node.body, {n for n, _ in param_types})
         for s in node.body:
             self._emit_stmt(s)
         if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
@@ -1096,6 +1232,7 @@ class KotlinGenerator:
         self.symbols = self.symbols.child()
         for name, pt in param_types:
             self.symbols.define(name, pt)
+        self._declare_hoisted(node.body, {n for n, _ in param_types})
         for s in node.body:
             self._emit_stmt(s)
         if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
@@ -1215,7 +1352,10 @@ class KotlinGenerator:
                 'power': 'Double',
                 'floor': 'Int',
                 'ceil': 'Int',
+                'round': 'Long',
                 'absolute': 'Int',
+                'abs': 'Int',
+                'typeof': 'String',
                 'max': 'Int',
                 'min': 'Int',
                 'random': 'Double',
@@ -1251,6 +1391,22 @@ class KotlinGenerator:
             cls = self.symbols.lookup_class(recv_type)
             if cls and node.method_name in cls.get('methods', {}):
                 return cls['methods'][node.method_name]
+            if 'Map' in recv_type:
+                map_ret = {
+                    'has': 'Boolean',
+                    'has_key': 'Boolean',
+                    'keys': 'MutableList<String>',
+                    'values': 'MutableList<Any?>',
+                    'entries': 'MutableList<MutableList<Any?>>',
+                    'merge': 'MutableMap<String, Any?>',
+                    'copy': 'MutableMap<String, Any?>',
+                    'get': 'Any?',
+                    'set': 'Unit',
+                    'clear': 'Unit',
+                    'remove': 'Unit',
+                }
+                if node.method_name in map_ret:
+                    return map_ret[node.method_name]
             method_ret = {
                 'length': 'Int',
                 'size': 'Int',
@@ -1279,6 +1435,10 @@ class KotlinGenerator:
                 'repeat': 'String',
             }
             return method_ret.get(node.method_name, 'Any')
+        if isinstance(node, ast.SliceAccess):
+            if self._infer_kotlin_type(node.obj) == 'String':
+                return 'String'
+            return 'Any?'
         if isinstance(node, ast.IndexAccess):
             obj_type = self._infer_kotlin_type(node.obj)
             if obj_type == 'String':
@@ -1807,6 +1967,22 @@ class KotlinGenerator:
             if obj_type in ('Any', 'Any?'):
                 return f'EPLRuntime.at({obj_code}, {self._expr(node.index)})'
             return f'{obj_code}[{self._expr(node.index)}]'
+        if isinstance(node, ast.SliceAccess):
+            def slice_arg(x):
+                if x is None or (
+                    isinstance(x, ast.Literal) and getattr(x, 'value', 0) is None
+                ):
+                    return 'null'
+                return self._expr(x)
+
+            obj_code = self._expr(node.obj)
+            start = slice_arg(node.start)
+            end = slice_arg(node.end)
+            step = slice_arg(node.step)
+            call = f'EPLRuntime.slice({obj_code}, {start}, {end}, {step})'
+            if self._infer_kotlin_type(node.obj) == 'String':
+                return f'({call} as String)'
+            return call
         if isinstance(node, ast.ListLiteral):
             return f'mutableListOf({", ".join(self._expr(e) for e in node.elements)})'
         if isinstance(node, ast.DictLiteral):
@@ -1891,9 +2067,9 @@ class KotlinGenerator:
             return f'floor({l}.toDouble() / {r}.toDouble()).toInt()'
         if op == '/':
             return f'EPLRuntime.eplDiv({l}, {r})'
+        lt = self._infer_kotlin_type(node.left)
+        rt = self._infer_kotlin_type(node.right)
         if op == '+':
-            lt = self._infer_kotlin_type(node.left)
-            rt = self._infer_kotlin_type(node.right)
             numeric = {'Int', 'Long', 'Double', 'Float'}
             # Kotlin string concatenation only resolves when the LEFT operand is
             # a String (String.plus accepts Any?). When concatenating but the left
@@ -1906,12 +2082,36 @@ class KotlinGenerator:
                 # EPL's `+` adds numbers but concatenates otherwise, so defer the
                 # decision to runtime — eplAdd mirrors that exact semantics.
                 return f'EPLRuntime.eplAdd({l}, {r})'
+        # Kotlin won't mix Double and Int in a comparison or arithmetic op; coerce
+        # the integer side so `b == 0` / `d - 1` compile when b/d are Double.
+        float_types = {'Double', 'Float'}
+        int_types = {'Int', 'Long'}
+        if op not in ('/', '+'):
+            if lt in float_types and rt in int_types:
+                r = f'({r}).toDouble()'
+            elif rt in float_types and lt in int_types:
+                l = f'({l}).toDouble()'
         return f'({l} {m.get(op, op)} {r})'
 
     def _expr_unary(self, node):
         if node.operator == 'not':
             return f'!{self._expr(node.operand)}'
         return f'{node.operator}{self._expr(node.operand)}'
+
+    def _coerce_call_args(self, arguments, params):
+        """Emit call args, widening an Int-typed arg to Double when the declared
+        param is a floating-point type — Kotlin won't auto-promote at call sites."""
+        float_types = {'Double', 'Float'}
+        int_types = {'Int', 'Long'}
+        out = []
+        for i, a in enumerate(arguments):
+            code = self._expr(a)
+            if i < len(params):
+                pt = params[i][1]
+                if pt in float_types and self._infer_kotlin_type(a) in int_types:
+                    code = f'({code}).toDouble()'
+            out.append(code)
+        return ', '.join(out)
 
     def _expr_call(self, node):
         args = ', '.join(self._expr(a) for a in node.arguments)
@@ -1944,10 +2144,11 @@ class KotlinGenerator:
         # A user-defined function shadows a builtin of the same name (e.g. a
         # function literally called `power` or `max`), so don't rewrite its call
         # into the builtin form.
-        if self.symbols.lookup_function(node.name):
-            return f'{node.name}({args})'
+        fn = self.symbols.lookup_function(node.name)
+        if fn:
+            return f'{node.name}({self._coerce_call_args(node.arguments, fn["params"])})'
         m = {
-            'length': lambda: f'{self._expr(node.arguments[0])}.length',
+            'length': lambda: f'EPLRuntime.lengthOf({self._expr(node.arguments[0])})',
             'to_integer': lambda: f'{self._expr(node.arguments[0])}.toString().toInt()',
             'to_text': lambda: f'{self._expr(node.arguments[0])}.toString()',
             'to_decimal': lambda: f'{self._expr(node.arguments[0])}.toString().toDouble()',
@@ -1959,7 +2160,11 @@ class KotlinGenerator:
             ),
             'floor': lambda: f'kotlin.math.floor({args}.toDouble()).toInt()',
             'ceil': lambda: f'kotlin.math.ceil({args}.toDouble()).toInt()',
+            'round': lambda: f'EPLRuntime.roundNum({args})',
             'absolute': lambda: f'kotlin.math.abs({args})',
+            'abs': lambda: f'kotlin.math.abs({args})',
+            'type_of': lambda: f'EPLRuntime.typeName({args})',
+            'typeof': lambda: f'EPLRuntime.typeName({args})',
             'max': lambda: f'maxOf({args})',
             'min': lambda: f'minOf({args})',
             'random': lambda: 'kotlin.random.Random.nextDouble()',
@@ -1977,6 +2182,27 @@ class KotlinGenerator:
         obj = self._expr(node.obj)
         args = ', '.join(self._expr(a) for a in node.arguments)
         m = node.method_name
+        # EPL map methods don't line up with Kotlin MutableMap's API (keys/entries
+        # are properties, has/merge/copy don't exist, get takes no default), so
+        # route them through EPLRuntime helpers that dispatch on the actual value.
+        map_helpers = {
+            'has': 'mapHas',
+            'has_key': 'mapHas',
+            'keys': 'mapKeys',
+            'values': 'mapValues',
+            'entries': 'mapEntries',
+            'merge': 'mapMerge',
+            'get': 'mapGet',
+            'set': 'mapSet',
+            'clear': 'mapClear',
+            'copy': 'mapCopy',
+            'remove': 'mapRemove',
+        }
+        map_only = {'has', 'has_key', 'keys', 'values', 'entries', 'merge', 'set'}
+        recv = self._infer_kotlin_type(node.obj)
+        if m in map_helpers and ('Map' in recv or (recv in ('Any', 'Any?') and m in map_only)):
+            call_args = f'{obj}, {args}' if args else obj
+            return f'EPLRuntime.{map_helpers[m]}({call_args})'
         km = {
             'add': 'add',
             'push': 'add',
@@ -3119,8 +3345,9 @@ object EPLRuntime {{
     fun substring(s: String, start: Int, end: Int): String = s.substring(start, minOf(end, s.length))
 
     // ─── Dynamic access (EPL maps, lists, db rows) ───
-    fun field(obj: Any?, name: String): Any? = when (obj) {{
-        is Map<*, *> -> obj[name]
+    fun field(obj: Any?, name: String): Any? = when {{
+        name == "length" || name == "size" -> lengthOf(obj)
+        obj is Map<*, *> -> obj[name]
         else -> null
     }}
 
@@ -3130,6 +3357,96 @@ object EPLRuntime {{
         is String -> obj[(index as Number).toInt()].toString()
         else -> null
     }}
+
+    fun lengthOf(obj: Any?): Int = when (obj) {{
+        is CharSequence -> obj.length
+        is Map<*, *> -> obj.size
+        is Collection<*> -> obj.size
+        else -> 0
+    }}
+
+    fun roundNum(x: Any?): Long = Math.round((x as Number).toDouble())
+    fun roundNum(x: Any?, digits: Any?): Double {{
+        val factor = Math.pow(10.0, (digits as Number).toDouble())
+        return Math.round((x as Number).toDouble() * factor) / factor
+    }}
+
+    fun typeName(v: Any?): String = when (v) {{
+        null -> "nothing"
+        is Boolean -> "boolean"
+        is Int, is Long -> "integer"
+        is Double, is Float -> "decimal"
+        is CharSequence -> "text"
+        is Map<*, *> -> "map"
+        is List<*> -> "list"
+        else -> "object"
+    }}
+
+    // Python-style slicing (start/end/step may be null); mirrors EPL's obj[a:b:c].
+    private fun sliceIndices(n: Int, startA: Any?, stopA: Any?, step: Int): List<Int> {{
+        var start: Int
+        var stop: Int
+        if (startA == null) {{
+            start = if (step < 0) n - 1 else 0
+        }} else {{
+            start = (startA as Number).toInt()
+            if (start < 0) start += n
+            if (start < 0) start = if (step < 0) -1 else 0
+            else if (start >= n) start = if (step < 0) n - 1 else n
+        }}
+        if (stopA == null) {{
+            stop = if (step < 0) -1 else n
+        }} else {{
+            stop = (stopA as Number).toInt()
+            if (stop < 0) stop += n
+            if (stop < 0) stop = if (step < 0) -1 else 0
+            else if (stop >= n) stop = if (step < 0) n - 1 else n
+        }}
+        val out = ArrayList<Int>()
+        var i = start
+        if (step > 0) {{ while (i < stop) {{ out.add(i); i += step }} }}
+        else {{ while (i > stop) {{ out.add(i); i += step }} }}
+        return out
+    }}
+
+    fun slice(obj: Any?, start: Any?, end: Any?, step: Any?): Any? {{
+        val st = (step as? Number)?.toInt() ?: 1
+        if (st == 0) throw RuntimeException("slice step cannot be zero")
+        return when (obj) {{
+            is List<*> -> sliceIndices(obj.size, start, end, st).map {{ obj[it] }}.toMutableList()
+            is CharSequence -> {{
+                val sb = StringBuilder()
+                for (i in sliceIndices(obj.length, start, end, st)) sb.append(obj[i])
+                sb.toString()
+            }}
+            else -> null
+        }}
+    }}
+
+    // ─── EPL map methods (dynamic receiver; mirrors interpreter dict methods) ───
+    @Suppress("UNCHECKED_CAST")
+    private fun asMap(o: Any?): MutableMap<String, Any?> =
+        o as? MutableMap<String, Any?> ?: throw RuntimeException("Expected a map.")
+    fun mapHas(o: Any?, key: Any?): Boolean = asMap(o).containsKey(key.toString())
+    fun mapKeys(o: Any?): MutableList<String> = asMap(o).keys.toMutableList()
+    fun mapValues(o: Any?): MutableList<Any?> = asMap(o).values.toMutableList()
+    fun mapEntries(o: Any?): MutableList<MutableList<Any?>> =
+        asMap(o).entries.map {{ mutableListOf(it.key as Any?, it.value) }}.toMutableList()
+    fun mapMerge(o: Any?, other: Any?): MutableMap<String, Any?> {{
+        val r = LinkedHashMap(asMap(o))
+        r.putAll(asMap(other))
+        return r
+    }}
+    fun mapGet(o: Any?, key: Any?): Any? = asMap(o)[key.toString()]
+    fun mapGet(o: Any?, key: Any?, default: Any?): Any? {{
+        val map = asMap(o)
+        val k = key.toString()
+        return if (map.containsKey(k)) map[k] else default
+    }}
+    fun mapSet(o: Any?, key: Any?, value: Any?) {{ asMap(o)[key.toString()] = value }}
+    fun mapClear(o: Any?) {{ asMap(o).clear() }}
+    fun mapCopy(o: Any?): MutableMap<String, Any?> = LinkedHashMap(asMap(o))
+    fun mapRemove(o: Any?, key: Any?) {{ asMap(o).remove(key.toString()) }}
 
     // ─── SQLite bridge (db_* builtins) ───
     fun dbOpen(name: String): android.database.sqlite.SQLiteDatabase {{
