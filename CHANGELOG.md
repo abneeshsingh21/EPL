@@ -65,6 +65,29 @@ Kotlin toolchain. Each fix is verified against `compileDebugKotlin`:
   Kotlin's block scoping. Such locals are now hoisted to the top of their function
   scope (EPL variables are function-scoped), with float reassignment coercion.
 
+### Fixed — Kotlin/Android transpiler correctness (string & builtin coverage)
+
+Third compiler-verified pass, covering the string and math example programs:
+
+- **String methods diverged from Kotlin's `CharSequence` API** — `find`, `count`,
+  and `reverse` bind to predicate overloads on `CharSequence`; `pad_left`,
+  `pad_right`, `char_at`, `to_list`, `is_number`, `is_alpha`, `format` have no
+  member at all. String receivers now dispatch through a dedicated map plus
+  `EPLRuntime` helpers mirroring the interpreter's `_call_string_method`.
+- **Property-style accessors** — `text.uppercase`/`.lowercase`/`.trim` emitted as
+  property reads (Kotlin wanted `()`); `list.length` was unresolved. Now emit the
+  method call / `.size` as appropriate.
+- **List mutation methods were non-mutating** — `list.sort()`/`reverse()` mapped
+  to Kotlin's `sorted()`/`reversed()` (which return new lists and dropped the
+  mutation); `list.remove(x)` mapped to `removeAt` (index) instead of by-value.
+  Fixed to in-place `sort()`/`reverse()` and by-value `remove()`. `split()` now
+  yields a `MutableList`.
+- **Missing free-function builtins** — `range`, `sum`, `sorted`, `reversed`,
+  `is_integer`/`is_decimal`/`is_text`/`is_boolean`/`is_list`/`is_map`/`is_nothing`/
+  `is_number`, `char_code`, `from_char_code`, `json_parse`, `json_stringify` were
+  unresolved references. Added mappings and `EPLRuntime` implementations (JSON via
+  `org.json`).
+
 ### Added — enforced VM↔interpreter parity gate over the example corpus
 
 Phase 4 of the enterprise-hardening pass. `epl run` defaults to the bytecode VM,

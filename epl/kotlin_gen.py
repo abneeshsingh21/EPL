@@ -1368,8 +1368,18 @@ class KotlinGenerator:
                 'is_text': 'Boolean',
                 'is_boolean': 'Boolean',
                 'is_list': 'Boolean',
+                'is_map': 'Boolean',
                 'is_nothing': 'Boolean',
                 'is_number': 'Boolean',
+                'range': 'MutableList<Int>',
+                'sum': 'Any',
+                'sorted': 'MutableList<Any?>',
+                'reversed': 'Any?',
+                'reverse': 'Any?',
+                'char_code': 'Int',
+                'from_char_code': 'String',
+                'json_parse': 'Any?',
+                'json_stringify': 'String',
             }
             return builtin_types.get(node.name, 'Any')
         if isinstance(node, ast.TernaryExpression):
@@ -1407,6 +1417,25 @@ class KotlinGenerator:
                 }
                 if node.method_name in map_ret:
                     return map_ret[node.method_name]
+            if recv_type == 'String':
+                str_ret = {
+                    'find': 'Int',
+                    'index_of': 'Int',
+                    'count': 'Int',
+                    'char_at': 'String',
+                    'reverse': 'String',
+                    'pad_left': 'String',
+                    'pad_right': 'String',
+                    'to_list': 'MutableList<String>',
+                    'is_number': 'Boolean',
+                    'is_alpha': 'Boolean',
+                    'is_empty': 'Boolean',
+                    'to_integer': 'Int',
+                    'to_decimal': 'Double',
+                    'format': 'String',
+                }
+                if node.method_name in str_ret:
+                    return str_ret[node.method_name]
             method_ret = {
                 'length': 'Int',
                 'size': 'Int',
@@ -1455,9 +1484,14 @@ class KotlinGenerator:
                 return 'Any?'
         if isinstance(node, ast.PropertyAccess):
             obj_type = self._infer_kotlin_type(node.obj)
+            prop = node.property_name
+            if prop == 'length':
+                return 'Int'
+            if obj_type == 'String' and prop in ('uppercase', 'lowercase', 'trim'):
+                return 'String'
             cls_info = self.symbols.lookup_class(obj_type)
-            if cls_info and node.property_name in cls_info.get('properties', {}):
-                return cls_info['properties'][node.property_name]
+            if cls_info and prop in cls_info.get('properties', {}):
+                return cls_info['properties'][prop]
             if self._is_dynamic_or_map(obj_type):
                 # dynamic field access (map row / Any) goes through EPLRuntime.field
                 return 'Any?'
@@ -1954,10 +1988,20 @@ class KotlinGenerator:
         if isinstance(node, ast.PropertyAccess):
             obj_code = self._expr(node.obj)
             obj_type = self._infer_kotlin_type(node.obj)
+            prop = node.property_name
+            # EPL exposes some methods as property-style accessors (no parens).
+            if prop == 'length':
+                if obj_type == 'String':
+                    return f'{obj_code}.length'
+                if self._is_dynamic_or_map(obj_type):
+                    return f'EPLRuntime.lengthOf({obj_code})'
+                return f'{obj_code}.size'
+            if obj_type == 'String' and prop in ('uppercase', 'lowercase', 'trim'):
+                return f'{obj_code}.{prop}()'
             # On a map/db-row/Any, `row.field` means key lookup, not a Kotlin member.
             if self._is_dynamic_or_map(obj_type):
-                return f'EPLRuntime.field({obj_code}, "{node.property_name}")'
-            return f'{obj_code}.{node.property_name}'
+                return f'EPLRuntime.field({obj_code}, "{prop}")'
+            return f'{obj_code}.{prop}'
         if isinstance(node, ast.MethodCall):
             return self._expr_method(node)
         if isinstance(node, ast.IndexAccess):
@@ -2171,12 +2215,72 @@ class KotlinGenerator:
             'log': lambda: f'kotlin.math.ln({args}.toDouble())',
             'sin': lambda: f'kotlin.math.sin({args}.toDouble())',
             'cos': lambda: f'kotlin.math.cos({args}.toDouble())',
+            'reversed': lambda: f'EPLRuntime.reversed({args})',
+            'reverse': lambda: f'EPLRuntime.reversed({args})',
+            'range': lambda: f'EPLRuntime.rangeOf({args})',
+            'sum': lambda: f'EPLRuntime.sumOf({args})',
+            'sorted': lambda: f'EPLRuntime.sortedOf({args})',
+            'is_integer': lambda: f'EPLRuntime.isInteger({args})',
+            'is_decimal': lambda: f'EPLRuntime.isDecimal({args})',
+            'is_text': lambda: f'EPLRuntime.isText({args})',
+            'is_boolean': lambda: f'EPLRuntime.isBoolean({args})',
+            'is_list': lambda: f'EPLRuntime.isList({args})',
+            'is_map': lambda: f'EPLRuntime.isMap({args})',
+            'is_nothing': lambda: f'EPLRuntime.isNothing({args})',
+            'is_number': lambda: f'EPLRuntime.isNumber({args})',
+            'char_code': lambda: f'EPLRuntime.charCode({args})',
+            'from_char_code': lambda: f'EPLRuntime.fromCharCode({args})',
+            'json_parse': lambda: f'EPLRuntime.jsonParse({args})',
+            'json_stringify': lambda: f'EPLRuntime.jsonStringify({args})',
         }
         if node.name in m:
             if node.name == 'power':
                 self.imports.add('kotlin.math.pow')
             return m[node.name]()
         return f'{node.name}({args})'
+
+    # EPL string methods → native Kotlin member (parens appended by caller).
+    _STR_NATIVE = {
+        'uppercase': 'uppercase',
+        'upper': 'uppercase',
+        'lowercase': 'lowercase',
+        'lower': 'lowercase',
+        'trim': 'trim',
+        'contains': 'contains',
+        'replace': 'replace',
+        'starts_with': 'startsWith',
+        'ends_with': 'endsWith',
+        'substring': 'substring',
+        'find': 'indexOf',
+        'index_of': 'indexOf',
+        'repeat': 'repeat',
+        'reverse': 'reversed',
+        'is_empty': 'isEmpty',
+        'to_integer': 'toInt',
+        'to_decimal': 'toDouble',
+    }
+    # EPL string methods with no clean Kotlin member → EPLRuntime helper.
+    _STR_HELPERS = {
+        'count': 'strCount',
+        'pad_left': 'padLeft',
+        'pad_right': 'padRight',
+        'char_at': 'charAt',
+        'to_list': 'toCharList',
+        'is_number': 'isNumberStr',
+        'is_alpha': 'isAlphaStr',
+        'format': 'strFormat',
+    }
+
+    def _string_method(self, obj, m, args):
+        """Emit a String-receiver method call, or None if not a known string method."""
+        if m == 'split':
+            return f'{obj}.split({args}).toMutableList()'
+        if m in self._STR_HELPERS:
+            call_args = f'{obj}, {args}' if args else obj
+            return f'EPLRuntime.{self._STR_HELPERS[m]}({call_args})'
+        if m in self._STR_NATIVE:
+            return f'{obj}.{self._STR_NATIVE[m]}({args})'
+        return None
 
     def _expr_method(self, node):
         obj = self._expr(node.obj)
@@ -2203,10 +2307,18 @@ class KotlinGenerator:
         if m in map_helpers and ('Map' in recv or (recv in ('Any', 'Any?') and m in map_only)):
             call_args = f'{obj}, {args}' if args else obj
             return f'EPLRuntime.{map_helpers[m]}({call_args})'
+        # String methods diverge from list methods (find/count/reverse take a
+        # predicate on Kotlin CharSequence, pad/char_at/to_list have no member),
+        # so dispatch string receivers through their own map + EPLRuntime helpers.
+        if recv == 'String':
+            result = self._string_method(obj, m, args)
+            if result is not None:
+                return result
         km = {
             'add': 'add',
             'push': 'add',
-            'remove': 'removeAt',
+            # EPL list.remove(x) removes the value (Python semantics), not the index.
+            'remove': 'remove',
             'upper': 'uppercase',
             'uppercase': 'uppercase',
             'lower': 'lowercase',
@@ -2216,11 +2328,11 @@ class KotlinGenerator:
             'replace': 'replace',
             'starts_with': 'startsWith',
             'ends_with': 'endsWith',
-            'split': 'split',
-            'reverse': 'reversed',
-            'sort': 'sorted',
+            # sort/reverse mutate in place in EPL — Kotlin's sorted()/reversed()
+            # return a new list and would silently drop the mutation.
+            'reverse': 'reverse',
+            'sort': 'sort',
             'substring': 'substring',
-            'length': 'length',
             'join': 'joinToString',
             'index_of': 'indexOf',
             'find': 'find',
@@ -2228,6 +2340,9 @@ class KotlinGenerator:
         }
         if m == 'length':
             return f'{obj}.size'
+        # String.split returns List; EPL lists are MutableList, so normalize.
+        if m == 'split':
+            return f'{obj}.split({args}).toMutableList()'
         return f'{obj}.{km.get(m, m)}({args})'
 
     def _expr_dict(self, node):
@@ -3343,6 +3458,104 @@ object EPLRuntime {{
     fun startsWith(s: String, prefix: String): Boolean = s.startsWith(prefix)
     fun endsWith(s: String, suffix: String): Boolean = s.endsWith(suffix)
     fun substring(s: String, start: Int, end: Int): String = s.substring(start, minOf(end, s.length))
+
+    // ─── EPL string methods (mirror interpreter _call_string_method) ───
+    fun strCount(s: String, sub: String): Int {{
+        if (sub.isEmpty()) return 0
+        var count = 0
+        var i = s.indexOf(sub)
+        while (i >= 0) {{ count++; i = s.indexOf(sub, i + sub.length) }}
+        return count
+    }}
+    fun padLeft(s: String, width: Int, fill: String = " "): String =
+        s.padStart(width, if (fill.isEmpty()) ' ' else fill[0])
+    fun padRight(s: String, width: Int, fill: String = " "): String =
+        s.padEnd(width, if (fill.isEmpty()) ' ' else fill[0])
+    fun charAt(s: String, idx: Int): String {{
+        if (idx < 0 || idx >= s.length) throw RuntimeException("Index $idx out of range.")
+        return s[idx].toString()
+    }}
+    fun toCharList(s: String): MutableList<String> =
+        s.map {{ it.toString() }}.toMutableList()
+    fun isNumberStr(s: String): Boolean = s.toDoubleOrNull() != null
+    fun isAlphaStr(s: String): Boolean = s.isNotEmpty() && s.all {{ it.isLetter() }}
+    fun strFormat(s: String, vararg args: Any?): String {{
+        var result = s
+        for (a in args) result = result.replaceFirst("{{}}", a?.toString() ?: "nothing")
+        return result
+    }}
+    fun reversed(obj: Any?): Any? = when (obj) {{
+        is CharSequence -> obj.reversed().toString()
+        is List<*> -> obj.reversed().toMutableList()
+        else -> throw RuntimeException("reversed() expects a list or text.")
+    }}
+
+    // ─── EPL collection/number/type builtins (free functions) ───
+    fun rangeOf(end: Int): MutableList<Int> = (0 until end).toMutableList()
+    fun rangeOf(start: Int, end: Int): MutableList<Int> = (start until end).toMutableList()
+    fun rangeOf(start: Int, end: Int, step: Int): MutableList<Int> {{
+        if (step == 0) throw RuntimeException("range() step cannot be zero.")
+        val out = ArrayList<Int>()
+        var i = start
+        if (step > 0) while (i < end) {{ out.add(i); i += step }}
+        else while (i > end) {{ out.add(i); i += step }}
+        return out
+    }}
+    fun sumOf(list: Any?): Any? {{
+        val items = list as List<*>
+        if (items.all {{ it is Int }}) return items.sumOf {{ it as Int }}
+        return items.sumOf {{ (it as Number).toDouble() }}
+    }}
+    @Suppress("UNCHECKED_CAST")
+    fun sortedOf(list: Any?): MutableList<Any?> {{
+        val items = (list as List<*>).toMutableList()
+        (items as MutableList<Comparable<Any?>>).sort()
+        return items as MutableList<Any?>
+    }}
+    fun isInteger(v: Any?): Boolean = v is Int || v is Long
+    fun isDecimal(v: Any?): Boolean = v is Double || v is Float
+    fun isText(v: Any?): Boolean = v is CharSequence
+    fun isBoolean(v: Any?): Boolean = v is Boolean
+    fun isList(v: Any?): Boolean = v is List<*>
+    fun isMap(v: Any?): Boolean = v is Map<*, *>
+    fun isNothing(v: Any?): Boolean = v == null
+    fun isNumber(v: Any?): Boolean = v is Int || v is Long || v is Double || v is Float
+    fun charCode(s: Any?): Int {{
+        val str = s as String
+        if (str.length != 1) throw RuntimeException("char_code() takes 1 single-character text argument.")
+        return str[0].code
+    }}
+    fun fromCharCode(n: Any?): String = (n as Number).toInt().toChar().toString()
+    fun jsonParse(s: Any?): Any? = jsonToEpl(org.json.JSONTokener(s as String).nextValue())
+    private fun jsonToEpl(v: Any?): Any? = when (v) {{
+        is org.json.JSONObject -> {{
+            val m = LinkedHashMap<String, Any?>()
+            for (k in v.keys()) m[k] = jsonToEpl(v.get(k))
+            m
+        }}
+        is org.json.JSONArray -> {{
+            val l = ArrayList<Any?>()
+            for (i in 0 until v.length()) l.add(jsonToEpl(v.get(i)))
+            l
+        }}
+        org.json.JSONObject.NULL -> null
+        else -> v
+    }}
+    fun jsonStringify(v: Any?): String = eplToJson(v).toString()
+    private fun eplToJson(v: Any?): Any? = when (v) {{
+        is Map<*, *> -> {{
+            val o = org.json.JSONObject()
+            for ((k, vv) in v) o.put(k.toString(), eplToJson(vv))
+            o
+        }}
+        is List<*> -> {{
+            val a = org.json.JSONArray()
+            for (it in v) a.put(eplToJson(it))
+            a
+        }}
+        null -> org.json.JSONObject.NULL
+        else -> v
+    }}
 
     // ─── Dynamic access (EPL maps, lists, db rows) ───
     fun field(obj: Any?, name: String): Any? = when {{
