@@ -83,6 +83,7 @@ class KotlinGenerator:
         self.output = []
         self.in_class = None
         self.class_properties = {}  # name -> kotlin type (upgraded from set)
+        self._current_ret_type = None  # enclosing function's Kotlin return type
         self.imports = set()
         self.widgets = []  # collected GUI widgets for layout XML generation
         self.event_bindings = []  # collected event bindings
@@ -1203,6 +1204,8 @@ class KotlinGenerator:
         self._line(f'fun {node.name}({params}): {ret_type} {{')
         self.indent += 1
         prev_symbols = self.symbols
+        prev_ret = getattr(self, '_current_ret_type', None)
+        self._current_ret_type = ret_type
         self.symbols = self.symbols.child()
         for name, pt in param_types:
             self.symbols.define(name, pt)
@@ -1214,6 +1217,7 @@ class KotlinGenerator:
         elif not any(isinstance(s, ast.ReturnStatement) for s in node.body):
             self._line('return Unit')
         self.symbols = prev_symbols
+        self._current_ret_type = prev_ret
         self.indent -= 1
         self._line('}')
 
@@ -1229,6 +1233,8 @@ class KotlinGenerator:
         self._line(f'{modifier}fun {node.name}({params}): {ret_type} {{')
         self.indent += 1
         prev_symbols = self.symbols
+        prev_ret = getattr(self, '_current_ret_type', None)
+        self._current_ret_type = ret_type
         self.symbols = self.symbols.child()
         for name, pt in param_types:
             self.symbols.define(name, pt)
@@ -1240,6 +1246,7 @@ class KotlinGenerator:
         elif not any(isinstance(s, ast.ReturnStatement) for s in node.body):
             self._line('return Unit')
         self.symbols = prev_symbols
+        self._current_ret_type = prev_ret
         self.indent -= 1
         self._line('}')
 
@@ -1384,6 +1391,10 @@ class KotlinGenerator:
                 'from_char_code': 'String',
                 'json_parse': 'Any?',
                 'json_stringify': 'String',
+                'keys': 'MutableList<String>',
+                'values': 'MutableList<Any?>',
+                'random_integer': 'Int',
+                'format': 'String',
             }
             return builtin_types.get(node.name, 'Any')
         if isinstance(node, ast.TernaryExpression):
@@ -1729,7 +1740,13 @@ class KotlinGenerator:
 
     def _emit_return(self, node):
         if node.value:
-            self._line(f'return {self._expr(node.value)}')
+            val = self._expr(node.value)
+            # A Double-returning function with an Int-literal return path (e.g. a
+            # `return 0` guard) needs the value widened — Kotlin won't auto-promote.
+            rt = getattr(self, '_current_ret_type', None)
+            if rt in ('Double', 'Float') and self._infer_kotlin_type(node.value) in ('Int', 'Long'):
+                val = f'({val}).toDouble()'
+            self._line(f'return {val}')
         else:
             self._line('return')
 
@@ -2162,16 +2179,14 @@ class KotlinGenerator:
             return f'EPLRuntime.eplDiv({l}, {r})'
         if op == '+':
             numeric = {'Int', 'Long', 'Double', 'Float'}
-            # Kotlin string concatenation only resolves when the LEFT operand is
-            # a String (String.plus accepts Any?). When concatenating but the left
-            # is a dynamic/non-String value (e.g. a map field typed Any?), coerce
-            # it so `+` compiles instead of "no plus on Any?".
-            if (lt == 'String' or rt == 'String') and lt != 'String':
+            # String concat: native `+` needs a String LEFT (String.plus(Any?)); a
+            # non-String left with a String right is coerced. Both-numeric stays
+            # native. Anything else is dynamic → eplAdd decides add-vs-concat.
+            if lt == 'String':
+                pass
+            elif rt == 'String':
                 l = f'({l}).toString()'
-            elif lt not in numeric and rt not in numeric:
-                # Both operands dynamic (Any/Any?): `Any + Any` doesn't compile.
-                # EPL's `+` adds numbers but concatenates otherwise, so defer the
-                # decision to runtime — eplAdd mirrors that exact semantics.
+            elif not (lt in numeric and rt in numeric):
                 return f'EPLRuntime.eplAdd({l}, {r})'
         # Kotlin won't mix Double and Int in a comparison or arithmetic op; coerce
         # the integer side so `b == 0` / `d - 1` compile when b/d are Double.
@@ -2285,6 +2300,10 @@ class KotlinGenerator:
             'from_char_code': lambda: f'EPLRuntime.fromCharCode({args})',
             'json_parse': lambda: f'EPLRuntime.jsonParse({args})',
             'json_stringify': lambda: f'EPLRuntime.jsonStringify({args})',
+            'keys': lambda: f'EPLRuntime.mapKeys({args})',
+            'values': lambda: f'EPLRuntime.mapValues({args})',
+            'random_integer': lambda: f'EPLRuntime.randomInt({args})',
+            'format': lambda: f'EPLRuntime.strFormat({args})',
         }
         if node.name in m:
             if node.name == 'power':
