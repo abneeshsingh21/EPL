@@ -1301,6 +1301,8 @@ class KotlinGenerator:
             if node.operator in ('==', '!=', '<', '>', '<=', '>=', 'and', 'or'):
                 return 'Boolean'
             if node.operator in ('+', '-', '*', '%'):
+                if lt in self._DYNAMIC or rt in self._DYNAMIC:
+                    return 'Any?'
                 if lt == 'Double' or rt == 'Double':
                     return 'Double'
                 if lt == 'Int' and rt == 'Int':
@@ -1319,6 +1321,8 @@ class KotlinGenerator:
             fn_info = self.symbols.lookup_function(node.name)
             if fn_info:
                 return fn_info['return']
+            if self.symbols.lookup(node.name) in self._DYNAMIC:
+                return 'Any?'
             # db_* builtins (native SQLite bridge)
             db_ret = {
                 'db_query': 'MutableList<Map<String, Any?>>',
@@ -1390,9 +1394,9 @@ class KotlinGenerator:
         if isinstance(node, ast.NewInstance):
             return node.class_name
         if isinstance(node, ast.LambdaExpression):
-            ret_type = self._infer_kotlin_type(node.body)
-            params_part = ', '.join(['Any'] * len(node.params)) if node.params else ''
-            return f'({params_part}) -> {ret_type}'
+            # EPL lambdas are dynamic: uniform (Any?...) -> Any?.
+            params_part = ', '.join(['Any?'] * len(node.params)) if node.params else ''
+            return f'({params_part}) -> Any?'
         if isinstance(node, ast.MethodCall):
             # A call on a known user-class instance (e.g. `calc.add(...)`) resolves
             # to that class's declared method return type — otherwise the generic
@@ -1462,6 +1466,12 @@ class KotlinGenerator:
                 'push': 'Unit',
                 'remove': 'Unit',
                 'repeat': 'String',
+                # Higher-order list methods route through EPLRuntime (see _expr_method).
+                'map': 'MutableList<Any?>',
+                'filter': 'MutableList<Any?>',
+                'reduce': 'Any?',
+                'every': 'Boolean',
+                'some': 'Boolean',
             }
             return method_ret.get(node.method_name, 'Any')
         if isinstance(node, ast.SliceAccess):
@@ -1501,6 +1511,11 @@ class KotlinGenerator:
     def _is_dynamic_or_map(t: str) -> bool:
         """A Kotlin type that EPL treats as a dynamic key/value bag (map or Any)."""
         return t in ('Any', 'Any?') or t.startswith('Map<') or t.startswith('MutableMap<')
+
+    @staticmethod
+    def _is_list_or_dynamic(t: str) -> bool:
+        """A receiver the runtime list helpers accept: a List type or a dynamic value."""
+        return t in ('Any', 'Any?') or 'List<' in t
 
     def _infer_param_type(self, param) -> str:
         """Infer Kotlin type for a function parameter."""
@@ -2040,8 +2055,15 @@ class KotlinGenerator:
                 return f'{node.class_name}({args})'
             return f'{node.class_name}()'
         if isinstance(node, ast.LambdaExpression):
-            param_str = ', '.join(node.params) if node.params else ''
+            # Params annotated Any? so the body's operators route through the
+            # dynamic runtime helpers and the lambda fits bare `Any` targets.
+            param_str = ', '.join(f'{p}: Any?' for p in node.params) if node.params else ''
+            saved = self.symbols
+            self.symbols = self.symbols.child()
+            for p in node.params:
+                self.symbols.define(p, 'Any?')
             body_str = self._expr(node.body)
+            self.symbols = saved
             return f'{{ {param_str} -> {body_str} }}' if param_str else f'{{ {body_str} }}'
         if isinstance(node, ast.TernaryExpression):
             return f'if ({self._expr(node.condition)}) {self._expr(node.true_expr)} else {self._expr(node.false_expr)}'
@@ -2099,10 +2121,37 @@ class KotlinGenerator:
             return str(node.value)
         return str(node.value)
 
+    _DYNAMIC = {'Any', 'Any?'}
+
     def _expr_binary(self, node):
         l, r = self._expr(node.left), self._expr(node.right)
         op = node.operator
         m = {'and': '&&', 'or': '||', '**': '', '//': ''}
+        lt = self._infer_kotlin_type(node.left)
+        rt = self._infer_kotlin_type(node.right)
+        dynamic = lt in self._DYNAMIC or rt in self._DYNAMIC
+        # Dynamic operands can't use Kotlin's native operators; route to EPLRuntime.
+        if dynamic:
+            dyn = {
+                '*': 'eplMul',
+                '-': 'eplSub',
+                '%': 'eplMod',
+                '**': 'eplPow',
+                '<': 'eplLt',
+                '>': 'eplGt',
+                '<=': 'eplLe',
+                '>=': 'eplGe',
+                '==': 'eplEq',
+            }
+            if op in dyn:
+                return f'EPLRuntime.{dyn[op]}({l}, {r})'
+            if op == '!=':
+                return f'(!EPLRuntime.eplEq({l}, {r}))'
+            if op == '//':
+                return f'kotlin.math.floor(EPLRuntime.eplDiv({l}, {r})).toInt()'
+            # `+` on a dynamic left is add-or-concat at runtime (String left concats natively).
+            if op == '+' and lt != 'String':
+                return f'EPLRuntime.eplAdd({l}, {r})'
         if op == '**':
             self.imports.add('kotlin.math.pow')
             return f'{l}.toDouble().pow({r}.toDouble())'
@@ -2111,8 +2160,6 @@ class KotlinGenerator:
             return f'floor({l}.toDouble() / {r}.toDouble()).toInt()'
         if op == '/':
             return f'EPLRuntime.eplDiv({l}, {r})'
-        lt = self._infer_kotlin_type(node.left)
-        rt = self._infer_kotlin_type(node.right)
         if op == '+':
             numeric = {'Int', 'Long', 'Double', 'Float'}
             # Kotlin string concatenation only resolves when the LEFT operand is
@@ -2191,6 +2238,12 @@ class KotlinGenerator:
         fn = self.symbols.lookup_function(node.name)
         if fn:
             return f'{node.name}({self._coerce_call_args(node.arguments, fn["params"])})'
+        # A dynamic value used as a callable (e.g. a lambda in an Any param) needs
+        # a cast to a function type before Kotlin will invoke it.
+        var_type = self.symbols.lookup(node.name)
+        if var_type in self._DYNAMIC:
+            sig = ', '.join(['Any?'] * len(node.arguments))
+            return f'({node.name} as ({sig}) -> Any?)({args})'
         m = {
             'length': lambda: f'EPLRuntime.lengthOf({self._expr(node.arguments[0])})',
             'to_integer': lambda: f'{self._expr(node.arguments[0])}.toString().toInt()',
@@ -2314,6 +2367,18 @@ class KotlinGenerator:
             result = self._string_method(obj, m, args)
             if result is not None:
                 return result
+        # Higher-order list methods take dynamic lambdas; route to EPLRuntime.
+        ho = {
+            'map': 'mapList',
+            'filter': 'filterList',
+            'reduce': 'reduceList',
+            'find': 'findList',
+            'every': 'everyList',
+            'some': 'someList',
+        }
+        if m in ho and node.arguments and self._is_list_or_dynamic(recv):
+            call_args = f'{obj}, {args}' if args else obj
+            return f'EPLRuntime.{ho[m]}({call_args})'
         km = {
             'add': 'add',
             'push': 'add',
@@ -3446,6 +3511,76 @@ object EPLRuntime {{
         if (divisor == 0.0) throw RuntimeException("Cannot divide by zero.")
         return (a as Number).toDouble() / divisor
     }}
+
+    // ─── Dynamic arithmetic/comparison (operands typed Any?, e.g. lambda params) ───
+    private fun bothInt(a: Number, b: Number) =
+        a !is Double && a !is Float && b !is Double && b !is Float
+    fun eplMul(a: Any?, b: Any?): Any {{
+        val x = a as Number; val y = b as Number
+        return if (bothInt(x, y)) x.toLong() * y.toLong() else x.toDouble() * y.toDouble()
+    }}
+    fun eplSub(a: Any?, b: Any?): Any {{
+        val x = a as Number; val y = b as Number
+        return if (bothInt(x, y)) x.toLong() - y.toLong() else x.toDouble() - y.toDouble()
+    }}
+    fun eplMod(a: Any?, b: Any?): Any {{
+        val x = a as Number; val y = b as Number
+        return if (bothInt(x, y)) x.toLong() % y.toLong() else x.toDouble() % y.toDouble()
+    }}
+    fun eplPow(a: Any?, b: Any?): Double =
+        Math.pow((a as Number).toDouble(), (b as Number).toDouble())
+    private fun cmp(a: Any?, b: Any?): Int {{
+        if (a is Number && b is Number) return a.toDouble().compareTo(b.toDouble())
+        if (a is String && b is String) return a.compareTo(b)
+        throw RuntimeException("Cannot compare ${{typeName(a)}} and ${{typeName(b)}}.")
+    }}
+    fun eplLt(a: Any?, b: Any?): Boolean = cmp(a, b) < 0
+    fun eplGt(a: Any?, b: Any?): Boolean = cmp(a, b) > 0
+    fun eplLe(a: Any?, b: Any?): Boolean = cmp(a, b) <= 0
+    fun eplGe(a: Any?, b: Any?): Boolean = cmp(a, b) >= 0
+    // EPL `==`: numbers compare by value across Int/Double; else structural.
+    fun eplEq(a: Any?, b: Any?): Boolean {{
+        if (a is Number && b is Number) return a.toDouble() == b.toDouble()
+        return a == b
+    }}
+
+    // EPL truthiness: null/false/0/""/empty-collection are falsey (interpreter parity).
+    fun eplTruthy(v: Any?): Boolean = when (v) {{
+        null -> false
+        is Boolean -> v
+        is Number -> v.toDouble() != 0.0
+        is CharSequence -> v.isNotEmpty()
+        is Collection<*> -> v.isNotEmpty()
+        is Map<*, *> -> v.isNotEmpty()
+        else -> true
+    }}
+
+    // ─── Higher-order list methods (dynamic; mirror interpreter list callables) ───
+    @Suppress("UNCHECKED_CAST")
+    private fun asList(o: Any?): List<Any?> =
+        o as? List<Any?> ?: throw RuntimeException("Expected a list.")
+    fun mapList(o: Any?, fn: (Any?) -> Any?): MutableList<Any?> =
+        asList(o).map(fn).toMutableList()
+    fun filterList(o: Any?, fn: (Any?) -> Any?): MutableList<Any?> =
+        asList(o).filter {{ eplTruthy(fn(it)) }}.toMutableList()
+    fun reduceList(o: Any?, fn: (Any?, Any?) -> Any?): Any? {{
+        val items = asList(o)
+        if (items.isEmpty()) throw RuntimeException("reduce() called on empty list with no initial value.")
+        var acc: Any? = items[0]
+        for (i in 1 until items.size) acc = fn(acc, items[i])
+        return acc
+    }}
+    fun reduceList(o: Any?, fn: (Any?, Any?) -> Any?, init: Any?): Any? {{
+        var acc = init
+        for (item in asList(o)) acc = fn(acc, item)
+        return acc
+    }}
+    fun findList(o: Any?, fn: (Any?) -> Any?): Any? =
+        asList(o).firstOrNull {{ eplTruthy(fn(it)) }}
+    fun everyList(o: Any?, fn: (Any?) -> Any?): Boolean =
+        asList(o).all {{ eplTruthy(fn(it)) }}
+    fun someList(o: Any?, fn: (Any?) -> Any?): Boolean =
+        asList(o).any {{ eplTruthy(fn(it)) }}
 
     // String helpers
     fun uppercase(s: String): String = s.uppercase()

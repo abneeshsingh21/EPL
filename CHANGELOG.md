@@ -65,6 +65,24 @@ Kotlin toolchain. Each fix is verified against `compileDebugKotlin`:
   Kotlin's block scoping. Such locals are now hoisted to the top of their function
   scope (EPL variables are function-scoped), with float reassignment coercion.
 
+### Fixed — Kotlin/Android transpiler correctness (lambdas & functional programming)
+
+Fourth compiler-verified pass, covering the `lambdas` example (closures, `.map`/
+`.filter`/`.reduce`, higher-order functions, ternaries):
+
+- **Lambdas are now emitted as fully dynamic** `(Any?...) -> Any?` with `Any?`-annotated
+  params, matching EPL's dynamic typing. Previously concrete param/return types made
+  bodies like `x * 2` fail (`Any * Int`) and clashed with `reduce`'s return type.
+- **Dynamic operators route through `EPLRuntime`** — `*`, `-`, `%`, `**`, `+`, `//`,
+  the comparisons, and `==`/`!=` on `Any?` operands (e.g. lambda params) lower to
+  `eplMul`/`eplSub`/`eplAdd`/`eplLt`/`eplEq`/… which mirror EPL's numeric and
+  truthiness semantics, instead of Kotlin operators that don't apply to `Any?`.
+- **Higher-order list methods** — `map`, `filter`, `reduce`, `find`, `every`, `some`
+  route through `EPLRuntime` helpers taking `(Any?)->Any?`, rather than Kotlin's typed
+  `List` methods whose element/return types clash with dynamic lambdas.
+- **Invoking a dynamic callable** — calling a value held in an `Any` param (a lambda
+  passed to a higher-order function) now casts to a function type of matching arity.
+
 ### Fixed — Kotlin/Android transpiler correctness (string & builtin coverage)
 
 Third compiler-verified pass, covering the string and math example programs:
