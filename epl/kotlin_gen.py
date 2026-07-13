@@ -775,13 +775,13 @@ class KotlinGenerator:
                 f'{self._expr(node.obj)}[{self._expr(node.index)}] = {self._expr(node.value)}'
             )
         elif isinstance(node, ast.AugmentedAssignment):
-            self._line(f'{node.name} {node.operator} {self._expr(node.value)}')
+            self._line(f'{self._safe_ident(node.name)} {node.operator} {self._expr(node.value)}')
         elif isinstance(node, ast.ThrowStatement):
             self._line(f'throw Exception({self._expr(node.expression)})')
         elif isinstance(node, ast.ConstDeclaration):
             kt_type = self._infer_kotlin_type(node.value)
             self.symbols.define(node.name, kt_type)
-            self._line(f'val {node.name}: {kt_type} = {self._expr(node.value)}')
+            self._line(f'val {self._safe_ident(node.name)}: {kt_type} = {self._expr(node.value)}')
         elif isinstance(node, ast.EnumDef):
             self._emit_enum(node)
         elif isinstance(node, ast.InputStatement):
@@ -928,7 +928,7 @@ class KotlinGenerator:
         self.indent += 1
         for s in node.body:
             self._emit_stmt(s)
-        if not any(isinstance(s, ast.ReturnStatement) for s in node.body):
+        if ret_type != 'Unit' and not self._always_returns(node.body):
             self._line('return Unit')
         self.indent -= 1
         self._line('}')
@@ -956,19 +956,30 @@ class KotlinGenerator:
             self._line(f'this.{node.name} = {self._expr(node.value)}')
             return
         if self.symbols.is_declared(node.name):
-            val = self._expr(node.value)
-            decl = self.symbols.lookup(node.name)
-            if decl in ('Double', 'Float') and self._infer_kotlin_type(node.value) in (
-                'Int',
-                'Long',
-            ):
-                val = f'({val}).toDouble()'
-            self._line(f'{node.name} = {val}')
+            val = self._coerce_assign(node.value, self.symbols.lookup(node.name))
+            self._line(f'{self._safe_ident(node.name)} = {val}')
             return
         kt_type = self._infer_kotlin_type(node.value)
         self.symbols.define(node.name, kt_type)
         self.symbols.mark_declared(node.name)
-        self._line(f'var {node.name}: {kt_type} = {self._expr(node.value)}')
+        self._line(f'var {self._safe_ident(node.name)}: {kt_type} = {self._expr(node.value)}')
+
+    def _coerce_assign(self, value, decl_type) -> str:
+        """Emit an assignment RHS, coercing a dynamic/Int value into a typed var.
+        Kotlin won't auto-promote Int→Double, nor accept Any where Int/Double/String
+        is declared (list-element / map-lookup reassignments)."""
+        val = self._expr(value)
+        vt = self._infer_kotlin_type(value)
+        if decl_type in ('Double', 'Float'):
+            if vt in ('Int', 'Long'):
+                return f'({val}).toDouble()'
+            if vt in ('Any', 'Any?'):
+                return f'({val} as Number).toDouble()'
+        elif decl_type in ('Int', 'Long') and vt in ('Any', 'Any?'):
+            return f'({val} as Number).toInt()'
+        elif decl_type == 'String' and vt in ('Any', 'Any?'):
+            return f'({val}).toString()'
+        return val
 
     def _emit_var_assign(self, node):
         # `Set x to ...` in EPL is create-or-update. A class property assigns
@@ -979,20 +990,13 @@ class KotlinGenerator:
             self._line(f'this.{node.name} = {self._expr(node.value)}')
             return
         if self.symbols.is_declared(node.name):
-            val = self._expr(node.value)
-            decl = self.symbols.lookup(node.name)
-            # A float-typed var can't take a bare Int on reassignment in Kotlin.
-            if decl in ('Double', 'Float') and self._infer_kotlin_type(node.value) in (
-                'Int',
-                'Long',
-            ):
-                val = f'({val}).toDouble()'
-            self._line(f'{node.name} = {val}')
+            val = self._coerce_assign(node.value, self.symbols.lookup(node.name))
+            self._line(f'{self._safe_ident(node.name)} = {val}')
             return
         kt_type = self._infer_kotlin_type(node.value)
         self.symbols.define(node.name, kt_type)
         self.symbols.mark_declared(node.name)
-        self._line(f'var {node.name}: {kt_type} = {self._expr(node.value)}')
+        self._line(f'var {self._safe_ident(node.name)}: {kt_type} = {self._expr(node.value)}')
 
     # Nodes that open a new variable scope — hoisting must not descend into them.
     _SCOPE_BOUNDARY = tuple(
@@ -1137,28 +1141,29 @@ class KotlinGenerator:
         self._line('}')
 
     def _emit_for_range(self, node):
-        start = self._expr(node.start)
-        end = self._expr(node.end)
+        start = self._range_bound(node.start)
+        end = self._range_bound(node.end)
         step = self._expr(node.step) if node.step else None
+        loop_var = self._safe_ident(node.var_name)
         if step:
             try:
                 step_val = int(step)
                 if step_val < 0:
                     abs_step = abs(step_val)
                     if abs_step == 1:
-                        self._line(f'for ({node.var_name} in {start} downTo {end}) {{')
+                        self._line(f'for ({loop_var} in {start} downTo {end}) {{')
                     else:
                         self._line(
-                            f'for ({node.var_name} in {start} downTo {end} step {abs_step}) {{'
+                            f'for ({loop_var} in {start} downTo {end} step {abs_step}) {{'
                         )
                 elif step_val != 1:
-                    self._line(f'for ({node.var_name} in {start}..{end} step {step}) {{')
+                    self._line(f'for ({loop_var} in {start}..{end} step {step}) {{')
                 else:
-                    self._line(f'for ({node.var_name} in {start}..{end}) {{')
+                    self._line(f'for ({loop_var} in {start}..{end}) {{')
             except (ValueError, TypeError):
-                self._line(f'for ({node.var_name} in {start}..{end} step {step}) {{')
+                self._line(f'for ({loop_var} in {start}..{end} step {step}) {{')
         else:
-            self._line(f'for ({node.var_name} in {start}..{end}) {{')
+            self._line(f'for ({loop_var} in {start}..{end}) {{')
         # Register the loop variable so a reassignment inside the body is a
         # bare assignment, not a spurious `var` re-declaration.
         self.symbols.define(node.var_name, 'Int')
@@ -1167,6 +1172,13 @@ class KotlinGenerator:
             self._emit_stmt(s)
         self.indent -= 1
         self._line('}')
+
+    def _range_bound(self, node) -> str:
+        """A `From a To b` range bound must be Int; coerce a dynamic value."""
+        code = self._expr(node)
+        if self._infer_kotlin_type(node) in ('Any', 'Any?'):
+            return f'({code} as Number).toInt()'
+        return code
 
     def _emit_for_each(self, node):
         # Element type of the iterable, falling back to Any for dynamic values.
@@ -1178,9 +1190,15 @@ class KotlinGenerator:
             elem_type = 'String'
         elif iter_type.startswith(('MutableList<', 'List<')):
             elem_type = iter_type[iter_type.index('<') + 1 : -1]
+        elif iter_type == 'String':
+            # EPL iterates a string as 1-char strings, not Kotlin Chars.
+            iterable = f'{iterable}.map {{ it.toString() }}'
+            elem_type = 'String'
         else:
+            # Dynamic value (Any): a list iterates its items, a string its chars.
+            iterable = f'EPLRuntime.iterate({iterable})'
             elem_type = 'Any'
-        self._line(f'for ({node.var_name} in {iterable}) {{')
+        self._line(f'for ({self._safe_ident(node.var_name)} in {iterable}) {{')
         self.symbols.define(node.var_name, elem_type)
         self.indent += 1
         for s in node.body:
@@ -1212,14 +1230,29 @@ class KotlinGenerator:
         self._declare_hoisted(node.body, {n for n, _ in param_types})
         for s in node.body:
             self._emit_stmt(s)
-        if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
-            pass  # Unit doesn't need explicit return
-        elif not any(isinstance(s, ast.ReturnStatement) for s in node.body):
+        if ret_type != 'Unit' and not self._always_returns(node.body):
             self._line('return Unit')
         self.symbols = prev_symbols
         self._current_ret_type = prev_ret
         self.indent -= 1
         self._line('}')
+
+    def _always_returns(self, body) -> bool:
+        """True if every control-flow path through `body` ends in a return/throw.
+        Recurses into if/else so a value-returning function whose returns are all
+        nested in branches isn't given a spurious trailing `return Unit`."""
+        if not body:
+            return False
+        last = body[-1]
+        if isinstance(last, (ast.ReturnStatement, ast.ThrowStatement)):
+            return True
+        if isinstance(last, ast.IfStatement):
+            return (
+                bool(last.else_body)
+                and self._always_returns(last.then_body)
+                and self._always_returns(last.else_body)
+            )
+        return False
 
     def _emit_class_method(self, node):
         """Emit a method inside a class, with this. prefixing for properties."""
@@ -1241,9 +1274,7 @@ class KotlinGenerator:
         self._declare_hoisted(node.body, {n for n, _ in param_types})
         for s in node.body:
             self._emit_stmt(s)
-        if ret_type == 'Unit' and not any(isinstance(s, ast.ReturnStatement) for s in node.body):
-            pass
-        elif not any(isinstance(s, ast.ReturnStatement) for s in node.body):
+        if ret_type != 'Unit' and not self._always_returns(node.body):
             self._line('return Unit')
         self.symbols = prev_symbols
         self._current_ret_type = prev_ret
@@ -1297,12 +1328,16 @@ class KotlinGenerator:
         if isinstance(node, ast.BinaryOp):
             lt = self._infer_kotlin_type(node.left)
             rt = self._infer_kotlin_type(node.right)
-            if node.operator == '+' and (lt == 'String' or rt == 'String'):
-                return 'String'
             if node.operator == '+':
                 numeric = {'Int', 'Long', 'Double', 'Float'}
-                # Mirror _expr_binary: dynamic `+` lowers to eplAdd, whose return is
-                # Any? — so the inferred type must match or call sites mis-declare.
+                # Mirror _expr_binary exactly: native String concat (String result)
+                # happens only for a String left, or a String right with a
+                # non-dynamic left. A dynamic left lowers to eplAdd, whose return is
+                # Any? — inferring String there mis-declares the enclosing concat.
+                if lt == 'String':
+                    return 'String'
+                if rt == 'String' and lt not in self._DYNAMIC:
+                    return 'String'
                 if lt not in numeric and rt not in numeric:
                     return 'Any?'
             if node.operator in ('==', '!=', '<', '>', '<=', '>=', 'and', 'or'):
@@ -1451,6 +1486,18 @@ class KotlinGenerator:
                 }
                 if node.method_name in str_ret:
                     return str_ret[node.method_name]
+            # Methods shared by strings and lists route through EPLRuntime on a
+            # dynamic receiver — mirror those helpers' return types.
+            if recv_type in ('Any', 'Any?'):
+                dyn_ret = {
+                    'reverse': 'Any',
+                    'replace': 'String',
+                    'count': 'Int',
+                    'length': 'Int',
+                    'contains': 'Boolean',
+                }
+                if node.method_name in dyn_ret:
+                    return dyn_ret[node.method_name]
             method_ret = {
                 'length': 'Int',
                 'size': 'Int',
@@ -1550,11 +1597,27 @@ class KotlinGenerator:
         """Format a parameter with type and optional default value."""
         return self._format_param_typed(p, self._infer_param_type(p))
 
+    # Kotlin hard keywords that can legally appear as EPL identifiers — must be
+    # backtick-escaped wherever emitted as a name. Excludes `this`/`super`, which
+    # EPL uses with the same meaning as Kotlin and must pass through unescaped.
+    _KOTLIN_HARD_KEYWORDS = frozenset(
+        {
+            'val', 'var', 'fun', 'object', 'when', 'is', 'in', 'as',
+            'class', 'interface', 'typealias', 'typeof', 'by', 'package',
+        }
+    )
+
+    @classmethod
+    def _safe_ident(cls, name: str) -> str:
+        """Backtick-escape an identifier that collides with a Kotlin hard keyword."""
+        return f'`{name}`' if name in cls._KOTLIN_HARD_KEYWORDS else name
+
     def _format_param_typed(self, p, kt_type) -> str:
         """Format a parameter with a pre-resolved Kotlin type + optional default."""
+        name = self._safe_ident(p[0])
         if len(p) > 2 and p[2] is not None:
-            return f'{p[0]}: {kt_type} = {self._expr(p[2])}'
-        return f'{p[0]}: {kt_type}'
+            return f'{name}: {kt_type} = {self._expr(p[2])}'
+        return f'{name}: {kt_type}'
 
     def _resolve_param_types(self, params, body):
         """Resolve each param's Kotlin type: annotation wins, else infer from usage.
@@ -1594,21 +1657,46 @@ class KotlinGenerator:
                     types[n.name] = t
         return types
 
+    # Method names that only a String receiver has (drive param inference).
+    _STR_ONLY_METHODS = frozenset(
+        {
+            'substring', 'split', 'trim', 'uppercase', 'lowercase', 'upper', 'lower',
+            'starts_with', 'ends_with', 'is_number', 'is_alpha', 'char_at',
+            'pad_left', 'pad_right', 'to_list', 'is_empty',
+        }
+    )
+    # Method names that only a list receiver has.
+    _LIST_ONLY_METHODS = frozenset({'add', 'push', 'join'})
+
     def _infer_param_from_usage(self, name, body) -> str:
         """Infer an unannotated parameter's type from how the body uses it.
 
-        Only *reliable* numeric signals are used: true arithmetic (`-`, `*`, `/`,
-        `%`, `//`, `**`), ordering comparisons against a numeric operand, and `+`
-        *only* when the other operand is itself numeric (so it's addition, not
-        string concatenation). A bare `+` against a string/dynamic operand is
-        ignored — in EPL `+` doubles as concat and stringifies any value, so it
-        says nothing about the parameter's type. Anything inconclusive stays `Any`.
+        Numeric signals: true arithmetic (`-`, `*`, `/`, `%`, `//`, `**`), ordering
+        comparisons against a numeric operand, and `+` *only* when the other operand
+        is itself numeric (so it's addition, not string concatenation). A bare `+`
+        against a string/dynamic operand is ignored — in EPL `+` doubles as concat
+        and stringifies any value. String/list signals come from receiver-specific
+        method calls (`s.substring(...)` ⇒ String, `items.add(...)` ⇒ list) so
+        untyped stdlib helpers emit typed receivers instead of `Any`, on which no
+        member resolves. Numeric evidence wins; anything inconclusive stays `Any`.
         """
         arith_int = {'-', '*', '%', '//'}
         arith_dbl = {'/', '**'}
         compare = {'<', '>', '<=', '>='}
         evidence = set()
         for n in self._walk_ast(body):
+            if isinstance(n, ast.MethodCall) and self._is_identifier(n.obj, name):
+                if n.method_name in self._STR_ONLY_METHODS:
+                    evidence.add('String')
+                elif n.method_name in self._LIST_ONLY_METHODS:
+                    evidence.add('List')
+                continue
+            # `For i from 1 to param` ⇒ param is a numeric range bound.
+            if isinstance(n, ast.ForRange) and (
+                self._is_identifier(n.start, name) or self._is_identifier(n.end, name)
+            ):
+                evidence.add('Int')
+                continue
             if not isinstance(n, ast.BinaryOp):
                 continue
             left_is = self._is_identifier(n.left, name)
@@ -1628,6 +1716,10 @@ class KotlinGenerator:
             return 'Double'
         if 'Int' in evidence:
             return 'Int'
+        if 'String' in evidence and 'List' not in evidence:
+            return 'String'
+        if 'List' in evidence and 'String' not in evidence:
+            return 'MutableList<Any>'
         return 'Any'
 
     @staticmethod
@@ -2010,7 +2102,7 @@ class KotlinGenerator:
             name = node.name
             if self.in_class and name in self.class_properties:
                 return f'this.{name}'
-            return name
+            return self._safe_ident(name)
         if isinstance(node, ast.BinaryOp):
             return self._expr_binary(node)
         if isinstance(node, ast.UnaryOp):
@@ -2214,10 +2306,27 @@ class KotlinGenerator:
             code = self._expr(a)
             if i < len(params):
                 pt = params[i][1]
-                if pt in float_types and self._infer_kotlin_type(a) in int_types:
+                at = self._infer_kotlin_type(a)
+                if pt in float_types and at in int_types:
                     code = f'({code}).toDouble()'
+                elif pt in int_types and at in ('Any', 'Any?'):
+                    # A dynamic value (list element, map lookup) into an Int param.
+                    code = f'({code} as Number).toInt()'
+                elif pt in float_types and at in ('Any', 'Any?'):
+                    code = f'({code} as Number).toDouble()'
+                elif pt == 'String' and at in ('Any', 'Any?'):
+                    # A dynamic value into a String param (Kotlin won't accept Any).
+                    code = f'({code}).toString()'
             out.append(code)
         return ', '.join(out)
+
+    def _str_arg(self, arg):
+        """Emit an expression for a String-consuming builtin, coercing a dynamic
+        value (e.g. a loop var of type Any) to String so members resolve."""
+        code = self._expr(arg)
+        if self._infer_kotlin_type(arg) == 'String':
+            return code
+        return f'({code}).toString()'
 
     def _expr_call(self, node):
         args = ', '.join(self._expr(a) for a in node.arguments)
@@ -2264,8 +2373,8 @@ class KotlinGenerator:
             'to_integer': lambda: f'{self._expr(node.arguments[0])}.toString().toInt()',
             'to_text': lambda: f'{self._expr(node.arguments[0])}.toString()',
             'to_decimal': lambda: f'{self._expr(node.arguments[0])}.toString().toDouble()',
-            'uppercase': lambda: f'{self._expr(node.arguments[0])}.uppercase()',
-            'lowercase': lambda: f'{self._expr(node.arguments[0])}.lowercase()',
+            'uppercase': lambda: f'{self._str_arg(node.arguments[0])}.uppercase()',
+            'lowercase': lambda: f'{self._str_arg(node.arguments[0])}.lowercase()',
             'sqrt': lambda: f'kotlin.math.sqrt({args}.toDouble())',
             'power': lambda: (
                 f'{self._expr(node.arguments[0])}.toDouble().pow({self._expr(node.arguments[1])}.toDouble())'
@@ -2343,6 +2452,23 @@ class KotlinGenerator:
         'format': 'strFormat',
     }
 
+    # String-only methods safe to dispatch on a dynamic receiver by coercing to
+    # String. Excludes methods a list also has (reverse/count/replace/contains/
+    # length/find/index_of/repeat) — those are resolved by runtime dispatch.
+    _DYN_STR_METHODS = frozenset(
+        {
+            'uppercase', 'upper', 'lowercase', 'lower', 'trim', 'starts_with',
+            'ends_with', 'substring', 'split', 'char_at', 'pad_left', 'pad_right',
+            'to_list', 'is_number', 'is_alpha', 'is_empty', 'to_integer',
+            'to_decimal', 'format',
+        }
+    )
+
+    # String members whose argument must be a CharSequence (not an index/count).
+    _STR_ARG_METHODS = frozenset(
+        {'contains', 'replace', 'starts_with', 'ends_with', 'find', 'index_of', 'split'}
+    )
+
     def _string_method(self, obj, m, args):
         """Emit a String-receiver method call, or None if not a known string method."""
         if m == 'split':
@@ -2383,6 +2509,11 @@ class KotlinGenerator:
         # predicate on Kotlin CharSequence, pad/char_at/to_list have no member),
         # so dispatch string receivers through their own map + EPLRuntime helpers.
         if recv == 'String':
+            # String members taking a CharSequence arg reject a dynamic (Any)
+            # value — coerce those args to String first (e.g. a loop var from
+            # iterate()). Index/count args (substring/char_at/pad/repeat) stay numeric.
+            if m in self._STR_ARG_METHODS:
+                args = ', '.join(self._str_arg(a) for a in node.arguments)
             result = self._string_method(obj, m, args)
             if result is not None:
                 return result
@@ -2398,6 +2529,24 @@ class KotlinGenerator:
         if m in ho and node.arguments and self._is_list_or_dynamic(recv):
             call_args = f'{obj}, {args}' if args else obj
             return f'EPLRuntime.{ho[m]}({call_args})'
+        # Methods shared by strings and lists (reverse/count/replace/contains):
+        # on a dynamic receiver the static type is unknown, so dispatch at runtime.
+        dyn_shared = {
+            'reverse': 'reverseOf',
+            'count': 'countOf',
+            'replace': 'replaceOf',
+            'contains': 'containsOf',
+            'length': 'lengthOf',
+        }
+        if m in dyn_shared and recv in ('Any', 'Any?'):
+            call_args = f'{obj}, {args}' if args else obj
+            return f'EPLRuntime.{dyn_shared[m]}({call_args})'
+        # String-only transforms on a dynamic receiver (e.g. a loop var of type
+        # Any bound from EPLRuntime.iterate): coerce to String, then dispatch.
+        if recv in ('Any', 'Any?') and m in self._DYN_STR_METHODS:
+            result = self._string_method(f'({obj}).toString()', m, args)
+            if result is not None:
+                return result
         km = {
             'add': 'add',
             'push': 'add',
@@ -3515,7 +3664,7 @@ object EPLRuntime {{
 
     // EPL `+`: numeric addition when both sides are numbers, string concat otherwise.
     // Used only for statically-dynamic operands (Any); typed operands compile to `+`.
-    fun eplAdd(a: Any?, b: Any?): Any? {{
+    fun eplAdd(a: Any?, b: Any?): Any {{
         if (a is Number && b is Number) {{
             return if (a is Double || b is Double || a is Float || b is Float)
                 a.toDouble() + b.toDouble()
@@ -3730,6 +3879,36 @@ object EPLRuntime {{
         is Map<*, *> -> obj.size
         is Collection<*> -> obj.size
         else -> 0
+    }}
+
+    // ─── Dynamic receivers shared by strings and lists (static type unknown) ───
+    @Suppress("UNCHECKED_CAST")
+    fun iterate(obj: Any?): List<Any> = when (obj) {{
+        is CharSequence -> obj.map {{ it.toString() }}
+        is Collection<*> -> obj.toList() as List<Any>
+        is Map<*, *> -> obj.keys.toList() as List<Any>
+        else -> throw RuntimeException("Value of type ${{typeName(obj)}} is not iterable.")
+    }}
+    fun reverseOf(obj: Any?): Any = when (obj) {{
+        is CharSequence -> obj.reversed().toString()
+        is List<*> -> obj.reversed().toMutableList()
+        else -> throw RuntimeException("Cannot reverse a ${{typeName(obj)}}.")
+    }}
+    fun countOf(obj: Any?, target: Any?): Int = when (obj) {{
+        is CharSequence -> if (target is CharSequence && target.isNotEmpty())
+            Regex(Regex.escape(target.toString())).findAll(obj).count() else 0
+        is Collection<*> -> obj.count {{ it == target }}
+        else -> 0
+    }}
+    fun replaceOf(obj: Any?, from: Any?, to: Any?): Any = when (obj) {{
+        is CharSequence -> obj.toString().replace(from.toString(), to.toString())
+        else -> throw RuntimeException("Cannot replace on a ${{typeName(obj)}}.")
+    }}
+    fun containsOf(obj: Any?, target: Any?): Boolean = when (obj) {{
+        is CharSequence -> obj.contains(target.toString())
+        is Collection<*> -> obj.contains(target)
+        is Map<*, *> -> obj.containsKey(target)
+        else -> false
     }}
 
     fun roundNum(x: Any?): Long = Math.round((x as Number).toDouble())

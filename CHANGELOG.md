@@ -106,6 +106,35 @@ Third compiler-verified pass, covering the string and math example programs:
   unresolved references. Added mappings and `EPLRuntime` implementations (JSON via
   `org.json`).
 
+### Fixed — Kotlin/Android transpiler correctness (dynamic dispatch & stdlib inlining)
+
+Fourth compiler-verified pass, driven by compiling the `killer_*`, `text_analyzer`,
+and data-processing examples through the real Kotlin toolchain. Every fix is
+verified against `compileDebugKotlin`.
+
+- **Stdlib imports were silently dropped** — the native targets have no runtime
+  import loader, so `Import "string"` etc. left calls like `word_count` as
+  unresolved references. A new `stdlib_inliner` resolves plain stdlib imports and
+  splices only the *reachable* definitions into the program (callee-before-caller
+  ordering, unused imports dropped, aliased/namespaced imports left untouched).
+- **Dynamic-receiver methods didn't compile** — a loop variable bound from
+  `EPLRuntime.iterate` has static type `Any`, so `char.lowercase()`,
+  `str.contains(char)`, and the string transforms rejected it. String-only methods
+  now coerce a dynamic receiver/argument to `String`; shared methods
+  (`reverse`/`count`/`replace`/`contains`/`length`) route through `EPLRuntime`.
+- **Value-returning functions got a spurious `return Unit`** — the trailing-return
+  check only looked for a top-level `return`, so a function whose returns are all
+  inside `if/else` branches emitted `return Unit` under a `String` signature. Now
+  an all-paths-return analysis recurses through `if/else`.
+- **Kotlin hard keywords as identifiers** — an EPL parameter named `val`/`var`/etc.
+  produced un-parseable Kotlin. Colliding identifiers are now backtick-escaped at
+  every emission site (`this`/`super` pass through with their Kotlin meaning).
+- **Dynamic values into typed contexts** — `Any` values flowing into `Int`/`Double`/
+  `String` params, `Int`/`Double`/`String`-typed reassignments, and `From..To`
+  range bounds are now coerced (`as Number`, `.toString()`) instead of failing type
+  inference. `+`-expression type inference now mirrors the emitter exactly (a
+  dynamic left lowers to `eplAdd ⇒ Any?`, so it no longer mis-infers `String`).
+
 ### Added — enforced VM↔interpreter parity gate over the example corpus
 
 Phase 4 of the enterprise-hardening pass. `epl run` defaults to the bytecode VM,
