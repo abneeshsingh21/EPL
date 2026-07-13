@@ -40,8 +40,15 @@ def _parse(source):
 
 
 def _def_name(node):
-    """Name a top-level definition binds, or None if it isn't a definition."""
-    if isinstance(node, (ast.FunctionDef, ast.ConstDeclaration)):
+    """Name a top-level definition binds, or None if it isn't a definition.
+
+    Besides functions and constants, module-level ``Create`` state (a
+    ``VarDeclaration``) is treated as a definition: stdlib modules such as
+    ``testing`` keep mutable counters at module scope that their functions close
+    over, so the native targets must see that shared state, not re-declare it as
+    a per-function local.
+    """
+    if isinstance(node, (ast.FunctionDef, ast.ConstDeclaration, ast.VarDeclaration)):
         return node.name
     return None
 
@@ -71,6 +78,10 @@ def _referenced_names(node):
         if isinstance(n, ast.FunctionCall):
             names.add(n.name)
         elif isinstance(n, ast.Identifier):
+            names.add(n.name)
+        elif isinstance(n, ast.VarAssignment):
+            # A write-only `Set <global> to ...` still needs the shared module
+            # state pulled in, even when no read makes it appear as an Identifier.
             names.add(n.name)
     return names
 
@@ -139,7 +150,12 @@ def inline_stdlib_imports(program, entry_path=None):
 
 def _topo_order(needed, available):
     """Definitions in dependency order: a def appears after the stdlib defs it calls."""
-    consts = [n for n in needed if isinstance(available[n], ast.ConstDeclaration)]
+    # Value bindings (constants + module-level mutable state) seed first so they
+    # precede the functions that close over them; targets that lower functions to
+    # local `fun`s require the enclosing var to be declared earlier lexically.
+    consts = [
+        n for n in needed if isinstance(available[n], (ast.ConstDeclaration, ast.VarDeclaration))
+    ]
     result = []
     visiting = set()
     placed = set()

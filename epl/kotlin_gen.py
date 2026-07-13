@@ -959,10 +959,22 @@ class KotlinGenerator:
             val = self._coerce_assign(node.value, self.symbols.lookup(node.name))
             self._line(f'{self._safe_ident(node.name)} = {val}')
             return
-        kt_type = self._infer_kotlin_type(node.value)
+        kt_type = self._widen_decl_type(node.value, self._infer_kotlin_type(node.value))
         self.symbols.define(node.name, kt_type)
         self.symbols.mark_declared(node.name)
         self._line(f'var {self._safe_ident(node.name)}: {kt_type} = {self._expr(node.value)}')
+
+    def _widen_decl_type(self, value, kt_type) -> str:
+        """Widen a `var` declared type so later dynamic reassignments type-check.
+        A bare `Any` local in EPL is dynamic and may be reassigned to a nullable
+        value (e.g. a lambda-call result), so it must be declared `Any?`. An empty
+        list literal is similarly widened to hold nullable/dynamic elements."""
+        if kt_type == 'Any':
+            return 'Any?'
+        # An empty list gets `add`ed dynamic (possibly null) values later.
+        if kt_type == 'MutableList<Any>' and isinstance(value, ast.ListLiteral) and not value.elements:
+            return 'MutableList<Any?>'
+        return kt_type
 
     def _coerce_assign(self, value, decl_type) -> str:
         """Emit an assignment RHS, coercing a dynamic/Int value into a typed var.
@@ -1110,8 +1122,17 @@ class KotlinGenerator:
             self.symbols.mark_declared(node.variable_name)
             self._line(f'var {node.variable_name} = readLine() ?: ""')
 
+    def _cond(self, node):
+        """Emit a boolean condition. A condition whose static type isn't Boolean
+        (e.g. a dynamic lambda-call result typed Any?) is wrapped in EPLRuntime.truthy
+        so Kotlin — which requires a Boolean here — accepts it with EPL semantics."""
+        expr = self._expr(node)
+        if self._infer_kotlin_type(node) == 'Boolean':
+            return expr
+        return f'EPLRuntime.truthy({expr})'
+
     def _emit_if(self, node):
-        self._line(f'if ({self._expr(node.condition)}) {{')
+        self._line(f'if ({self._cond(node.condition)}) {{')
         self.indent += 1
         for s in node.then_body:
             self._emit_stmt(s)
@@ -1125,7 +1146,7 @@ class KotlinGenerator:
         self._line('}')
 
     def _emit_while(self, node):
-        self._line(f'while ({self._expr(node.condition)}) {{')
+        self._line(f'while ({self._cond(node.condition)}) {{')
         self.indent += 1
         for s in node.body:
             self._emit_stmt(s)
@@ -1430,6 +1451,26 @@ class KotlinGenerator:
                 'values': 'MutableList<Any?>',
                 'random_integer': 'Int',
                 'format': 'String',
+                'hash_sha256': 'String',
+                'hash_md5': 'String',
+                'base64_encode': 'String',
+                'base64_decode': 'String',
+                'hex_encode': 'String',
+                'hex_decode': 'String',
+                'url_encode': 'String',
+                'url_decode': 'String',
+                'uuid4': 'String',
+                'uuid': 'String',
+                'timestamp': 'Double',
+                'today': 'String',
+                'now': 'String',
+                'regex_find_all': 'MutableList<String>',
+                'regex_test': 'Boolean',
+                'pi': 'Double',
+                'euler': 'Double',
+                'factorial': 'Long',
+                'gcd': 'Long',
+                'dict_from_lists': 'MutableMap<Any?, Any?>',
             }
             return builtin_types.get(node.name, 'Any')
         if isinstance(node, ast.TernaryExpression):
@@ -1652,8 +1693,12 @@ class KotlinGenerator:
         types: dict = {}
         for n in self._walk_ast(body):
             if isinstance(n, (ast.VarAssignment, ast.VarDeclaration)) and n.name not in types:
-                t = self._infer_kotlin_type(n.value)
-                if t not in ('Any', 'Any?'):
+                # Mirror _widen_decl_type exactly: a local first assigned an Any
+                # value (or an empty list) is emitted with a widened nullable type,
+                # so return-type inference must see the same widened type — else it
+                # mis-declares `return <local>` and Kotlin rejects the mismatch.
+                t = self._widen_decl_type(n.value, self._infer_kotlin_type(n.value))
+                if t != 'Any':
                     types[n.name] = t
         return types
 
@@ -1793,14 +1838,18 @@ class KotlinGenerator:
             return 'Unit'
         # Remove Unit from mixed returns
         non_unit = return_types - {'Unit'}
+        # A `Return Nothing` path (typed Any?) means null flows out, so the
+        # signature must stay nullable even when merged with concrete types.
+        nullable = any(t.endswith('?') for t in non_unit)
         if len(non_unit) == 1:
             return non_unit.pop()
         if len(non_unit) == 0:
             return 'Unit'
         # Multiple return types — find common supertype
-        if non_unit <= {'Int', 'Double'}:
-            return 'Double'
-        return 'Any'
+        bare = {t[:-1] if t.endswith('?') else t for t in non_unit}
+        if bare <= {'Int', 'Double'}:
+            return 'Double?' if nullable else 'Double'
+        return 'Any?' if nullable else 'Any'
 
     def _collect_return_types(self, stmts, types, skip_fn=None):
         """Recursively collect return types from statement list.
@@ -2413,6 +2462,37 @@ class KotlinGenerator:
             'values': lambda: f'EPLRuntime.mapValues({args})',
             'random_integer': lambda: f'EPLRuntime.randomInt({args})',
             'format': lambda: f'EPLRuntime.strFormat({args})',
+            # crypto / encoding native builtins
+            'hash_sha256': lambda: f'EPLRuntime.hashSha256({self._str_arg(node.arguments[0])})',
+            'hash_md5': lambda: f'EPLRuntime.hashMd5({self._str_arg(node.arguments[0])})',
+            'base64_encode': lambda: f'EPLRuntime.base64Encode({self._str_arg(node.arguments[0])})',
+            'base64_decode': lambda: f'EPLRuntime.base64Decode({self._str_arg(node.arguments[0])})',
+            'hex_encode': lambda: f'EPLRuntime.hexEncode({self._str_arg(node.arguments[0])})',
+            'hex_decode': lambda: f'EPLRuntime.hexDecode({self._str_arg(node.arguments[0])})',
+            'url_encode': lambda: f'EPLRuntime.urlEncode({self._str_arg(node.arguments[0])})',
+            'url_decode': lambda: f'EPLRuntime.urlDecode({self._str_arg(node.arguments[0])})',
+            'uuid4': lambda: 'EPLRuntime.uuid4()',
+            'uuid': lambda: 'EPLRuntime.uuid4()',
+            # datetime native builtins
+            'timestamp': lambda: 'EPLRuntime.timestamp()',
+            'today': lambda: 'EPLRuntime.today()',
+            'now': lambda: 'EPLRuntime.now()',
+            # regex native builtins
+            'regex_find_all': lambda: (
+                f'EPLRuntime.regexFindAll({self._str_arg(node.arguments[0])}, '
+                f'{self._str_arg(node.arguments[1])})'
+            ),
+            'regex_test': lambda: (
+                f'EPLRuntime.regexTest({self._str_arg(node.arguments[0])}, '
+                f'{self._str_arg(node.arguments[1])})'
+            ),
+            # math constants exposed as zero-arg builtins
+            'pi': lambda: 'Math.PI',
+            'euler': lambda: 'Math.E',
+            'factorial': lambda: f'EPLRuntime.factorial({args})',
+            'gcd': lambda: f'EPLRuntime.gcd({args})',
+            # collections
+            'dict_from_lists': lambda: f'EPLRuntime.dictFromLists({args})',
         }
         if node.name in m:
             if node.name == 'power':
@@ -2541,6 +2621,12 @@ class KotlinGenerator:
         if m in dyn_shared and recv in ('Any', 'Any?'):
             call_args = f'{obj}, {args}' if args else obj
             return f'EPLRuntime.{dyn_shared[m]}({call_args})'
+        # List mutators on a dynamic receiver (Any) — Kotlin can't see the member,
+        # so dispatch through EPLRuntime which casts to MutableList.
+        dyn_list_mut = {'add': 'listAdd', 'push': 'listAdd', 'remove': 'listRemove', 'pop': 'listPop'}
+        if m in dyn_list_mut and recv in ('Any', 'Any?'):
+            call_args = f'{obj}, {args}' if args else obj
+            return f'EPLRuntime.{dyn_list_mut[m]}({call_args})'
         # String-only transforms on a dynamic receiver (e.g. a loop var of type
         # Any bound from EPLRuntime.iterate): coerce to String, then dispatch.
         if recv in ('Any', 'Any?') and m in self._DYN_STR_METHODS:
@@ -2573,6 +2659,9 @@ class KotlinGenerator:
         }
         if m == 'length':
             return f'{obj}.size'
+        # EPL list.pop() removes and returns the last element (Kotlin has no `pop`).
+        if m == 'pop':
+            return f'EPLRuntime.listPop({obj})'
         # String.split returns List; EPL lists are MutableList, so normalize.
         if m == 'split':
             return f'{obj}.split({args}).toMutableList()'
@@ -3673,6 +3762,17 @@ object EPLRuntime {{
         return toText(a) + toText(b)
     }}
 
+    // EPL truthiness: null/false/0/empty-string/empty-collection are falsy.
+    fun truthy(v: Any?): Boolean = when (v) {{
+        null -> false
+        is Boolean -> v
+        is Number -> v.toDouble() != 0.0
+        is String -> v.isNotEmpty()
+        is List<*> -> v.isNotEmpty()
+        is Map<*, *> -> v.isNotEmpty()
+        else -> true
+    }}
+
     // EPL `/` is float division and raises on a zero divisor (interpreter parity).
     fun eplDiv(a: Any?, b: Any?): Double {{
         val divisor = (b as Number).toDouble()
@@ -3858,6 +3958,83 @@ object EPLRuntime {{
         }}
         null -> org.json.JSONObject.NULL
         else -> v
+    }}
+
+    // ─── Crypto / encoding native builtins ───
+    fun hashSha256(text: String): String {{
+        val d = java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
+        return d.joinToString("") {{ "%02x".format(it) }}
+    }}
+    fun hashMd5(text: String): String {{
+        val d = java.security.MessageDigest.getInstance("MD5").digest(text.toByteArray(Charsets.UTF_8))
+        return d.joinToString("") {{ "%02x".format(it) }}
+    }}
+    fun base64Encode(text: String): String =
+        android.util.Base64.encodeToString(text.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
+    fun base64Decode(text: String): String =
+        String(android.util.Base64.decode(text, android.util.Base64.NO_WRAP), Charsets.UTF_8)
+    fun hexEncode(text: String): String =
+        text.toByteArray(Charsets.UTF_8).joinToString("") {{ "%02x".format(it) }}
+    fun hexDecode(hex: String): String {{
+        val bytes = ByteArray(hex.length / 2) {{ i ->
+            hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+        }}
+        return String(bytes, Charsets.UTF_8)
+    }}
+    fun urlEncode(text: String): String = java.net.URLEncoder.encode(text, "UTF-8")
+    fun urlDecode(text: String): String = java.net.URLDecoder.decode(text, "UTF-8")
+    fun uuid4(): String = java.util.UUID.randomUUID().toString()
+
+    // ─── Datetime native builtins ───
+    fun timestamp(): Double = System.currentTimeMillis() / 1000.0
+    fun today(): String = java.time.LocalDate.now().toString()
+    fun now(): String = java.time.LocalDateTime.now().toString()
+
+    // ─── Regex native builtins ───
+    fun regexFindAll(pattern: String, text: String): MutableList<String> {{
+        val out = ArrayList<String>()
+        val m = java.util.regex.Pattern.compile(pattern).matcher(text)
+        while (m.find()) out.add(m.group())
+        return out
+    }}
+    fun regexTest(pattern: String, text: String): Boolean =
+        java.util.regex.Pattern.compile(pattern).matcher(text).find()
+
+    // ─── Math native builtins ───
+    fun factorial(n: Any?): Long {{
+        var r = 1L
+        for (i in 2..(n as Number).toInt()) r *= i
+        return r
+    }}
+    fun gcd(a: Any?, b: Any?): Long {{
+        var x = (a as Number).toLong(); var y = (b as Number).toLong()
+        while (y != 0L) {{ val t = y; y = x % y; x = t }}
+        return kotlin.math.abs(x)
+    }}
+
+    // ─── Collections native builtins ───
+    @Suppress("UNCHECKED_CAST")
+    fun listPop(list: Any?): Any? {{
+        val items = list as MutableList<Any?>
+        if (items.isEmpty()) return null
+        return items.removeAt(items.size - 1)
+    }}
+    @Suppress("UNCHECKED_CAST")
+    fun listAdd(list: Any?, item: Any?): Any? {{
+        (list as MutableList<Any?>).add(item)
+        return list
+    }}
+    @Suppress("UNCHECKED_CAST")
+    fun listRemove(list: Any?, item: Any?): Any? {{
+        (list as MutableList<Any?>).remove(item)
+        return list
+    }}
+    fun dictFromLists(keys: Any?, values: Any?): MutableMap<Any?, Any?> {{
+        val ks = keys as List<*>
+        val vs = values as List<*>
+        val out = LinkedHashMap<Any?, Any?>()
+        for (i in ks.indices) out[ks[i]] = if (i < vs.size) vs[i] else null
+        return out
     }}
 
     // ─── Dynamic access (EPL maps, lists, db rows) ───
