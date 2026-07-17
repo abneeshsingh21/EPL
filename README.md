@@ -295,6 +295,9 @@ insert(db, "tasks", Map with title = "Ship EPL" and done = 0)
 epl android app.epl
 # → Full Android Studio project with Kotlin
 ```
+> The generated Kotlin/Gradle project is **compiler-verified**: it builds an
+> installable debug APK via `gradlew assembleDebug`, with a bundled `EPLRuntime`
+> providing `db_*` (SQLite) and `file_*` (sandboxed storage) support.
 
 **🍎 iOS Apps** *(experimental)*
 ```bash

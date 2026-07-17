@@ -12,6 +12,52 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Changed — Kotlin runtime extracted to a single source of truth (+ console/JVM target)
+
+The inline `EPLRuntime` Kotlin shim moved out of `kotlin_gen.py` into
+`epl/kotlin_runtime.py`, assembled per target from one semantic core plus
+platform slots (base64 / json / db / file):
+
+- `android_runtime()` stays **byte-identical** to the historically verified APK
+  runtime (SQLite `db_*`, `android.util.Base64`, `org.json`); a golden-file test
+  (`tests/test_kotlin_runtime_golden.py`) locks it against drift.
+- `console_runtime()` fills the slots with plain-JVM equivalents plus a
+  dependency-free `JsonMini`, so a standalone `epl kotlin` transpile compiles and
+  runs with only `kotlin-stdlib` on the classpath. `transpile_to_kotlin` now
+  appends this shim by default (`include_runtime=True`).
+
+### Fixed — Kotlin/Android transpiler correctness (compiler-verified, real-APK)
+
+A further batch surfaced by compiling the example corpus through the real Kotlin
+toolchain (`compileDebugKotlin` + `assembleDebug` → installable APK):
+
+- **`for each` over a list-of-maps emitted `.keys`** — the iterable type check
+  matched the substring `Map` inside `MutableList<Map<…>>`, so a list of rows
+  (e.g. a `db_query` result) iterated a Map-only member and failed to compile. It
+  now matches on the type prefix in the correct order.
+- **`Display`/`Say` of a dynamic value** hit Kotlin's `println(Any?)` overload
+  ambiguity and wouldn't match EPL's display formatting; dynamic values now print
+  through `EPLRuntime.toText` (string literals still print directly).
+- **Reassigning a function parameter** (`Set n to n / 2`) redeclared it as a
+  fresh `var` and violated Kotlin's immutable `val` parameters. Reassigned params
+  now get a mutable shadow (`var n = n`) at function top.
+- **Math builtins on dynamic arguments** — `floor`/`sqrt`/`ceil`/`log`/`sin`/`cos`
+  emitted `.toDouble()` on an `eplDiv`/`eplMul` result typed `Any` (unresolved
+  reference). They coerce through `EPLRuntime.toDecimal`; `abs`/`absolute` keep
+  integer-vs-decimal parity via a new `EPLRuntime.absNum`.
+- **Top-level constants were unreachable** — a `Constant` (e.g. stdlib `ALPHABET`)
+  was emitted inside `fun main()`, so file-scope inlined stdlib functions couldn't
+  see it. Constants are now emitted at file scope.
+- **`not` on a dynamic operand** routed to Kotlin's `!` (which needs `Boolean`);
+  a dynamic operand now goes through `EPLRuntime.truthy`. An `Any?` value passed
+  into a non-null `Any` parameter gets a non-null assertion so the call type-checks.
+- **`regex_replace` / `regex_split`** were unresolved; added native
+  `EPLRuntime.regexReplace`/`regexSplit` bridges with interpreter arg-order parity.
+
+Verified: 63 Kotlin/native unit tests; 47 of 55 example programs compile clean on
+real `kotlinc` (the rest are legitimately non-portable — Python interop, `gui_*`,
+server-only `real_db_*`/`web_*`, `csv_read` — surfaced by the porting report).
+
 ### Fixed — Kotlin/Android transpiler correctness (real-APK hardening)
 
 Verified by compiling generated projects with the actual Kotlin/Gradle toolchain
