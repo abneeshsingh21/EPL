@@ -235,6 +235,20 @@ def analyze(
                     f'`{label}` is literal web markup — it cannot become a '
                     'native widget and is dropped from the native UI.',
                 )
+        elif isinstance(node, ast.UseStatement):
+            report.add(
+                node.line,
+                f'Use python "{node.library}"',
+                f'Python interop has no runtime in a native {target} app; '
+                f'`{node.alias}` and its members will not compile.',
+            )
+        elif isinstance(node, getattr(ast, 'UseJSStatement', ())):
+            report.add(
+                node.line,
+                f'Use javascript "{node.library}"',
+                f'JavaScript interop has no runtime in a native {target} app; '
+                f'`{node.alias}` and its members will not compile.',
+            )
         elif isinstance(node, ast.FunctionCall):
             name = getattr(node, 'name', None)
             if name in WEB_ONLY_BUILTINS:

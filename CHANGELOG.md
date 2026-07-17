@@ -12,6 +12,129 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+### Fixed — Kotlin/Android transpiler correctness (real-APK hardening)
+
+Verified by compiling generated projects with the actual Kotlin/Gradle toolchain
+and building installable debug APKs. Six defects the real compiler rejected:
+
+- **db/file builtins unresolved** — `db_create_table`, `db_tables`, and the
+  `file_*` family passed through as raw snake_case (unresolved references). Added
+  their `EPLRuntime` bridge methods (SQLite `CREATE TABLE` with interpreter-parity
+  identifier/type validation; sandboxed `filesDir` file ops) and call mappings.
+- **`Any + Any` didn't compile** — untyped params default to `Any`, but EPL `+`
+  emitted raw Kotlin `+`. Now lowers to an `eplAdd` runtime helper (numeric add
+  when both sides are numbers, string concat otherwise — matching EPL semantics).
+- **Integer division gave wrong values** — `10 / 4` emitted `(10 / 4)` = `2`.
+  EPL `/` is float division that raises on a zero divisor, so it now lowers to an
+  `eplDiv` helper (2.5, and a divide-by-zero exception).
+- **Class-method call return types** — a call on a user-class instance resolved
+  the generic builtin `.add ⇒ Unit` map, poisoning `var x = obj.method()`. It now
+  resolves the receiver class's declared method return type.
+- **Symbols unregistered on the Android path** — `generate_android_activity`
+  never ran the symbol pre-pass, so class/function type lookups failed there.
+- **Duplicate `var` on reassignment** — `x = 5` then `x = 10` emitted two
+  conflicting `var x` declarations; emission now tracks declared names per scope.
+
+Also: the native portability checker now flags `Use python` / `Use javascript`
+interop as unportable instead of silently emitting uncompilable references.
+
+### Fixed — Kotlin/Android transpiler correctness (second compiler-verified pass)
+
+A further batch surfaced by compiling more of the example corpus through the real
+Kotlin toolchain. Each fix is verified against `compileDebugKotlin`:
+
+- **Map methods didn't compile** — `keys()`, `values()`, `entries()`, `has()`,
+  `get(k, default)`, `merge()`, `set()`, `copy()`, `remove()` collided with
+  Kotlin's `MutableMap` API (properties vs. methods, missing overloads). They now
+  route through `EPLRuntime` map helpers that mirror the interpreter's dict
+  methods, plus map-key field assignment (`person.email = …`) and map iteration
+  (EPL iterates keys, not entries).
+- **Slicing was emitted as `null`** — `list[a:b:c]` / `text[a:b]` had no codegen.
+  Added an `EPLRuntime.slice` helper with CPython-faithful start/stop/step and
+  negative-index semantics.
+- **Missing builtins** — `round`, `type_of`/`typeof`, `abs` were unresolved
+  references; added mappings and `EPLRuntime` helpers. `length()` now dispatches
+  on the runtime value instead of assuming `.length`.
+- **Local enum classes rejected** — top-level enums were emitted inside `onCreate`
+  (Kotlin forbids local enum classes); they are now hoisted to file level.
+- **Mixed Int/Double arithmetic and calls** — `b == 0` where `b: Double`, and
+  `divide(10, 2)` into `Double` params failed (Kotlin won't auto-promote). Integer
+  operands are now widened at comparison/arithmetic sites and function-call args.
+- **Function-scoped variables lost across blocks** — a variable first assigned
+  inside a `try`/`if`/loop but used after it became an unresolved reference under
+  Kotlin's block scoping. Such locals are now hoisted to the top of their function
+  scope (EPL variables are function-scoped), with float reassignment coercion.
+
+### Fixed — Kotlin/Android transpiler correctness (lambdas & functional programming)
+
+Fourth compiler-verified pass, covering the `lambdas` example (closures, `.map`/
+`.filter`/`.reduce`, higher-order functions, ternaries):
+
+- **Lambdas are now emitted as fully dynamic** `(Any?...) -> Any?` with `Any?`-annotated
+  params, matching EPL's dynamic typing. Previously concrete param/return types made
+  bodies like `x * 2` fail (`Any * Int`) and clashed with `reduce`'s return type.
+- **Dynamic operators route through `EPLRuntime`** — `*`, `-`, `%`, `**`, `+`, `//`,
+  the comparisons, and `==`/`!=` on `Any?` operands (e.g. lambda params) lower to
+  `eplMul`/`eplSub`/`eplAdd`/`eplLt`/`eplEq`/… which mirror EPL's numeric and
+  truthiness semantics, instead of Kotlin operators that don't apply to `Any?`.
+- **Higher-order list methods** — `map`, `filter`, `reduce`, `find`, `every`, `some`
+  route through `EPLRuntime` helpers taking `(Any?)->Any?`, rather than Kotlin's typed
+  `List` methods whose element/return types clash with dynamic lambdas.
+- **Invoking a dynamic callable** — calling a value held in an `Any` param (a lambda
+  passed to a higher-order function) now casts to a function type of matching arity.
+
+### Fixed — Kotlin/Android transpiler correctness (string & builtin coverage)
+
+Third compiler-verified pass, covering the string and math example programs:
+
+- **String methods diverged from Kotlin's `CharSequence` API** — `find`, `count`,
+  and `reverse` bind to predicate overloads on `CharSequence`; `pad_left`,
+  `pad_right`, `char_at`, `to_list`, `is_number`, `is_alpha`, `format` have no
+  member at all. String receivers now dispatch through a dedicated map plus
+  `EPLRuntime` helpers mirroring the interpreter's `_call_string_method`.
+- **Property-style accessors** — `text.uppercase`/`.lowercase`/`.trim` emitted as
+  property reads (Kotlin wanted `()`); `list.length` was unresolved. Now emit the
+  method call / `.size` as appropriate.
+- **List mutation methods were non-mutating** — `list.sort()`/`reverse()` mapped
+  to Kotlin's `sorted()`/`reversed()` (which return new lists and dropped the
+  mutation); `list.remove(x)` mapped to `removeAt` (index) instead of by-value.
+  Fixed to in-place `sort()`/`reverse()` and by-value `remove()`. `split()` now
+  yields a `MutableList`.
+- **Missing free-function builtins** — `range`, `sum`, `sorted`, `reversed`,
+  `is_integer`/`is_decimal`/`is_text`/`is_boolean`/`is_list`/`is_map`/`is_nothing`/
+  `is_number`, `char_code`, `from_char_code`, `json_parse`, `json_stringify` were
+  unresolved references. Added mappings and `EPLRuntime` implementations (JSON via
+  `org.json`).
+
+### Fixed — Kotlin/Android transpiler correctness (dynamic dispatch & stdlib inlining)
+
+Fourth compiler-verified pass, driven by compiling the `killer_*`, `text_analyzer`,
+and data-processing examples through the real Kotlin toolchain. Every fix is
+verified against `compileDebugKotlin`.
+
+- **Stdlib imports were silently dropped** — the native targets have no runtime
+  import loader, so `Import "string"` etc. left calls like `word_count` as
+  unresolved references. A new `stdlib_inliner` resolves plain stdlib imports and
+  splices only the *reachable* definitions into the program (callee-before-caller
+  ordering, unused imports dropped, aliased/namespaced imports left untouched).
+- **Dynamic-receiver methods didn't compile** — a loop variable bound from
+  `EPLRuntime.iterate` has static type `Any`, so `char.lowercase()`,
+  `str.contains(char)`, and the string transforms rejected it. String-only methods
+  now coerce a dynamic receiver/argument to `String`; shared methods
+  (`reverse`/`count`/`replace`/`contains`/`length`) route through `EPLRuntime`.
+- **Value-returning functions got a spurious `return Unit`** — the trailing-return
+  check only looked for a top-level `return`, so a function whose returns are all
+  inside `if/else` branches emitted `return Unit` under a `String` signature. Now
+  an all-paths-return analysis recurses through `if/else`.
+- **Kotlin hard keywords as identifiers** — an EPL parameter named `val`/`var`/etc.
+  produced un-parseable Kotlin. Colliding identifiers are now backtick-escaped at
+  every emission site (`this`/`super` pass through with their Kotlin meaning).
+- **Dynamic values into typed contexts** — `Any` values flowing into `Int`/`Double`/
+  `String` params, `Int`/`Double`/`String`-typed reassignments, and `From..To`
+  range bounds are now coerced (`as Number`, `.toString()`) instead of failing type
+  inference. `+`-expression type inference now mirrors the emitter exactly (a
+  dynamic left lowers to `eplAdd ⇒ Any?`, so it no longer mis-infers `String`).
+
 ### Added — enforced VM↔interpreter parity gate over the example corpus
 
 Phase 4 of the enterprise-hardening pass. `epl run` defaults to the bytecode VM,

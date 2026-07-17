@@ -33,7 +33,7 @@ KT_CASES = [
     ('has_package', lambda: 'package com.epl.app' in to_kt('Print "Hello"')),
     ('has_main', lambda: 'fun main()' in to_kt('Print "Hello"')),
     ('print_string', lambda: 'println("Hello")' in to_kt('Print "Hello"')),
-    ('print_expr', lambda: 'println((5 + 3))' in to_kt('Print 5 + 3')),
+    ('print_expr', lambda: 'println(EPLRuntime.toText((5 + 3)))' in to_kt('Print 5 + 3')),
     ('say_alias', lambda: 'println("hi")' in to_kt('Say "hi"')),
     ('var_decl', lambda: 'var x' in to_kt('x = 10') and '= 10' in to_kt('x = 10')),
     (
@@ -66,7 +66,9 @@ KT_CASES = [
             else 'fun greet' in KT_FN
         ),
     ),
-    ('func_return', lambda: 'return (a + b)' in KT_FN_RETURN),
+    # Untyped params are Any; `Any + Any` doesn't compile, so EPL `+` lowers to
+    # the eplAdd runtime helper (numeric add or concat, matching EPL semantics).
+    ('func_return', lambda: 'EPLRuntime.eplAdd(a, b)' in KT_FN_RETURN),
     ('func_call', lambda: 'sum(3, 4)' in KT_CALL),
     ('try_catch', lambda: 'try {' in KT_TRY_CATCH and 'catch' in KT_TRY_CATCH),
     ('throw_stmt', lambda: 'throw' in to_kt('Throw "oops"')),
@@ -117,3 +119,69 @@ def test_string_literal_escapes_preserved():
 
     literal = KotlinGenerator._kotlin_str_literal('a"b\\c')
     assert '\\"' in literal and '\\\\' in literal
+
+
+def test_reassignment_declares_once():
+    """`x = 5` then `x = 10` must emit one `var` and a bare reassignment,
+    not two conflicting declarations."""
+    kt = to_kt('x = 5\nx = 10\nPrint x')
+    main_body = kt.split('fun main()', 1)[1].split('\n\n', 1)[0]
+    assert main_body.count('var x') == 1
+    assert 'x = 10' in kt
+
+
+def test_ambiguous_plus_uses_runtime_helper():
+    """`a + b` on untyped params can't compile as `Any + Any`; it must lower to
+    the eplAdd runtime helper (numeric add or concat)."""
+    kt = to_kt('Function add takes a and b\n  Return a + b\nEnd')
+    assert 'EPLRuntime.eplAdd(a, b)' in kt
+
+
+def test_division_uses_runtime_helper():
+    """EPL `/` is float division that raises on zero, so it lowers to eplDiv
+    rather than Kotlin integer division (which would give a wrong value)."""
+    kt = to_kt('r = 10 / 4\nPrint r')
+    assert 'EPLRuntime.eplDiv(10, 4' in kt
+
+
+def test_db_and_file_builtins_bridge_to_runtime():
+    """db_create_table / db_tables / file_* must map to EPLRuntime methods,
+    not pass through as unresolved snake_case calls."""
+    kt = to_kt(
+        'db = db_open("t.db")\n'
+        'cols = Map with id = "INTEGER"\n'
+        'db_create_table(db, "users", cols)\n'
+        'names = db_tables(db)\n'
+        'file_delete("x.txt")\n'
+    )
+    assert 'EPLRuntime.dbCreateTable(' in kt
+    assert 'EPLRuntime.dbTables(' in kt
+    assert 'EPLRuntime.fileDelete(' in kt
+
+
+def test_class_method_call_return_type_resolved():
+    """A call on a user-class instance resolves the class's declared method
+    return type, not the generic builtin `.add` ⇒ Unit mapping."""
+    kt = to_kt(
+        'Class Calc\n'
+        '  Function addup takes a and b\n'
+        '    Return a + b\n'
+        '  End\n'
+        'End\n'
+        'c = new Calc\n'
+        's = c.addup(1, 2)\n'
+        'Print s'
+    )
+    assert 'var s: Unit' not in kt
+
+
+def test_python_interop_flagged_unportable():
+    """`Use python` has no native runtime; the portability report must flag it
+    rather than silently emit uncompilable references."""
+    from epl.native_portability import analyze
+
+    tokens = Lexer('Use python "math"\nPrint math.sqrt(9)').tokenize()
+    program = Parser(tokens).parse()
+    report = analyze(program, 'android')
+    assert report.has_blocking
+    assert any('python' in i.detail.lower() for i in report.issues)

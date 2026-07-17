@@ -212,14 +212,21 @@ def test_try_catch():
 
 def test_enum():
     code = gen('Enum Color as Red, Green, Blue')
-    assert 'enum class Color' in code
-    assert 'Red' in code and 'Green' in code
+    # Interpreter parity: EPL enums are name → ordinal maps (Color.Red == 0),
+    # so an Int-constant object is emitted, not a Kotlin enum class.
+    assert 'object Color' in code
+    assert 'const val Red: Int = 0' in code
+    assert 'const val Green: Int = 1' in code
+    assert 'const val Blue: Int = 2' in code
     print('  PASS: enum')
 
 
 def test_throw():
     code = gen('Throw "error".')
-    assert 'throw Exception' in code
+    # Interpreter parity: throws a line-numbered EPL runtime error, formatting
+    # the thrown value through EPLRuntime.toText.
+    assert 'throw RuntimeException(' in code
+    assert 'EPL Runtime Error on line 1' in code
     print('  PASS: throw')
 
 
@@ -227,6 +234,68 @@ def test_map_literal():
     code = gen('m = Map with name = "EPL" and version = "4"')
     assert 'mutableMapOf(' in code or 'Map' in code
     print('  PASS: map_literal')
+
+
+def test_for_each_over_list_of_maps_no_keys():
+    # Regression: a `MutableList<Map<...>>` receiver used to match `if 'Map' in
+    # iter_type` and wrongly iterate `.keys` (a Map-only member) — uncompilable.
+    # A list (even a list of maps) must iterate its elements directly.
+    src = (
+        'rows = db_query(db, "SELECT * FROM users").\nFor each row in rows\n    Display row.\nEnd.'
+    )
+    code = gen(src)
+    assert 'for (row in rows)' in code
+    assert 'rows.keys' not in code
+    print('  PASS: for_each_over_list_of_maps')
+
+
+def test_for_each_over_map_iterates_keys():
+    # A genuine map still iterates its keys (EPL semantics).
+    src = 'm = Map with a = 1 and b = 2.\nFor each k in m\n    Display k.\nEnd.'
+    code = gen(src)
+    assert '.keys' in code
+    print('  PASS: for_each_over_map')
+
+
+def test_display_dynamic_value_routes_through_totext():
+    # Regression: println(Any?) is an overload-resolution ambiguity in Kotlin,
+    # and wouldn't match EPL display formatting; dynamic values print via toText.
+    src = (
+        'rows = db_query(db, "SELECT * FROM users").\nFor each row in rows\n    Display row.\nEnd.'
+    )
+    code = gen(src)
+    assert 'println(EPLRuntime.toText(row))' in code
+    # A plain string literal still prints directly (no needless wrapping).
+    assert 'println("")' in gen('Display "".')
+    print('  PASS: display_dynamic_totext')
+
+
+def test_math_builtins_accept_dynamic_args():
+    # floor/sqrt/abs on a division result (eplDiv returns Any) must coerce via
+    # EPLRuntime.toDecimal, not `.toDouble()` on Any (unresolved reference).
+    code = gen('Print floor(7 / 2).')
+    assert 'EPLRuntime.toDecimal(' in code
+    assert '.toDouble()).toInt()' not in code or 'toDecimal' in code
+    # abs preserves int-vs-decimal parity via the runtime helper.
+    assert 'EPLRuntime.absNum(' in gen('Print absolute(-5).')
+    print('  PASS: math_builtins_dynamic_args')
+
+
+def test_regex_replace_and_split_bridges():
+    r = gen('x = regex_replace("a", "b", "aaa").')
+    assert 'EPLRuntime.regexReplace(' in r
+    s = gen('x = regex_split(",", "a,b").')
+    assert 'EPLRuntime.regexSplit(' in s
+    print('  PASS: regex_bridges')
+
+
+def test_reassigned_param_shadowed_not_redeclared():
+    # A reassigned function parameter needs a mutable shadow (Kotlin params are
+    # immutable val), not a fresh `var` that shadows and breaks typing.
+    src = 'Function f takes n\n    Set n to n + 1.\n    Return n.\nEnd'
+    code = gen(src)
+    assert 'var n = n' in code
+    print('  PASS: reassigned_param_shadow')
 
 
 # ─── Jetpack Compose Tests ──────────────────────────
@@ -252,7 +321,9 @@ def test_compose_print_as_text():
 
 def test_expr_binary_ops():
     code = gen('Create x equal to 2 ** 3.')
-    assert '.pow(' in code
+    # `**` routes to EPLRuntime.eplPow, which keeps int**non-negative-int integral
+    # (interpreter parity) instead of Kotlin's always-Double Math.pow.
+    assert 'EPLRuntime.eplPow(2, 3)' in code
     print('  PASS: expr_binary_power')
 
 

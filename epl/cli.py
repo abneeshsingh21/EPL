@@ -3235,8 +3235,10 @@ def _transpile_kotlin(args):
     filename = args[0]
     try:
         from epl.kotlin_gen import transpile_to_kotlin
+        from epl.stdlib_inliner import inline_stdlib_imports
 
         _, program = _load_epl_program(filename)
+        program = inline_stdlib_imports(program, entry_path=filename)
         output_path = _write_generated_text(
             filename, '.kt', transpile_to_kotlin(program), _extract_output_path(args)
         )
@@ -3361,8 +3363,10 @@ def _android(args, flags=None):
             return 0
 
         from epl.kotlin_gen import generate_android_project
+        from epl.stdlib_inliner import inline_stdlib_imports
 
-        generate_android_project(program, output_dir, app_name=resolved_name)
+        codegen_program = inline_stdlib_imports(program, entry_path=filename)
+        generate_android_project(codegen_program, output_dir, app_name=resolved_name)
 
         print(f'\n  {_green("✓")} Android project generated: {_bold(output_dir)}/')
         print(f'  App name: {resolved_name}')
