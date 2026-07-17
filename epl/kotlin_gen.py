@@ -125,8 +125,8 @@ class KotlinGenerator:
 
         for e in enums:
             self._emit_enum(e)
-        for c in consts:
-            self._emit_stmt(c)
+        for const in consts:
+            self._emit_stmt(const)
         for c in classes:
             self._emit_class(c)
         for f in functions:
