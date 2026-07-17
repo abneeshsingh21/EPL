@@ -12,6 +12,8 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
+## [10.2.0] — 2026-07-18
+
 ### Changed — Kotlin runtime extracted to a single source of truth (+ console/JVM target)
 
 The inline `EPLRuntime` Kotlin shim moved out of `kotlin_gen.py` into
