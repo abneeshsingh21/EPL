@@ -8,6 +8,7 @@ type tracking, visibility modifiers, companion objects, and coroutines.
 """
 
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -92,8 +93,14 @@ class KotlinGenerator:
 
     # ─── Public API ──────────────────────────────────────
 
-    def generate(self, program: ast.Program) -> str:
-        """Generate Kotlin source from EPL AST."""
+    def generate(self, program: ast.Program, include_runtime=False) -> str:
+        """Generate Kotlin source from EPL AST.
+
+        include_runtime appends the EPLRuntime shim so the output is a single
+        self-contained, compilable file (the plain `epl kotlin` transpile). The
+        Android project path leaves it False: that project bundles its own
+        EPLRuntime.kt, so appending here would duplicate the object.
+        """
         self.output = []
         self.imports = set()
         self.symbols = SymbolTable()
@@ -106,12 +113,20 @@ class KotlinGenerator:
         classes = [s for s in stmts if isinstance(s, ast.ClassDef)]
         functions = [s for s in stmts if isinstance(s, ast.FunctionDef)]
         enums = [s for s in stmts if isinstance(s, ast.EnumDef)]
+        # Top-level constants must live at file scope: inlined stdlib functions
+        # (also emitted at file scope) close over them, so a constant buried inside
+        # `fun main()` would be an unresolved reference from those functions.
+        consts = [s for s in stmts if isinstance(s, ast.ConstDeclaration)]
         other = [
-            s for s in stmts if not isinstance(s, (ast.ClassDef, ast.FunctionDef, ast.EnumDef))
+            s
+            for s in stmts
+            if not isinstance(s, (ast.ClassDef, ast.FunctionDef, ast.EnumDef, ast.ConstDeclaration))
         ]
 
         for e in enums:
             self._emit_enum(e)
+        for c in consts:
+            self._emit_stmt(c)
         for c in classes:
             self._emit_class(c)
         for f in functions:
@@ -129,14 +144,36 @@ class KotlinGenerator:
         header = f'package {self.package}\n\n'
         if self.imports:
             header += '\n'.join(f'import {i}' for i in sorted(self.imports)) + '\n\n'
-        return header + '\n'.join(self.output)
+        body = header + '\n'.join(self.output)
+        if include_runtime:
+            body += self._console_runtime_suffix(body)
+        return body
+
+    def _console_runtime_suffix(self, body):
+        """Append the EPLRuntime shim for the console/JVM target when referenced.
+
+        The Android target bundles EPLRuntime as its own project file; a plain
+        `epl kotlin` transpile is a single self-contained source, so the runtime
+        the generated code calls into must travel with it. Emitted only when the
+        body actually references EPLRuntime/JsonMini, so trivial programs stay lean.
+        The shim carries its own `package` line, which we drop — the file already
+        declares one — keeping a single package declaration.
+        """
+        if 'EPLRuntime' not in body:
+            return ''
+        from epl.kotlin_runtime import console_runtime
+
+        shim = console_runtime(self.package)
+        _, _, after = shim.partition('\n\n')
+        return '\n\n' + after
 
     def _register_symbols(self, stmts):
         """Pre-pass: register functions, classes, enums for type lookups."""
         for s in stmts:
             if isinstance(s, ast.FunctionDef):
                 ret = self._infer_return_type(s)
-                param_types = [(p[0], self._infer_param_type(p)) for p in s.params]
+                plain, _ = self._split_rest(s.params)
+                param_types = [(p[0], self._infer_param_type(p)) for p in plain]
                 self.symbols.define_function(s.name, param_types, ret)
             elif isinstance(s, ast.ClassDef):
                 props = {}
@@ -777,7 +814,12 @@ class KotlinGenerator:
         elif isinstance(node, ast.AugmentedAssignment):
             self._line(f'{self._safe_ident(node.name)} {node.operator} {self._expr(node.value)}')
         elif isinstance(node, ast.ThrowStatement):
-            self._line(f'throw Exception({self._expr(node.expression)})')
+            # Interpreter parity: a thrown value surfaces in Catch as the string
+            # "EPL Runtime Error on line N: <msg>".
+            self._line(
+                f'throw RuntimeException("EPL Runtime Error on line {node.line}: " '
+                f'+ EPLRuntime.toText({self._expr(node.expression)}))'
+            )
         elif isinstance(node, ast.ConstDeclaration):
             kt_type = self._infer_kotlin_type(node.value)
             self.symbols.define(node.name, kt_type)
@@ -790,7 +832,13 @@ class KotlinGenerator:
             self.imports.add('kotlin.system.exitProcess')
             self._line('exitProcess(0)')
         elif isinstance(node, ast.AssertStatement):
-            self._line(f'assert({self._expr(node.expression)})')
+            # Not Kotlin's assert(): that's disabled on the JVM without -ea, so it
+            # would silently pass. Explicit check, interpreter-formatted message.
+            self._line(
+                f'if (!EPLRuntime.eplTruthy({self._expr(node.expression)})) '
+                f'throw RuntimeException("EPL Runtime Error on line {node.line}: '
+                f'Assertion failed on line {node.line}.")'
+            )
         # GUI nodes - emit as comments in non-Android context
         elif isinstance(node, ast.WindowCreate):
             self._emit_window_comment(node)
@@ -847,6 +895,20 @@ class KotlinGenerator:
             self._emit_scene_3d_compose(node)
         elif isinstance(node, ast.DrawCommand):
             self._emit_draw_command_compose(node)
+        elif isinstance(node, ast.FileWrite):
+            # Content goes through toText: the interpreter writes the
+            # EPL-formatted value (5.0 prints as 5), not Kotlin's toString.
+            self._line(
+                f'EPLRuntime.fileWrite({self._expr(node.filepath)}, '
+                f'EPLRuntime.toText({self._expr(node.content)}))'
+            )
+        elif isinstance(node, ast.FileAppend):
+            # The `Append ... to file` statement adds a trailing newline
+            # (interpreter parity); the file_append builtin does not.
+            self._line(
+                f'EPLRuntime.fileAppend({self._expr(node.filepath)}, '
+                f'EPLRuntime.toText({self._expr(node.content)}) + "\\n")'
+            )
         elif isinstance(node, (ast.ResponsiveBlock, ast.TransitionDef, ast.KeyframeDef)):
             pass  # CSS-specific, no Kotlin equivalent
 
@@ -884,15 +946,21 @@ class KotlinGenerator:
         for s in node.try_body:
             self._emit_stmt(s)
         self.indent -= 1
-        for clause in node.catch_clauses:
-            var_name = clause.get('var', 'e')
-            err_type = clause.get('type', 'Exception')
-            self._line(f'}} catch ({var_name}: {err_type}) {{')
+        # catch_clauses entries are (error_type, error_var, body) tuples. Typed
+        # EPL error classes don't map to JVM exception types, so all clauses
+        # collapse into one Exception catch; the first clause's var binds the
+        # MESSAGE string (interpreter parity), matching _emit_try_catch.
+        if node.catch_clauses:
+            _, error_var, body = node.catch_clauses[0]
+            var = self._safe_ident(error_var or 'e')
+            self._line('} catch (__exc: Exception) {')
             self.indent += 1
-            for s in clause.get('body', []):
+            self._line(f'val {var}: String = __exc.message ?: __exc.toString()')
+            self.symbols.define(error_var or 'e', 'String')
+            for s in body:
                 self._emit_stmt(s)
             self.indent -= 1
-        if not node.catch_clauses:
+        else:
             self._line('} catch (e: Exception) {')
             self.indent += 1
             self._line('// no catch body')
@@ -1093,6 +1161,36 @@ class KotlinGenerator:
             self.symbols.mark_declared(nm)
             self._line(f'var {nm}: {decl_type} = {default}')
 
+    def _reassigned_names(self, stmts):
+        """Names that are targets of an assignment anywhere in the body.
+
+        Kotlin function parameters are immutable `val`; an EPL body that reassigns
+        a parameter (e.g. `n = n / 2`) needs a mutable local shadow, else Kotlin
+        rejects it as 'val cannot be reassigned'.
+        """
+        names = set()
+        for top in stmts:
+            for node in self._walk_scope(top):
+                if isinstance(node, (ast.VarAssignment, ast.VarDeclaration)):
+                    names.add(node.name)
+        return names
+
+    def _shadow_reassigned_params(self, param_types, body):
+        """Emit `var p = p` shadows for parameters the body reassigns.
+
+        Returns the set of shadowed names. Each becomes a mutable local declared
+        at function top, so subsequent reassignments compile and later reads see
+        the updated value (EPL parameters are mutable locals, Kotlin's are not).
+        """
+        reassigned = self._reassigned_names(body)
+        shadowed = set()
+        for name, pt in param_types:
+            if name in reassigned:
+                self._line(f'var {self._safe_ident(name)} = {self._safe_ident(name)}')
+                self.symbols.mark_declared(name)
+                shadowed.add(name)
+        return shadowed
+
     @staticmethod
     def _zero_value(kt):
         if kt in ('Int', 'Long'):
@@ -1110,7 +1208,16 @@ class KotlinGenerator:
         return 'null'
 
     def _emit_print(self, node):
-        self._line(f'println({self._expr(node.expression)})')
+        expr = self._expr(node.expression)
+        # A String literal/expression prints directly; anything whose static type
+        # is dynamic (Any?) hits Kotlin's println overload-resolution ambiguity and
+        # also wouldn't match EPL's display formatting (nothing, whole decimals) —
+        # route those through EPLRuntime.toText so output is a well-formed String.
+        expr_type = self._infer_kotlin_type(node.expression)
+        if expr_type == 'String':
+            self._line(f'println({expr})')
+        else:
+            self._line(f'println(EPLRuntime.toText({expr}))')
 
     def _emit_input(self, node):
         if node.prompt:
@@ -1205,12 +1312,12 @@ class KotlinGenerator:
         # Element type of the iterable, falling back to Any for dynamic values.
         iter_type = self._infer_kotlin_type(node.iterable)
         iterable = self._expr(node.iterable)
-        if 'Map' in iter_type:
+        if iter_type.startswith(('MutableList<', 'List<')):
+            elem_type = iter_type[iter_type.index('<') + 1 : -1]
+        elif iter_type.startswith(('MutableMap<', 'Map<')):
             # EPL iterates a map over its keys, not its entries.
             iterable = f'{iterable}.keys'
             elem_type = 'String'
-        elif iter_type.startswith(('MutableList<', 'List<')):
-            elem_type = iter_type[iter_type.index('<') + 1 : -1]
         elif iter_type == 'String':
             # EPL iterates a string as 1-char strings, not Kotlin Chars.
             iterable = f'{iterable}.map {{ it.toString() }}'
@@ -1227,9 +1334,22 @@ class KotlinGenerator:
         self.indent -= 1
         self._line('}')
 
+    @staticmethod
+    def _split_rest(params):
+        """Split params into (plain tuple-params, trailing RestParameter or None).
+
+        EPL allows one trailing `rest` parameter (varargs); it arrives as a
+        RestParameter node, not a (name, type, default) tuple, so every code
+        path that indexes params must go through this split.
+        """
+        if params and isinstance(params[-1], ast.RestParameter):
+            return params[:-1], params[-1]
+        return params, None
+
     def _emit_function(self, node):
         # Filter out 'self' param (not needed in Kotlin)
-        real_params = [p for p in node.params if p[0] != 'self']
+        plain, rest = self._split_rest(node.params)
+        real_params = [p for p in plain if p[0] != 'self']
         param_types = self._resolve_param_types(real_params, node.body)
         # Seed the signature from non-recursive returns first so a recursive
         # self-call resolves to a concrete type, then refine with all paths.
@@ -1240,6 +1360,9 @@ class KotlinGenerator:
         params = ', '.join(
             self._format_param_typed(p, pt) for p, (_, pt) in zip(real_params, param_types)
         )
+        if rest is not None:
+            rest_decl = f'vararg {self._safe_ident(rest.name)}: Any?'
+            params = f'{params}, {rest_decl}' if params else rest_decl
         self._line(f'fun {node.name}({params}): {ret_type} {{')
         self.indent += 1
         prev_symbols = self.symbols
@@ -1248,7 +1371,17 @@ class KotlinGenerator:
         self.symbols = self.symbols.child()
         for name, pt in param_types:
             self.symbols.define(name, pt)
-        self._declare_hoisted(node.body, {n for n, _ in param_types})
+        if rest is not None:
+            # EPL sees a rest parameter as a list; Kotlin's vararg is an Array.
+            # Shadow it with a list so list methods/iteration match interpreter
+            # semantics inside the body.
+            self._line(f'val {self._safe_ident(rest.name)} = {self._safe_ident(rest.name)}.toMutableList()')
+            self.symbols.define(rest.name, 'MutableList<Any?>')
+        hoist_skip = {n for n, _ in param_types}
+        if rest is not None:
+            hoist_skip.add(rest.name)
+        shadowed = self._shadow_reassigned_params(param_types, node.body)
+        self._declare_hoisted(node.body, hoist_skip - shadowed)
         for s in node.body:
             self._emit_stmt(s)
         if ret_type != 'Unit' and not self._always_returns(node.body):
@@ -1292,7 +1425,8 @@ class KotlinGenerator:
         self.symbols = self.symbols.child()
         for name, pt in param_types:
             self.symbols.define(name, pt)
-        self._declare_hoisted(node.body, {n for n, _ in param_types})
+        shadowed = self._shadow_reassigned_params(param_types, node.body)
+        self._declare_hoisted(node.body, {n for n, _ in param_types} - shadowed)
         for s in node.body:
             self._emit_stmt(s)
         if ret_type != 'Unit' and not self._always_returns(node.body):
@@ -1371,11 +1505,15 @@ class KotlinGenerator:
                 if lt == 'Int' and rt == 'Int':
                     return 'Int'
             if node.operator == '/':
-                return 'Double'
+                # eplDiv keeps an evenly-divisible int/int integral (interpreter
+                # parity: 10/2 prints 5, not 5.0), so `/` can't pin to Double.
+                return 'Any'
             if node.operator == '//':
                 return 'Int'
             if node.operator == '**':
-                return 'Double'
+                # Int base with non-negative Int exponent stays integral at
+                # runtime (eplPow), so the static type can't be pinned to Double.
+                return 'Any'
         if isinstance(node, ast.UnaryOp):
             if node.operator == 'not':
                 return 'Boolean'
@@ -1416,7 +1554,7 @@ class KotlinGenerator:
                 'uppercase': 'String',
                 'lowercase': 'String',
                 'sqrt': 'Double',
-                'power': 'Double',
+                'power': 'Any',
                 'floor': 'Int',
                 'ceil': 'Int',
                 'round': 'Long',
@@ -1725,8 +1863,10 @@ class KotlinGenerator:
         untyped stdlib helpers emit typed receivers instead of `Any`, on which no
         member resolves. Numeric evidence wins; anything inconclusive stays `Any`.
         """
-        arith_int = {'-', '*', '%', '//'}
-        arith_dbl = {'/', '**'}
+        # `/` infers like the int-preserving ops: eplDiv keeps an evenly-divisible
+        # int/int integral, so pinning its operands to Double would print 5.0
+        # where the interpreter prints 5. `**` is absent for the same reason.
+        arith_int = {'-', '*', '%', '//', '/'}
         compare = {'<', '>', '<=', '>='}
         evidence = set()
         for n in self._walk_ast(body):
@@ -1749,9 +1889,7 @@ class KotlinGenerator:
             if not (left_is or right_is):
                 continue
             other_t = self._infer_kotlin_type(n.right if left_is else n.left)
-            if n.operator in arith_dbl:
-                evidence.add('Double')
-            elif n.operator in arith_int:
+            if n.operator in arith_int:
                 evidence.add('Double' if other_t == 'Double' else 'Int')
             elif n.operator == '+' and other_t in ('Int', 'Double'):
                 evidence.add(other_t)
@@ -2028,9 +2166,13 @@ class KotlinGenerator:
         self.symbols = prev_symbols
 
     def _emit_enum(self, node):
-        self._line(f'enum class {node.name} {{')
+        # Interpreter parity: an EPL enum is a name → ordinal map (Color.RED == 0,
+        # prints as 0, matches `When 0`). A real Kotlin `enum class` would print
+        # the member name and never equal an Int, so emit Int constants instead.
+        self._line(f'object {node.name} {{')
         self.indent += 1
-        self._line(', '.join(node.members))
+        for i, member in enumerate(node.members):
+            self._line(f'const val {member}: Int = {i}')
         self.indent -= 1
         self._line('}')
 
@@ -2061,8 +2203,12 @@ class KotlinGenerator:
         for s in node.try_body:
             self._emit_stmt(s)
         self.indent -= 1
-        self._line(f'}} catch ({node.error_var or "e"}: Exception) {{')
+        # EPL's catch variable is the error MESSAGE (a string), not the exception.
+        var = self._safe_ident(node.error_var or 'e')
+        self._line('} catch (__exc: Exception) {')
         self.indent += 1
+        self._line(f'val {var}: String = __exc.message ?: __exc.toString()')
+        self.symbols.define(node.error_var or 'e', 'String')
         for s in node.catch_body:
             self._emit_stmt(s)
         self.indent -= 1
@@ -2244,6 +2390,8 @@ class KotlinGenerator:
             if node.method_name:
                 return f'super.{node.method_name}({args})'
             return f'super({args})'
+        if isinstance(node, ast.FileRead):
+            return f'EPLRuntime.fileRead({self._expr(node.filepath)})'
         if isinstance(node, str):
             return f'"{node}"'
         # Fallback with type info comment
@@ -2272,12 +2420,56 @@ class KotlinGenerator:
         if isinstance(node.value, bool):
             return 'true' if node.value else 'false'
         if isinstance(node.value, str):
+            if '$' in node.value:
+                return self._interpolated_str_literal(node.value)
             return self._kotlin_str_literal(node.value)
         if node.value is None:
             return 'null'
         if isinstance(node.value, float):
             return str(node.value)
         return str(node.value)
+
+    _TEMPLATE_RE = re.compile(r'\$\{([^}]+)\}|\$([a-zA-Z_][a-zA-Z0-9_]*)')
+
+    def _interpolated_str_literal(self, value: str) -> str:
+        """EPL string templates: `$var` / `${expr}` interpolate (interpreter parity).
+
+        SECURITY: raw text is never spliced into Kotlin. `$var` resolves only for
+        identifiers declared in the symbol table (name shape enforced by the
+        regex); `${expr}` is parsed as EPL and routed through the code generator.
+        Anything unresolved stays a `\\$`-escaped literal, exactly like the
+        interpreter leaves unknown templates as-is.
+        """
+        out = []
+        pos = 0
+        for m in self._TEMPLATE_RE.finditer(value):
+            expr_text, var_name = m.group(1), m.group(2)
+            kt = None
+            if var_name is not None:
+                if self.symbols.lookup(var_name) is not None:
+                    kt = f'EPLRuntime.toText({self._safe_ident(var_name)})'
+            else:
+                kt = self._template_expr_kotlin(expr_text)
+            if kt is None:
+                continue
+            lit = self._kotlin_str_literal(value[pos : m.start()])[1:-1]
+            out.append(lit)
+            out.append(f'${{{kt}}}')
+            pos = m.end()
+        out.append(self._kotlin_str_literal(value[pos:])[1:-1])
+        return '"' + ''.join(out) + '"'
+
+    def _template_expr_kotlin(self, expr_text: str):
+        """Parse a `${...}` template body as an EPL expression → Kotlin, or None."""
+        try:
+            from epl.lexer import Lexer
+            from epl.parser import Parser
+
+            tokens = Lexer(expr_text).tokenize()
+            node = Parser(tokens)._parse_expression()
+            return f'EPLRuntime.toText({self._expr(node)})'
+        except Exception:
+            return None
 
     _DYNAMIC = {'Any', 'Any?'}
 
@@ -2306,18 +2498,18 @@ class KotlinGenerator:
             if op == '!=':
                 return f'(!EPLRuntime.eplEq({l}, {r}))'
             if op == '//':
-                return f'kotlin.math.floor(EPLRuntime.eplDiv({l}, {r})).toInt()'
+                return f'kotlin.math.floor(EPLRuntime.toDecimal(EPLRuntime.eplDiv({l}, {r}, {node.line}))).toInt()'
             # `+` on a dynamic left is add-or-concat at runtime (String left concats natively).
             if op == '+' and lt != 'String':
                 return f'EPLRuntime.eplAdd({l}, {r})'
         if op == '**':
-            self.imports.add('kotlin.math.pow')
-            return f'{l}.toDouble().pow({r}.toDouble())'
+            # eplPow keeps int ** non-negative int integral (interpreter parity)
+            return f'EPLRuntime.eplPow({l}, {r})'
         if op == '//':
             self.imports.add('kotlin.math.floor')
             return f'floor({l}.toDouble() / {r}.toDouble()).toInt()'
         if op == '/':
-            return f'EPLRuntime.eplDiv({l}, {r})'
+            return f'EPLRuntime.eplDiv({l}, {r}, {node.line})'
         if op == '+':
             numeric = {'Int', 'Long', 'Double', 'Float'}
             # String concat: native `+` needs a String LEFT (String.plus(Any?)); a
@@ -2424,23 +2616,22 @@ class KotlinGenerator:
             'to_decimal': lambda: f'{self._expr(node.arguments[0])}.toString().toDouble()',
             'uppercase': lambda: f'{self._str_arg(node.arguments[0])}.uppercase()',
             'lowercase': lambda: f'{self._str_arg(node.arguments[0])}.lowercase()',
-            'sqrt': lambda: f'kotlin.math.sqrt({args}.toDouble())',
-            'power': lambda: (
-                f'{self._expr(node.arguments[0])}.toDouble().pow({self._expr(node.arguments[1])}.toDouble())'
-            ),
-            'floor': lambda: f'kotlin.math.floor({args}.toDouble()).toInt()',
-            'ceil': lambda: f'kotlin.math.ceil({args}.toDouble()).toInt()',
+            'sqrt': lambda: f'kotlin.math.sqrt(EPLRuntime.toDecimal({args}))',
+            # eplPow keeps int ** non-negative int integral (interpreter parity)
+            'power': lambda: f'EPLRuntime.eplPow({args})',
+            'floor': lambda: f'kotlin.math.floor(EPLRuntime.toDecimal({args})).toInt()',
+            'ceil': lambda: f'kotlin.math.ceil(EPLRuntime.toDecimal({args})).toInt()',
             'round': lambda: f'EPLRuntime.roundNum({args})',
-            'absolute': lambda: f'kotlin.math.abs({args})',
-            'abs': lambda: f'kotlin.math.abs({args})',
+            'absolute': lambda: f'EPLRuntime.absNum({args})',
+            'abs': lambda: f'EPLRuntime.absNum({args})',
             'type_of': lambda: f'EPLRuntime.typeName({args})',
             'typeof': lambda: f'EPLRuntime.typeName({args})',
             'max': lambda: f'maxOf({args})',
             'min': lambda: f'minOf({args})',
             'random': lambda: 'kotlin.random.Random.nextDouble()',
-            'log': lambda: f'kotlin.math.ln({args}.toDouble())',
-            'sin': lambda: f'kotlin.math.sin({args}.toDouble())',
-            'cos': lambda: f'kotlin.math.cos({args}.toDouble())',
+            'log': lambda: f'kotlin.math.ln(EPLRuntime.toDecimal({args}))',
+            'sin': lambda: f'kotlin.math.sin(EPLRuntime.toDecimal({args}))',
+            'cos': lambda: f'kotlin.math.cos(EPLRuntime.toDecimal({args}))',
             'reversed': lambda: f'EPLRuntime.reversed({args})',
             'reverse': lambda: f'EPLRuntime.reversed({args})',
             'range': lambda: f'EPLRuntime.rangeOf({args})',
@@ -3685,617 +3876,12 @@ local.properties
 """
 
     def _epl_runtime_kt(self):
-        return f"""package {self.package}
+        # Single source of truth for the runtime shim lives in epl.kotlin_runtime;
+        # the Android assembly is byte-identical to the historically verified APK
+        # runtime (locked by tests/test_kotlin_runtime_golden.py).
+        from epl.kotlin_runtime import android_runtime
 
-/**
- * EPL Runtime Support for Android
- * Generated by EPL Kotlin Generator v2.0
- */
-object EPLRuntime {{
-    private val variables = mutableMapOf<String, Any?>()
-    
-    fun setVar(name: String, value: Any?) {{
-        variables[name] = value
-    }}
-    
-    fun getVar(name: String): Any? = variables[name]
-    
-    fun toText(value: Any?): String = when (value) {{
-        null -> "nothing"
-        is Boolean -> if (value) "true" else "false"
-        is Double -> if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
-        else -> value.toString()
-    }}
-    
-    fun toInteger(value: Any?): Long = when (value) {{
-        is Number -> value.toLong()
-        is String -> value.toLongOrNull() ?: 0L
-        is Boolean -> if (value) 1L else 0L
-        else -> 0L
-    }}
-    
-    fun toDecimal(value: Any?): Double = when (value) {{
-        is Number -> value.toDouble()
-        is String -> value.toDoubleOrNull() ?: 0.0
-        is Boolean -> if (value) 1.0 else 0.0
-        else -> 0.0
-    }}
-    
-    fun typeOf(value: Any?): String = when (value) {{
-        null -> "Nothing"
-        is Long, is Int -> "Integer"
-        is Double, is Float -> "Decimal"
-        is String -> "String"
-        is Boolean -> "Boolean"
-        is List<*> -> "List"
-        is Map<*, *> -> "Map"
-        else -> value::class.simpleName ?: "Unknown"
-    }}
-    
-    fun length(value: Any?): Int = when (value) {{
-        is String -> value.length
-        is List<*> -> value.size
-        is Map<*, *> -> value.size
-        else -> 0
-    }}
-    
-    // Math helpers
-    fun power(base: Double, exp: Double): Double = Math.pow(base, exp)
-    fun sqrt(x: Double): Double = Math.sqrt(x)
-    fun abs(x: Double): Double = Math.abs(x)
-    fun floor(x: Double): Double = Math.floor(x)
-    fun ceil(x: Double): Double = Math.ceil(x)
-    fun round(x: Double): Long = Math.round(x)
-    fun random(): Double = Math.random()
-    fun randomInt(min: Int, max: Int): Int = (min..max).random()
-    fun max(a: Double, b: Double): Double = maxOf(a, b)
-    fun min(a: Double, b: Double): Double = minOf(a, b)
-
-    // EPL `+`: numeric addition when both sides are numbers, string concat otherwise.
-    // Used only for statically-dynamic operands (Any); typed operands compile to `+`.
-    fun eplAdd(a: Any?, b: Any?): Any {{
-        if (a is Number && b is Number) {{
-            return if (a is Double || b is Double || a is Float || b is Float)
-                a.toDouble() + b.toDouble()
-            else a.toLong() + b.toLong()
-        }}
-        return toText(a) + toText(b)
-    }}
-
-    // EPL truthiness: null/false/0/empty-string/empty-collection are falsy.
-    fun truthy(v: Any?): Boolean = when (v) {{
-        null -> false
-        is Boolean -> v
-        is Number -> v.toDouble() != 0.0
-        is String -> v.isNotEmpty()
-        is List<*> -> v.isNotEmpty()
-        is Map<*, *> -> v.isNotEmpty()
-        else -> true
-    }}
-
-    // EPL `/` is float division and raises on a zero divisor (interpreter parity).
-    fun eplDiv(a: Any?, b: Any?): Double {{
-        val divisor = (b as Number).toDouble()
-        if (divisor == 0.0) throw RuntimeException("Cannot divide by zero.")
-        return (a as Number).toDouble() / divisor
-    }}
-
-    // ─── Dynamic arithmetic/comparison (operands typed Any?, e.g. lambda params) ───
-    private fun bothInt(a: Number, b: Number) =
-        a !is Double && a !is Float && b !is Double && b !is Float
-    fun eplMul(a: Any?, b: Any?): Any {{
-        val x = a as Number; val y = b as Number
-        return if (bothInt(x, y)) x.toLong() * y.toLong() else x.toDouble() * y.toDouble()
-    }}
-    fun eplSub(a: Any?, b: Any?): Any {{
-        val x = a as Number; val y = b as Number
-        return if (bothInt(x, y)) x.toLong() - y.toLong() else x.toDouble() - y.toDouble()
-    }}
-    fun eplMod(a: Any?, b: Any?): Any {{
-        val x = a as Number; val y = b as Number
-        return if (bothInt(x, y)) x.toLong() % y.toLong() else x.toDouble() % y.toDouble()
-    }}
-    fun eplPow(a: Any?, b: Any?): Double =
-        Math.pow((a as Number).toDouble(), (b as Number).toDouble())
-    private fun cmp(a: Any?, b: Any?): Int {{
-        if (a is Number && b is Number) return a.toDouble().compareTo(b.toDouble())
-        if (a is String && b is String) return a.compareTo(b)
-        throw RuntimeException("Cannot compare ${{typeName(a)}} and ${{typeName(b)}}.")
-    }}
-    fun eplLt(a: Any?, b: Any?): Boolean = cmp(a, b) < 0
-    fun eplGt(a: Any?, b: Any?): Boolean = cmp(a, b) > 0
-    fun eplLe(a: Any?, b: Any?): Boolean = cmp(a, b) <= 0
-    fun eplGe(a: Any?, b: Any?): Boolean = cmp(a, b) >= 0
-    // EPL `==`: numbers compare by value across Int/Double; else structural.
-    fun eplEq(a: Any?, b: Any?): Boolean {{
-        if (a is Number && b is Number) return a.toDouble() == b.toDouble()
-        return a == b
-    }}
-
-    // EPL truthiness: null/false/0/""/empty-collection are falsey (interpreter parity).
-    fun eplTruthy(v: Any?): Boolean = when (v) {{
-        null -> false
-        is Boolean -> v
-        is Number -> v.toDouble() != 0.0
-        is CharSequence -> v.isNotEmpty()
-        is Collection<*> -> v.isNotEmpty()
-        is Map<*, *> -> v.isNotEmpty()
-        else -> true
-    }}
-
-    // ─── Higher-order list methods (dynamic; mirror interpreter list callables) ───
-    @Suppress("UNCHECKED_CAST")
-    private fun asList(o: Any?): List<Any?> =
-        o as? List<Any?> ?: throw RuntimeException("Expected a list.")
-    fun mapList(o: Any?, fn: (Any?) -> Any?): MutableList<Any?> =
-        asList(o).map(fn).toMutableList()
-    fun filterList(o: Any?, fn: (Any?) -> Any?): MutableList<Any?> =
-        asList(o).filter {{ eplTruthy(fn(it)) }}.toMutableList()
-    fun reduceList(o: Any?, fn: (Any?, Any?) -> Any?): Any? {{
-        val items = asList(o)
-        if (items.isEmpty()) throw RuntimeException("reduce() called on empty list with no initial value.")
-        var acc: Any? = items[0]
-        for (i in 1 until items.size) acc = fn(acc, items[i])
-        return acc
-    }}
-    fun reduceList(o: Any?, fn: (Any?, Any?) -> Any?, init: Any?): Any? {{
-        var acc = init
-        for (item in asList(o)) acc = fn(acc, item)
-        return acc
-    }}
-    fun findList(o: Any?, fn: (Any?) -> Any?): Any? =
-        asList(o).firstOrNull {{ eplTruthy(fn(it)) }}
-    fun everyList(o: Any?, fn: (Any?) -> Any?): Boolean =
-        asList(o).all {{ eplTruthy(fn(it)) }}
-    fun someList(o: Any?, fn: (Any?) -> Any?): Boolean =
-        asList(o).any {{ eplTruthy(fn(it)) }}
-
-    // String helpers
-    fun uppercase(s: String): String = s.uppercase()
-    fun lowercase(s: String): String = s.lowercase()
-    fun trim(s: String): String = s.trim()
-    fun split(s: String, delim: String): List<String> = s.split(delim)
-    fun join(list: List<*>, sep: String): String = list.joinToString(sep)
-    fun replace(s: String, old: String, new: String): String = s.replace(old, new)
-    fun contains(s: String, sub: String): Boolean = s.contains(sub)
-    fun startsWith(s: String, prefix: String): Boolean = s.startsWith(prefix)
-    fun endsWith(s: String, suffix: String): Boolean = s.endsWith(suffix)
-    fun substring(s: String, start: Int, end: Int): String = s.substring(start, minOf(end, s.length))
-
-    // ─── EPL string methods (mirror interpreter _call_string_method) ───
-    fun strCount(s: String, sub: String): Int {{
-        if (sub.isEmpty()) return 0
-        var count = 0
-        var i = s.indexOf(sub)
-        while (i >= 0) {{ count++; i = s.indexOf(sub, i + sub.length) }}
-        return count
-    }}
-    fun padLeft(s: String, width: Int, fill: String = " "): String =
-        s.padStart(width, if (fill.isEmpty()) ' ' else fill[0])
-    fun padRight(s: String, width: Int, fill: String = " "): String =
-        s.padEnd(width, if (fill.isEmpty()) ' ' else fill[0])
-    fun charAt(s: String, idx: Int): String {{
-        if (idx < 0 || idx >= s.length) throw RuntimeException("Index $idx out of range.")
-        return s[idx].toString()
-    }}
-    fun toCharList(s: String): MutableList<String> =
-        s.map {{ it.toString() }}.toMutableList()
-    fun isNumberStr(s: String): Boolean = s.toDoubleOrNull() != null
-    fun isAlphaStr(s: String): Boolean = s.isNotEmpty() && s.all {{ it.isLetter() }}
-    fun strFormat(s: String, vararg args: Any?): String {{
-        var result = s
-        for (a in args) result = result.replaceFirst("{{}}", a?.toString() ?: "nothing")
-        return result
-    }}
-    fun reversed(obj: Any?): Any? = when (obj) {{
-        is CharSequence -> obj.reversed().toString()
-        is List<*> -> obj.reversed().toMutableList()
-        else -> throw RuntimeException("reversed() expects a list or text.")
-    }}
-
-    // ─── EPL collection/number/type builtins (free functions) ───
-    fun rangeOf(end: Int): MutableList<Int> = (0 until end).toMutableList()
-    fun rangeOf(start: Int, end: Int): MutableList<Int> = (start until end).toMutableList()
-    fun rangeOf(start: Int, end: Int, step: Int): MutableList<Int> {{
-        if (step == 0) throw RuntimeException("range() step cannot be zero.")
-        val out = ArrayList<Int>()
-        var i = start
-        if (step > 0) while (i < end) {{ out.add(i); i += step }}
-        else while (i > end) {{ out.add(i); i += step }}
-        return out
-    }}
-    fun sumOf(list: Any?): Any? {{
-        val items = list as List<*>
-        if (items.all {{ it is Int }}) return items.sumOf {{ it as Int }}
-        return items.sumOf {{ (it as Number).toDouble() }}
-    }}
-    @Suppress("UNCHECKED_CAST")
-    fun sortedOf(list: Any?): MutableList<Any?> {{
-        val items = (list as List<*>).toMutableList()
-        (items as MutableList<Comparable<Any?>>).sort()
-        return items as MutableList<Any?>
-    }}
-    fun isInteger(v: Any?): Boolean = v is Int || v is Long
-    fun isDecimal(v: Any?): Boolean = v is Double || v is Float
-    fun isText(v: Any?): Boolean = v is CharSequence
-    fun isBoolean(v: Any?): Boolean = v is Boolean
-    fun isList(v: Any?): Boolean = v is List<*>
-    fun isMap(v: Any?): Boolean = v is Map<*, *>
-    fun isNothing(v: Any?): Boolean = v == null
-    fun isNumber(v: Any?): Boolean = v is Int || v is Long || v is Double || v is Float
-    fun charCode(s: Any?): Int {{
-        val str = s as String
-        if (str.length != 1) throw RuntimeException("char_code() takes 1 single-character text argument.")
-        return str[0].code
-    }}
-    fun fromCharCode(n: Any?): String = (n as Number).toInt().toChar().toString()
-    fun jsonParse(s: Any?): Any? = jsonToEpl(org.json.JSONTokener(s as String).nextValue())
-    private fun jsonToEpl(v: Any?): Any? = when (v) {{
-        is org.json.JSONObject -> {{
-            val m = LinkedHashMap<String, Any?>()
-            for (k in v.keys()) m[k] = jsonToEpl(v.get(k))
-            m
-        }}
-        is org.json.JSONArray -> {{
-            val l = ArrayList<Any?>()
-            for (i in 0 until v.length()) l.add(jsonToEpl(v.get(i)))
-            l
-        }}
-        org.json.JSONObject.NULL -> null
-        else -> v
-    }}
-    fun jsonStringify(v: Any?): String = eplToJson(v).toString()
-    private fun eplToJson(v: Any?): Any? = when (v) {{
-        is Map<*, *> -> {{
-            val o = org.json.JSONObject()
-            for ((k, vv) in v) o.put(k.toString(), eplToJson(vv))
-            o
-        }}
-        is List<*> -> {{
-            val a = org.json.JSONArray()
-            for (it in v) a.put(eplToJson(it))
-            a
-        }}
-        null -> org.json.JSONObject.NULL
-        else -> v
-    }}
-
-    // ─── Crypto / encoding native builtins ───
-    fun hashSha256(text: String): String {{
-        val d = java.security.MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
-        return d.joinToString("") {{ "%02x".format(it) }}
-    }}
-    fun hashMd5(text: String): String {{
-        val d = java.security.MessageDigest.getInstance("MD5").digest(text.toByteArray(Charsets.UTF_8))
-        return d.joinToString("") {{ "%02x".format(it) }}
-    }}
-    fun base64Encode(text: String): String =
-        android.util.Base64.encodeToString(text.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
-    fun base64Decode(text: String): String =
-        String(android.util.Base64.decode(text, android.util.Base64.NO_WRAP), Charsets.UTF_8)
-    fun hexEncode(text: String): String =
-        text.toByteArray(Charsets.UTF_8).joinToString("") {{ "%02x".format(it) }}
-    fun hexDecode(hex: String): String {{
-        val bytes = ByteArray(hex.length / 2) {{ i ->
-            hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-        }}
-        return String(bytes, Charsets.UTF_8)
-    }}
-    fun urlEncode(text: String): String = java.net.URLEncoder.encode(text, "UTF-8")
-    fun urlDecode(text: String): String = java.net.URLDecoder.decode(text, "UTF-8")
-    fun uuid4(): String = java.util.UUID.randomUUID().toString()
-
-    // ─── Datetime native builtins ───
-    fun timestamp(): Double = System.currentTimeMillis() / 1000.0
-    fun today(): String = java.time.LocalDate.now().toString()
-    fun now(): String = java.time.LocalDateTime.now().toString()
-
-    // ─── Regex native builtins ───
-    fun regexFindAll(pattern: String, text: String): MutableList<String> {{
-        val out = ArrayList<String>()
-        val m = java.util.regex.Pattern.compile(pattern).matcher(text)
-        while (m.find()) out.add(m.group())
-        return out
-    }}
-    fun regexTest(pattern: String, text: String): Boolean =
-        java.util.regex.Pattern.compile(pattern).matcher(text).find()
-
-    // ─── Math native builtins ───
-    fun factorial(n: Any?): Long {{
-        var r = 1L
-        for (i in 2..(n as Number).toInt()) r *= i
-        return r
-    }}
-    fun gcd(a: Any?, b: Any?): Long {{
-        var x = (a as Number).toLong(); var y = (b as Number).toLong()
-        while (y != 0L) {{ val t = y; y = x % y; x = t }}
-        return kotlin.math.abs(x)
-    }}
-
-    // ─── Collections native builtins ───
-    @Suppress("UNCHECKED_CAST")
-    fun listPop(list: Any?): Any? {{
-        val items = list as MutableList<Any?>
-        if (items.isEmpty()) return null
-        return items.removeAt(items.size - 1)
-    }}
-    @Suppress("UNCHECKED_CAST")
-    fun listAdd(list: Any?, item: Any?): Any? {{
-        (list as MutableList<Any?>).add(item)
-        return list
-    }}
-    @Suppress("UNCHECKED_CAST")
-    fun listRemove(list: Any?, item: Any?): Any? {{
-        (list as MutableList<Any?>).remove(item)
-        return list
-    }}
-    fun dictFromLists(keys: Any?, values: Any?): MutableMap<Any?, Any?> {{
-        val ks = keys as List<*>
-        val vs = values as List<*>
-        val out = LinkedHashMap<Any?, Any?>()
-        for (i in ks.indices) out[ks[i]] = if (i < vs.size) vs[i] else null
-        return out
-    }}
-
-    // ─── Dynamic access (EPL maps, lists, db rows) ───
-    fun field(obj: Any?, name: String): Any? = when {{
-        name == "length" || name == "size" -> lengthOf(obj)
-        obj is Map<*, *> -> obj[name]
-        else -> null
-    }}
-
-    fun at(obj: Any?, index: Any?): Any? = when (obj) {{
-        is List<*> -> obj[(index as Number).toInt()]
-        is Map<*, *> -> obj[index]
-        is String -> obj[(index as Number).toInt()].toString()
-        else -> null
-    }}
-
-    fun lengthOf(obj: Any?): Int = when (obj) {{
-        is CharSequence -> obj.length
-        is Map<*, *> -> obj.size
-        is Collection<*> -> obj.size
-        else -> 0
-    }}
-
-    // ─── Dynamic receivers shared by strings and lists (static type unknown) ───
-    @Suppress("UNCHECKED_CAST")
-    fun iterate(obj: Any?): List<Any> = when (obj) {{
-        is CharSequence -> obj.map {{ it.toString() }}
-        is Collection<*> -> obj.toList() as List<Any>
-        is Map<*, *> -> obj.keys.toList() as List<Any>
-        else -> throw RuntimeException("Value of type ${{typeName(obj)}} is not iterable.")
-    }}
-    fun reverseOf(obj: Any?): Any = when (obj) {{
-        is CharSequence -> obj.reversed().toString()
-        is List<*> -> obj.reversed().toMutableList()
-        else -> throw RuntimeException("Cannot reverse a ${{typeName(obj)}}.")
-    }}
-    fun countOf(obj: Any?, target: Any?): Int = when (obj) {{
-        is CharSequence -> if (target is CharSequence && target.isNotEmpty())
-            Regex(Regex.escape(target.toString())).findAll(obj).count() else 0
-        is Collection<*> -> obj.count {{ it == target }}
-        else -> 0
-    }}
-    fun replaceOf(obj: Any?, from: Any?, to: Any?): Any = when (obj) {{
-        is CharSequence -> obj.toString().replace(from.toString(), to.toString())
-        else -> throw RuntimeException("Cannot replace on a ${{typeName(obj)}}.")
-    }}
-    fun containsOf(obj: Any?, target: Any?): Boolean = when (obj) {{
-        is CharSequence -> obj.contains(target.toString())
-        is Collection<*> -> obj.contains(target)
-        is Map<*, *> -> obj.containsKey(target)
-        else -> false
-    }}
-
-    fun roundNum(x: Any?): Long = Math.round((x as Number).toDouble())
-    fun roundNum(x: Any?, digits: Any?): Double {{
-        val factor = Math.pow(10.0, (digits as Number).toDouble())
-        return Math.round((x as Number).toDouble() * factor) / factor
-    }}
-
-    fun typeName(v: Any?): String = when (v) {{
-        null -> "nothing"
-        is Boolean -> "boolean"
-        is Int, is Long -> "integer"
-        is Double, is Float -> "decimal"
-        is CharSequence -> "text"
-        is Map<*, *> -> "map"
-        is List<*> -> "list"
-        else -> "object"
-    }}
-
-    // Python-style slicing (start/end/step may be null); mirrors EPL's obj[a:b:c].
-    private fun sliceIndices(n: Int, startA: Any?, stopA: Any?, step: Int): List<Int> {{
-        var start: Int
-        var stop: Int
-        if (startA == null) {{
-            start = if (step < 0) n - 1 else 0
-        }} else {{
-            start = (startA as Number).toInt()
-            if (start < 0) start += n
-            if (start < 0) start = if (step < 0) -1 else 0
-            else if (start >= n) start = if (step < 0) n - 1 else n
-        }}
-        if (stopA == null) {{
-            stop = if (step < 0) -1 else n
-        }} else {{
-            stop = (stopA as Number).toInt()
-            if (stop < 0) stop += n
-            if (stop < 0) stop = if (step < 0) -1 else 0
-            else if (stop >= n) stop = if (step < 0) n - 1 else n
-        }}
-        val out = ArrayList<Int>()
-        var i = start
-        if (step > 0) {{ while (i < stop) {{ out.add(i); i += step }} }}
-        else {{ while (i > stop) {{ out.add(i); i += step }} }}
-        return out
-    }}
-
-    fun slice(obj: Any?, start: Any?, end: Any?, step: Any?): Any? {{
-        val st = (step as? Number)?.toInt() ?: 1
-        if (st == 0) throw RuntimeException("slice step cannot be zero")
-        return when (obj) {{
-            is List<*> -> sliceIndices(obj.size, start, end, st).map {{ obj[it] }}.toMutableList()
-            is CharSequence -> {{
-                val sb = StringBuilder()
-                for (i in sliceIndices(obj.length, start, end, st)) sb.append(obj[i])
-                sb.toString()
-            }}
-            else -> null
-        }}
-    }}
-
-    // ─── EPL map methods (dynamic receiver; mirrors interpreter dict methods) ───
-    @Suppress("UNCHECKED_CAST")
-    private fun asMap(o: Any?): MutableMap<String, Any?> =
-        o as? MutableMap<String, Any?> ?: throw RuntimeException("Expected a map.")
-    fun mapHas(o: Any?, key: Any?): Boolean = asMap(o).containsKey(key.toString())
-    fun mapKeys(o: Any?): MutableList<String> = asMap(o).keys.toMutableList()
-    fun mapValues(o: Any?): MutableList<Any?> = asMap(o).values.toMutableList()
-    fun mapEntries(o: Any?): MutableList<MutableList<Any?>> =
-        asMap(o).entries.map {{ mutableListOf(it.key as Any?, it.value) }}.toMutableList()
-    fun mapMerge(o: Any?, other: Any?): MutableMap<String, Any?> {{
-        val r = LinkedHashMap(asMap(o))
-        r.putAll(asMap(other))
-        return r
-    }}
-    fun mapGet(o: Any?, key: Any?): Any? = asMap(o)[key.toString()]
-    fun mapGet(o: Any?, key: Any?, default: Any?): Any? {{
-        val map = asMap(o)
-        val k = key.toString()
-        return if (map.containsKey(k)) map[k] else default
-    }}
-    fun mapSet(o: Any?, key: Any?, value: Any?) {{ asMap(o)[key.toString()] = value }}
-    fun mapClear(o: Any?) {{ asMap(o).clear() }}
-    fun mapCopy(o: Any?): MutableMap<String, Any?> = LinkedHashMap(asMap(o))
-    fun mapRemove(o: Any?, key: Any?) {{ asMap(o).remove(key.toString()) }}
-
-    // ─── SQLite bridge (db_* builtins) ───
-    fun dbOpen(name: String): android.database.sqlite.SQLiteDatabase {{
-        val ctx = EPLApplication.instance.applicationContext
-        return ctx.openOrCreateDatabase(name, android.content.Context.MODE_PRIVATE, null)
-    }}
-
-    fun dbExecute(db: Any?, sql: String, params: List<Any?> = emptyList<Any?>()) {{
-        val database = db as android.database.sqlite.SQLiteDatabase
-        if (params.isEmpty()) database.execSQL(sql)
-        else database.execSQL(sql, params.toTypedArray())
-    }}
-
-    fun dbQuery(
-        db: Any?,
-        sql: String,
-        params: List<Any?> = emptyList<Any?>(),
-    ): MutableList<Map<String, Any?>> {{
-        val database = db as android.database.sqlite.SQLiteDatabase
-        val args = params.map {{ it?.toString() }}.toTypedArray()
-        val rows = mutableListOf<Map<String, Any?>>()
-        database.rawQuery(sql, args).use {{ c ->
-            while (c.moveToNext()) {{
-                val row = LinkedHashMap<String, Any?>()
-                for (i in 0 until c.columnCount) {{
-                    row[c.getColumnName(i)] = when (c.getType(i)) {{
-                        android.database.Cursor.FIELD_TYPE_INTEGER -> c.getLong(i)
-                        android.database.Cursor.FIELD_TYPE_FLOAT -> c.getDouble(i)
-                        android.database.Cursor.FIELD_TYPE_NULL -> null
-                        android.database.Cursor.FIELD_TYPE_BLOB -> c.getBlob(i)
-                        else -> c.getString(i)
-                    }}
-                }}
-                rows.add(row)
-            }}
-        }}
-        return rows
-    }}
-
-    fun dbQueryOne(
-        db: Any?,
-        sql: String,
-        params: List<Any?> = emptyList<Any?>(),
-    ): Map<String, Any?>? = dbQuery(db, sql, params).firstOrNull()
-
-    fun dbCount(db: Any?, table: String): Long {{
-        val rows = dbQuery(db, "SELECT count(*) AS c FROM " + table)
-        return (rows.firstOrNull()?.get("c") as? Number)?.toLong() ?: 0L
-    }}
-
-    // Identifier + type validation mirrors the EPL interpreter (stdlib._db_create_table):
-    // raw SQL column defs are rejected and every name/type component is whitelisted,
-    // so a generated app is no more injection-prone than the interpreter.
-    private val DB_IDENT = Regex("^[a-zA-Z_][a-zA-Z0-9_]*$")
-    private val DB_SAFE_TYPE_WORDS = setOf(
-        "TEXT", "INTEGER", "REAL", "BLOB", "NUMERIC", "DECIMAL", "FLOAT", "DOUBLE",
-        "VARCHAR", "CHAR", "BOOLEAN", "DATE", "DATETIME", "TIMESTAMP", "PRIMARY",
-        "KEY", "NOT", "NULL", "UNIQUE", "AUTOINCREMENT", "DEFAULT", "CHECK", "REFERENCES",
-    )
-
-    fun dbCreateTable(db: Any?, table: String, columns: Any?): Boolean {{
-        val database = db as android.database.sqlite.SQLiteDatabase
-        if (!DB_IDENT.matches(table)) throw RuntimeException("Invalid table name: " + table)
-        val cols = (columns as? Map<*, *>)
-            ?: throw RuntimeException("db_create_table requires a map of name -> type.")
-        val defs = StringBuilder()
-        for ((rawName, rawType) in cols) {{
-            val name = rawName.toString()
-            if (!DB_IDENT.matches(name)) throw RuntimeException("Invalid column name: " + name)
-            val typ = rawType.toString()
-            for (w in typ.uppercase().split(Regex("\\\\s+"))) {{
-                if (w.isEmpty()) continue
-                val paren = w.indexOf('(')
-                if (paren >= 0) {{
-                    val base = w.substring(0, paren)
-                    val rest = w.substring(paren + 1)
-                    if (base !in DB_SAFE_TYPE_WORDS || !rest.endsWith(")") ||
-                        !Regex("^\\\\d+(\\\\s*,\\\\s*\\\\d+)*$").matches(rest.dropLast(1))
-                    ) throw RuntimeException("Invalid column type component: " + w)
-                }} else if (!w.all {{ it.isDigit() }} && w !in DB_SAFE_TYPE_WORDS) {{
-                    throw RuntimeException("Invalid column type component: " + w)
-                }}
-            }}
-            if (defs.isNotEmpty()) defs.append(", ")
-            defs.append("\\"").append(name).append("\\" ").append(typ)
-        }}
-        database.execSQL("CREATE TABLE IF NOT EXISTS \\"" + table + "\\" (" + defs + ")")
-        return true
-    }}
-
-    fun dbTables(db: Any?): MutableList<String> {{
-        val database = db as android.database.sqlite.SQLiteDatabase
-        val out = mutableListOf<String>()
-        database.rawQuery(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name", null,
-        ).use {{ c -> while (c.moveToNext()) out.add(c.getString(0)) }}
-        return out
-    }}
-
-    fun dbClose(db: Any?) {{
-        (db as? android.database.sqlite.SQLiteDatabase)?.close()
-    }}
-
-    // ─── Sandboxed file bridge (file_* builtins) ───
-    // Paths resolve inside the app's private filesDir; a bare name or relative path
-    // never escapes the sandbox, matching Android's per-app storage model.
-    private fun resolveFile(path: String): java.io.File {{
-        val base = EPLApplication.instance.applicationContext.filesDir
-        val f = java.io.File(path)
-        return if (f.isAbsolute) f else java.io.File(base, path)
-    }}
-
-    fun fileExists(path: String): Boolean = resolveFile(path).exists()
-    fun fileDelete(path: String): Boolean = resolveFile(path).let {{ if (it.exists()) it.delete() else false }}
-    fun fileRead(path: String): String = resolveFile(path).readText()
-    fun fileWrite(path: String, content: Any?): Boolean {{
-        resolveFile(path).writeText(content?.toString() ?: "")
-        return true
-    }}
-    fun fileAppend(path: String, content: Any?): Boolean {{
-        resolveFile(path).appendText(content?.toString() ?: "")
-        return true
-    }}
-    fun fileSize(path: String): Long = resolveFile(path).let {{ if (it.exists()) it.length() else 0L }}
-}}
-"""
+        return android_runtime(self.package)
 
     def _application_kt(self):
         return f"""package {self.package}
@@ -5013,9 +4599,14 @@ class MainActivityTest {{
 """
 
 
-def transpile_to_kotlin(program: ast.Program, package='com.epl.app') -> str:
-    """Convenience: transpile EPL AST to Kotlin."""
-    return KotlinGenerator(package).generate(program)
+def transpile_to_kotlin(program: ast.Program, package='com.epl.app', include_runtime=True) -> str:
+    """Convenience: transpile EPL AST to a single self-contained Kotlin file.
+
+    include_runtime defaults True so the emitted `.kt` compiles standalone
+    (bundles the EPLRuntime shim). Callers embedding into a project that already
+    ships EPLRuntime can pass False.
+    """
+    return KotlinGenerator(package).generate(program, include_runtime=include_runtime)
 
 
 def generate_android_project(

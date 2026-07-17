@@ -86,14 +86,136 @@ def _referenced_names(node):
     return names
 
 
+def _mangled(alias, member):
+    """Collision-safe top-level name for a member imported under a namespace alias."""
+    return f'{alias}__{member}'
+
+
+def _mangle_member_refs(node, rename):
+    """In place: rewrite bare references to sibling module members into their
+    mangled names, so a flattened namespace module stays internally consistent."""
+    for n in _walk(node):
+        if isinstance(n, (ast.FunctionCall, ast.Identifier, ast.VarAssignment)):
+            if getattr(n, 'name', None) in rename:
+                n.name = rename[n.name]
+
+
+def _rewrite_ma(node, alias_member_map):
+    """Return a replacement for a `Namespace::member` node, or None if it isn't one
+    we resolved. A member access becomes an Identifier; a call becomes a FunctionCall."""
+    if isinstance(node, ast.ModuleAccess):
+        key = (node.module_name, node.member_name)
+        name = alias_member_map.get(key)
+        if name is not None:
+            line = getattr(node, 'line', 0)
+            if node.arguments is None:
+                return ast.Identifier(name, line)
+            return ast.FunctionCall(name, node.arguments, line)
+    return None
+
+
+def _rewrite_ma_tree(node, alias_member_map):
+    """In place: replace every `Namespace::member` node in a subtree with its
+    flattened call/identifier form, recursing into replacements for nested access."""
+    if not hasattr(node, '__dict__'):
+        return
+    for attr, value in list(vars(node).items()):
+        if isinstance(value, list):
+            for i, item in enumerate(value):
+                if not hasattr(item, '__dict__'):
+                    continue
+                repl = _rewrite_ma(item, alias_member_map)
+                if repl is not None:
+                    value[i] = repl
+                    _rewrite_ma_tree(repl, alias_member_map)
+                else:
+                    _rewrite_ma_tree(item, alias_member_map)
+        elif hasattr(value, '__dict__'):
+            repl = _rewrite_ma(value, alias_member_map)
+            if repl is not None:
+                setattr(node, attr, repl)
+                _rewrite_ma_tree(repl, alias_member_map)
+            else:
+                _rewrite_ma_tree(value, alias_member_map)
+
+
+def _resolve_aliased_imports(stmts):
+    """Flatten ``Import "<mod>" as <Alias>`` into mangled top-level definitions.
+
+    Native targets have no namespace model, so a `Alias::member` reference is
+    lowered to a plain top-level def uniquely named per alias (collision-safe
+    across modules). Returns ``(ordered_defs, alias_member_map)`` where
+    ``alias_member_map`` maps ``(Alias, member)`` to the mangled name and
+    ``ordered_defs`` are the reachable, renamed defs in dependency order.
+    """
+    imports = [
+        s
+        for s in stmts
+        if isinstance(s, ast.ImportStatement) and s.alias and _module_path(s.filepath)
+    ]
+    if not imports:
+        return [], {}
+
+    user_stmts = [s for s in stmts if not isinstance(s, ast.ImportStatement)]
+    accessed = {}  # alias -> {member names used in user code}
+    for n in _walk(user_stmts):
+        if isinstance(n, ast.ModuleAccess):
+            accessed.setdefault(n.module_name, set()).add(n.member_name)
+
+    alias_member_map = {}
+    all_defs = {}  # mangled name -> renamed def node
+    for imp in imports:
+        alias = imp.alias
+        used = accessed.get(alias)
+        if not used:
+            continue  # imported but never referenced
+        try:
+            with open(_module_path(imp.filepath), 'r', encoding='utf-8') as f:
+                mod = _parse(f.read())
+        except Exception:
+            continue
+        members = {}  # member name -> def node
+        for node in mod.statements:
+            nm = _def_name(node)
+            if nm and nm not in members:
+                members[nm] = node
+        rename = {m: _mangled(alias, m) for m in members}
+        # Reachability within the module, seeded by the members user code touches.
+        needed = set()
+        frontier = set(used) & set(members)
+        while frontier:
+            m = frontier.pop()
+            if m in needed:
+                continue
+            needed.add(m)
+            for ref in _referenced_names(members[m]):
+                if ref in members and ref not in needed:
+                    frontier.add(ref)
+        for m in needed:
+            node = members[m]
+            _mangle_member_refs(node, rename)
+            node.name = rename[m]
+            all_defs[rename[m]] = node
+            alias_member_map[(alias, m)] = rename[m]
+
+    ordered = _topo_order(set(all_defs), all_defs) if all_defs else []
+    return ordered, alias_member_map
+
+
 def inline_stdlib_imports(program, entry_path=None):
     """Return a Program with used stdlib definitions inlined ahead of user code.
 
-    Non-destructive: builds a new statement list. Only plain imports of bundled
-    stdlib modules are resolved; everything else (aliased imports, local files,
-    packages, native modules) is left in place for the target to handle or report.
+    Non-destructive: builds a new statement list. Plain imports of bundled stdlib
+    modules are flattened by bare name; aliased imports (``Import "math" as Math``)
+    are flattened under mangled per-alias names with their ``Alias::member`` uses
+    rewritten to plain calls. Everything else (local files, packages, native
+    modules) is left in place for the target to handle or report.
     """
     stmts = program.statements
+
+    # Aliased imports: flatten `Import "<mod>" as <Alias>` into mangled top-level
+    # defs and learn the `Alias::member` -> mangled-name mapping.
+    aliased_ordered, alias_member_map = _resolve_aliased_imports(stmts)
 
     # Collect stdlib definitions available via plain imports, keyed by name.
     available = {}  # name -> definition node
@@ -115,12 +237,27 @@ def inline_stdlib_imports(program, entry_path=None):
                 available[name] = node
         imported_any = True
 
+    # User code minus import statements; rewrite namespaced access in place so the
+    # target sees plain calls/identifiers against the flattened aliased defs.
+    user_stmts = [s for s in stmts if not isinstance(s, ast.ImportStatement)]
+    if alias_member_map:
+        for i, s in enumerate(user_stmts):
+            repl = _rewrite_ma(s, alias_member_map)
+            if repl is not None:
+                user_stmts[i] = repl
+            else:
+                _rewrite_ma_tree(s, alias_member_map)
+
     if not imported_any or not available:
+        # No plain stdlib defs to inline, but aliased flattening may still have
+        # rewritten the program — return that (with imports dropped) if so.
+        if aliased_ordered or alias_member_map:
+            return ast.Program(aliased_ordered + user_stmts)
         return program
 
     # Reachability: seed with names used in the user's own code, then transitively
-    # pull in stdlib defs those (and their dependencies) reference.
-    user_stmts = [s for s in stmts if not isinstance(s, ast.ImportStatement)]
+    # pull in stdlib defs those (and their dependencies) reference. (Names rewritten
+    # to mangled aliased calls aren't in `available`, so they don't seed here.)
     needed = set()
     frontier = set()
     for name in _referenced_names(user_stmts):
@@ -136,8 +273,9 @@ def inline_stdlib_imports(program, entry_path=None):
                 frontier.add(ref)
 
     if not needed:
-        # Imports present but nothing used — drop them so the target doesn't choke.
-        return ast.Program(user_stmts)
+        # Plain imports present but nothing used — drop them so the target doesn't
+        # choke; keep any aliased defs that were flattened.
+        return ast.Program(aliased_ordered + user_stmts)
 
     # Order callee-before-caller: targets that lower top-level functions to local
     # `fun`s (Android) require a definition to precede its first use. Constants
@@ -145,7 +283,7 @@ def inline_stdlib_imports(program, entry_path=None):
     # recursive defs fall back to insertion order — those targets tolerate it.
     ordered = _topo_order(needed, available)
 
-    return ast.Program(ordered + user_stmts)
+    return ast.Program(aliased_ordered + ordered + user_stmts)
 
 
 def _topo_order(needed, available):
