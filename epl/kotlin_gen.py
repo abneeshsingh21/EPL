@@ -1040,7 +1040,11 @@ class KotlinGenerator:
         if kt_type == 'Any':
             return 'Any?'
         # An empty list gets `add`ed dynamic (possibly null) values later.
-        if kt_type == 'MutableList<Any>' and isinstance(value, ast.ListLiteral) and not value.elements:
+        if (
+            kt_type == 'MutableList<Any>'
+            and isinstance(value, ast.ListLiteral)
+            and not value.elements
+        ):
             return 'MutableList<Any?>'
         return kt_type
 
@@ -1281,9 +1285,7 @@ class KotlinGenerator:
                     if abs_step == 1:
                         self._line(f'for ({loop_var} in {start} downTo {end}) {{')
                     else:
-                        self._line(
-                            f'for ({loop_var} in {start} downTo {end} step {abs_step}) {{'
-                        )
+                        self._line(f'for ({loop_var} in {start} downTo {end} step {abs_step}) {{')
                 elif step_val != 1:
                     self._line(f'for ({loop_var} in {start}..{end} step {step}) {{')
                 else:
@@ -1375,7 +1377,9 @@ class KotlinGenerator:
             # EPL sees a rest parameter as a list; Kotlin's vararg is an Array.
             # Shadow it with a list so list methods/iteration match interpreter
             # semantics inside the body.
-            self._line(f'val {self._safe_ident(rest.name)} = {self._safe_ident(rest.name)}.toMutableList()')
+            self._line(
+                f'val {self._safe_ident(rest.name)} = {self._safe_ident(rest.name)}.toMutableList()'
+            )
             self.symbols.define(rest.name, 'MutableList<Any?>')
         hoist_skip = {n for n, _ in param_types}
         if rest is not None:
@@ -1783,8 +1787,20 @@ class KotlinGenerator:
     # EPL uses with the same meaning as Kotlin and must pass through unescaped.
     _KOTLIN_HARD_KEYWORDS = frozenset(
         {
-            'val', 'var', 'fun', 'object', 'when', 'is', 'in', 'as',
-            'class', 'interface', 'typealias', 'typeof', 'by', 'package',
+            'val',
+            'var',
+            'fun',
+            'object',
+            'when',
+            'is',
+            'in',
+            'as',
+            'class',
+            'interface',
+            'typealias',
+            'typeof',
+            'by',
+            'package',
         }
     )
 
@@ -1845,9 +1861,22 @@ class KotlinGenerator:
     # Method names that only a String receiver has (drive param inference).
     _STR_ONLY_METHODS = frozenset(
         {
-            'substring', 'split', 'trim', 'uppercase', 'lowercase', 'upper', 'lower',
-            'starts_with', 'ends_with', 'is_number', 'is_alpha', 'char_at',
-            'pad_left', 'pad_right', 'to_list', 'is_empty',
+            'substring',
+            'split',
+            'trim',
+            'uppercase',
+            'lowercase',
+            'upper',
+            'lower',
+            'starts_with',
+            'ends_with',
+            'is_number',
+            'is_alpha',
+            'char_at',
+            'pad_left',
+            'pad_right',
+            'to_list',
+            'is_empty',
         }
     )
     # Method names that only a list receiver has.
@@ -2333,10 +2362,9 @@ class KotlinGenerator:
                 return f'EPLRuntime.at({obj_code}, {self._expr(node.index)})'
             return f'{obj_code}[{self._expr(node.index)}]'
         if isinstance(node, ast.SliceAccess):
+
             def slice_arg(x):
-                if x is None or (
-                    isinstance(x, ast.Literal) and getattr(x, 'value', 0) is None
-                ):
+                if x is None or (isinstance(x, ast.Literal) and getattr(x, 'value', 0) is None):
                     return 'null'
                 return self._expr(x)
 
@@ -2747,10 +2775,25 @@ class KotlinGenerator:
     # length/find/index_of/repeat) — those are resolved by runtime dispatch.
     _DYN_STR_METHODS = frozenset(
         {
-            'uppercase', 'upper', 'lowercase', 'lower', 'trim', 'starts_with',
-            'ends_with', 'substring', 'split', 'char_at', 'pad_left', 'pad_right',
-            'to_list', 'is_number', 'is_alpha', 'is_empty', 'to_integer',
-            'to_decimal', 'format',
+            'uppercase',
+            'upper',
+            'lowercase',
+            'lower',
+            'trim',
+            'starts_with',
+            'ends_with',
+            'substring',
+            'split',
+            'char_at',
+            'pad_left',
+            'pad_right',
+            'to_list',
+            'is_number',
+            'is_alpha',
+            'is_empty',
+            'to_integer',
+            'to_decimal',
+            'format',
         }
     )
 
@@ -2833,7 +2876,12 @@ class KotlinGenerator:
             return f'EPLRuntime.{dyn_shared[m]}({call_args})'
         # List mutators on a dynamic receiver (Any) — Kotlin can't see the member,
         # so dispatch through EPLRuntime which casts to MutableList.
-        dyn_list_mut = {'add': 'listAdd', 'push': 'listAdd', 'remove': 'listRemove', 'pop': 'listPop'}
+        dyn_list_mut = {
+            'add': 'listAdd',
+            'push': 'listAdd',
+            'remove': 'listRemove',
+            'pop': 'listPop',
+        }
         if m in dyn_list_mut and recv in ('Any', 'Any?'):
             call_args = f'{obj}, {args}' if args else obj
             return f'EPLRuntime.{dyn_list_mut[m]}({call_args})'

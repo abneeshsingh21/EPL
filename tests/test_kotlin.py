@@ -241,10 +241,7 @@ def test_for_each_over_list_of_maps_no_keys():
     # iter_type` and wrongly iterate `.keys` (a Map-only member) — uncompilable.
     # A list (even a list of maps) must iterate its elements directly.
     src = (
-        'rows = db_query(db, "SELECT * FROM users").\n'
-        'For each row in rows\n'
-        '    Display row.\n'
-        'End.'
+        'rows = db_query(db, "SELECT * FROM users").\nFor each row in rows\n    Display row.\nEnd.'
     )
     code = gen(src)
     assert 'for (row in rows)' in code
@@ -254,12 +251,7 @@ def test_for_each_over_list_of_maps_no_keys():
 
 def test_for_each_over_map_iterates_keys():
     # A genuine map still iterates its keys (EPL semantics).
-    src = (
-        'm = Map with a = 1 and b = 2.\n'
-        'For each k in m\n'
-        '    Display k.\n'
-        'End.'
-    )
+    src = 'm = Map with a = 1 and b = 2.\nFor each k in m\n    Display k.\nEnd.'
     code = gen(src)
     assert '.keys' in code
     print('  PASS: for_each_over_map')
@@ -269,10 +261,7 @@ def test_display_dynamic_value_routes_through_totext():
     # Regression: println(Any?) is an overload-resolution ambiguity in Kotlin,
     # and wouldn't match EPL display formatting; dynamic values print via toText.
     src = (
-        'rows = db_query(db, "SELECT * FROM users").\n'
-        'For each row in rows\n'
-        '    Display row.\n'
-        'End.'
+        'rows = db_query(db, "SELECT * FROM users").\nFor each row in rows\n    Display row.\nEnd.'
     )
     code = gen(src)
     assert 'println(EPLRuntime.toText(row))' in code

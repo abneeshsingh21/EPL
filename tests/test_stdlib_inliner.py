@@ -18,16 +18,12 @@ def _parse(src):
 
 def _def_names(program):
     return [
-        s.name
-        for s in program.statements
-        if isinstance(s, (ast.FunctionDef, ast.ConstDeclaration))
+        s.name for s in program.statements if isinstance(s, (ast.FunctionDef, ast.ConstDeclaration))
     ]
 
 
 def _has_plain_import(program):
-    return any(
-        isinstance(s, ast.ImportStatement) and not s.alias for s in program.statements
-    )
+    return any(isinstance(s, ast.ImportStatement) and not s.alias for s in program.statements)
 
 
 def test_used_stdlib_def_is_inlined():
@@ -86,9 +82,7 @@ def test_aliased_import_is_left_untouched():
     prog = _parse('Import "math" as M\nSay "hi"\n')
     out = inline_stdlib_imports(prog)
     # Aliased imports use a namespace mechanism native targets don't model yet.
-    assert any(
-        isinstance(s, ast.ImportStatement) and s.alias for s in out.statements
-    )
+    assert any(isinstance(s, ast.ImportStatement) and s.alias for s in out.statements)
 
 
 def test_no_imports_returns_program_unchanged():
