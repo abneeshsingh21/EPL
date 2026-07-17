@@ -1604,6 +1604,8 @@ class KotlinGenerator:
                 'now': 'String',
                 'regex_find_all': 'MutableList<String>',
                 'regex_test': 'Boolean',
+                'regex_replace': 'String',
+                'regex_split': 'MutableList<String>',
                 'pi': 'Double',
                 'euler': 'Double',
                 'factorial': 'Long',
@@ -2684,6 +2686,14 @@ class KotlinGenerator:
             ),
             'regex_test': lambda: (
                 f'EPLRuntime.regexTest({self._str_arg(node.arguments[0])}, '
+                f'{self._str_arg(node.arguments[1])})'
+            ),
+            'regex_replace': lambda: (
+                f'EPLRuntime.regexReplace({self._str_arg(node.arguments[0])}, '
+                f'{self._str_arg(node.arguments[1])}, {self._str_arg(node.arguments[2])})'
+            ),
+            'regex_split': lambda: (
+                f'EPLRuntime.regexSplit({self._str_arg(node.arguments[0])}, '
                 f'{self._str_arg(node.arguments[1])})'
             ),
             # math constants exposed as zero-arg builtins

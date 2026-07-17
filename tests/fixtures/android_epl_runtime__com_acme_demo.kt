@@ -324,6 +324,10 @@ object EPLRuntime {
     }
     fun regexTest(pattern: String, text: String): Boolean =
         java.util.regex.Pattern.compile(pattern).matcher(text).find()
+    fun regexReplace(pattern: String, replacement: String, text: String): String =
+        java.util.regex.Pattern.compile(pattern).matcher(text).replaceAll(java.util.regex.Matcher.quoteReplacement(replacement))
+    fun regexSplit(pattern: String, text: String): MutableList<String> =
+        java.util.regex.Pattern.compile(pattern).split(text, -1).toMutableList()
 
     // ─── Math native builtins ───
     fun factorial(n: Any?): Long {

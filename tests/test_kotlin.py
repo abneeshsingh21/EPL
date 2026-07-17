@@ -281,6 +281,34 @@ def test_display_dynamic_value_routes_through_totext():
     print('  PASS: display_dynamic_totext')
 
 
+def test_math_builtins_accept_dynamic_args():
+    # floor/sqrt/abs on a division result (eplDiv returns Any) must coerce via
+    # EPLRuntime.toDecimal, not `.toDouble()` on Any (unresolved reference).
+    code = gen('Print floor(7 / 2).')
+    assert 'EPLRuntime.toDecimal(' in code
+    assert '.toDouble()).toInt()' not in code or 'toDecimal' in code
+    # abs preserves int-vs-decimal parity via the runtime helper.
+    assert 'EPLRuntime.absNum(' in gen('Print absolute(-5).')
+    print('  PASS: math_builtins_dynamic_args')
+
+
+def test_regex_replace_and_split_bridges():
+    r = gen('x = regex_replace("a", "b", "aaa").')
+    assert 'EPLRuntime.regexReplace(' in r
+    s = gen('x = regex_split(",", "a,b").')
+    assert 'EPLRuntime.regexSplit(' in s
+    print('  PASS: regex_bridges')
+
+
+def test_reassigned_param_shadowed_not_redeclared():
+    # A reassigned function parameter needs a mutable shadow (Kotlin params are
+    # immutable val), not a fresh `var` that shadows and breaks typing.
+    src = 'Function f takes n\n    Set n to n + 1.\n    Return n.\nEnd'
+    code = gen(src)
+    assert 'var n = n' in code
+    print('  PASS: reassigned_param_shadow')
+
+
 # ─── Jetpack Compose Tests ──────────────────────────
 
 
