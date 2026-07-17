@@ -2534,6 +2534,11 @@ class KotlinGenerator:
 
     def _expr_unary(self, node):
         if node.operator == 'not':
+            # Kotlin's `!` requires Boolean; a dynamic operand (Any?/Any, e.g. a
+            # dynamic-lambda call result) must go through EPL truthiness first.
+            operand_type = self._infer_kotlin_type(node.operand)
+            if operand_type in ('Any', 'Any?'):
+                return f'!EPLRuntime.truthy({self._expr(node.operand)})'
             return f'!{self._expr(node.operand)}'
         return f'{node.operator}{self._expr(node.operand)}'
 
@@ -2558,6 +2563,10 @@ class KotlinGenerator:
                 elif pt == 'String' and at in ('Any', 'Any?'):
                     # A dynamic value into a String param (Kotlin won't accept Any).
                     code = f'({code}).toString()'
+                elif pt == 'Any' and at == 'Any?':
+                    # A nullable dynamic value (list element, map lookup) into a
+                    # non-null Any param: assert non-null so the call type-checks.
+                    code = f'({code})!!'
             out.append(code)
         return ', '.join(out)
 

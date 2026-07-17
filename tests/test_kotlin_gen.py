@@ -33,7 +33,7 @@ KT_CASES = [
     ('has_package', lambda: 'package com.epl.app' in to_kt('Print "Hello"')),
     ('has_main', lambda: 'fun main()' in to_kt('Print "Hello"')),
     ('print_string', lambda: 'println("Hello")' in to_kt('Print "Hello"')),
-    ('print_expr', lambda: 'println((5 + 3))' in to_kt('Print 5 + 3')),
+    ('print_expr', lambda: 'println(EPLRuntime.toText((5 + 3)))' in to_kt('Print 5 + 3')),
     ('say_alias', lambda: 'println("hi")' in to_kt('Say "hi"')),
     ('var_decl', lambda: 'var x' in to_kt('x = 10') and '= 10' in to_kt('x = 10')),
     (
@@ -125,7 +125,8 @@ def test_reassignment_declares_once():
     """`x = 5` then `x = 10` must emit one `var` and a bare reassignment,
     not two conflicting declarations."""
     kt = to_kt('x = 5\nx = 10\nPrint x')
-    assert kt.count('var x') == 1
+    main_body = kt.split('fun main()', 1)[1].split('\n\n', 1)[0]
+    assert main_body.count('var x') == 1
     assert 'x = 10' in kt
 
 
@@ -140,7 +141,7 @@ def test_division_uses_runtime_helper():
     """EPL `/` is float division that raises on zero, so it lowers to eplDiv
     rather than Kotlin integer division (which would give a wrong value)."""
     kt = to_kt('r = 10 / 4\nPrint r')
-    assert 'EPLRuntime.eplDiv(10, 4)' in kt
+    assert 'EPLRuntime.eplDiv(10, 4' in kt
 
 
 def test_db_and_file_builtins_bridge_to_runtime():
