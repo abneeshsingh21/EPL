@@ -529,7 +529,7 @@ Your sponsorship directly funds: new language features, official packages, docum
 
 ## License
 
-Copyright © 2024–2026 **Abneesh Singh** (<singhabneesh250@gmail.com>)
+Copyright © 2024–2026 **Abneesh Singh** (<contact@eplang.me>)
 
 Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution requirements.
 

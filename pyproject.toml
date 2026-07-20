@@ -10,7 +10,7 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
-authors = [{name = "Abneesh Singh", email = "singhabneesh250@gmail.com"}]
+authors = [{name = "Abneesh Singh", email = "contact@eplang.me"}]
 keywords = ["programming-language", "english", "english-programming-language", "epl", "eplang", "interpreter", "compiler", "transpiler", "natural-language"]
 dependencies = [
     "flask>=3.0,<4.0",
