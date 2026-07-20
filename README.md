@@ -2,7 +2,7 @@
 
 <br/>
 
-<img src="screenshot/EPL%20LOGO%20.jpeg" alt="EPL — English Programming Language" width="280" />
+<img src="screenshot/epl-logo.jpeg" alt="EPL — English Programming Language" width="280" />
 
 <br/>
 <br/>
