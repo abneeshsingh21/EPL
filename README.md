@@ -1,23 +1,29 @@
 <div align="center">
 
-# 🌐 EPL — English Programming Language
+<br/>
 
-### Write code the way you think. In plain English.
+<img src="screenshot/epl-logo.jpeg" alt="EPL — English Programming Language" width="280" />
+
+<br/>
+<br/>
+
+**Write code the way you think. In plain English.**
 
 <br/>
 
-[![PyPI](https://img.shields.io/pypi/v/eplang?color=3572A5&label=PyPI&logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/eplang/)
-[![Downloads](https://img.shields.io/pypi/dm/eplang?color=3572A5&label=Downloads&style=flat-square)](https://pypi.org/project/eplang/)
-[![Python](https://img.shields.io/badge/Python-3.9%E2%80%933.13-3572A5?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![PyPI](https://img.shields.io/pypi/v/eplang?color=0969da&label=PyPI&logo=pypi&logoColor=white&style=flat-square)](https://pypi.org/project/eplang/)
+[![Downloads](https://img.shields.io/pypi/dm/eplang?color=0969da&label=Downloads&style=flat-square)](https://pypi.org/project/eplang/)
+[![Python](https://img.shields.io/badge/Python-3.9–3.13-0969da?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-2ea44f?style=flat-square)](LICENSE)
 [![VS Code](https://img.shields.io/badge/VS%20Code-Marketplace-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://marketplace.visualstudio.com/publishers/epl-lang)
 [![Stars](https://img.shields.io/github/stars/abneeshsingh21/EPL?style=flat-square&logo=github&color=e3b341)](https://github.com/abneeshsingh21/EPL/stargazers)
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/abneeshsingh21)
+[![Sponsor](https://img.shields.io/badge/Sponsor-❤-ea4aaa?style=flat-square&logo=github-sponsors)](https://github.com/sponsors/abneeshsingh21)
 
 <br/>
 
-EPL is a **fully-featured programming language** where every keyword is natural English.  
-Build web apps, REST APIs, mobile apps, AI pipelines, and cloud-native services — in a syntax anyone can read, write, and maintain.
+EPL is a **fully-featured programming language** where every keyword is natural English.<br/>
+Build web apps, REST APIs, mobile apps, AI pipelines, and cloud-native services —<br/>
+in a syntax anyone can read, write, and maintain.
 
 <br/>
 
@@ -27,7 +33,7 @@ pip install eplang
 
 <br/>
 
-[Official Website](https://eplang.me) · [Documentation](https://abneeshsingh21.github.io/EPL/) · [Playground](https://abneeshsingh21.github.io/EPL/playground) · [VS Code Extension](https://marketplace.visualstudio.com/publishers/epl-lang) · [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/)
+[**Website**](https://eplang.me) &nbsp;·&nbsp; [**Documentation**](https://abneeshsingh21.github.io/EPL/) &nbsp;·&nbsp; [**Playground**](https://abneeshsingh21.github.io/EPL/playground) &nbsp;·&nbsp; [**VS Code**](https://marketplace.visualstudio.com/publishers/epl-lang) &nbsp;·&nbsp; [**Packages**](https://abneeshsingh21.github.io/epl-packages-index/)
 
 </div>
 
@@ -54,32 +60,32 @@ Route "/health" responds with
 End
 ```
 
-**No semicolons. No curly braces. No cryptic symbols. Just English.**
+> **No semicolons. No curly braces. No cryptic symbols. Just English.**
 
 ---
 
 ## Quick Start
 
-### Install
+#### Install
 
 ```bash
 pip install eplang
 ```
 
-### Run
+#### Run
 
 ```bash
 echo 'Say "Hello from EPL!"' > hello.epl
 epl hello.epl
 ```
 
-### REPL
+#### REPL
 
 ```bash
 epl repl
 ```
 
-### Scaffold a Project
+#### Scaffold a Project
 
 ```bash
 epl new myapp --template web        # Web app with routing
@@ -88,7 +94,7 @@ epl new botapp --template chatbot   # AI chatbot
 epl new studio --template frontend  # Creative frontend
 ```
 
-### Production Deployment
+#### Production Deployment
 
 ```bash
 pip install "eplang[server]"
@@ -99,7 +105,7 @@ epl deploy aws app.epl               # AWS ECS
 
 EPL supports WSGI (Waitress, Gunicorn) and ASGI (Uvicorn, Hypercorn) deployment through generated adapters and the `epl serve` runtime.
 
-### Security, CSP & the escape hatch
+#### Security, CSP & the Escape Hatch
 
 The web DSL renders structure, styling (`Style`/`Stylesheet`), head/SEO (`Head`), and interactivity (`On click/hover/reveal`) as **native, server-rendered** output — no client-side injection. Event handlers compile to a generated `<script>` (never inline `on*` attributes).
 
