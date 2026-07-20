@@ -27,7 +27,7 @@ pip install eplang
 
 <br/>
 
-[Documentation](https://abneeshsingh21.github.io/EPL/) · [Playground](https://abneeshsingh21.github.io/EPL/playground) · [VS Code Extension](https://marketplace.visualstudio.com/publishers/epl-lang) · [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/)
+[Official Website](https://eplang.me) · [Documentation](https://abneeshsingh21.github.io/EPL/) · [Playground](https://abneeshsingh21.github.io/EPL/playground) · [VS Code Extension](https://marketplace.visualstudio.com/publishers/epl-lang) · [Package Registry](https://abneeshsingh21.github.io/epl-packages-index/)
 
 </div>
 
