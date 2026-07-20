@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a1628"/>
+      <stop offset="50%" stop-color="#0f2035"/>
+      <stop offset="100%" stop-color="#0a1628"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a8cff"/>
+      <stop offset="100%" stop-color="#0066cc"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a8cff" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#1a8cff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="blur">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="40"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="900" height="300" fill="url(#bg)" rx="12"/>
+  
+  <!-- Subtle glow effects -->
+  <ellipse cx="450" cy="150" rx="300" ry="120" fill="url(#glow)" filter="url(#blur)"/>
+  
+  <!-- Grid pattern (subtle) -->
+  <g opacity="0.04" stroke="#ffffff" stroke-width="0.5">
+    <line x1="0" y1="60" x2="900" y2="60"/>
+    <line x1="0" y1="120" x2="900" y2="120"/>
+    <line x1="0" y1="180" x2="900" y2="180"/>
+    <line x1="0" y1="240" x2="900" y2="240"/>
+    <line x1="150" y1="0" x2="150" y2="300"/>
+    <line x1="300" y1="0" x2="300" y2="300"/>
+    <line x1="450" y1="0" x2="450" y2="300"/>
+    <line x1="600" y1="0" x2="600" y2="300"/>
+    <line x1="750" y1="0" x2="750" y2="300"/>
+  </g>
+  
+  <!-- EPL Logo Mark - Stylized "E" with blue slash -->
+  <g transform="translate(270, 80)">
+    <!-- Dark navy E shape -->
+    <path d="M0,0 L50,0 L50,12 L14,12 L14,55 L45,55 L45,67 L14,67 L14,110 L50,110 L50,122 L0,122 Z" fill="#e2e8f0"/>
+    <!-- Blue diagonal slash through the E -->
+    <path d="M20,122 L55,0 L65,0 L30,122 Z" fill="url(#accent)"/>
+  </g>
+  
+  <!-- EPL Text -->
+  <text x="395" y="160" font-family="'Segoe UI', system-ui, -apple-system, sans-serif" font-size="72" font-weight="700" fill="#e2e8f0" letter-spacing="-2">EPL</text>
+  
+  <!-- Tagline -->
+  <text x="450" y="210" font-family="'Segoe UI', system-ui, -apple-system, sans-serif" font-size="16" fill="#94a3b8" text-anchor="middle" letter-spacing="4" font-weight="400">ENGLISH PROGRAMMING LANGUAGE</text>
+  
+  <!-- Bottom accent line -->
+  <rect x="350" y="235" width="200" height="2" fill="url(#accent)" rx="1"/>
+  
+  <!-- Version pill -->
+  <g transform="translate(393, 252)">
+    <rect width="115" height="24" rx="12" fill="#1a8cff" fill-opacity="0.15" stroke="#1a8cff" stroke-opacity="0.3" stroke-width="1"/>
+    <text x="57" y="16" font-family="'Segoe UI', monospace" font-size="11" fill="#60a5fa" text-anchor="middle" font-weight="500">v10.2.0</text>
+  </g>
+</svg>
