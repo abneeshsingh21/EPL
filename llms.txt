@@ -1,9 +1,10 @@
 # EPL — English Programming Language
 
-> EPL is a programming language with English syntax (v10.1.1). Write code in plain English — apps, web servers, APIs, desktop GUIs, and mobile apps. Install: `pip install eplang`. Run: `epl run file.epl`. By default `epl run` executes on a bytecode VM (real closures + full control-flow parity with the reference interpreter); `--interpret` selects the tree-walking interpreter. EPL also transpiles to Python/JS/Node/Kotlin/MicroPython, compiles native binaries (`epl build`, with type inference for untyped functions), and exports native mobile/desktop projects (`epl android`/`ios`/`desktop`, with `--webview` to ship the real web app unchanged).
+> EPL is a programming language with English syntax (v10.2.0). Write code in plain English — apps, web servers, APIs, desktop GUIs, and mobile apps. Install: `pip install eplang`. Run: `epl run file.epl`. By default `epl run` executes on a bytecode VM (real closures + full control-flow parity with the reference interpreter); `--interpret` selects the tree-walking interpreter. EPL also transpiles to Python/JS/Node/Kotlin/MicroPython, compiles native binaries (`epl build`, with type inference for untyped functions), and exports native mobile/desktop projects (`epl android`/`ios`/`desktop`, with `--webview` to ship the real web app unchanged).
 
 ## Documentation
 
+- [Official Website](https://eplang.me/): Homepage with live playground and install guide
 - [Syntax Reference](https://github.com/abneeshsingh21/EPL/blob/main/GRAMMAR.md): Formal grammar specification
 - [Examples](https://github.com/abneeshsingh21/EPL/tree/main/examples): 50+ working programs (`examples/apps/` has full apps)
 - [README](https://github.com/abneeshsingh21/EPL/blob/main/README.md): Getting started guide

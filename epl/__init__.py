@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 __version__ = '10.2.0'
 __author__ = 'Abneesh Singh'
-__email__ = 'singhabneesh250@gmail.com'
+__email__ = 'contact@eplang.me'
 __license__ = 'Apache 2.0'
 __copyright__ = 'Copyright (c) 2024–2026 Abneesh Singh'
 __repo__ = 'https://github.com/abneeshsingh21/EPL'

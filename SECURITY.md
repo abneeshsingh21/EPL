@@ -28,7 +28,7 @@ Only the current major release line receives active security patches.
 | Priority | Method |
 |----------|--------|
 | **1st** | [GitHub Private Vulnerability Reporting](https://github.com/abneeshsingh21/EPL/security/advisories/new) |
-| **2nd** | Email: **singhabneesh250@gmail.com** (subject: `[SECURITY] EPL Vulnerability Report`) |
+| **2nd** | Email: **contact@eplang.me** (subject: `[SECURITY] EPL Vulnerability Report`) |
 | **Fallback** | Open a minimal public issue requesting a secure reporting channel — **without disclosing exploit details** |
 
 ### What to Include

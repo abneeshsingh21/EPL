@@ -10,8 +10,8 @@ readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.9"
-authors = [{name = "Abneesh Singh", email = "singhabneesh250@gmail.com"}]
-keywords = ["programming-language", "english", "interpreter", "compiler", "transpiler"]
+authors = [{name = "Abneesh Singh", email = "contact@eplang.me"}]
+keywords = ["programming-language", "english", "english-programming-language", "epl", "eplang", "interpreter", "compiler", "transpiler", "natural-language"]
 dependencies = [
     "flask>=3.0,<4.0",
     "requests>=2.31,<3.0",
@@ -62,7 +62,7 @@ epl = "epl.cli:main"
 epl-mcp = "epl.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/abneeshsingh21/EPL"
+Homepage = "https://eplang.me"
 Documentation = "https://github.com/abneeshsingh21/EPL/tree/main/docs"
 Repository = "https://github.com/abneeshsingh21/EPL"
 Changelog = "https://github.com/abneeshsingh21/EPL/blob/main/CHANGELOG.md"

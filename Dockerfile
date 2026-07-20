@@ -6,7 +6,7 @@
 
 FROM python:3.12-slim
 
-LABEL maintainer="Abneesh Singh <singhabneesh250@gmail.com>"
+LABEL maintainer="Abneesh Singh <contact@eplang.me>"
 LABEL description="EPL — English Programming Language"
 LABEL org.opencontainers.image.source="https://github.com/abneeshsingh21/EPL"
 LABEL org.opencontainers.image.description="EPL — Write code in plain English"
