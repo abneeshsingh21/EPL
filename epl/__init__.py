@@ -50,6 +50,12 @@ _LAZY_EXPORTS = {
     'EPLError': ('epl.errors', 'EPLError'),
     'compile_to_hir': ('epl.hir', 'compile_to_hir'),
     'HIRModule': ('epl.hir', 'HIRModule'),
+    'NaNBoxEngine': ('epl.nanbox', 'NaNBoxEngine'),
+    'val_encode': ('epl.nanbox', 'val_encode'),
+    'val_decode': ('epl.nanbox', 'val_decode'),
+    'BytecodeVerifier': ('epl.bytecode_verifier', 'BytecodeVerifier'),
+    'MethodCallSite': ('epl.inline_cache', 'MethodCallSite'),
+    'PropertyAccessSite': ('epl.inline_cache', 'PropertyAccessSite'),
 }
 
 __all__ = [
@@ -62,6 +68,12 @@ __all__ = [
     'EPLError',
     'compile_to_hir',
     'HIRModule',
+    'NaNBoxEngine',
+    'val_encode',
+    'val_decode',
+    'BytecodeVerifier',
+    'MethodCallSite',
+    'PropertyAccessSite',
 ]
 
 
