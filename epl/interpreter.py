@@ -15,6 +15,7 @@ import subprocess as _subprocess
 import sys as _sys
 import threading as _threading
 import time as _time
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from epl import ast_nodes as ast
 from epl.environment import Environment
@@ -842,6 +843,16 @@ class Interpreter:
             return self._eval(node.true_expr, env)
         else:
             return self._eval(node.false_expr, env)
+
+    @property
+    def environment(self) -> Environment:
+        return self.global_env
+
+    def evaluate(self, expr: Any, env: Optional[Environment] = None) -> Any:
+        return self._eval(expr, env or self.global_env)
+
+    def interpret(self, program: ast.Program) -> Any:
+        return self.execute(program)
 
     def execute(self, program: ast.Program):
         self._start_time = _time.time()

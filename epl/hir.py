@@ -1799,6 +1799,18 @@ class HIRVerifier:
         return (len(errors) == 0, errors)
 
 
+class HIREngine:
+    """High-level facade for AST to HIR lowering and execution."""
+
+    @staticmethod
+    def lower_ast(program_ast: Any, module_name: str = 'main') -> HIRModule:
+        return ASTToHIR(module_name).lower(program_ast)
+
+    @staticmethod
+    def compile_source(source_code: str, module_name: str = 'main') -> HIRModule:
+        return compile_to_hir(source_code, module_name)
+
+
 def compile_to_hir(source_code: str, module_name: str = 'main') -> HIRModule:
     """Helper to tokenize, parse, and lower EPL source code to optimized EPL-HIR."""
     from epl.lexer import Lexer
