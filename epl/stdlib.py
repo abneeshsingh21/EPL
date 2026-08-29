@@ -111,6 +111,15 @@ def _auto_install(pip_name, display_name=None):
     if not _re_mod.match(r'^[A-Za-z0-9_][A-Za-z0-9._-]*$', pip_name):
         print(f'[EPL] Refusing to install invalid package name: {pip_name}', file=_sys.stderr)
         return False
+    # Check if module is already installed/available in environment
+    try:
+        import importlib.util as _ilu
+
+        mod_key = pip_name.replace('-', '_').split('>=')[0].split('==')[0].split('<')[0]
+        if _ilu.find_spec(mod_key) is not None or _ilu.find_spec(pip_name) is not None:
+            return True
+    except Exception:  # broad-except-ok: safe importlib check fallback
+        pass
     if not _os.environ.get('EPL_AUTO_INSTALL', '') == '1':
         display_name = display_name or pip_name
         print(
@@ -124,12 +133,21 @@ def _auto_install(pip_name, display_name=None):
     with _install_lock:
         print(f'[EPL] {display_name} not found. Installing automatically...', file=_sys.stderr)
         try:
+            cmd = [_sys.executable, '-m', 'pip', 'install', pip_name]
+            # Handle PEP 668 externally managed environment if needed
             result = _subprocess.run(
-                [_sys.executable, '-m', 'pip', 'install', pip_name],
+                cmd,
                 stdout=_subprocess.DEVNULL,
                 stderr=_subprocess.PIPE,
                 text=True,
             )
+            if result.returncode != 0 and 'externally-managed-environment' in result.stderr:
+                result = _subprocess.run(
+                    cmd + ['--break-system-packages'],
+                    stdout=_subprocess.DEVNULL,
+                    stderr=_subprocess.PIPE,
+                    text=True,
+                )
             if result.returncode != 0:
                 print(f'[EPL] Install failed: {result.stderr[:500]}', file=_sys.stderr)
                 return False
@@ -8072,10 +8090,77 @@ def _ensure_tk():
     return _tk_cache[0]
 
 
+def _validate_gui_args(name, args, line):
+    """Validate argument count for GUI operations prior to backend initialization."""
+    if name == 'gui_label' and not args:
+        raise EPLRuntimeError('gui_label(window_id, text[, font_size, color]) requires window_id.', line)
+    elif name == 'gui_button' and len(args) < 2:
+        raise EPLRuntimeError('gui_button(window_id, text[, callback]) requires window_id and text.', line)
+    elif name == 'gui_input' and not args:
+        raise EPLRuntimeError('gui_input(window_id[, placeholder, width]) requires window_id.', line)
+    elif name == 'gui_text' and not args:
+        raise EPLRuntimeError('gui_text(window_id[, height, width]) requires window_id.', line)
+    elif name == 'gui_checkbox' and len(args) < 2:
+        raise EPLRuntimeError('gui_checkbox(window_id, text[, callback]) requires window_id and text.', line)
+    elif name == 'gui_dropdown' and len(args) < 2:
+        raise EPLRuntimeError('gui_dropdown(window_id, options[, callback]) requires window_id and options list.', line)
+    elif name == 'gui_slider' and not args:
+        raise EPLRuntimeError('gui_slider(window_id[, min, max, callback]) requires window_id.', line)
+    elif name == 'gui_image' and len(args) < 2:
+        raise EPLRuntimeError('gui_image(window_id, file_path) requires window_id and image path.', line)
+    elif name == 'gui_frame' and not args:
+        raise EPLRuntimeError('gui_frame(window_id) requires window_id.', line)
+    elif name == 'gui_grid' and len(args) < 3:
+        raise EPLRuntimeError('gui_grid(widget_id, row, col[, colspan, rowspan]) requires widget_id, row, col.', line)
+    elif name == 'gui_pack' and not args:
+        raise EPLRuntimeError('gui_pack(widget_id[, side, fill, expand]) requires widget_id.', line)
+    elif name == 'gui_place' and len(args) < 3:
+        raise EPLRuntimeError('gui_place(widget_id, x, y) requires widget_id, x, y.', line)
+    elif name == 'gui_on_click' and len(args) < 2:
+        raise EPLRuntimeError('gui_on_click(widget_id, callback) requires widget_id and callback.', line)
+    elif name == 'gui_get_value' and not args:
+        raise EPLRuntimeError('gui_get_value(widget_id) requires widget_id.', line)
+    elif name == 'gui_set_value' and len(args) < 2:
+        raise EPLRuntimeError('gui_set_value(widget_id, value) requires widget_id and value.', line)
+    elif name == 'gui_menu' and not args:
+        raise EPLRuntimeError('gui_menu(window_id) requires window_id.', line)
+    elif name == 'gui_menu_item' and len(args) < 3:
+        raise EPLRuntimeError('gui_menu_item(menu_id, label, callback) requires menu_id, label, callback.', line)
+    elif name == 'gui_submenu' and len(args) < 2:
+        raise EPLRuntimeError('gui_submenu(menu_id, title) requires menu_id and title.', line)
+    elif name == 'gui_canvas' and not args:
+        raise EPLRuntimeError('gui_canvas(window_id[, width, height, bg]) requires window_id.', line)
+    elif name == 'gui_draw_rect' and len(args) < 5:
+        raise EPLRuntimeError('gui_draw_rect(canvas_id, x, y, width, height[, color]) requires 5 args.', line)
+    elif name == 'gui_draw_circle' and len(args) < 4:
+        raise EPLRuntimeError('gui_draw_circle(canvas_id, x, y, radius[, color]) requires 4 args.', line)
+    elif name == 'gui_draw_line' and len(args) < 5:
+        raise EPLRuntimeError('gui_draw_line(canvas_id, x1, y1, x2, y2[, color]) requires 5 args.', line)
+    elif name == 'gui_draw_text' and len(args) < 4:
+        raise EPLRuntimeError('gui_draw_text(canvas_id, x, y, text[, color, font_size]) requires 4 args.', line)
+    elif name == 'gui_style' and len(args) < 2:
+        raise EPLRuntimeError('gui_style(widget_id, options_map) requires widget_id and options.', line)
+    elif name == 'gui_after' and len(args) < 2:
+        raise EPLRuntimeError('gui_after(delay_ms, callback) requires delay and callback.', line)
+    elif name == 'gui_list' and not args:
+        raise EPLRuntimeError('gui_list(window_id[, items, height]) requires window_id.', line)
+    elif name == 'gui_list_on_select' and len(args) < 2:
+        raise EPLRuntimeError('gui_list_on_select(listbox_id, callback) requires listbox_id and callback.', line)
+    elif name == 'gui_table' and not args:
+        raise EPLRuntimeError('gui_table(window_id, columns[, rows]) requires window_id and columns.', line)
+    elif name == 'gui_progress' and not args:
+        raise EPLRuntimeError('gui_progress(window_id[, max_value, mode]) requires window_id.', line)
+    elif name == 'gui_tab' and not args:
+        raise EPLRuntimeError('gui_tab(window_id) requires window_id.', line)
+    elif name == 'gui_tab_add' and len(args) < 2:
+        raise EPLRuntimeError('gui_tab_add(notebook_id, title) requires notebook_id and title.', line)
+
+
 def _call_gui(name, args, line):
     """Dispatch gui_* stdlib functions."""
     from epl.interpreter import EPLDict
 
+    _validate_gui_args(name, args, line)
     tk, ttk, messagebox, filedialog = _ensure_tk()
 
     if name == 'gui_window':
