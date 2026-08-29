@@ -465,3 +465,16 @@ def parallel_for_each(func: Callable, items: list, workers: int = 4):
 def sleep_ms(ms: int):
     """Sleep for given milliseconds."""
     time.sleep(ms / 1000.0)
+
+
+# Re-exports from epl.concurrency_real for unified concurrency layer
+try:
+    from epl.concurrency_real import (  # type: ignore[assignment]
+        AtomicBool,
+        AtomicInt,
+        Barrier,
+        Event,
+        EPLThread as Thread,
+    )
+except ImportError:
+    pass

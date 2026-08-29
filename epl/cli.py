@@ -453,6 +453,7 @@ def cli_main(argv=None):
         'web': lambda: _web(rest),
         'gui': lambda: _gui(rest),
         'ir': lambda: _show_ir(rest),
+        'hir': lambda: _show_hir(rest),
         'vm': lambda: _run_vm(rest, flags),
         'micropython': lambda: _micropython(rest),
         'benchmark': lambda: _benchmark(rest),
@@ -3752,6 +3753,28 @@ def _show_ir(args):
         return 1
     except ImportError:
         print(f'{_red("Error:")} llvmlite not installed.', file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f'{_red("Error:")} {exc}', file=sys.stderr)
+        return 1
+
+
+def _show_hir(args):
+    args = _resolve_target_args(args)
+    if not args:
+        print(f'{_red("Error:")} No file specified.')
+        return 1
+    filename = args[0]
+    try:
+        from epl.hir import compile_to_hir
+
+        with open(filename, 'r', encoding='utf-8') as f:
+            code = f.read()
+        hir_mod = compile_to_hir(code, module_name=os.path.basename(filename))
+        print(hir_mod)
+        return 0
+    except FileNotFoundError:
+        print(f'{_red("Error:")} File not found: {filename}')
         return 1
     except Exception as exc:
         print(f'{_red("Error:")} {exc}', file=sys.stderr)

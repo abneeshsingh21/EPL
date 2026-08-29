@@ -91,6 +91,40 @@ class EPLType:
             return True
         return False
 
+    def to_type_system(self):
+        """Convert this type_checker EPLType to a type_system.EPLType representation."""
+        from epl import type_system as ts
+
+        kind_map = {
+            'integer': ts.TypeKind.PRIMITIVE,
+            'decimal': ts.TypeKind.PRIMITIVE,
+            'float': ts.TypeKind.PRIMITIVE,
+            'text': ts.TypeKind.PRIMITIVE,
+            'string': ts.TypeKind.PRIMITIVE,
+            'boolean': ts.TypeKind.PRIMITIVE,
+            'nothing': ts.TypeKind.PRIMITIVE,
+            'any': ts.TypeKind.ANY,
+            'list': ts.TypeKind.LIST,
+            'map': ts.TypeKind.MAP,
+            'function': ts.TypeKind.FUNCTION,
+        }
+        kind = kind_map.get(self.name.lower(), ts.TypeKind.CLASS)
+        type_params = tuple(p.to_type_system() for p in self.params) if self.params else ()
+        union_members = tuple(u.to_type_system() for u in self.union) if self.union else ()
+        return ts.EPLType(
+            kind=kind,
+            name=self.name,
+            params=type_params,
+            union_members=union_members,
+        )
+
+    @classmethod
+    def from_type_system(cls, t):
+        """Convert a type_system.EPLType to a type_checker.EPLType."""
+        params = [cls.from_type_system(p) for p in t.params] if t.params else []
+        union = [cls.from_type_system(u) for u in t.union_members] if t.union_members else None
+        return cls(name=t.name, params=params, optional=(t.kind.name == 'OPTIONAL'), union=union)
+
 
 # Singletons for common types
 T_INTEGER = EPLType('integer')

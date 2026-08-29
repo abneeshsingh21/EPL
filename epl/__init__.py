@@ -28,7 +28,7 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__version__ = '10.2.0'
+__version__ = '11.0.0'
 __author__ = 'Abneesh Singh'
 __email__ = 'contact@eplang.me'
 __license__ = 'Apache 2.0'
@@ -48,6 +48,14 @@ _LAZY_EXPORTS = {
     'Interpreter': ('epl.interpreter', 'Interpreter'),
     'Environment': ('epl.environment', 'Environment'),
     'EPLError': ('epl.errors', 'EPLError'),
+    'compile_to_hir': ('epl.hir', 'compile_to_hir'),
+    'HIRModule': ('epl.hir', 'HIRModule'),
+    'NaNBoxEngine': ('epl.nanbox', 'NaNBoxEngine'),
+    'val_encode': ('epl.nanbox', 'val_encode'),
+    'val_decode': ('epl.nanbox', 'val_decode'),
+    'BytecodeVerifier': ('epl.bytecode_verifier', 'BytecodeVerifier'),
+    'MethodCallSite': ('epl.inline_cache', 'MethodCallSite'),
+    'PropertyAccessSite': ('epl.inline_cache', 'PropertyAccessSite'),
 }
 
 __all__ = [
@@ -58,6 +66,14 @@ __all__ = [
     'Interpreter',
     'Environment',
     'EPLError',
+    'compile_to_hir',
+    'HIRModule',
+    'NaNBoxEngine',
+    'val_encode',
+    'val_decode',
+    'BytecodeVerifier',
+    'MethodCallSite',
+    'PropertyAccessSite',
 ]
 
 

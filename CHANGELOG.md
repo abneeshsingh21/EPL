@@ -12,7 +12,19 @@ This project adheres to [Semantic Versioning](https://semver.org/) and [Keep a C
 
 ## [Unreleased]
 
-## [10.2.0] — 2026-07-18
+## [11.0.0] — 2026-08-29
+
+### Added — Phase 5 (Deep) HIR Transpilation & Semantic Parity
+- **SSA CFG Direct Lowering**: Native transpilation directly from SSA Control Flow Graphs (`epl/hir_transpiler.py`) targeting Python 3, JavaScript ES2020, and Kotlin.
+- **Cross-Runtime Semantic Parity**: Uniform Unicode scalar indexing/slicing, 64-bit signed integer overflow wrapping, and lexical closure variable reference cells (`epl/semantic_parity.py`).
+- **Differential Parity Test Suite**: Comprehensive golden testing locking cross-runtime execution semantics (`tests/test_phase5_transpiler_parity.py`).
+
+### Added — Phase 6 Security, Formal Foundations & Governance
+- **Zero-Trust Package Signing**: Asymmetric Ed25519 / SHA-256 cryptographic signing and manifest verification engine (`epl/crypto_signing.py`).
+- **Kernel-Level OS Sandboxing**: POSIX resource limits (`rlimit`), Linux `prctl(PR_SET_NO_NEW_PRIVS)`, `seccomp-bpf` syscall filters, and Windows restricted token containment (`epl/sandbox_os.py`).
+- **Formal Operational Semantics**: Mechanized Big-Step / Small-Step structural operational semantics with determinism proof validation (`epl/formal_semantics.py`, `docs/operational_semantics.md`).
+- **Differential Fuzzing Engine**: Automated generative differential fuzzer testing AST Interpreter vs SSA HIR vs Formal Semantics (`tests/test_differential_fuzzing.py`).
+- **Production Governance Quality Gates**: Automated release verification and test suites (`tests/test_phase6_governance.py`, `tests/test_phase6_security_formal.py`).
 
 ### Changed — Kotlin runtime extracted to a single source of truth (+ console/JVM target)
 
