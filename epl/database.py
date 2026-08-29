@@ -979,3 +979,13 @@ def http_put(url, body='', headers=None):
 def http_delete(url, headers=None):
     """Quick HTTP DELETE."""
     return HTTPClient.delete(url, headers)
+
+
+# Re-exports from epl.database_real for unified database layer
+try:
+    from epl.database_real import (  # type: ignore[assignment]
+        Model,
+        db_close_all,
+    )
+except ImportError:
+    pass
