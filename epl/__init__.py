@@ -48,6 +48,8 @@ _LAZY_EXPORTS = {
     'Interpreter': ('epl.interpreter', 'Interpreter'),
     'Environment': ('epl.environment', 'Environment'),
     'EPLError': ('epl.errors', 'EPLError'),
+    'compile_to_hir': ('epl.hir', 'compile_to_hir'),
+    'HIRModule': ('epl.hir', 'HIRModule'),
 }
 
 __all__ = [
@@ -58,6 +60,8 @@ __all__ = [
     'Interpreter',
     'Environment',
     'EPLError',
+    'compile_to_hir',
+    'HIRModule',
 ]
 
 
